@@ -453,23 +453,28 @@ shinyServer(function(input, output) {
       ## we iterate over the given plates
       QCrow <- "H"
       plateCounter <- 1
-      input$plateID |>
-        lapply(FUN=function(pid){
-          readPlate(pid, login = bf$login(),
-                    webservicepassword = bf$webservicepassword(),
-                    posturl = posturl()) |>
-            qg::.composePlateSampleTable(orderID = input$orderID,
-                                     instrument = input$instrument,
-                                     user = bf$login(),
-                                     injVol = input$injvol,
-                                     area = input$area,
-                                     mode = instrumentMode,
-                                     plateCounter = plateCounter,
-                                     randomization = input$randomization) -> p
-          # global counter
-          plateCounter <<- plateCounter + 1
-          p[, columnOrder]
-        }) |> Reduce(f = rbind) -> df
+      shiny::withProgress(message = 'Reading sample of plate(s)', value = 0, {
+        input$plateID |>
+          lapply(FUN=function(pid){
+            shiny::incProgress(1/length(input$plateID))
+            readPlate(pid, login = bf$login(),
+                      webservicepassword = bf$webservicepassword(),
+                      posturl = posturl()) |>
+              qg::.composePlateSampleTable(orderID = input$orderID,
+                                           instrument = input$instrument,
+                                           user = bf$login(),
+                                           injVol = input$injvol,
+                                           area = input$area,
+                                           mode = instrumentMode,
+                                           plateCounter = plateCounter,
+                                           randomization = input$randomization) -> p
+            
+            
+            # global counter
+            plateCounter <<- plateCounter + 1
+            p[, columnOrder]
+          }) |> Reduce(f = rbind) -> df
+      }) 
       
       if (input$randomization == "all"){
         set.seed(872436)
