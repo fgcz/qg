@@ -16,5 +16,5 @@ Vanquish plate number parser
 position string with a valid Vanquish plate numbering
 }
 \examples{
-.parsePlateNumber("1:A4")
+qg:::.parsePlateNumber("1:A4")
 }
