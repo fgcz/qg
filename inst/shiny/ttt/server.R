@@ -382,7 +382,7 @@ shinyServer(function(input, output) {
   sampleOfContainer <- reactive({
     shiny::req(input$orderID)
     shiny::withProgress(message = 'Reading sample of container', {
-      .readSampleOfContainer(input$orderID,
+      qg:::.readSampleOfContainer(input$orderID,
                              login = bf$login(),
                              webservicepassword = bf$webservicepassword(),
                              posturl = posturl())
