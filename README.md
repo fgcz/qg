@@ -1,6 +1,6 @@
 # queueGenerator
 
 ```
-shiny::shinyApp(server = qg::buildQgServer, ui = qg::buildQgUI) -> qg
+shiny::shinyApp(ui = qg::.buildQgUI , server = qg::.buildQgServer) -> qg
 qg
 ```
