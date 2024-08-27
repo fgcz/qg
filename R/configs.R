@@ -73,6 +73,7 @@
 }
 
 #' @importFrom bfabricShiny read uploadResource
+#' @export
 #' @examples
 #' .readSampleOfContainer(35464, login, webservicepassword, bfabricposturl)
 .readSampleOfContainer <- function(containerID, login, webservicepassword, posturl){
