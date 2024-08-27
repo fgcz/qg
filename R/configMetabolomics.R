@@ -54,7 +54,7 @@
   pool$Position[8] <- sprintf("%s:%s%d", plateId, QCrow, 9)
   pool$`Sample Name`[8] <- sprintf("150mix%s", mode)
   
-  pool[9, "File Name"] <- sprintf("%s_@@@_C%s+blank%s", currentdate, containerid, mode)
+  pool[9, "File Name"] <- sprintf("%s_@@@_C%s_blank%s", currentdate, containerid, mode)
   pool$Position[9] <- sprintf("%s:%s%d", plateId, QCrow, 1)
   pool$`Sample Name`[9] <- sprintf("blank%s", mode)
   
