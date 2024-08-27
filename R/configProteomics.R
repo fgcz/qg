@@ -1,6 +1,9 @@
 # Proteomics ========================================
 ## 2024-07-04 Clauda Fortes / Christian Panse
 
+#' @title queue confiug for Proteomics EVOSEP 6x12x8 Plate Hystar
+#' @details increments clean and qc positions 
+#' @author Claudia Fortes & Christian Panse
 #' @export
 qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x, howOftenQC = 48,  ...){
   
@@ -76,20 +79,25 @@ qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x, howOftenQC = 48,  ...){
   output <- rbind(autoQC03, output)
   clean <- c(sprintf("%s_@@@_clean_00", currentdate, cleancount), df$Path[1], sprintf("5:%s,%d", Y[cleancounty], cleancountx), 1, "FGCZ", "clean", "clean", "clean")
   output <- rbind(clean, output)
+  cleancountx <- cleancountx + 1
+  autoQC03countx <- autoQC03countx + 1
+  if (cleancountx > 12){
+    cleancountx <- 1
+    cleancounty <- cleancounty + 1
+  }
   
-
+  if (autoQC03countx > 12){
+    autoQC03countx <- 1
+    autoQC03county <- autoQC03county + 1
+  }
   
   ## TODO add autoQC03
   ## END
   clean <- c(sprintf("%s_@@@_clean_%02d", currentdate, cleancount), df$Path[1], sprintf("5:%s,%d", Y[cleancounty], cleancountx), 1, "FGCZ", "clean", "clean", "clean")
-  cleancountx <- cleancountx + 1
-  cleancount <- cleancount + 1
   output <- rbind(output, clean)
   
   autoQC03 <- c(sprintf("%s_@@@_autoQC03dia_ZZ", currentdate, autoQC03countx),
                 df$Path[1], sprintf("6:%s,%d", Y[autoQC03county], autoQC03countx), 1, "FGCZ", "autoQC03", "autoQC03", "autoQC03")
-  autoQC03countx <- autoQC03countx + 1
-  autoQC03count <- autoQC03count + 1
   output <- rbind(output, autoQC03)
   
   output 

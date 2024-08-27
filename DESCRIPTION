@@ -36,6 +36,7 @@ Collate:
     configs.R
     configProteomics.R
     configMetabolomics.R
+    shiny.R
 URL: https://gitlab.bfabric.org/proteomics/qg.git
 BugReports: https://gitlab.bfabric.org/proteomics/qg/issues
 Encoding: UTF-8
