@@ -2,6 +2,8 @@
 # 2023 Maria dErrico
 # 2024-07 Christian Panse <cp@fgcz.ethz.ch>
 
+
+library(qg)
 # Define server logic required
 shinyServer(function(input, output) {
   
