@@ -1,0 +1,4 @@
+#R
+
+
+shinyUI (qg::.buildQgUI())
