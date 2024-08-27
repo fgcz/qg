@@ -10,7 +10,7 @@ Maintainer: Christian Panse <cp@fgcz.ethz.ch>
 Version: 0.0.1
 Description: implements the queue generator
 Depends:
-    R (>= 4.3)
+    R (>= 4.4)
 Imports:
     bfabricShiny (>= 0.13.2),
     httr,
