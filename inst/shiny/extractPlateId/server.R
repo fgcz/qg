@@ -496,10 +496,10 @@ shinyServer(function(input, output) {
                                              QCrow = QCrow,
                                              mode = instrumentMode,
                                              howOften = as.integer(input$frequency))) |>
-        .replaceRunIds()
+        qg::.replaceRunIds()
     }else{
       do.call(what = input$qFUN, args = list(x = df, howOftenQC = as.integer(input$frequency))) |>
-        .replaceRunIds()
+        qg::.replaceRunIds()
     }
     
   })
