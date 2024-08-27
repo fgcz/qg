@@ -13,23 +13,18 @@ Description: implements the queue generator using
 Depends:
     R (>= 4.4)
 Imports:
+    DT,
+    XML,
     bfabricShiny (>= 0.13.2),
     httr,
     jsonlite (>= 1.4),
+    kableExtra,
     shiny (>= 1.0),
     shinyStore (>= 0.1.1),
     stringr
 Suggests: 
-    DT,
-    RCurl,
-    ggplot2 (>= 2.2),
-    kableExtra,
-    protViz (>= 0.7),
-    rmarkdown,
     roxygen2 (>= 6.0),
     testthat,
-    tidyverse,
-    xml2 (>= 1.1),
 License: GPL-3 + file LICENSE
 LazyData: FALSE
 SystemRequirements: installed bfabricPy python3 package

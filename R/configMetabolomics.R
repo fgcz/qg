@@ -68,7 +68,7 @@
 #' 
 #' @details position string with a valid Vanquish plate numbering 
 #' 
-#' @examples .parsePlateNumber("1:A4")
+#' @examples qg:::.parsePlateNumber("1:A4")
 .validatePlateNumber <- function(x){ 
   L <- c("Y", "R", "B", "G")
   pn <- substr(x, 1, 1) 

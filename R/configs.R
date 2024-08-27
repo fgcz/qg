@@ -29,6 +29,7 @@
 }
 
 
+#' @import XML
 #' @export
 ## TODO(cp): check replacemet for QHF2!!
 .toHystar <- function(x, file='file.xml'){
@@ -72,6 +73,7 @@
 	x
 }
 
+#' read samples of a given container
 #' @importFrom bfabricShiny read uploadResource
 #' @export
 #' @examples
@@ -134,6 +136,7 @@
 }
 
 
+#' compose plate sample table
 #' @export
 .composePlateSampleTable <- function(p,
                                      orderID = 34843,
@@ -176,6 +179,7 @@
 }
 
 
+#' compose vial sample table
 #' @export
 #' @examples
 #' .readSampleOfContainer(34843, login, webservicepassword, bfabricposturl) |> .composeSampleTable(orderID = 34843, randomization = TRUE) -> x
