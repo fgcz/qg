@@ -1,0 +1,42 @@
+Package: qg
+Type: Package
+Title: queue generator
+Authors@R: c(person("Leo", "Schwarz",
+        role = c("aut")),
+        person("Christian", "Panse", email = "cp@fgcz.ethz.ch",
+        role = c("aut", "cre"), 
+        comment = c(ORCID = "0000-0003-1975-3064")))
+Maintainer: Christian Panse <cp@fgcz.ethz.ch>
+Version: 0.0.1
+Description: implements the queue generator
+Depends:
+    R (>= 4.3)
+Imports:
+    bfabricShiny (>= 0.13.2),
+    httr,
+    jsonlite (>= 1.4),
+    shiny (>= 1.0),
+    shinyStore (>= 0.1.1),
+    stringr
+Suggests: 
+    DT,
+    RCurl,
+    ggplot2 (>= 2.2),
+    kableExtra,
+    protViz (>= 0.7),
+    rmarkdown,
+    roxygen2 (>= 6.0),
+    testthat,
+    tidyverse,
+    xml2 (>= 1.1),
+License: GPL-3 + file LICENSE
+LazyData: FALSE
+SystemRequirements: installed bfabricPy python3 package
+Collate:
+    configs.R
+    configProteomics.R
+    configMetabolomics.R
+URL: https://gitlab.bfabric.org/proteomics/qg.git
+BugReports: https://gitlab.bfabric.org/proteomics/qg/issues
+Encoding: UTF-8
+RoxygenNote: 7.3.2
