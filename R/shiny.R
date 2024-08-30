@@ -68,19 +68,19 @@
   
   # UI ==========
   # ------ input area ------
+  #R
+  
   output$area <- renderUI({
     shiny::req(input$orderID)
     
     ccc <- container()[[1]]$technology[[1]]
-    print(ccc)
-   
-    browser()
+    
     if (grepl("Proteomics", ccc)){
       area <- "Proteomics"
     }else{
       area <- "Metabolomics"
     }
-    
+    sprintf("DEBUG area: %s", area)
     selectInput(
       "area",
       "Area:",
@@ -129,8 +129,8 @@
   output$selectqFUN <- renderUI({
     shiny::req(input$area)
     shiny::req(input$system)
-    shiny::req(read_plateid())
-    
+    #shiny::req(read_plateid())
+    #browser()
     c("qconfigProteomicsEVOSEP6x12x8PlateHystar",
       "qconfigMetabolomicsPlateXCalibur",
       "qconfigMetabolomicsVialXCalibur") -> qc
@@ -139,10 +139,15 @@
     qc[ base::grepl(pattern = input$area, x = qc) ] -> qc
     qc[ base::grepl(pattern = input$system, x = qc) ] -> qc
     
-    if (length(read_plateid()) > 0){
-      qc[ base::grepl(pattern = "Plate", x = qc) ] -> qc
-    }else{
+    if (is.null(read_plateid())){
       qc[ base::grepl(pattern = "Vial", x = qc) ] -> qc
+    }else{
+      qc[ base::grepl(pattern = "Plate", x = qc) ] -> qc
+    }
+    
+    
+    if (length(qc) == 0){
+      return(HTML("<p>No queue configuration available for this area and system</p>"))
     }
     
     shiny::selectInput(inputId = "qFUN", 
@@ -170,7 +175,7 @@
     
     numericInput(
       "orderID",
-      "order ID:",
+      "container/order/project ID:",
       "",
       min = NA,
       max = NA,
@@ -179,23 +184,40 @@
     )
   })
   
+  output$debug <- shiny::renderPrint({
+    cat(R.version.string)
+  })
+  
   # input plateID ------------
   output$plateID <- renderUI({
-    shiny::req(input$orderID)
-    shiny::req(read_plateid())
-    shiny::req(user())
-
-    selectInput(
-      "plateID",
-      "List of available plate IDs:",
-      read_plateid(),
-      selected = "",
-      multiple = TRUE,
-      selectize = TRUE,
-      size = NULL,
-      width = NULL
-    )
+    # shiny::req(input$orderID)
+    #shiny::req(read_plateid())
+    #shiny::req(user())
+    
+    if (is.null(read_plateid())){
+      shiny::HTML("No plate IDs available")
+    }else{
+      selectInput(
+        "plateID",
+        "List of available plate IDs:",
+        read_plateid(),
+        selected = "",
+        multiple = TRUE,
+        selectize = TRUE,
+        size = NULL,
+        width = NULL
+      )}
   })
+  
+  # input check sample selection -------------
+  output$checkSampleSelection <- renderUI({
+    shiny::req(input$orderID) 
+    if (is.null(read_plateid())){
+      shiny::checkboxInput("booleanSampleSelection",
+                           "Subsetting samples", value = FALSE)
+    }else{NULL}
+  })
+  
   
   # input injvol ------------ 
   output$injvol <- renderUI({
@@ -235,15 +257,7 @@
     
   })
   
-  # input check sample selection -------------
-  output$checkSampleSelection <- renderUI({
-    shiny::req(input$orderID) 
-    if (length(input$plateID) == 0){
-      shiny::checkboxInput("booleanSampleSelection",
-                           "Subsetting samples", value = FALSE)
-    }else{NULL}
-  })
-  
+
   # input select sample ------------
   output$selectSampleSelection <- renderUI({
     shiny::req(sampleOfContainer)
@@ -338,9 +352,9 @@
   
   # read_plateid FUN ------------
   read_plateid <- reactive({
-    shiny::req(user())
+    # shiny::req(user())
     shiny::req(input$orderID)
-    
+   
     shiny::withProgress(message = 'Reading plates of container', session = session,{
       res <- bfabricShiny::read(bf$login(),
                                 bf$webservicepassword(),
@@ -351,11 +365,16 @@
     })
     plate_ids <- sapply(res, function(x) x$id)
     #if (length(plate_ids) == 0) return(NULL)
+    #browser()
+    #shiny::validate(
+    #  shiny::need(try(length(plate_ids) > 0), "There are no plate defined for this order")
+    #)
     
-    shiny::validate(
-      shiny::need(try(length(plate_ids) > 0), "There are no plate defined for this order")
-    )
-    sort(plate_ids)
+    if (length(plate_ids) > 0){
+      return(sort(plate_ids))
+    }
+    
+    NULL
   })
   
   read_sampletype <- function(sampleid){
@@ -617,8 +636,8 @@
         uiOutput(("instrument")),
         uiOutput(("system")),
         uiOutput(("selectqFUN")),
-        uiOutput(("instrumentMode")),
         uiOutput(("plateID")),
+        uiOutput(("instrumentMode")),
         uiOutput(("checkSampleSelection")),
         uiOutput(("selectSampleSelection")),
         uiOutput(("injvol")),
@@ -630,7 +649,8 @@
         br(),
         a("internal queue generator tiki-wiki page", href="https://fgcz-intranet.uzh.ch/tiki-index.php?page=sw.queueGenerator"),
         br(),
-        a('source code', href='https://gitlab.bfabric.org/proteomics/qg')
+        a('source code', href='https://gitlab.bfabric.org/proteomics/qg'),
+        uiOutput('debug')
       ),
       mainPanel(
         list(
