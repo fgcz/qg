@@ -73,11 +73,23 @@
 	x
 }
 
-#' read samples of a given container
+#' Read samples of a given container
+#' @author Christian Panse
+#' @param containerID integer container ID
+#' @param login character login
+#' @param webservicepassword character webservice password you get from your bfabric user profile page
+#' @param posturl character bfabric REST post url
 #' @importFrom bfabricShiny read uploadResource
 #' @export
 #' @examples
-#' .readSampleOfContainer(35464, login, webservicepassword, bfabricposturl)
+#' if (all(c('login', 'webservicepassword', 'bfabricposturl') %in% names(Sys.getenv()))){
+#'   qg::.readSampleOfContainer(
+#'     containerID = 35464,
+#'     login = Sys.getenv('login'), 
+#'     webservicepassword = Sys.getenv('webservicepassword'), 
+#'     posturl = Sys.getenv('bfabricposturl')
+#'     )
+#' }
 .readSampleOfContainer <- function(containerID, login, webservicepassword, posturl){
   res <- bfabricShiny::read(login, webservicepassword, posturl = posturl,
                             endpoint = "sample",

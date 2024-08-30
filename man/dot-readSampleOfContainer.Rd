@@ -2,13 +2,32 @@
 % Please edit documentation in R/configs.R
 \name{.readSampleOfContainer}
 \alias{.readSampleOfContainer}
-\title{read samples of a given container}
+\title{Read samples of a given container}
 \usage{
 .readSampleOfContainer(containerID, login, webservicepassword, posturl)
 }
+\arguments{
+\item{containerID}{integer container ID}
+
+\item{login}{character login}
+
+\item{webservicepassword}{character webservice password you get from your bfabric user profile page}
+
+\item{posturl}{character bfabric REST post url}
+}
 \description{
-read samples of a given container
+Read samples of a given container
 }
 \examples{
-.readSampleOfContainer(35464, login, webservicepassword, bfabricposturl)
+if (all(c('login', 'webservicepassword', 'bfabricposturl') \%in\% names(Sys.getenv()))){
+  qg::.readSampleOfContainer(
+    containerID = 35464,
+    login = Sys.getenv('login'), 
+    webservicepassword = Sys.getenv('webservicepassword'), 
+    posturl = Sys.getenv('bfabricposturl')
+    )
+}
+}
+\author{
+Christian Panse
 }
