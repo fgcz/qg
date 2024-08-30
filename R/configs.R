@@ -2,9 +2,22 @@
 ## 2024-07-04 Clauda Fortes / Christian Panse
 
 
+#' Generic function to place a sample into a queue configuration
+#' \code{...} is used to pass the parameters to FUN
+#' @param x 
+#'
+#' @param where 
+#' @param howOften 
+#' @param sampleFUN 
+#' @param path 
+#' @param ... 
+#'
 #' @export
-.insertSample <- function(x, where = NA, howOften = round(nrow(x)/2),
-                          sampleFUN = NA, path=NA, ...){
+.insertSample <- function(x,
+                         where = NA,
+                         howOften = round(nrow(x)/2),
+                         sampleFUN = NA,
+                         path=NA, ...){
   output <- data.frame(matrix(ncol = ncol(x), nrow = 0))
   colnames(output) <- colnames(x)
   
@@ -29,14 +42,23 @@
 }
 
 
-#' @import XML
-#' @export
+
 ## TODO(cp): check replacemet for QHF2!!
-.toHystar <- function(x, file='file.xml'){
+#' generator Hystar config XML file
+#'
+#' @param x a data frame
+#' @param file output
+#' @import XML
+#' @author Tobias Kockmann (intial), Claudia Fortes, Christian Panse
+#'
+#' @return
+#' @export
+.toHystar <- function(x,
+                      file='file.xml'){
 	data.frame(
 	    Position = x$Position |>
 	      stringr::str_replace("^", "S") |>
-	      stringr::str_replace(":", "_") |>
+	      stringr::str_replace(":", "-") |>
 	      stringr::str_replace(",", ""),
 	    SampleID = sprintf("%s", x$"File Name"),
 	    SampleComment = "",
@@ -44,7 +66,7 @@
 	    DataPath = x$Path |> stringr::str_replace("QEXACTIVEHF_2", "TIMSTOFFLEX_1"),
 	    SuperMethod = "",
 	    ResultDatafile = sprintf("%s\\%s.d", x$Path, x$"File Name"),
-	    ACQEND_EXECUTE = "D:\\FGCZ\\Biobeamer\\biobeamer.bat"
+	    ACQEND_EXECUTE = "C:\\FGCZ\\Biobeamer\\biobeamer.bat"
 	    ) -> df
 
 
@@ -54,10 +76,10 @@
       
     message(paste0("Saving XML to file '", file, "' ..."))
     rvSave <- XML::saveXML(xml$value(), file = file, encoding = "utf-8")
-    print(rvSave)
-
 }
 
+#' @param x 
+#'
 #' @export
 .replaceRunIds <- function(x){
 	for (i in 1:nrow(x)){
@@ -149,6 +171,17 @@
 
 
 #' compose plate sample table
+#'
+#' @param p 
+#' @param orderID 
+#' @param area 
+#' @param mode 
+#' @param instrument 
+#' @param user 
+#' @param injVol 
+#' @param plateCounter 
+#' @param randomization 
+#'
 #' @export
 .composePlateSampleTable <- function(p,
                                      orderID = 34843,
@@ -192,11 +225,21 @@
 
 
 #' compose vial sample table
+#'
+#' @param x 
+#' @param orderID 
+#' @param area 
+#' @param mode 
+#' @param instrument 
+#' @param user 
+#' @param injVol 
+#' @param randomization 
+#'
 #' @export
 #' @examples
 #' .readSampleOfContainer(34843, login, webservicepassword, bfabricposturl) |> .composeSampleTable(orderID = 34843, randomization = TRUE) -> x
 #' x|> qconfigMetabolomics()|> .replaceRunIds() -> xx
-.composeSampleTable <- function(x, orderID = 34843,
+.composeVialSampleTable <- function(x, orderID = 34843,
                                 area = "Metabolomics",
                                 mode = "",
                                 instrument = 'ASTRAL_1',

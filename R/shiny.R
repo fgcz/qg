@@ -445,7 +445,7 @@
       }
       
       filteredSampleOfContainer() |> 
-        qg::.composeSampleTable(orderID = input$orderID,
+        qg::.composeVialSampleTable(orderID = input$orderID,
                                 instrument = input$instrument,
                                 user = bf$login(),
                                 injVol = input$injvol,
