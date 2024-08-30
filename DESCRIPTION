@@ -1,7 +1,7 @@
 Package: qg
 Type: Package
 Title: queue generator
-Authors@R: c(person("Leo", "Schwarz",
+Authors@R: c(person("Leonardo", "Schwarz",
         role = c("aut")),
         person("Christian", "Panse", email = "cp@fgcz.ethz.ch",
         role = c("aut", "cre"), 
