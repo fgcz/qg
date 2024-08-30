@@ -20,7 +20,7 @@ anno 2010
 * ((autoQC_user|QC)) - autoQC01, autoQC03, autoQC4; soon: ((autoQC05)), ((autoQC06)), ((autoQC07)), ((autoQC08))
 * blanc/clean/wash runs
 * plate, e.g., 96WP, / multiplate systems
-* LC system: `.eksigent()`, `.water()`, ..., `nanoElute()` ,  `.vanquish()`
+* LC systems: `.eksigent()`, `.water()`, ..., `nanoElute()` ,  `.vanquish()`
 * instrument control software, e.g., `XCalibur`, `HyStar`
 * (block) randomization run order / across plates
 * multi order
