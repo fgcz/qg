@@ -16,6 +16,25 @@
   randomization = "plate"
 )
 }
+\arguments{
+\item{p}{}
+
+\item{orderID}{}
+
+\item{area}{}
+
+\item{mode}{}
+
+\item{instrument}{}
+
+\item{user}{}
+
+\item{injVol}{}
+
+\item{plateCounter}{}
+
+\item{randomization}{}
+}
 \description{
 compose plate sample table
 }

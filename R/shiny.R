@@ -69,13 +69,12 @@
   # UI ==========
   # ------ input area ------
   output$area <- renderUI({
-    
     shiny::req(input$orderID)
     
     ccc <- container()[[1]]$technology[[1]]
     print(ccc)
-    # browser()
-    
+   
+    browser()
     if (grepl("Proteomics", ccc)){
       area <- "Proteomics"
     }else{
@@ -158,7 +157,7 @@
   output$orderID <- renderUI({
     shiny::req(user())
     
-    if (user()$login == 'cpanse'){
+    if (user()$login == 'cxpanse'){
       return( selectInput(
         "orderID",
         "Order ID:",
@@ -167,7 +166,6 @@
         multiple = TRUE,
         selectize = FALSE
       ))
-      
     }
     
     numericInput(
@@ -186,8 +184,7 @@
     shiny::req(input$orderID)
     shiny::req(read_plateid())
     shiny::req(user())
-    
-    
+
     selectInput(
       "plateID",
       "List of available plate IDs:",
@@ -198,8 +195,6 @@
       size = NULL,
       width = NULL
     )
-    
-    
   })
   
   # input injvol ------------ 
@@ -334,7 +329,6 @@
         #if (file.exists(csvFilename())){
         actionButton('generate', 'Upload configuration to b-fabric')
         #  }
-        
       }
     }
   })
@@ -406,7 +400,6 @@
                               maxitems = 100,
                               query = list('id' = input$orderID))$res
     
-    #browser()
     res
   })
   
@@ -435,6 +428,8 @@
       instrumentMode <- input$mode
     }
     
+    #browser()
+    
     if (length(input$plateID) == 0){
       ## --------vial block (no plateid)------------ 
       ## we fetch all samples of a container
@@ -452,13 +447,15 @@
                                 area = input$area,
                                 mode = instrumentMode,
                                 randomization = randomization) -> df
+      
+      
     }else{
       ## --------plate block ------------ 
       ## we iterate over the given plates
       QCrow <- "H"
       plateCounter <- 1
       shiny::withProgress(message = 'Reading sample of plate(s)',
-                          value = 0, session = session,{
+                          value = 0, session = session, {
         input$plateID |>
           lapply(FUN=function(pid){
             shiny::incProgress(1/length(input$plateID))
@@ -503,7 +500,8 @@
                                              howOften = as.integer(input$frequency))) |>
         qg::.replaceRunIds()
     }else{
-      do.call(what = input$qFUN, args = list(x = df, howOftenQC = as.integer(input$frequency))) |>
+      do.call(what = input$qFUN, args = list(x = df,
+                                             howOftenQC = as.integer(input$frequency))) |>
         qg::.replaceRunIds()
     }
     
@@ -547,7 +545,7 @@
     filename <- NULL
     workunitname <- NULL
     resourcename <- NULL
-    #browser()
+    
     if(grepl("Hystar", input$qFUN)){
       composeTable() |>
         .toHystar(file = xmlFilename())

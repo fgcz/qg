@@ -51,7 +51,7 @@
 #' @import XML
 #' @author Tobias Kockmann (intial), Claudia Fortes, Christian Panse
 #'
-#' @return
+#' @return xml file
 #' @export
 .toHystar <- function(x,
                       file='file.xml'){
@@ -78,6 +78,7 @@
     rvSave <- XML::saveXML(xml$value(), file = file, encoding = "utf-8")
 }
 
+#' Replace run IDs in a data frame
 #' @param x 
 #'
 #' @export
@@ -237,8 +238,14 @@
 #'
 #' @export
 #' @examples
-#' .readSampleOfContainer(34843, login, webservicepassword, bfabricposturl) |> .composeSampleTable(orderID = 34843, randomization = TRUE) -> x
-#' x|> qconfigMetabolomics()|> .replaceRunIds() -> xx
+#'  if (all(c('login', 'webservicepassword', 'bfabricposturl') %in% names(Sys.getenv()))){
+#' .readSampleOfContainer(34843,
+#'     Sys.getenv('login'),
+#'     Sys.getenv('webservicepassword'),
+#'     Sys.getenv('bfabricposturl')) |>
+#'   .composeVialSampleTable(orderID = 34843, randomization = TRUE) -> x
+#' # x|> qg:::qconfigMetabolomics()|> .replaceRunIds() -> xx
+#' }
 .composeVialSampleTable <- function(x, orderID = 34843,
                                 area = "Metabolomics",
                                 mode = "",

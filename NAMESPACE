@@ -3,7 +3,7 @@
 export(.buildQgServer)
 export(.buildQgUI)
 export(.composePlateSampleTable)
-export(.composeSampleTable)
+export(.composeVialSampleTable)
 export(.deriveVialPositionVanquish)
 export(.insertSample)
 export(.readSampleOfContainer)
