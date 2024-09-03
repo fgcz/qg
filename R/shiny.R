@@ -4,8 +4,9 @@
 
 # Define server logic required
 
+#' @title Build QG server
+#' @inheritParams shiny::shinyServer
 #' @import bfabricShiny
-#' @import shiny
 #' @export
 .buildQgServer <- function(input, output, session) {
   
@@ -618,8 +619,9 @@
 }
 
 
-## Define queue generator UI ======
+#' Define queue generator UI ======
 #' @importFrom shiny fluidPage titlePanel sidebarLayout sidebarPanel uiOutput hr uiOutput htmlOutput NS
+#' @importFrom DT dataTableOutput
 #' @export
 .buildQgUI <-  function(){
   

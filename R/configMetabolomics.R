@@ -84,19 +84,21 @@
   rv
 }
 
-#' qconfigMetabolomics
-#'
-#' @param df 
-#' 
-#' @describeIn
-#' as defined my MZ
-#' @return data.frame
-#' @export
-#' 
 ## TODOs(cp):
 ## 1. take clean dil qcs only from plateId H?
 ## 2. insert tube ID.
 ## 3. dir for instrument method
+#' qconfig metabolomics for plates
+#'
+#' @param x a data.frame
+#' @param howOften how frequently the sample should be inserted
+#' @param ... parameters to pass to \code{\link[qg]{.insertSample}}
+#' 
+#' @details
+#' as defined my MZ
+#' 
+#' @return data.frame
+#' @export
 qconfigMetabolomicsPlateXCalibur <- function(x, howOften = 22, ...){
   cn <- c("File Name", "Path", "Position", "Inj Vol", "L3 Laboratory",
           "Sample ID", "Sample Name", "Instrument Method")
@@ -129,6 +131,9 @@ qconfigMetabolomicsPlateXCalibur <- function(x, howOften = 22, ...){
   x[, cn]
 }
 
+#' qconfig metabolomics for plates
+#'
+#' @inheritParams qconfigMetabolomicsPlateXCalibur
 #' @export
 qconfigMetabolomicsVialXCalibur <- function(x, howOften = 22, ...){
   cn <- c("File Name", "Path", "Position", "Inj Vol", "L3 Laboratory",

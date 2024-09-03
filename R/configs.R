@@ -6,11 +6,11 @@
 #' \code{...} is used to pass the parameters to FUN
 #' @param x 
 #'
-#' @param where 
-#' @param howOften 
-#' @param sampleFUN 
-#' @param path 
-#' @param ... 
+#' @param where the position where the sample should be inserted
+#' @param howOften how frequently the sample should be inserted
+#' @param sampleFUN the function to generate the sample
+#' @param path the path of the sample
+#' @param ... parameters to pass to sampleFUN
 #'
 #' @export
 .insertSample <- function(x,
@@ -23,7 +23,7 @@
   
   if (is.na(where)){
     for (i in 1:nrow(x)){
-      if (i %% howOften == 0){
+      if ((i %% howOften + 1) == 0){
         plateId <- output$Position[nrow(output)] |> substr(1,1)
         rbind(output, sampleFUN(x, plateId=plateId, ...)) -> output
       }

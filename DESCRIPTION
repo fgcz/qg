@@ -16,11 +16,8 @@ Imports:
     DT,
     XML,
     bfabricShiny (>= 0.13.2),
-    httr,
     jsonlite (>= 1.4),
-    kableExtra,
     shiny (>= 1.0),
-    shinyStore (>= 0.1.1),
     stringr
 Suggests: 
     roxygen2 (>= 6.0),

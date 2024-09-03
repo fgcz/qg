@@ -2,17 +2,18 @@
 ## 2024-07-04 Clauda Fortes / Christian Panse
 
 #' @title queue confiug for Proteomics EVOSEP 6x12x8 Plate Hystar
+#' @inheritParams qconfigMetabolomicsPlateXCalibur
 #' @details increments clean and qc positions 
 #' @author Claudia Fortes & Christian Panse
 #' @export
-qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x, howOftenQC = 48,  ...){
+qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x, howOften = 48,  ...){
   
-  ## as a function of howOftenQC
-  howOftenClean <- as.integer(round(0.5 * howOftenQC))
+  ## as a function of howOften
+  howOftenClean <- as.integer(round(0.5 * howOften))
   
   stopifnot(is.integer(howOftenClean))
   message(paste0("howOftenClean:\t", howOftenClean))
-  message(paste0("howOftenQC:\t", howOftenQC))
+  message(paste0("howOften:\t", howOften))
   
   df <- x
   Y <- c('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H')
@@ -49,7 +50,7 @@ qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x, howOftenQC = 48,  ...){
       output <- rbind(output, clean)
     }
   
-    if(i %% howOftenQC == 0) {
+    if((i %% howOften + 1) == 0) {
       #clean <- c(sprintf("%s_@@@_clean_%02d", currentdate, cleancount), df$Path[1], sprintf("5:%s,%d", Y[cleancounty], cleancountx), 1, "FGCZ", "clean", "clean", "clean")
       #cleancountx <- cleancountx + 1
       #cleancount <- cleancount + 1
