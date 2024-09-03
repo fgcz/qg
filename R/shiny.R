@@ -521,7 +521,7 @@
         qg::.replaceRunIds()
     }else{
       do.call(what = input$qFUN, args = list(x = df,
-                                             howOftenQC = as.integer(input$frequency))) |>
+                                             howOften = as.integer(input$frequency))) |>
         qg::.replaceRunIds()
     }
     
