@@ -6,6 +6,17 @@ shiny::shinyApp(ui = qg::.buildQgUI , server = qg::.buildQgServer) -> qg
 qg
 ```
 
+## Install:
+
+https://gitlab.bfabric.org/proteomics/shiny-ms-apps-dockerized
+
+
+## sample input
+
+container | instument |LC
+:---------|:----------|:-------
+p36104    | ASTRAL_1  | MCLASS
+
 ## Motivation:
 
 anno 2010

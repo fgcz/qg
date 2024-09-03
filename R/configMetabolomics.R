@@ -99,7 +99,7 @@
 #' 
 #' @return data.frame
 #' @export
-qconfigMetabolomicsPlateXCalibur <- function(x, howOften = 22, ...){
+qconfigMetabolomicsVanquishPlateXCalibur <- function(x, howOften = 22, ...){
   cn <- c("File Name", "Path", "Position", "Inj Vol", "L3 Laboratory",
           "Sample ID", "Sample Name", "Instrument Method")
   
@@ -112,7 +112,7 @@ qconfigMetabolomicsPlateXCalibur <- function(x, howOften = 22, ...){
   im <- paste0(x$Path[1], "\\methods\\")
   
   # in between
-  x |> .insertSample(howOften = howOften, sampleFUN = .pooledQC, path = x$Path[1], ...) -> x
+  x |> .insertSample(howOften = howOften + 1, sampleFUN = .pooledQC, path = x$Path[1], ...) -> x
   
   # START
   x |> .insertSample(where = 0, sampleFUN = .pooledQCDil, path = x$Path[1], ...) -> x
@@ -133,9 +133,9 @@ qconfigMetabolomicsPlateXCalibur <- function(x, howOften = 22, ...){
 
 #' qconfig metabolomics for plates
 #'
-#' @inheritParams qconfigMetabolomicsPlateXCalibur
+#' @inheritParams qconfigMetabolomicsVanquishPlateXCalibur
 #' @export
-qconfigMetabolomicsVialXCalibur <- function(x, howOften = 22, ...){
+qconfigMetabolomicsVanquishVialXCalibur <- function(x, howOften = 22, ...){
   cn <- c("File Name", "Path", "Position", "Inj Vol", "L3 Laboratory",
           "Sample ID", "Sample Name", "Instrument Method")
   
@@ -146,7 +146,9 @@ qconfigMetabolomicsVialXCalibur <- function(x, howOften = 22, ...){
   
   im <- paste0(x$Path[1], "\\methods\\")
   
-  x |> .insertSample(howOften = howOften, sampleFUN = .pooledQC, path = x$Path[1], ...) -> x
+  x |> .insertSample(howOften = howOften + 1, sampleFUN = .pooledQC, path = x$Path[1], ...) -> x
+  
+  # START
   x |> .insertSample(where = 0, sampleFUN = .pooledQCDil, path = x$Path[1], ...) -> x
   x |> .insertSample(where = 0, sampleFUN = .clean, path = x$Path[1], ...) -> x
   x |> .insertSample(where = 0, sampleFUN = .clean, path = x$Path[1], ...) -> x

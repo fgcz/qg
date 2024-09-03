@@ -2,7 +2,7 @@
 ## 2024-07-04 Clauda Fortes / Christian Panse
 
 #' @title queue confiug for Proteomics EVOSEP 6x12x8 Plate Hystar
-#' @inheritParams qconfigMetabolomicsPlateXCalibur
+#' @inheritParams qconfigMetabolomicsVanquishPlateXCalibur
 #' @details increments clean and qc positions 
 #' @author Claudia Fortes & Christian Panse
 #' @export
@@ -102,4 +102,69 @@ qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x, howOften = 48,  ...){
   output <- rbind(output, autoQC03)
   
   output 
+}
+
+
+
+#' autoQC01 template
+#'
+#' @param x 
+#' @param plateId 
+#' @param QCrow 
+#' @param mode 
+#' @param containerid 
+#' @param lssystem 
+#'
+#' @return \code{data.frame} object
+.autoQC01 <- function(x, plateId = "1", QCrow = "H", mode = "", containerid="", lssystem = "M_CLASS48_48"){
+  data.frame(matrix(NA, ncol = ncol(x), nrow = 1)) -> pool
+  colnames(pool) <- colnames(x)
+  currentdate <- format(Sys.time(), "%Y%m%d")
+  
+  pool[1, "File Name"] <- sprintf("%s_@@@_C%s_autoQC01%s", currentdate, containerid, mode)
+  
+  if (lssystem == "M_CLASS48_48"){
+    pool$Position[1] <- "1:F,8"
+  }else{
+    pool$Position[1] <- sprintf("%s:%s%d", plateId, QCrow, 1)
+  }
+  
+  pool$`Sample Name`[1] <- sprintf("autoQC01%s", mode)
+  
+  pool$`Inj Vol` <- 2
+  pool
+}
+
+#' @title queue confiug for Proteomics 
+#' @inheritParams qconfigMetabolomicsVanquishPlateXCalibur
+#' @details increments clean and qc positions 
+#' @author Christian Panse 2024-09-03
+#' qconfig metabolomics for plates
+#'
+#' @inheritParams qconfigMetabolomicsVanquishPlateXCalibur
+#' @export
+qconfigProteomicsM_CLASS48_48VialXCalibur <- function(x, howOften = 4, lssystem = "M_CLASS48_48", ...){
+  cn <- c("File Name", "Path", "Position", "Inj Vol", "L3 Laboratory",
+          "Sample ID", "Sample Name", "Instrument Method")
+  
+  # base::save(x, file="/tmp/mx.RData")
+  # browser()
+  # ignore F (last) row TODO(cp): how to generalize it?
+  x[grepl(pattern = ":[ABCDEFG][1-9]", x = x$Position), ] -> x
+  
+  im <- paste0(x$Path[1], "\\methods\\")
+  
+  x |> .insertSample(howOften = howOften, sampleFUN = .autoQC01, path = x$Path[1], ...) -> x
+ 
+  # START
+  x |> .insertSample(where = 0, sampleFUN = .autoQC01, path = x$Path[1], ...) -> x
+  
+  # END
+  x |> .insertSample(where = (nrow(x) + 1), sampleFUN = .autoQC01, path = x$Path[1], ...) -> x
+
+  x$`L3 Laboratory` <- "FGCZ"
+  # x$Position |> sapply(FUN = .parsePlateNumber) -> x$Position
+  x$`Instrument Method` <- im
+  # x$Position |> sapply(FUN = .parsePlateNumber) -> x$Position
+  x[, cn]
 }

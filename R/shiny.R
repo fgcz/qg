@@ -126,6 +126,24 @@
     )
   })
   
+  output$lc <- renderUI({
+    shiny::req(input$area)
+    shiny::req(input$system)
+    
+    lc <- configInstrument()$lc[configInstrument()$area == input$area &
+                                           configInstrument()$instrument == input$instrument &
+                                           configInstrument()$system == input$system]
+    
+    selectInput(
+      "lc",
+      "LC:",
+      unique(lc),
+      multiple = FALSE,
+      selected = unique(lc)[1],
+      selectize = TRUE
+    )
+  })
+  
   #input queue configuration FUN ------------
   output$selectqFUN <- renderUI({
     shiny::req(input$area)
@@ -133,12 +151,15 @@
     #shiny::req(read_plateid())
     #browser()
     c("qconfigProteomicsEVOSEP6x12x8PlateHystar",
-      "qconfigMetabolomicsPlateXCalibur",
-      "qconfigMetabolomicsVialXCalibur") -> qc
+      "qconfigMetabolomicsVanquishPlateXCalibur",
+      "qconfigProteomicsM_CLASS48_48VialXCalibur",
+      "qconfigMetabolomicsVanquishVialXCalibur"
+     ) -> qc
     
-    ## filter for area and system
+    ## filter for area and system and lc
     qc[ base::grepl(pattern = input$area, x = qc) ] -> qc
     qc[ base::grepl(pattern = input$system, x = qc) ] -> qc
+    qc[ base::grepl(pattern = input$lc, x = qc) ] -> qc
     
     if (is.null(read_plateid())){
       qc[ base::grepl(pattern = "Vial", x = qc) ] -> qc
@@ -521,6 +542,7 @@
         qg::.replaceRunIds()
     }else{
       do.call(what = input$qFUN, args = list(x = df,
+                                             containerid = input$orderID[1],
                                              howOften = as.integer(input$frequency))) |>
         qg::.replaceRunIds()
     }
@@ -637,6 +659,7 @@
         uiOutput(("area")),
         uiOutput(("instrument")),
         uiOutput(("system")),
+        uiOutput(("lc")),
         uiOutput(("selectqFUN")),
         uiOutput(("plateID")),
         uiOutput(("instrumentMode")),
