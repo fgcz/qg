@@ -50,7 +50,7 @@ qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x, howOften = 48,  ...){
       output <- rbind(output, clean)
     }
   
-    if((i %% howOften + 1) == 0) {
+    if(i %% howOften == 0) {
       #clean <- c(sprintf("%s_@@@_clean_%02d", currentdate, cleancount), df$Path[1], sprintf("5:%s,%d", Y[cleancounty], cleancountx), 1, "FGCZ", "clean", "clean", "clean")
       #cleancountx <- cleancountx + 1
       #cleancount <- cleancount + 1
