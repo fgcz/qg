@@ -4,7 +4,14 @@
 \alias{qconfigProteomicsEVOSEP6x12x8PlateHystar}
 \title{queue confiug for Proteomics EVOSEP 6x12x8 Plate Hystar}
 \usage{
-qconfigProteomicsEVOSEP6x12x8PlateHystar(x, howOftenQC = 48, ...)
+qconfigProteomicsEVOSEP6x12x8PlateHystar(x, howOften = 48, ...)
+}
+\arguments{
+\item{x}{a data.frame}
+
+\item{howOften}{how frequently the sample should be inserted}
+
+\item{...}{parameters to pass to \code{\link[qg]{.insertSample}}}
 }
 \description{
 queue confiug for Proteomics EVOSEP 6x12x8 Plate Hystar
