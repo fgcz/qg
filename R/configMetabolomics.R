@@ -62,27 +62,6 @@
   pool
 }
 
-#' Vanquish plate number parser
-#' 
-#' @param x character position string
-#' 
-#' @details position string with a valid Vanquish plate numbering 
-#' 
-#' @examples qg:::.parsePlateNumber("1:A4")
-.validatePlateNumber <- function(x){ 
-  L <- c("Y", "R", "B", "G")
-  pn <- substr(x, 1, 1) 
-  if (pn %in% (1:4 |> as.character())) return(L[as.integer(pn)])
-  else if (pn %in% L) return(pn)
-  else stop("Invalid plate number", x)
-}
-
-.parsePlateNumber <- function(x){
-  .validatePlateNumber(x)
-  
-  sprintf("%s%s", .validatePlateNumber(x), substr(x, 2, 5)) -> rv
-  rv
-}
 
 ## TODOs(cp):
 ## 1. take clean dil qcs only from plateId H?
@@ -112,7 +91,8 @@ qconfigMetabolomicsVanquishPlateXCalibur <- function(x, howOften = 22, ...){
   im <- paste0(x$Path[1], "\\methods\\")
   
   # in between
-  x |> .insertSample(howOften = howOften + 1, sampleFUN = .pooledQC, path = x$Path[1], ...) -> x
+  x |> .insertSample(howOften = howOften + 1, sampleFUN = .pooledQC,
+                     path = x$Path[1], ...) -> x
   
   # START
   x |> .insertSample(where = 0, sampleFUN = .pooledQCDil, path = x$Path[1], ...) -> x
@@ -146,7 +126,8 @@ qconfigMetabolomicsVanquishVialXCalibur <- function(x, howOften = 22, ...){
   
   im <- paste0(x$Path[1], "\\methods\\")
   
-  x |> .insertSample(howOften = howOften + 1, sampleFUN = .pooledQC, path = x$Path[1], ...) -> x
+  x |> .insertSample(howOften = howOften + 1, sampleFUN = .pooledQC,
+                     path = x$Path[1], ...) -> x
   
   # START
   x |> .insertSample(where = 0, sampleFUN = .pooledQCDil, path = x$Path[1], ...) -> x

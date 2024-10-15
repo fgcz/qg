@@ -10,7 +10,7 @@
   QCrow = "H",
   mode = "",
   containerid = "",
-  lssystem = "M_CLASS48_48"
+  lc = "M_CLASS48_48"
 )
 }
 \arguments{

@@ -1,5 +1,5 @@
 # Proteomics ========================================
-## 2024-07-04 Clauda Fortes / Christian Panse
+## 2024-07-04 Claudia Fortes / Christian Panse
 
 #' @title queue confiug for Proteomics EVOSEP 6x12x8 Plate Hystar
 #' @inheritParams qconfigMetabolomicsVanquishPlateXCalibur
@@ -116,14 +116,14 @@ qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x, howOften = 48,  ...){
 #' @param lssystem 
 #'
 #' @return \code{data.frame} object
-.autoQC01 <- function(x, plateId = "1", QCrow = "H", mode = "", containerid="", lssystem = "M_CLASS48_48"){
+.autoQC01 <- function(x, plateId = "1", QCrow = "H", mode = "", containerid="", lc = "M_CLASS48_48"){
   data.frame(matrix(NA, ncol = ncol(x), nrow = 1)) -> pool
   colnames(pool) <- colnames(x)
   currentdate <- format(Sys.time(), "%Y%m%d")
   
   pool[1, "File Name"] <- sprintf("%s_@@@_C%s_autoQC01%s", currentdate, containerid, mode)
   
-  if (lssystem == "M_CLASS48_48"){
+  if (lc == "M_CLASS48_48"){
     pool$Position[1] <- "1:F,8"
   }else{
     pool$Position[1] <- sprintf("%s:%s%d", plateId, QCrow, 1)
@@ -147,14 +147,14 @@ qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x, howOften = 48,  ...){
 #'
 #' @inheritParams qconfigMetabolomicsVanquishPlateXCalibur
 #' @export
-qconfigProteomicsM_CLASS48_48VialXCalibur <- function(x, howOften = 4, lssystem = "M_CLASS48_48", ...){
+qconfigProteomicsVialXCalibur <- function(x, howOften = 4, ...){
   cn <- c("File Name", "Path", "Position", "Inj Vol", "L3 Laboratory",
           "Sample ID", "Sample Name", "Instrument Method")
   
   # base::save(x, file="/tmp/mx.RData")
   # browser()
   # ignore F (last) row TODO(cp): how to generalize it?
-  x[grepl(pattern = ":[ABCDEFG][1-9]", x = x$Position), ] -> x
+  x[grepl(pattern = ":[ABCDEFG][,]{0,1}[1-9]", x = x$Position), ] -> x
   
   im <- paste0(x$Path[1], "\\methods\\")
   

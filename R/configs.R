@@ -26,7 +26,7 @@
       if ((i %% howOften) == 0){
         ## inject sampleFUN
         plateId <- output$Position[nrow(output)] |> substr(1,1)
-        rbind(output, sampleFUN(x, plateId=plateId, ...)) -> output
+        rbind(output, sampleFUN(x, plateId = plateId, ...)) -> output
       }
       rbind(output, x[i, ]) -> output
     }
@@ -130,34 +130,7 @@
   df[order(df$`Sample ID`), ]
 }
 
-#' @export
-.deriveVialPositionVanquish <- function(n = 10){
-  X <- c("A", "B", "C", "D", "E")
-  nY <- 9
-  P <- c("Y", "R", "B", "G")
-  counterPlate <- 1
-  counterX <- 0
-  counterY <- 0
-  
-  pos <- rep("", n)
-  for (i in 1:n){
-    pos[i] <- sprintf("%s:%s%d", counterPlate, X[counterX + 1], (counterY+1))
-    
-    counterY <- counterY + 1
-    
-    if (i %% nY == 0){
-      counterX <- counterX + 1
-      counterY <- 0
-    }
-    if (i %% (length(X) * nY) == 0){
-      counterPlate <- counterPlate + 1 
-      counterX <- 0
-      counterY <- 0
-    }
-     
-  }
-  pos
-} 
+
 
 #' @importFrom stringr str_replace
 .extractSampleIdfromTubeID <- function(containerid, tid){
@@ -240,11 +213,26 @@
 #' @export
 #' @examples
 #'  if (all(c('login', 'webservicepassword', 'bfabricposturl') %in% names(Sys.getenv()))){
+#' .readSampleOfContainer(36104,
+#'     Sys.getenv('login'),
+#'     Sys.getenv('webservicepassword'),
+#'     Sys.getenv('bfabricposturl')) |>
+#'   .composeVialSampleTable(orderID = 34843,
+#'       lc = "M_CLASS48_48",
+#'       randomization = FALSE) -> x
+#'   x |> head()
+#'   }
+#'   
+#'  if (all(c('login', 'webservicepassword', 'bfabricposturl') %in% names(Sys.getenv()))){
 #' .readSampleOfContainer(34843,
 #'     Sys.getenv('login'),
 #'     Sys.getenv('webservicepassword'),
 #'     Sys.getenv('bfabricposturl')) |>
-#'   .composeVialSampleTable(orderID = 34843, randomization = TRUE) -> x
+#'   .composeVialSampleTable(orderID = 34843,
+#'       randomization = TRUE,
+#'       lc = "Vanquish") -> x
+#'       x |> head()
+#'       
 #' # x|> qg:::qconfigMetabolomics()|> .replaceRunIds() -> xx
 #' }
 .composeVialSampleTable <- function(x, orderID = 34843,
@@ -253,6 +241,7 @@
                                 instrument = 'ASTRAL_1',
                                 user = 'cpanse',
                                 injVol = 3.5, 
+                                lc = 'M_CLASS48_48',
                                 randomization = TRUE){
   
   format(Sys.time(), "%Y%m%d") -> currentdate
@@ -267,7 +256,15 @@
                      "\\", instrument, "\\",
                      user, "_", currentdate)
   p$"Sample Name" <- paste0(p$"Sample Name", mode)
-  p$Position <- .deriveVialPositionVanquish(n = nrow(p))
+  
+  if (lc == "M_CLASS48_48"){
+    message("M_CLASS48_48")
+    .lcWaters(n = nrow(p)) -> p$Position
+  }else{
+    message("Vanquish")
+    .lcVanquish(n = nrow(p)) |> sapply(FUN = .parseVanquishPlateNumber) -> p$Position
+  }
+  #browser()
   p$"Inj Vol" <- injVol
   p$"L3 Laboratory" <- "FGCZ"
   p$"Instrument Method" <- sprintf("%s\\methods\\", p$Path)
@@ -277,6 +274,6 @@
       lapply(function(idx){p[idx[sample(length(idx))], ]}) |>
       Reduce(f = rbind) -> p
   }
-  p$Position |> sapply(FUN = .parsePlateNumber) -> p$Position
+  #browser()
    p
 }

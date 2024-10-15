@@ -18,6 +18,9 @@ Implementation of the Thermo Fisher Scientific Vanquish
 \examples{
 .lcVanquish(96)
 }
+\references{
+\url{https://www.thermofisher.com/ch/en/home/industrial/chromatography/liquid-chromatography-lc/hplc-uhplc-systems/vanquish-core-hplc-system.html}
+}
 \author{
 Christian Panse <cp@fgcz.ethz.ch> 2024-07-04
 }

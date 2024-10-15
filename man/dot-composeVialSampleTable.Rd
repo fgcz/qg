@@ -12,6 +12,7 @@
   instrument = "ASTRAL_1",
   user = "cpanse",
   injVol = 3.5,
+  lc = "M_CLASS48_48",
   randomization = TRUE
 )
 }
@@ -37,11 +38,26 @@ compose vial sample table
 }
 \examples{
  if (all(c('login', 'webservicepassword', 'bfabricposturl') \%in\% names(Sys.getenv()))){
+.readSampleOfContainer(36104,
+    Sys.getenv('login'),
+    Sys.getenv('webservicepassword'),
+    Sys.getenv('bfabricposturl')) |>
+  .composeVialSampleTable(orderID = 34843,
+      lc = "M_CLASS48_48",
+      randomization = FALSE) -> x
+  x |> head()
+  }
+  
+ if (all(c('login', 'webservicepassword', 'bfabricposturl') \%in\% names(Sys.getenv()))){
 .readSampleOfContainer(34843,
     Sys.getenv('login'),
     Sys.getenv('webservicepassword'),
     Sys.getenv('bfabricposturl')) |>
-  .composeVialSampleTable(orderID = 34843, randomization = TRUE) -> x
+  .composeVialSampleTable(orderID = 34843,
+      randomization = TRUE,
+      lc = "Vanquish") -> x
+      x |> head()
+      
 # x|> qg:::qconfigMetabolomics()|> .replaceRunIds() -> xx
 }
 }

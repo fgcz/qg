@@ -13,11 +13,13 @@
 #' @author Christian Panse <cp@fgcz.ethz.ch> 2024-09-04
 #'
 #' @return a string vector of vial positions.
-#' @export
+#' 
+#' @references \url{https://www.waters.com/nextgen/ch/de/products/chromatography/chromatography-systems/acquity-uplc-m-class-system.html}
 #'
 #' @examples
-#' .lcWater(46)
-.lcWater <- function(n=46){
+#' .lcWaters(46)
+#' @export
+.lcWaters <- function(n = 46){
   stopifnot(n < 47)
   X <- c("A", "B", "C", "D", "E", "F")
   nY <- 8
@@ -43,6 +45,19 @@
   pos
 }
 
+#' Implementation of the Thermo Fisher Scientific Vanquish
+#'
+#' 
+#' @param n number of vials
+#' 
+#' @author Christian Panse <cp@fgcz.ethz.ch> 2024-07-04
+#'
+#' @return a string vector of vial positions.
+#' 
+#' @references \url{https://www.thermofisher.com/ch/en/home/industrial/chromatography/liquid-chromatography-lc/hplc-uhplc-systems/vanquish-core-hplc-system.html}
+#'
+#' @examples
+#' .lcVanquish(96)
 #' @export
 .lcVanquish <- function(n = 10){
   X <- c("A", "B", "C", "D", "E")
@@ -54,7 +69,7 @@
   
   pos <- rep("", n)
   for (i in 1:n){
-    pos[i] <- sprintf("%s:%s%d", counterPlate, X[counterX + 1], (counterY+1))
+    pos[i] <- sprintf("%s:%s%d", P[counterPlate], X[counterX + 1], (counterY+1))
     
     counterY <- counterY + 1
     
@@ -72,10 +87,26 @@
   pos
 } 
 
+#' validateVanquishPlateNumber
+#' @examples
+#' qg:::.parseVanquishPlateNumber("1:A4")
+#' qg:::.lcVanquish() |> sapply(FUN = qg:::.parseVanquishPlateNumber)
+.validateVanquishPlateNumber <- function(x){ 
+  L <- c("Y", "R", "B", "G")
+  pn <- substr(x, 1, 1) 
+  if (pn %in% (1:4 |> as.character())) return(L[as.integer(pn)])
+  else if (pn %in% L) return(pn)
+  else stop("Invalid plate number", x)
+}
+
+.parseVanquishPlateNumber <- function(x){
+  .validateVanquishPlateNumber(x)
+  sprintf("%s%s", .validateVanquishPlateNumber(x), substr(x, 2, 5))
+}
 
 
 .lcEksigent <- function(){
-  stop("Not implemented yet"))
+  stop("Not implemented yet")
 }
 
 
@@ -84,5 +115,5 @@
 
 
 .lcEvosep <- function(){
-  stop("Not implemented yet"))
+  stop("Not implemented yet")
 }

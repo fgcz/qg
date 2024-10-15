@@ -152,14 +152,14 @@
     #browser()
     c("qconfigProteomicsEVOSEP6x12x8PlateHystar",
       "qconfigMetabolomicsVanquishPlateXCalibur",
-      "qconfigProteomicsM_CLASS48_48VialXCalibur",
+      "qconfigProteomicsVialXCalibur",
       "qconfigMetabolomicsVanquishVialXCalibur"
      ) -> qc
     
     ## filter for area and system and lc
     qc[ base::grepl(pattern = input$area, x = qc) ] -> qc
     qc[ base::grepl(pattern = input$system, x = qc) ] -> qc
-    qc[ base::grepl(pattern = input$lc, x = qc) ] -> qc
+   # qc[ base::grepl(pattern = input$lc, x = qc) ] -> qc
     
     if (is.null(read_plateid())){
       qc[ base::grepl(pattern = "Vial", x = qc) ] -> qc
@@ -207,7 +207,8 @@
   })
   
   output$debug <- shiny::renderPrint({
-    cat(R.version.string)
+    cat(paste0("R version:", R.version.string))
+    cat(paste0("qg version:", packageVersion('qg')))
   })
   
   # input plateID ------------
@@ -441,6 +442,7 @@
                               maxitems = 100,
                               query = list('id' = input$orderID))$res
     
+    #browser()
     res
   })
   
@@ -486,10 +488,11 @@
                                 user = bf$login(),
                                 injVol = input$injvol,
                                 area = input$area,
+                                lc = input$lc,
                                 mode = instrumentMode,
                                 randomization = randomization) -> df
       
-      
+     
     }else{
       ## --------plate block ------------ 
       ## we iterate over the given plates
@@ -541,6 +544,8 @@
                                              howOften = as.integer(input$frequency))) |>
         qg::.replaceRunIds()
     }else{
+      
+      #browser()
       do.call(what = input$qFUN, args = list(x = df,
                                              containerid = input$orderID[1],
                                              howOften = as.integer(input$frequency))) |>
@@ -642,7 +647,8 @@
 
 
 #' Define queue generator UI ======
-#' @importFrom shiny fluidPage titlePanel sidebarLayout sidebarPanel uiOutput hr uiOutput htmlOutput NS
+#' @importFrom shiny fluidPage titlePanel sidebarLayout sidebarPanel uiOutput hr
+#' @importFrom shiny uiOutput htmlOutput NS br a
 #' @importFrom DT dataTableOutput
 #' @export
 .buildQgUI <-  function(){

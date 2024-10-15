@@ -10,12 +10,14 @@ qg
 
 https://gitlab.bfabric.org/proteomics/shiny-ms-apps-dockerized
 
-
 ## sample input
 
-container | instument |LC
-:---------|:----------|:-------
-p36104    | ASTRAL_1  | MCLASS
+container | instument  |LC.      | position | type  | area
+:---------|:-----------|:--------|:---------|-------|-- 
+36104     | ASTRAL_1   | MCLASS  | 1:A,1    | vial. | P
+  35270     | EXPLORIS_3 | VANQUISH| 1:A1     | vial. | M
+35117     | TIMSTOF_1  | EVOSEP  | 1:A1     | plate | P
+xxx
 
 ## Motivation:
 
@@ -40,6 +42,26 @@ anno 2010
 * ...
 * Legacy code
 
+## Workflow/Pipeline
+
+0. user -> enters samples in bfabric
+1. qg queries bfabric sample of project
+2. ...
+
+
+## Package Organization
+
+* `inst/extdata/instrument.csv` - table instrument;area;system;lc
+
+* `R/config.R` - general configuration, e.g., Hystar driver, insertSample FUN
+* `R/configProteomics.R` - configuration for proteomics
+* `R/configMetabolomics.R`  - configuration for metabolomics
+* `R/lc-systems.R` - LC systems mainly how to write the possitions
+
 ## See also
 
-https://fgcz-intranet.uzh.ch/tiki-index.php?page=sw.queueGenerator
+* https://fgcz-intranet.uzh.ch/tiki-index.php?page=sw.queueGenerator
+* runs as virtual machine: http://fgcz-c-072.uzh.ch:4001/extractPlateId/ 
+
+
+## Next: functional test for all four use cases
