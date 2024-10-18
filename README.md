@@ -48,7 +48,6 @@ anno 2010
 
 
 ## Package Organization
-
 * `inst/extdata/instrument.csv` - table instrument;area;system;lc
 
 * `R/config.R` - general configuration, e.g., Hystar driver, insertSample FUN
@@ -61,5 +60,10 @@ anno 2010
 * https://fgcz-intranet.uzh.ch/tiki-index.php?page=sw.queueGenerator
 * runs as virtual machine: http://fgcz-c-072.uzh.ch:4001/extractPlateId/ 
 
+## REST
+
+```
+$ BFABRICPY_CONFIG_ENV=PRODUCTION bfabric_flask.py --port 5002
+```
 
 ## Next: functional test for all four use cases
