@@ -435,15 +435,23 @@
     shiny::req(bf$login())
     shiny::req(bf$webservicepassword())
     
-    res <- bfabricShiny::read(login = bf$login(),
-                              webservicepassword = bf$webservicepassword(),
-                              posturl = posturl(),
+    login <- bf$login()
+    webservicepassword <- bf$webservicepassword()
+    bfabricposturl <- posturl()
+    orderId <- input$orderID
+    
+    rv <- bfabricShiny::read(login = login,
+                              webservicepassword = webservicepassword,
+                              posturl = bfabricposturl,
                               endpoint = "container",
                               maxitems = 100,
-                              query = list('id' = input$orderID))$res
+                              query = list('id' = orderId))
     
-    #browser()
-    res
+    validate(need(length(rv$res) > 0, "Empty container result set."))
+    
+    validate(need(rv$res[[1]]$technology[[1]] %in% c('Metabolomics', 'Proteomics'),
+                  "The technology type of the container is not supported."))
+    rv$res
   })
   
   filteredSampleOfContainer <- reactive({
