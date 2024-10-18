@@ -48,8 +48,8 @@ anno 2010
 
 
 ## Package Organization
-* `inst/extdata/instrument.csv` - table instrument;area;system;lc
 
+* `inst/extdata/instrument.csv` - table instrument;area;system;lc
 * `R/config.R` - general configuration, e.g., Hystar driver, insertSample FUN
 * `R/configProteomics.R` - configuration for proteomics
 * `R/configMetabolomics.R`  - configuration for metabolomics
