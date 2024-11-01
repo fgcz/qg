@@ -16,7 +16,6 @@ container | instument  |LC.      | position | type  | area
 36104     | ASTRAL_1   | MCLASS  | 1:A,1    | vial. | P
 35270     | EXPLORIS_3 | VANQUISH| 1:A1     | vial. | M
 35117     | TIMSTOF_1  | EVOSEP  | 1:A1     | plate | P
-xxx
 
 ## Motivation:
 
