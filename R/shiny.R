@@ -153,6 +153,7 @@
     c("qconfigProteomicsEVOSEP6x12x8PlateHystar",
       "qconfigMetabolomicsVanquishPlateXCalibur",
       "qconfigProteomicsVialXCalibur",
+      "qconfigProteomicsVialChronos",
       "qconfigMetabolomicsVanquishVialXCalibur"
      ) -> qc
     

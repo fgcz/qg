@@ -1,9 +1,7 @@
 # queueGenerator
 
 ```{r}
-shiny::shinyApp(ui = qg::.buildQgUI , server = qg::.buildQgServer) -> qg
-## Have a lot of fun!
-qg
+52705270
 ```
 ## Install:
 
@@ -14,8 +12,9 @@ https://gitlab.bfabric.org/proteomics/shiny-ms-apps-dockerized
 container | instument  |LC.      | position | type  | area
 :---------|:-----------|:--------|:---------|-------|-- 
 36104     | ASTRAL_1   | MCLASS  | 1:A,1    | vial. | P
-35270     | EXPLORIS_3 | VANQUISH| 1:A1     | vial. | M
+35270*    | EXPLORIS_3 | VANQUISH| 1:A1     | vial. | M
 35117     | TIMSTOF_1  | EVOSEP  | 1:A1     | plate | P
+35920     | EXPLORIS_1 | EVOSEP  | 1:A1     | vial. | P
 
 ## Motivation:
 
@@ -67,3 +66,15 @@ $ BFABRICPY_CONFIG_ENV=PRODUCTION bfabric_flask.py --port 5002
 ```
 
 ## Next: functional test for all four use cases
+
+#TODO
+
+## Cronos
+```
+,Analysis Method,Source Tray,Source Vial,Sample Name,Xcalibur Method,Xcalibur Filename,Xcalibur Post Acquisition Program,Xcalibur Output Dir,Comment
+1,"C:\Program Files (x86)\Chronos\Plugins\EvosepOne\Templates\Xcalibur\Xcalibur 30 SPD (44min, EV1106, EV1137).cam",EvoSlot 1,1,,,20240809_C35920_001_clean,C:\FGCZ\BioBeamer\biobeamer.bat,D:\Data2San\orders\Proteomics\EXPLORIS_2\analytic_20240809,
+2,"C:\Program Files (x86)\Chronos\Plugins\EvosepOne\Templates\Xcalibur\Xcalibur 30 SPD (44min, EV1106, EV1137).cam",EvoSlot 1,2,,,20240809_C35920_002_autoQC01,C:\FGCZ\BioBeamer\biobeamer.bat,D:\Data2San\orders\Proteomics\EXPLORIS_2\analytic_20240809,
+3,"C:\Program Files (x86)\Chronos\Plugins\EvosepOne\Templates\Xcalibur\Xcalibur 30 SPD (44min, EV1106, EV1137).cam",EvoSlot 1,3,,,20240809_C35920_003_S750451_35920_multiplexed1_fraction_1_phos,C:\FGCZ\BioBeamer\biobeamer.bat,D:\Data2San\orders\Proteomics\EXPLORIS_2\analytic_20240809,
+4,"C:\Program Files (x86)\Chronos\Plugins\EvosepOne\Templates\Xcalibur\Xcalibur 30 SPD (44min, EV1106, EV1137).cam",EvoSlot 1,4,,,20240809_C35920_004_S750452_35920_multiplexed1_fraction_2_phos,C:\FGCZ\BioBeamer\biobeamer.bat,D:\Data2San\orders\Proteomics\EXPLORIS_2\analytic_20240809,
+5,"C:\Program Files (x86)\Chronos\Plugins\EvosepOne\Templates\Xcalibur\Xcalibur 30 SPD (44min, EV1106, EV1137).cam",EvoSlot 1,5,,,20240809_C35920_005_S750453_35920_multiplexed1_fraction_3_phos,C:\FGCZ\BioBeamer\biobeamer.bat,D:\Data2San\orders\Proteomics\EXPLORIS_2\analytic_20240809,
+```
