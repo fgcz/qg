@@ -172,3 +172,35 @@ qconfigProteomicsVialXCalibur <- function(x, howOften = 4, ...){
   # x$Position |> sapply(FUN = .parsePlateNumber) -> x$Position
   x[, cn]
 }
+
+#' @title queue config for Proteomics Vial and Chronos 
+#' @inherit qconfigMetabolomicsVanquishPlateXCalibur
+#' @export
+qconfigProteomicsVialChronos <- function(x, howOften = 4, ...){
+  # qconfigProteomicsVialXCalibur(x, howOften = howOften, ...) -> rv
+  
+  c("Analysis Method",
+    "Source Tray",
+    "Source Vial",
+    "Sample Name",
+    "Xcalibur Method",
+    "Xcalibur Filename",
+    "Xcalibur Post Acquisition Program",
+    "Xcalibur Output Dir",
+    "Comment") -> hh         
+  
+  data.frame(
+    `Analysis Method` = rep("C:\\*cam", length = nrow(x)),
+    `Source Tray` = rep("EvoSlot 1", length = nrow(x)),
+    `Source Vial` = 1:nrow(x),
+    `Sample Name` = rep("", nrow(x)),
+    `Xcalibur Method` = rep("", nrow(x)),
+    `Xcalibur Filename` = x$`File Name`,
+    `Xcalibur Post Acquisition Program` = rep("c:\\FGCZ\\BioBeamer\\biobeamer.bat", nrow(x)),
+    `Xcalibur Output Dir` = x$Path,
+    `Comment` = rep("", nrow(x))
+  ) -> df
+  
+  df
+}
+  
