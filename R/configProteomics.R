@@ -189,6 +189,15 @@ qconfigProteomicsVialChronos <- function(x, howOften = 4, ...){
     "Xcalibur Output Dir",
     "Comment") -> hh         
   
+  
+  x |> .insertSample(howOften = howOften, sampleFUN = .autoQC01, path = x$Path[1], ...) -> x
+  # START
+  x |> .insertSample(where = 0, sampleFUN = .autoQC01, path = x$Path[1], ...) -> x
+  
+  # END
+  x |> .insertSample(where = (nrow(x) + 1), sampleFUN = .autoQC01, path = x$Path[1], ...) -> x
+  
+  
   data.frame(
     `Analysis Method` = rep("C:\\*cam", length = nrow(x)),
     `Source Tray` = rep("EvoSlot 1", length = nrow(x)),
@@ -199,8 +208,9 @@ qconfigProteomicsVialChronos <- function(x, howOften = 4, ...){
     `Xcalibur Post Acquisition Program` = rep("c:\\FGCZ\\BioBeamer\\biobeamer.bat", nrow(x)),
     `Xcalibur Output Dir` = x$Path,
     `Comment` = rep("", nrow(x))
-  ) -> df
+  ) -> x
   
-  df
+  colnames(x) <- hh
+  x
 }
   

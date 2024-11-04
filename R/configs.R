@@ -84,16 +84,29 @@
 #'
 #' @export
 .replaceRunIds <- function(x){
+
+  cn <- NULL
+  
+  for (cnc in c("File Name", "Xcalibur Filename")){
+    if (cnc %in% colnames(x)){
+      cn <- cnc
+      message("Column name to replace @@@ run ids: ", cn)
+      break
+    }
+  }
+  
+  shiny::validate(shiny::need(isFALSE(is.null(cn)),
+                       "No column name to replace @@@ run ids."))
+                  
 	for (i in 1:nrow(x)){
 		rn <- sprintf("_%03d_", i)
-		x$`File Name`[i] |>
-		  stringr::str_replace("_@@@_", rn) -> x$`File Name`[i]
+		x[[cn]][i] |>
+		  stringr::str_replace("_@@@_", rn) -> x[[cn]][i]
 		
-		x$`File Name`[i] |>
-		  stringr::str_replace("#", "_") -> x$`File Name`[i]
+		x[[cn]][i] |>
+		  stringr::str_replace("#", "_") -> x[[cn]][i]
 
 	}
-
 	x
 }
 

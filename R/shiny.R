@@ -75,7 +75,7 @@
     shiny::req(input$orderID)
     
     ccc <- container()[[1]]$technology[[1]]
-    
+    print(ccc)
     if (grepl("Proteomics", ccc)){
       area <- "Proteomics"
     }else{
@@ -450,7 +450,7 @@
     
     validate(need(length(rv$res) > 0, "Empty container result set."))
     
-    validate(need(rv$res[[1]]$technology[[1]] %in% c('Metabolomics', 'Proteomics'),
+    validate(need(rv$res[[1]]$technology[[1]] %in% c('Metabolomics', 'Proteomics', 'Metabolomics/Biophysics'),
                   "The technology type of the container is not supported."))
     rv$res
   })
