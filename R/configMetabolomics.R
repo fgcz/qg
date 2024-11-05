@@ -26,22 +26,27 @@
 }
 
 #' @inherit .pooledQC
+#' @author Martina 2024-11-05 11:24
 .pooledQCPlate <- function(x, plateId = "Y", QCrow = "H", mode = "", containerid=""){
-  data.frame(matrix(NA, ncol = ncol(x), nrow = 3)) -> pool
+  data.frame(matrix(NA, ncol = ncol(x), nrow = 4)) -> pool
   colnames(pool) <- colnames(x)
   currentdate <- format(Sys.time(), "%Y%m%d")
   
   pool[1, "File Name"] <- sprintf("%s_@@@_C%s_poolQC%s", currentdate, containerid, mode)
   pool$Position[1] <- sprintf("%s:%s%d", plateId, QCrow, 9)
   pool$`Sample Name`[1] <- sprintf("poolQC%s", mode)
+
+  pool[2, "File Name"] <- sprintf("%s_@@@_C%s_NIST%s", currentdate, containerid, mode)
+  pool$Position[2] <- sprintf("%s:%s%d", plateId, QCrow, 11)
+  pool$`Sample Name`[2] <- sprintf("NIST-plasma%s", mode)
   
-  pool[2, "File Name"] <- sprintf("%s_@@@_C%s_150mix%s", currentdate, containerid, mode)
-  pool$Position[2] <- sprintf("%s:%s%d", plateId, QCrow, 12)
-  pool$`Sample Name`[2] <- sprintf("150mix%s", mode)
-  
-  pool[3, "File Name"] <- sprintf("%s_@@@_C%s_blank%s", currentdate, containerid, mode)
-  pool$Position[3] <- sprintf("%s:%s%d", plateId, QCrow, sample(2,1))
-  pool$`Sample Name`[3] <- sprintf("blank%s", mode)
+  pool[3, "File Name"] <- sprintf("%s_@@@_C%s_150mix%s", currentdate, containerid, mode)
+  pool$Position[3] <- sprintf("%s:%s%d", plateId, QCrow, 12)
+  pool$`Sample Name`[3] <- sprintf("150mix%s", mode)
+
+  pool[4, "File Name"] <- sprintf("%s_@@@_C%s_blank%s", currentdate, containerid, mode)
+  pool$Position[4] <- sprintf("%s:%s%d", plateId, QCrow, sample(2,1))
+  pool$`Sample Name`[4] <- sprintf("blank%s", mode)
   
   pool$`Inj Vol` <- 3.5
   pool
