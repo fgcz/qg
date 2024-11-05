@@ -176,6 +176,7 @@
                                      area = "Metabolomics",
                                      mode = "",
                                      instrument = 'ASTRAL_1',
+				     lc = "M_CLASS48_48",
                                      user = 'cpanse',
                                      injVol = 3.5, 
                                      plateCounter = 0,
@@ -194,7 +195,13 @@
                      user, "_", currentdate)
   p$"Sample Name" <- paste0(p$"Sample Name", mode)
   
-  p$Position <- sprintf("%d:%s", plateCounter, p$Position)
+## TODO(cpanse): test it
+  if (lc == "Vanquish"){
+    VanquishPlateIDs <- c("Y", "R", "B", "G")
+    p$Position <- sprintf("%s:%s", VanquishPlateIDs[plateCounter], p$Position)
+  } else {
+    p$Position <- sprintf("%d:%s", plateCounter, p$Position)
+  }
   
   p$"Inj Vol" <- injVol
   
@@ -214,14 +221,7 @@
 
 #' compose vial sample table
 #'
-#' @param x 
-#' @param orderID 
-#' @param area 
-#' @param mode 
-#' @param instrument 
-#' @param user 
-#' @param injVol 
-#' @param randomization 
+#' @inherit .composePlateSampleTable
 #'
 #' @export
 #' @examples

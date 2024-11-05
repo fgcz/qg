@@ -10,6 +10,7 @@
   area = "Metabolomics",
   mode = "",
   instrument = "ASTRAL_1",
+  lc = "M_CLASS48_48",
   user = "cpanse",
   injVol = 3.5,
   plateCounter = 0,

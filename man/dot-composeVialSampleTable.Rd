@@ -17,8 +17,6 @@
 )
 }
 \arguments{
-\item{x}{}
-
 \item{orderID}{}
 
 \item{area}{}
