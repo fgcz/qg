@@ -2,6 +2,7 @@
 
 # Metabolomics ========================================
 #' @author 2024-07-11 Martina
+#' @param x data frame with the samples
 .pooledQC <- function(x, plateId = "Y", QCrow = "H", mode = "", containerid=""){
   #plateId <- x$Position[nrow(x)] |> substr(1,1)
   data.frame(matrix(NA, ncol = ncol(x), nrow = 3)) -> pool
@@ -24,14 +25,14 @@
   pool
 }
 
+#' @inherit .pooledQC
 .pooledQCPlate <- function(x, plateId = "Y", QCrow = "H", mode = "", containerid=""){
-  #plateId <- x$Position[nrow(x)] |> substr(1,1)
   data.frame(matrix(NA, ncol = ncol(x), nrow = 3)) -> pool
   colnames(pool) <- colnames(x)
   currentdate <- format(Sys.time(), "%Y%m%d")
   
   pool[1, "File Name"] <- sprintf("%s_@@@_C%s_poolQC%s", currentdate, containerid, mode)
-  pool$Position[1] <- sprintf("%s:%s%d", plateId, QCrow, 10)
+  pool$Position[1] <- sprintf("%s:%s%d", plateId, QCrow, 9)
   pool$`Sample Name`[1] <- sprintf("poolQC%s", mode)
   
   pool[2, "File Name"] <- sprintf("%s_@@@_C%s_150mix%s", currentdate, containerid, mode)
