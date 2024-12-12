@@ -11,12 +11,12 @@ https://gitlab.bfabric.org/proteomics/shiny-ms-apps-dockerized
 
 ## sample input
 
-container | instument  |LC.      | position | type  | area
-:---------|:-----------|:--------|:---------|-------|-- 
-36104     | ASTRAL_1   | MCLASS  | 1:A,1    | vial. | P
-35270     | EXPLORIS_3 | VANQUISH| 1:A1     | vial. | M
-35117     | TIMSTOF_1  | EVOSEP  | 1:A1     | plate | P
-xxx
+container | instument  |LC.         | position | type  | area
+:---------|:-----------|:-----------|:---------|-------|-- 
+36104     | ASTRAL_1   | MCLASS     | 1:A,1    | vial. | P
+35270     | EXPLORIS_3 | VANQUISH   | 1:A1     | vial. | M
+35117     | TIMSTOF_1  | EVOSEP     | 1:A1     | plate | P
+36946     | EXPLORIS_2 | EVOSEP     | 1:A1     | vial  | P
 
 ## Motivation:
 

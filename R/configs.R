@@ -158,7 +158,7 @@
 }
 
 
-#' compose plate sample table
+#' Compose plate sample table
 #'
 #' @param p 
 #' @param orderID 
@@ -176,7 +176,7 @@
                                      area = "Metabolomics",
                                      mode = "",
                                      instrument = 'ASTRAL_1',
-				     lc = "M_CLASS48_48",
+                                     lc = "M_CLASS48_48",
                                      user = 'cpanse',
                                      injVol = 3.5, 
                                      plateCounter = 0,
@@ -195,7 +195,7 @@
                      user, "_", currentdate)
   p$"Sample Name" <- paste0(p$"Sample Name", mode)
   
-## TODO(cpanse): test it
+  ## TODO(cpanse): test it
   if (lc == "Vanquish"){
     VanquishPlateIDs <- c("Y", "R", "B", "G")
     p$Position <- sprintf("%s:%s", VanquishPlateIDs[plateCounter], p$Position)
@@ -219,7 +219,7 @@
 }
 
 
-#' compose vial sample table
+#' Compose vial sample table
 #'
 #' @inherit .composePlateSampleTable
 #'
