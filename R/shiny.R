@@ -154,6 +154,8 @@
       "qconfigMetabolomicsVanquishPlateXCalibur",
       "qconfigProteomicsVialXCalibur",
       "qconfigProteomicsVialChronos",
+      "qconfigProteomicsPlateChronos",
+      "qconfigProteomicsPlateChronosX",
       "qconfigMetabolomicsVanquishVialXCalibur"
      ) -> qc
     
@@ -517,6 +519,8 @@
                       posturl = posturl()) |>
               qg::.composePlateSampleTable(orderID = input$orderID,
                                            instrument = input$instrument,
+                                           system = input$system,
+                                           lc = input$lc,
                                            user = bf$login(),
                                            injVol = input$injvol,
                                            area = input$area,
@@ -527,7 +531,9 @@
             
             # global counter
             plateCounter <<- plateCounter + 1
-            p[, columnOrder]
+            ## TODO(cp): check if this is necessary
+            #p[, columnOrder]
+            p
           }) |> Reduce(f = rbind) -> df
       }) 
       

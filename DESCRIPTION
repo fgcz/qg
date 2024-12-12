@@ -15,7 +15,7 @@ Depends:
 Imports:
     DT,
     XML,
-    bfabricShiny (>= 0.13.2),
+    bfabricShiny (>= 0.13.3),
     jsonlite (>= 1.4),
     shiny (>= 1.0),
     stringr

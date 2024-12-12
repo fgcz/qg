@@ -208,4 +208,45 @@ qconfigProteomicsVialChronos <- function(x, howOften = 4, ...){
   colnames(x) <- hh
   x
 }
+
+qconfigProteomicsPlateChronos <- function(x, howOften = 4, ...){
+  c("Analysis Method",
+    "Source Tray",
+    "Source Vial",
+    "Sample Name",
+    "Xcalibur Method",
+    "Xcalibur Filename",
+    "Xcalibur Post Acquisition Program",
+    "Xcalibur Output Dir",
+    "Comment") -> hh         
+  # browser()
+  
+  x |> .insertSample(howOften = howOften, sampleFUN = .autoQC01, path = x$Path[1], ...) -> x
+  # START
+  x |> .insertSample(where = 0, sampleFUN = .autoQC01, path = x$Path[1], ...) -> x
+  
+  # END
+  x |> .insertSample(where = (nrow(x) + 1), sampleFUN = .autoQC01, path = x$Path[1], ...) -> x
+  
+  
+  
+  data.frame(
+    `Analysis Method` = rep("C:\\*cam", length = nrow(x)),
+    `Source Tray` = x$Tray,
+    `Source Vial` = x$Position,
+    `Sample Name` = x$`Sample Name`,
+    `Xcalibur Method` = x$`Instrument Method`,
+    `Xcalibur Filename` = x$`File Name`,
+    `Xcalibur Post Acquisition Program` = rep("c:\\FGCZ\\BioBeamer\\biobeamer.bat", nrow(x)),
+    `Xcalibur Output Dir` = x$Path,
+    `Comment` = rep("", nrow(x))
+  ) -> x
+  
+  colnames(x) <- hh
+  x
+  
+}
+qconfigProteomicsPlateChronosX <- function(x, howOften = 4, ...){
+  x
+}
   

@@ -176,6 +176,7 @@
                                      area = "Metabolomics",
                                      mode = "",
                                      instrument = 'ASTRAL_1',
+                                     system = NULL,
                                      lc = "M_CLASS48_48",
                                      user = 'cpanse',
                                      injVol = 3.5, 
@@ -196,11 +197,17 @@
   p$"Sample Name" <- paste0(p$"Sample Name", mode)
   
   ## TODO(cpanse): test it
+  ## TODO(cpanse): generalise Position and GridPosition
   if (lc == "Vanquish"){
+    ## changed from Position to GridPosition 2024-12-12 CP
     VanquishPlateIDs <- c("Y", "R", "B", "G")
-    p$Position <- sprintf("%s:%s", VanquishPlateIDs[plateCounter], p$Position)
-  } else {
-    p$Position <- sprintf("%d:%s", plateCounter, p$Position)
+    p$Position <- sprintf("%s:%s", VanquishPlateIDs[plateCounter], p$GridPosition)
+  } else if (system == "Chronos" && lc == "EVOSEP6x12x8"){
+    message("Chronos EVOSEP6x12x8 .composePlateSampleTable")
+    p$Position <- sprintf("%s", p$Position)
+    p$Tray <- sprintf("%d", rep(plateCounter, nrow(p)))
+  }else {
+    p$Position <- sprintf("%d:%s", plateCounter, p$GridPosition)
   }
   
   p$"Inj Vol" <- injVol
@@ -215,7 +222,9 @@
   }
   
   plateCounter <<- plateCounter + 1
-  p[, columnOrder]
+  ## TODO(cp): check if this is necessary
+  #p[, columnOrder]
+  p
 }
 
 
