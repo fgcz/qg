@@ -14,6 +14,7 @@
 #'
 #' @export
 .insertSample <- function(x,
+                         modOffset = 0,
                          where = NA,
                          howOften = round(nrow(x) / 2),
                          sampleFUN = NA,
@@ -23,7 +24,7 @@
   
   if (is.na(where)){
     for (i in 1:nrow(x)){
-      if ((i %% howOften) == 0){
+      if (((i + modOffset) %% howOften) == 0){
         ## inject sampleFUN
         plateId <- output$Position[nrow(output)] |> substr(1,1)
         rbind(output, sampleFUN(x, plateId = plateId, ...)) -> output

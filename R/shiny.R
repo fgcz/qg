@@ -275,7 +275,7 @@
     selectInput(
       "frequency",
       "QC frequency:",
-      c(1, 2, 4, 8, 16, 32, 48, 64, 1024),
+      c(1, 2, 4, 8, 16, 32, 36, 48, 64, 1024),
       selected = "16",
       multiple = FALSE,
       selectize = 16
@@ -569,6 +569,25 @@
     
   })
   
+  output$plotFirstPlate <- renderPlot({
+    shiny::req(composeTable())
+   
+    if (shiny::req(input$system) == "Chronos" && shiny::req(input$lc) == "EVOSEP6x12x8"){
+      op <- par(mar = c(0, 0, 0, 0))
+      composeTable()$`Source Vial` |> as.integer() -> run
+   
+      ceiling(run / 12)-> y
+      ((run - 1) %% 12) + 1  -> x 
+      
+      plot(x, y,
+           xlim = c(1, 12), ylim = c(1, 8), type = 'n')
+      
+      text(x = x, y = y, labels = run, cex = 1.4)
+      
+      lines(x, y)
+      
+    }
+  })
   
   output$outputKable <- DT::renderDataTable({
     shiny::req(composeTable())
@@ -696,7 +715,8 @@
         a("internal queue generator tiki-wiki page", href="https://fgcz-intranet.uzh.ch/tiki-index.php?page=sw.queueGenerator"),
         br(),
         a('source code', href='https://gitlab.bfabric.org/proteomics/qg'),
-        uiOutput('debug')
+        uiOutput('debug'),
+        plotOutput('plotFirstPlate')
       ),
       mainPanel(
         list(

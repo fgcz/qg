@@ -209,6 +209,7 @@ qconfigProteomicsVialChronos <- function(x, howOften = 4, ...){
   x
 }
 
+
 qconfigProteomicsPlateChronos <- function(x, howOften = 4, ...){
   c("Analysis Method",
     "Source Tray",
@@ -221,17 +222,23 @@ qconfigProteomicsPlateChronos <- function(x, howOften = 4, ...){
     "Comment") -> hh         
   # browser()
   
-  x |> .insertSample(howOften = howOften, sampleFUN = .autoQC01, path = x$Path[1], ...) -> x
+  
+  counterAutoQC01 <<- 1
+  counterAutoQC03 <<- 49
+  counterClean <<-  1
+  x |> .insertSample(howOften = howOften, modOffset = -1, sampleFUN = .chronos_autoQC01, path = x$Path[1], ...) -> x
+  
+  
   # START
-  x |> .insertSample(where = 0, sampleFUN = .autoQC01, path = x$Path[1], ...) -> x
+  ## x |> .insertSample(where = 0, sampleFUN = .chronos_autoQC01, path = x$Path[1], ...) -> x
   
   # END
-  x |> .insertSample(where = (nrow(x) + 1), sampleFUN = .autoQC01, path = x$Path[1], ...) -> x
-  
+  x |> .insertSample(where = (nrow(x) + 1), sampleFUN = .chronos_autoQC01, path = x$Path[1], ...) -> x
+  x |> .insertSample(where = (nrow(x) + 1), sampleFUN = .chronos_autoQC03, path = x$Path[1], ...) -> x
   
   
   data.frame(
-    `Analysis Method` = rep("C:\\*cam", length = nrow(x)),
+    `Analysis Method` = rep("", length = nrow(x)),
     `Source Tray` = x$Tray,
     `Source Vial` = x$Position,
     `Sample Name` = x$`Sample Name`,
@@ -246,6 +253,63 @@ qconfigProteomicsPlateChronos <- function(x, howOften = 4, ...){
   x
   
 }
+
+## Clean Tray is Tray 6
+## AutoQC01 is Tray 5 1-48
+## AutoQC03 is Tray 5 49-96
+.chronos_autoQC01 <- function(x, containerid, ...){
+  data.frame(matrix(NA, ncol = ncol(x), nrow = 2)) -> pool
+  colnames(pool) <- colnames(x)
+  
+ 
+  currentdate <- format(Sys.time(), "%Y%m%d")
+  
+  ## 1st the clean
+  pool$`Position`[1] <- counterClean; 
+  
+  pool$`Tray`[1] <- 6
+  pool$`Sample Name`[1] <- sprintf("clean")
+  pool$`File Name`[1] <- sprintf("%s_@@@_C%s_clean",
+                                         currentdate, containerid)
+  
+  # 2nd the autoQC01
+  pool$`Position`[2] <- counterAutoQC01; 
+  pool$`Tray`[2] <- 5
+  pool$`Sample Name`[2] <- sprintf("autoQC01")
+  pool$`File Name`[2] <- sprintf("%s_@@@_C%s_autoQC01",
+                                         currentdate, containerid)
+ 
+  ## TODO(cpanse): think about the counters
+  counterAutoQC01 <<- counterAutoQC01 + 1
+  counterClean <<- counterClean + 1
+  pool
+}
+
+## Clean Tray is Tray 6
+## AutoQC01 is Tray 5 1-48
+## AutoQC03 is Tray 5 49-96
+.chronos_autoQC03 <- function(x, containerid, ...){
+  data.frame(matrix(NA, ncol = ncol(x), nrow = 1)) -> pool
+  colnames(pool) <- colnames(x)
+  
+  
+  currentdate <- format(Sys.time(), "%Y%m%d")
+  
+
+ 
+  pool$`Position`[1] <- counterAutoQC03; 
+  pool$`Tray`[1] <- 5
+  pool$`Sample Name`[1] <- sprintf("autoQC03")
+  pool$`File Name`[1] <- sprintf("%s_@@@_C%s_autoQC03",
+                                 currentdate, containerid)
+  
+  ## TODO(cpanse): think about the counters
+  counterAutoQC03 <<- counterAutoQC03 + 1
+
+  pool
+}
+
+
 qconfigProteomicsPlateChronosX <- function(x, howOften = 4, ...){
   x
 }
