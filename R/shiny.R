@@ -156,7 +156,8 @@
       "qconfigProteomicsVialChronos",
       "qconfigProteomicsPlateChronos",
       "qconfigProteomicsPlateChronosX",
-      "qconfigMetabolomicsVanquishVialXCalibur"
+      "qconfigMetabolomicsVanquishVialXCalibur",
+      "qconfigMetabolomicsVanquishVialXCaliburSplash"
      ) -> qc
     
     ## filter for area and system and lc
