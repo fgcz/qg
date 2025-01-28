@@ -1,3 +1,4 @@
+instrument;area;system;lc
 ASTRAL_1;Metabolomics;XCalibur;Vanquish
 ASTRAL_1;Proteomics;Chronos;EVOSEP6x12x8
 ASTRAL_1;Proteomics;XCalibur;EVOSEP6x12x8
@@ -22,4 +23,3 @@ QUANTIVA_1;Metabolomics;XCalibur;Vanquish
 TIMSTOFFLEX_1;Proteomics;Hystar;EVOSEP6x12x8
 TIMSTOFULTRA_1;Proteomics;Hystar;EVOSEP6x12x8
 TIMSTOF_1;Proteomics;Hystar;EVOSEP6x12x8
-instrument;area;system;lc
