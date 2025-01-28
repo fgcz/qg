@@ -13,9 +13,10 @@ qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x, howOften = 48,  ...){
   
   stopifnot(is.integer(howOftenClean))
   message(paste0("howOftenClean:\t", howOftenClean))
-  message(paste0("howOften:\t", howOften))
-  
+  message(paste0("howOften qconfigProteomicsEVOSEP6x12x8PlateHystar:\t", howOften))
+
   df <- x
+  #browser()
   Y <- c('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H')
   
   currentdate <- format(Sys.time(), "%Y%m%d")
@@ -42,16 +43,19 @@ qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x, howOften = 48,  ...){
   for (i in 1:nrow(df)){
     output <- rbind(output, df[i, ])
     
-    
     if (i %% howOftenClean == 0) {
-      clean <- c(sprintf("%s_@@@_clean_%02d", currentdate, cleancount), df$Path[1], sprintf("5:%s,%d", Y[cleancounty], cleancountx), 1, "FGCZ", "clean", "clean", "clean")
+      clean <- c(sprintf("%s_@@@_clean_%02d", currentdate, cleancount),
+                 df$Path[1], sprintf("5:%s,%d", Y[cleancounty], cleancountx),
+                 1, "FGCZ", "clean", "clean", "clean")
       cleancountx <- cleancountx + 1
       cleancount <- cleancount + 1
       output <- rbind(output, clean)
     }
   
     if(i %% howOften == 0) {
-      autoQC03 <- c(sprintf("%s_@@@_autoQC03dia_%02d", currentdate, autoQC03countx), df$Path[1], sprintf("6:%s,%d", Y[autoQC03county], autoQC03countx), 1, "FGCZ", "autoQC03", "autoQC03", "autoQC03")
+      autoQC03 <- c(sprintf("%s_@@@_autoQC03dia_%02d", currentdate, autoQC03countx),
+                    df$Path[1],
+                    sprintf("6:%s,%d", Y[autoQC03county], autoQC03countx), 1, "FGCZ", "autoQC03", "autoQC03", "autoQC03")
       autoQC03countx <- autoQC03countx + 1
       autoQC03count <- autoQC03count + 1
       output <- rbind(output, autoQC03)
@@ -69,10 +73,15 @@ qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x, howOften = 48,  ...){
     }
     
   } # for loop
-  
-  ## START
-  autoQC03 <- c(sprintf("%s_@@@_autoQC03dia_00", currentdate, autoQC03countx), df$Path[1], sprintf("6:%s,%d", Y[autoQC03county], autoQC03countx), 1, "FGCZ", "autoQC03", "autoQC03", "autoQC03")
-  output <- rbind(autoQC03, output)
+  message("DEBUG -> howOften qconfigProteomicsEVOSEP6x12x8PlateHystar:\t")
+ 
+  ## START ##########################
+  autoQC03 <- c(sprintf("%s_@@@_autoQC03dia_00", currentdate, autoQC03countx),
+                df$Path[1],
+                sprintf("6:%s,%d", Y[autoQC03county], autoQC03countx),
+                1, "FGCZ", "autoQC03", "autoQC03", "autoQC03")
+
+    output <- rbind(autoQC03, output)
   clean <- c(sprintf("%s_@@@_clean_00", currentdate, cleancount), df$Path[1], sprintf("5:%s,%d", Y[cleancounty], cleancountx), 1, "FGCZ", "clean", "clean", "clean")
   output <- rbind(clean, output)
   cleancountx <- cleancountx + 1
@@ -88,7 +97,7 @@ qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x, howOften = 48,  ...){
   }
   
   ## TODO add autoQC03
-  ## END
+  ## END ###############################
   clean <- c(sprintf("%s_@@@_clean_%02d", currentdate, cleancount), df$Path[1], sprintf("5:%s,%d", Y[cleancounty], cleancountx), 1, "FGCZ", "clean", "clean", "clean")
   output <- rbind(output, clean)
   
@@ -96,6 +105,7 @@ qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x, howOften = 48,  ...){
                 df$Path[1], sprintf("6:%s,%d", Y[autoQC03county], autoQC03countx), 1, "FGCZ", "autoQC03", "autoQC03", "autoQC03")
   output <- rbind(output, autoQC03)
   
+  message("qconfigProteomicsEVOSEP6x12x8PlateHystar  DONE")
   output 
 }
 
