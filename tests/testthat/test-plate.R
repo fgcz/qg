@@ -1,13 +1,16 @@
 #R
 
-context("container")
+context("plate")
 
-test_that("test plate", {
+test_that("test Proteomics EVOSEP 6x12x8 Plate Hystar", {
  
-  
+  ####################################################
   orderid <- 37202
   plateid <- c(4748, 4749)
   plateCounter <- 1
+  qFUN <- "qconfigProteomicsEVOSEP6x12x8PlateHystar"
+  ####################################################
+  
   plateid |>
     lapply(FUN = function(pid){
       bfabricShiny::readPlate(pid,
@@ -17,7 +20,7 @@ test_that("test plate", {
         qg::.composePlateSampleTable(orderID = orderid,
                                      instrument = "TIMSTOFFLEX_1",
                                      system = "HyStar",
-                                     lc = "Evosep",
+                                     lc = "EVOSEP",
                                      user = "cpanse",
                                      injVol = 1,
                                      area = "Proteomics",
@@ -28,10 +31,31 @@ test_that("test plate", {
       p
     }) |> Reduce(f = rbind) -> df
   
+  df -> df0
   
   expect_true(ncol(df) == 10)
-  expect_no_error(qg:::validate.composePlateSampleTable(df))
+  expect_no_error(qg:::validate.composePlateSampleTable(df0))
+  
   expect_error(qg:::validate.composePlateSampleTable(df[, 1:9]))
+  
+  colnames(df) -> cn
+  paste0(cn[1], "__") -> cn[1]
+  
+  colnames(df) <- cn
+  expect_error(qg:::validate.composePlateSampleTable(df))
+  
+  
+  
+  
+  do.call(what = qFUN,
+          args = list(x = df0,
+                      containerid = orderid[1],
+                      howOften = as.integer(16))) -> df1
+  
+  expect_equal(df1$`Inj Vol` |> as.integer() |> sum() , nrow(df1))
+  
+  df1 |> qg::.replaceRunIds() -> df2
+  
   
 })
 

@@ -7,6 +7,7 @@
 \usage{
 .insertSample(
   x,
+  modOffset = 0,
   where = NA,
   howOften = round(nrow(x)/2),
   sampleFUN = NA,

@@ -22,3 +22,6 @@ qconfig metabolomics for plates
 \details{
 as defined my MZ
 }
+\author{
+Martina CP 2024-11-05
+}

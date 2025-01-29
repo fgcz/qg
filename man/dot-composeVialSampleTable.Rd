@@ -2,7 +2,7 @@
 % Please edit documentation in R/configs.R
 \name{.composeVialSampleTable}
 \alias{.composeVialSampleTable}
-\title{compose vial sample table}
+\title{Compose vial sample table}
 \usage{
 .composeVialSampleTable(
   x,
@@ -32,7 +32,7 @@
 \item{randomization}{}
 }
 \description{
-compose vial sample table
+Compose vial sample table
 }
 \examples{
  if (all(c('login', 'webservicepassword', 'bfabricposturl') \%in\% names(Sys.getenv()))){
