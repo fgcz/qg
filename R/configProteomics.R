@@ -5,7 +5,11 @@
 #' @inheritParams qconfigMetabolomicsVanquishPlateXCalibur
 #' @details increments clean and qc positions 
 #' @author Claudia Fortes & Christian Panse 2024-07-04, 2025-01-29
+#' @return a data.frame with the eight columns queue configuration
 #' @details
+#' The function is used to generate a queue configuration for the Proteomics
+#' EVOSEP 6 x 12 x 8 Plate Hystar.
+#' Here the clean and autoQC runs are taken from an incrementing position.
 #' 
 #' 
 #' @export
@@ -121,7 +125,23 @@ qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x, howOften = 48,  ...){
   output <- rbind(output, autoQC03)
   
   message("qconfigProteomicsEVOSEP6x12x8PlateHystar  DONE")
-  output 
+  output  |> validate.qconfigProteomicsEVOSEP6x12x8PlateHystar()
+}
+
+validate.qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x){
+  # Validate that x is a data.frame
+  stopifnot(is.data.frame(x))
+  
+  # Validate column names
+  required_columns <- c("File Name", "Path", "Position", "Inj Vol", 
+                        "L3 Laboratory", "Sample ID", "Sample Name", "Instrument Method")
+  missing_columns <- setdiff(required_columns, colnames(x))
+  if(length(missing_columns) > 0) {
+    stop(paste("The following required columns are missing:", paste(missing_columns, collapse = ", ")))
+  }
+  
+  
+  x
 }
 
 
