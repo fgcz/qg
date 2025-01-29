@@ -30,6 +30,8 @@ test_that("test plate", {
   
   
   expect_true(ncol(df) == 10)
+  expect_no_error(qg:::validate.composePlateSampleTable(df))
+  expect_error(qg:::validate.composePlateSampleTable(df[, 1:9]))
   
 })
 
