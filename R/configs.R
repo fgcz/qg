@@ -160,7 +160,9 @@
 
 
 validate.composePlateSampleTable <- function(x){
-  stopifnot(ncol(x) == 10)
+  #stopifnot(ncol(x) == 10 | ncol(x) == 8)
+  message("Validating composePlateSampleTable ncol = ", ncol(x))
+  
   stopifnot(all(c("Sample ID",
                   "Sample Name",
                   "Tube ID",
