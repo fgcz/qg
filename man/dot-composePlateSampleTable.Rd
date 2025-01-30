@@ -2,7 +2,7 @@
 % Please edit documentation in R/configs.R
 \name{.composePlateSampleTable}
 \alias{.composePlateSampleTable}
-\title{compose plate sample table}
+\title{Compose plate sample table}
 \usage{
 .composePlateSampleTable(
   p,
@@ -10,6 +10,7 @@
   area = "Metabolomics",
   mode = "",
   instrument = "ASTRAL_1",
+  system = NULL,
   lc = "M_CLASS48_48",
   user = "cpanse",
   injVol = 3.5,
@@ -37,5 +38,5 @@
 \item{randomization}{}
 }
 \description{
-compose plate sample table
+Compose plate sample table
 }

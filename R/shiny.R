@@ -529,7 +529,7 @@
                                            plateCounter = plateCounter,
                                            randomization = input$randomization) -> p
             
-            
+           
             # global counter
             plateCounter <<- plateCounter + 1
             ## TODO(cp): check if this is necessary

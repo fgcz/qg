@@ -159,6 +159,22 @@
 }
 
 
+validate.composePlateSampleTable <- function(x){
+  #stopifnot(ncol(x) == 10 | ncol(x) == 8)
+  message("Validating composePlateSampleTable ncol = ", ncol(x))
+  
+  stopifnot(all(c("Sample ID",
+                  "Sample Name",
+                  "Tube ID",
+                  "Position",
+                  "GridPosition",
+                  "File Name",
+                  "Path",
+                  "Inj Vol",
+                  "L3 Laboratory",
+                  "Instrument Method") %in% colnames(x)))
+  x
+}
 #' Compose plate sample table
 #'
 #' @param p 
@@ -225,7 +241,9 @@
   plateCounter <<- plateCounter + 1
   ## TODO(cp): check if this is necessary
   #p[, columnOrder]
-  p
+  
+  
+  validate.composePlateSampleTable(p)
 }
 
 

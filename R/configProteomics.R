@@ -1,10 +1,17 @@
 # Proteomics ========================================
 ## 2024-07-04 Claudia Fortes / Christian Panse
 
-#' @title queue confiug for Proteomics EVOSEP 6x12x8 Plate Hystar
+#' @title queue config for Proteomics EVOSEP 6 x 12 x 8 Plate Hystar
 #' @inheritParams qconfigMetabolomicsVanquishPlateXCalibur
 #' @details increments clean and qc positions 
-#' @author Claudia Fortes & Christian Panse
+#' @author Claudia Fortes & Christian Panse 2024-07-04, 2025-01-29
+#' @return a data.frame with the eight columns queue configuration
+#' @details
+#' The function is used to generate a queue configuration for the Proteomics
+#' EVOSEP 6 x 12 x 8 Plate Hystar.
+#' Here the clean and autoQC runs are taken from an incrementing position.
+#' 
+#' 
 #' @export
 qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x, howOften = 48,  ...){
   
@@ -13,45 +20,55 @@ qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x, howOften = 48,  ...){
   
   stopifnot(is.integer(howOftenClean))
   message(paste0("howOftenClean:\t", howOftenClean))
-  message(paste0("howOften:\t", howOften))
+  message(paste0("howOften qconfigProteomicsEVOSEP6x12x8PlateHystar:\t", howOften))
+   
+  ## fix column names and order
+  c("File Name", "Path", "Position", "Inj Vol", "L3 Laboratory", "Sample ID", "Sample Name", "Instrument Method") -> cn
+  stopifnot(all(cn %in% colnames(x)))  
+  x[, cn] -> df
+  df$`File Name` |> stringr::str_replace(pattern = "#", replacement = "_") -> df$`File Name` 
   
-  df <- x
   Y <- c('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H')
   
   currentdate <- format(Sys.time(), "%Y%m%d")
   output <- data.frame(matrix(ncol = 8, nrow = 0))
-  colnames(output) <- c("File Name", "Path", "Position", "Inj Vol", "L3 Laboratory", "Sample ID", "Sample Name", "Instrument Method")
+  colnames(output) <- cn
   
   clean <- data.frame(matrix(ncol = 8, nrow = 0))
   cleanAutoQC03 <- data.frame(matrix(ncol = 8, nrow = 0))
   
-  colnames(df) <- c("File Name", "Path", "Position", "Inj Vol", "L3 Laboratory", "Sample ID", "Sample Name", "Instrument Method")
+  colnames(df) <- cn
   
-  colnames(clean) <- c("File Name", "Path", "Position", "Inj Vol", "L3 Laboratory", "Sample ID", "Sample Name", "Instrument Method")
+  colnames(clean) <- cn
   clean <- c("Clean", df$Path[1], "5:X:X", 1, "FGCZ", "clean", "clean", "clean")
-  cleancount <- 1
-  cleancountx <- 1
+  cleancount <- 2
+  cleancountx <- 2
   cleancounty <- 1
   
-  colnames(cleanAutoQC03) <- c("File Name", "Path", "Position", "Inj Vol", "L3 Laboratory", "Sample ID", "Sample Name", "Instrument Method")
-  autoQC03count <- 1
-  autoQC03countx <- 1
+  colnames(cleanAutoQC03) <- cn
+  autoQC03count <- 2
+  autoQC03countx <- 2
   autoQC03county <- 1
   
   ## ADD QC/CLEAN INBETWEEN =================================
   for (i in 1:nrow(df)){
     output <- rbind(output, df[i, ])
     
-    
     if (i %% howOftenClean == 0) {
-      clean <- c(sprintf("%s_@@@_clean_%02d", currentdate, cleancount), df$Path[1], sprintf("5:%s,%d", Y[cleancounty], cleancountx), 1, "FGCZ", "clean", "clean", "clean")
+      clean <- c(sprintf("%s_@@@_clean_%02d", currentdate, cleancount),
+                 df$Path[1], sprintf("5:%s,%d", Y[cleancounty], cleancountx),
+                 1, "FGCZ", "clean", "clean", "clean")
       cleancountx <- cleancountx + 1
       cleancount <- cleancount + 1
       output <- rbind(output, clean)
     }
   
     if(i %% howOften == 0) {
-      autoQC03 <- c(sprintf("%s_@@@_autoQC03dia_%02d", currentdate, autoQC03countx), df$Path[1], sprintf("6:%s,%d", Y[autoQC03county], autoQC03countx), 1, "FGCZ", "autoQC03", "autoQC03", "autoQC03")
+      autoQC03 <- c(sprintf("%s_@@@_autoQC03dia_%02d", currentdate, autoQC03countx),
+                    df$Path[1],
+                    sprintf("6:%s,%d", Y[autoQC03county], autoQC03countx),
+                    1, "FGCZ", "autoQC03", "autoQC03", "autoQC03")
+      
       autoQC03countx <- autoQC03countx + 1
       autoQC03count <- autoQC03count + 1
       output <- rbind(output, autoQC03)
@@ -69,11 +86,20 @@ qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x, howOften = 48,  ...){
     }
     
   } # for loop
+  message("DEBUG -> howOften qconfigProteomicsEVOSEP6x12x8PlateHystar:\t")
+ 
+  ## START ##########################
+  autoQC03 <- c(sprintf("%s_@@@_autoQC03dia_%02d", currentdate, 1),
+                df$Path[1],
+                sprintf("6:%s,%d", Y[autoQC03county], 1),
+                1, "FGCZ", "autoQC03", "autoQC03", "autoQC03")
+
+    output <- rbind(autoQC03, output)
+    
+  clean <- c(sprintf("%s_@@@_clean_%02d", currentdate, 1), df$Path[1],
+             sprintf("5:%s,%d", Y[1], 1),
+             1, "FGCZ", "clean", "clean", "clean")
   
-  ## START
-  autoQC03 <- c(sprintf("%s_@@@_autoQC03dia_00", currentdate, autoQC03countx), df$Path[1], sprintf("6:%s,%d", Y[autoQC03county], autoQC03countx), 1, "FGCZ", "autoQC03", "autoQC03", "autoQC03")
-  output <- rbind(autoQC03, output)
-  clean <- c(sprintf("%s_@@@_clean_00", currentdate, cleancount), df$Path[1], sprintf("5:%s,%d", Y[cleancounty], cleancountx), 1, "FGCZ", "clean", "clean", "clean")
   output <- rbind(clean, output)
   cleancountx <- cleancountx + 1
   autoQC03countx <- autoQC03countx + 1
@@ -88,20 +114,39 @@ qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x, howOften = 48,  ...){
   }
   
   ## TODO add autoQC03
-  ## END
-  clean <- c(sprintf("%s_@@@_clean_%02d", currentdate, cleancount), df$Path[1], sprintf("5:%s,%d", Y[cleancounty], cleancountx), 1, "FGCZ", "clean", "clean", "clean")
+  ## END ###############################
+  clean <- c(sprintf("%s_@@@_clean_%02d", currentdate, cleancount), df$Path[1],
+             sprintf("5:%s,%d", Y[cleancounty], cleancountx), 1, "FGCZ", "clean", "clean", "clean")
   output <- rbind(output, clean)
   
-  autoQC03 <- c(sprintf("%s_@@@_autoQC03dia_ZZ", currentdate, autoQC03countx),
-                df$Path[1], sprintf("6:%s,%d", Y[autoQC03county], autoQC03countx), 1, "FGCZ", "autoQC03", "autoQC03", "autoQC03")
+  autoQC03 <- c(sprintf("%s_@@@_autoQC03dia_%02d", currentdate, autoQC03countx),
+                df$Path[1], sprintf("6:%s,%d", Y[autoQC03county], autoQC03countx),
+                1, "FGCZ", "autoQC03", "autoQC03", "autoQC03")
   output <- rbind(output, autoQC03)
   
-  output 
+  message("qconfigProteomicsEVOSEP6x12x8PlateHystar  DONE")
+  output  |> validate.qconfigProteomicsEVOSEP6x12x8PlateHystar()
+}
+
+validate.qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x){
+  # Validate that x is a data.frame
+  stopifnot(is.data.frame(x))
+  
+  # Validate column names
+  required_columns <- c("File Name", "Path", "Position", "Inj Vol", 
+                        "L3 Laboratory", "Sample ID", "Sample Name", "Instrument Method")
+  missing_columns <- setdiff(required_columns, colnames(x))
+  if(length(missing_columns) > 0) {
+    stop(paste("The following required columns are missing:", paste(missing_columns, collapse = ", ")))
+  }
+  
+  
+  x
 }
 
 
 
-#' autoQC01 template
+1#' autoQC01 template
 #'
 #' @param x 
 #' @param plateId 
