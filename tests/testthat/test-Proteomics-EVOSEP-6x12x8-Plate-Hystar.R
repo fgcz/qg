@@ -2,7 +2,7 @@
 
 context("plate")
 
-test_that("test Proteomics EVOSEP 6x12x8 Plate Hystar", {
+test_that("test Proteomics TimsTOFFlex EVOSEP 6x12x8 Plate Hystar", {
  
   ####################################################
   orderid <- 37202
