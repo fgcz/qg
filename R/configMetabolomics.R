@@ -1,8 +1,10 @@
 
 
 # Metabolomics ========================================
+#' pooledQC
 #' @author 2024-07-11 Martina
 #' @param x data frame with the samples
+#' @noRd
 .pooledQC <- function(x, plateId = "Y", QCrow = "H", mode = "", containerid=""){
   #plateId <- x$Position[nrow(x)] |> substr(1,1)
   data.frame(matrix(NA, ncol = ncol(x), nrow = 3)) -> pool
@@ -28,6 +30,7 @@
 # Metabolomics ========================================
 #' @author 2024-07-11 Martina
 #' @param x data frame with the samples
+#' @noRd
 .pooledQCSplash <- function(x, plateId = "Y", QCrow = "H", mode = "", containerid=""){
   #plateId <- x$Position[nrow(x)] |> substr(1,1)
   data.frame(matrix(NA, ncol = ncol(x), nrow = 3)) -> pool
@@ -53,6 +56,7 @@
 
 #' @inherit .pooledQC
 #' @author Martina 2024-11-05 11:24
+#' @noRd
 .pooledQCPlate <- function(x, plateId = "Y", QCrow = "H", mode = "", containerid=""){
   data.frame(matrix(NA, ncol = ncol(x), nrow = 4)) -> pool
   colnames(pool) <- colnames(x)

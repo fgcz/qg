@@ -7,7 +7,9 @@
 #' @title Build QG server
 #' @inheritParams shiny::shinyServer
 #' @import bfabricShiny
+#' @import shiny
 #' @export
+#' @noRd
 .buildQgServer <- function(input, output, session) {
   
   debugmode <- FALSE
@@ -636,7 +638,28 @@
       resourcename = sprintf("queue-C%s_%s.xml",
                              input$orderID[1],
                              format(Sys.time(), format="%Y%m%d-%H%M%S"))
-    }else{
+    }else if(grepl("Chronos", input$qFUN)){
+      message(msg <- paste0("Writing Chronos csv config file ",
+                     csvFilename(), " ..."))
+      
+      
+      df <- composeTable()
+      paste0("EvoSlot ", df$`Source Tray`) -> df$`Source Tray`
+      row.names <- 1:nrow(df) |> as.character()
+      utils::write.table(df,
+                         sep = ',',
+                         file = csvFilename(),
+                         row.names = TRUE,
+                         append = FALSE,
+                         quote = FALSE,
+                         eol = '\r\n')
+      filename <- csvFilename()
+      workunitname <- sprintf("Chronos-MS-configuration_orderID-%s", input$orderID[1])
+      resourcename = sprintf("queue-C%s_%s.csv",
+                             input$orderID[1],
+                             format(Sys.time(), format="%Y%m%d-%H%M%S"))
+      
+    } else{
       message(paste0("Writing XCalibur csv config file ",
                      csvFilename(), " ..."))
       

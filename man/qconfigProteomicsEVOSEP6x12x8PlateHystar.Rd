@@ -2,7 +2,7 @@
 % Please edit documentation in R/configProteomics.R
 \name{qconfigProteomicsEVOSEP6x12x8PlateHystar}
 \alias{qconfigProteomicsEVOSEP6x12x8PlateHystar}
-\title{queue confiug for Proteomics EVOSEP 6x12x8 Plate Hystar}
+\title{queue config for Proteomics EVOSEP 6 x 12 x 8 Plate Hystar}
 \usage{
 qconfigProteomicsEVOSEP6x12x8PlateHystar(x, howOften = 48, ...)
 }
@@ -13,12 +13,19 @@ qconfigProteomicsEVOSEP6x12x8PlateHystar(x, howOften = 48, ...)
 
 \item{...}{parameters to pass to \code{\link[qg]{.insertSample}}}
 }
+\value{
+a data.frame with the eight columns queue configuration
+}
 \description{
-queue confiug for Proteomics EVOSEP 6x12x8 Plate Hystar
+queue config for Proteomics EVOSEP 6 x 12 x 8 Plate Hystar
 }
 \details{
 increments clean and qc positions
+
+The function is used to generate a queue configuration for the Proteomics
+EVOSEP 6 x 12 x 8 Plate Hystar.
+Here the clean and autoQC runs are taken from an incrementing position.
 }
 \author{
-Claudia Fortes & Christian Panse
+Claudia Fortes & Christian Panse 2024-07-04, 2025-01-29
 }
