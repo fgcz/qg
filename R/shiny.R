@@ -640,19 +640,15 @@
                              format(Sys.time(), format="%Y%m%d-%H%M%S"))
     }else if(grepl("Chronos", input$qFUN)){
       message(msg <- paste0("Writing Chronos csv config file ",
-                     csvFilename(), " ..."))
+                            csvFilename(), " ..."))
       
       
       df <- composeTable()
       paste0("EvoSlot ", df$`Source Tray`) -> df$`Source Tray`
       row.names <- 1:nrow(df) |> as.character()
-      utils::write.table(df,
-                         sep = ',',
-                         file = csvFilename(),
-                         row.names = TRUE,
-                         append = FALSE,
-                         quote = FALSE,
-                         eol = '\r\n')
+      write.csv(df, file = csvFilename(),
+                row.names = TRUE,
+                quote = FALSE)
       filename <- csvFilename()
       workunitname <- sprintf("Chronos-MS-configuration_orderID-%s", input$orderID[1])
       resourcename = sprintf("queue-C%s_%s.csv",
