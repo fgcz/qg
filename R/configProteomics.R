@@ -255,6 +255,12 @@ qconfigProteomicsVialChronos <- function(x, howOften = 4, ...){
 }
 
 
+
+#'  Proteomics Exploris EVOSEP 6x12x8 Plate Chronos
+#' @inheritParams qconfigMetabolomicsVanquishPlateXCalibur 
+#' @returns a data.frame object
+#' @author Antje Dittmann 2024-09-03 2025-01-31
+#' @export
 qconfigProteomicsPlateChronos <- function(x, howOften = 4, ...){
   c("Analysis Method",
     "Source Tray",
@@ -302,6 +308,7 @@ qconfigProteomicsPlateChronos <- function(x, howOften = 4, ...){
 ## Clean Tray is Tray 6
 ## AutoQC01 is Tray 5 1-48
 ## AutoQC03 is Tray 5 49-96
+#' @noRd
 .chronos_autoQC01 <- function(x, containerid, ...){
   data.frame(matrix(NA, ncol = ncol(x), nrow = 2)) -> pool
   colnames(pool) <- colnames(x)
@@ -333,6 +340,7 @@ qconfigProteomicsPlateChronos <- function(x, howOften = 4, ...){
 ## Clean Tray is Tray 6
 ## AutoQC01 is Tray 5 1-48
 ## AutoQC03 is Tray 5 49-96
+#' @noRd
 .chronos_autoQC03 <- function(x, containerid, ...){
   data.frame(matrix(NA, ncol = ncol(x), nrow = 1)) -> pool
   colnames(pool) <- colnames(x)
