@@ -270,8 +270,7 @@ qconfigProteomicsPlateChronos <- function(x, howOften = 4, ...){
     "Xcalibur Filename",
     "Xcalibur Post Acquisition Program",
     "Xcalibur Output Dir",
-    "Comment") -> hh         
-  # browser()
+    "Comment") -> hh        
   
   
   counterAutoQC01 <<- 1
@@ -293,7 +292,7 @@ qconfigProteomicsPlateChronos <- function(x, howOften = 4, ...){
     `Source Tray` = x$Tray,
     `Source Vial` = x$Position,
     `Sample Name` = x$`Sample Name`,
-    `Xcalibur Method` = x$`Instrument Method`,
+    `Xcalibur Method` = "", ## x$`Instrument Method`,
     `Xcalibur Filename` = x$`File Name`,
     `Xcalibur Post Acquisition Program` = rep("c:\\FGCZ\\BioBeamer\\biobeamer.bat", nrow(x)),
     `Xcalibur Output Dir` = x$Path,
