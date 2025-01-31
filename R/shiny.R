@@ -485,8 +485,7 @@
       instrumentMode <- input$mode
     }
     
-    #browser()
-    
+  
     if (length(input$plateID) == 0){
       ## --------vial block (no plateid)------------ 
       ## we fetch all samples of a container
