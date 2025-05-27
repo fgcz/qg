@@ -87,7 +87,7 @@
     selectInput(
       "area",
       "Area:",
-      area,
+      c("Proteomics", "Metabolomics"),
       multiple = FALSE,
       selected = area,
       selectize = FALSE
