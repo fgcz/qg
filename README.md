@@ -12,14 +12,15 @@ https://gitlab.bfabric.org/proteomics/shiny-ms-apps-dockerized
 
 ## sample input
 
-cont | instument  |LC.         | position | type  | area
-:----|:--------|:-------|:---------|-------|-- 
-36104     | ASTRAL_1   | MCLASS     | 1:A,1    | vial. | P
-35270     | EXPLORIS_3 | VANQUISH   | 1:A1     | vial. | M
-35117     | TIMSTOF_1  | EVOSEP     | 1:A1     | plate | P
-36946     | EXPLORIS_2 | EVOSEP     | 1:A1     | vial  | P
-37142     | EXPORTIS_2 | EVOSEP     | 1:A1     | plate 479[34]  | P
-37146     | EXPLORIS_2 | EVOSEP chronos    | 1:A1     | vial  | P
+cont      | instument  |LC.               | position | type  | area
+:---------|:-----------|:-----------------|:---------|-------|-- 
+36104     | ASTRAL_1   | MCLASS           | 1:A,1    | vial. | P
+35270     | EXPLORIS_3 | VANQUISH         | 1:A1     | vial. | M
+35117     | TIMSTOF_1  | EVOSEP           | 1:A1     | plate | P
+36946     | EXPLORIS_2 | EVOSEP           | 1:A1     | vial  | P
+37142     | EXPORTIS_2 | EVOSEP           | 1:A1     | plate 479[34]  | P
+37146     | EXPLORIS_2 | EVOSEP chronos   | 1:A1     | vial  | P
+28073     | ASTRAL     | VANQUISH         |          |       |
 
 ## Motivation:
 
