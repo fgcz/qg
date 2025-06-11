@@ -65,10 +65,47 @@ anno 2010
 * https://fgcz-intranet.uzh.ch/tiki-index.php?page=sw.queueGenerator
 * runs as virtual machine: http://fgcz-c-072.uzh.ch:4001/extractPlateId/ 
 
-## REST
+## Usage
+
+1. install python3 bfabricPy package
 
 ```
-$ BFABRICPY_CONFIG_ENV=PRODUCTION bfabric_flask.py --port 5002
+uv tool install bfabric-scripts   
 ```
 
-## Next: functional test for all four use cases
+
+2. run the SOAP REST Proxy
+
+```
+BFABRICPY_CONFIG_ENV=FGCZSTABLE  bfabric_flask.py
+```
+
+3.
+
+set HOME `.Renviron`
+```
+login="$USER"
+webservicepassword="eXXXe3XXX55dc39eXXXaeb763ec2XXXX"
+bfabricposturl="http://127.0.0.1:5000/"
+```
+
+4.
+
+install and use the queue generator 
+
+```
+devtools::install_github("fgcz/qg")
+
+shiny::shinyApp(ui = qg::.buildQgUI , server = qg::.buildQgServer)
+
+```
+
+5. 
+
+
+Read how to use it on the command line:
+
+```
+
+browserViewer("qg")
+```
