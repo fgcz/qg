@@ -1,11 +1,12 @@
 # queueGenerator
 
-```{r}
+```
 shiny::shinyApp(ui = qg::.buildQgUI , server = qg::.buildQgServer) -> qg
 qg
 
 ## Have a lot of fun!
 ```
+
 ## Install:
 
 https://gitlab.bfabric.org/proteomics/shiny-ms-apps-dockerized
@@ -83,6 +84,7 @@ BFABRICPY_CONFIG_ENV=FGCZSTABLE  bfabric_flask.py
 3.
 
 set HOME `.Renviron`
+
 ```
 login="$USER"
 webservicepassword="eXXXe3XXX55dc39eXXXaeb763ec2XXXX"
@@ -106,6 +108,5 @@ shiny::shinyApp(ui = qg::.buildQgUI , server = qg::.buildQgServer)
 Read how to use it on the command line:
 
 ```
-
 browserViewer("qg")
 ```
