@@ -10,6 +10,8 @@ Sys.getenv('login') ->> login
 Sys.getenv('webservicepassword') ->> webservicepassword
 Sys.getenv('bfabricposturl') ->> posturl
 
+message(paste0("login = ", login))
+
 suppressPackageStartupMessages(library(qg))
 suppressPackageStartupMessages(library(bfabricShiny))
 

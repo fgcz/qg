@@ -1,6 +1,6 @@
 #R
 
-context("plate")
+context("Proteomics c37146 EXPLORIS_2 EVOSEP 6x12x8 Plate Chronos")
 
 test_that("test Proteomics Exploris EVOSEP 6x12x8 Plate Chronos", {
  

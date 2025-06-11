@@ -1,6 +1,6 @@
 #R
 
-context("container")
+context("container technology")
 
 test_that("test container technology", {
   containerids <- c(35270, 35117, 31741)
