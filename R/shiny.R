@@ -733,7 +733,7 @@
         br(),
         a("internal queue generator tiki-wiki page", href="https://fgcz-intranet.uzh.ch/tiki-index.php?page=sw.queueGenerator"),
         br(),
-        a('source code', href='https://gitlab.bfabric.org/proteomics/qg'),
+        a('source code', href='https://github.com/fgcz/qg/issues'),
         uiOutput('debug'),
         plotOutput('plotFirstPlate')
       ),
