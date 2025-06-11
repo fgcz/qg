@@ -212,10 +212,7 @@
     )
   })
   
-  output$debug <- shiny::renderPrint({
-    cat(paste0("R version:", R.version.string))
-    cat(paste0("qg version:", packageVersion('qg')))
-  })
+b
   
   # input plateID ------------
   output$plateID <- renderUI({
