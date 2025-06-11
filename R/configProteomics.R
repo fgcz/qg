@@ -146,7 +146,7 @@ validate.qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x){
 
 
 
-1#' autoQC01 template
+#' autoQC01 template
 #'
 #' @param x 
 #' @param plateId 
@@ -157,19 +157,18 @@ validate.qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x){
 #'
 #' @return \code{data.frame} object
 .autoQC01 <- function(x, plateId = "1", QCrow = "H", mode = "", containerid="", lc = "M_CLASS48_48"){
+  message(paste0("autoQC01 lc = ", lc))
   data.frame(matrix(NA, ncol = ncol(x), nrow = 1)) -> pool
   colnames(pool) <- colnames(x)
   currentdate <- format(Sys.time(), "%Y%m%d")
   
   pool[1, "File Name"] <- sprintf("%s_@@@_C%s_autoQC01%s", currentdate, containerid, mode)
-  
-  if (lc == "M_CLASS48_48"){
-    pool$Position[1] <- "1:F,8"
-  }else{
-    pool$Position[1] <- sprintf("%s:%s%d", plateId, QCrow, 1)
-  }
-  
-  pool$`Sample Name`[1] <- sprintf("autoQC01%s", mode)
+  pool[1, "Position"] <- switch(lc,
+                             "M_CLASS48_48" = "1:F,8",
+                             "Vanquish"     = "1:F8",
+                             sprintf("%s:%s%d", plateId, QCrow, 1)
+  )
+  pool[1, "Sample Name"] <- sprintf("autoQC01%s", mode)
   
   pool$`Inj Vol` <- 2
   pool
