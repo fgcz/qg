@@ -18,7 +18,7 @@
                          where = NA,
                          howOften = round(nrow(x) / 2),
                          sampleFUN = NA,
-                         path=NA, ...){
+                         path = NA, ...){
   output <- data.frame(matrix(ncol = ncol(x), nrow = 0))
   colnames(output) <- colnames(x)
   
