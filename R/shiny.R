@@ -564,6 +564,7 @@
       
       #browser()
       do.call(what = input$qFUN, args = list(x = df,
+                                             lc = input$lc,
                                              containerid = input$orderID[1],
                                              howOften = as.integer(input$frequency))) |>
         qg::.replaceRunIds()
@@ -702,7 +703,7 @@
 #' Define queue generator UI ======
 #' @importFrom shiny fluidPage titlePanel sidebarLayout sidebarPanel uiOutput hr
 #' @importFrom shiny uiOutput htmlOutput NS br a
-#' @importFrom DT dataTableOutput
+#' @importFrom shiny dataTableOutput
 #' @export
 .buildQgUI <-  function(){
   
@@ -733,13 +734,13 @@
         br(),
         a("internal queue generator tiki-wiki page", href="https://fgcz-intranet.uzh.ch/tiki-index.php?page=sw.queueGenerator"),
         br(),
-        a('source code', href='https://github.com/fgcz/qg/issues'),
+        a('issues', href='https://github.com/fgcz/qg/issues'),
         uiOutput('debug'),
         plotOutput('plotFirstPlate')
       ),
       mainPanel(
         list(
-          DT::dataTableOutput(("outputKable"))
+          dataTableOutput(("outputKable"))
         )
       )
     )
