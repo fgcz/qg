@@ -711,7 +711,7 @@
   #ns <- NS(id)
   
   fluidPage(
-    titlePanel(sprintf("MS Queue Generator (qg)")), 
+    titlePanel(sprintf("MS Queue Generator (qg v%s)", packageVersion('qg'))), 
     sidebarLayout(
       sidebarPanel(
         uiOutput(("bfabricUser")),
