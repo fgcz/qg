@@ -735,7 +735,7 @@
         br(),
         a("Internal queue generator tiki-wiki page", href="https://fgcz-intranet.uzh.ch/tiki-index.php?page=sw.queueGenerator"),
         br(),
-        a('Issues', href='https://github.com/fgcz/qg/issues'),
+        a('Report an issue', href='https://github.com/fgcz/qg/issues'),
         uiOutput('debug'),
         plotOutput('plotFirstPlate')
       ),
