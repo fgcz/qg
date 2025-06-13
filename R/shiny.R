@@ -214,8 +214,9 @@
   
   output$debug <- shiny::renderPrint({
     cat(paste0("R version:", R.version.string))
-    cat(paste0("qg version:", packageVersion('qg')))
+    cat(paste0(" | qg version:", packageVersion('qg')))
   })
+
   
   # input plateID ------------
   output$plateID <- renderUI({
@@ -710,7 +711,7 @@
   #ns <- NS(id)
   
   fluidPage(
-    titlePanel(sprintf("MS Queue Generator (qg)")), 
+    titlePanel(sprintf("MS Queue Generator (qg v%s)", packageVersion('qg'))), 
     sidebarLayout(
       sidebarPanel(
         uiOutput(("bfabricUser")),
@@ -730,11 +731,11 @@
         uiOutput(("frequency")),
         htmlOutput(("download")),
         hr(),
-        a("b-fabric application 319 page", href="https://fgcz-bfabric.uzh.ch/bfabric/application/show.html?id=319"),
+        a("B-fabric application 319 page", href="https://fgcz-bfabric.uzh.ch/bfabric/application/show.html?id=319"),
         br(),
-        a("internal queue generator tiki-wiki page", href="https://fgcz-intranet.uzh.ch/tiki-index.php?page=sw.queueGenerator"),
+        a("Internal queue generator tiki-wiki page", href="https://fgcz-intranet.uzh.ch/tiki-index.php?page=sw.queueGenerator"),
         br(),
-        a('issues', href='https://github.com/fgcz/qg/issues'),
+        a('Report an issue', href='https://github.com/fgcz/qg/issues'),
         uiOutput('debug'),
         plotOutput('plotFirstPlate')
       ),
