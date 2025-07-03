@@ -51,7 +51,7 @@ anno 2010
 cont   | instument  |LC.       | system   | position | type           | area | test |
 :------|:-----------|:---------|:---------|:---------|:---------------|:----:|:-----|
 36104  | ASTRAL_1   | MCLASS   | XC SII   | 1:A,1    | vial           | P    | |
-35270  | EXPLORIS_3 | VANQUISH |          | 1:A1     | vial           | M    | |
+35270  | EXPLORIS_3 | VANQUISH |          | 1:A1     | vial           | M    |git  |
 35117  | TIMSTOF_1  | EVOSEP   | HyStar   | 1:A1     | plate          | P    |<input type="checkbox" checked style="accent-color: #4CAF50;">|
 36946  | EXPLORIS_2 | EVOSEP.  |          | 1:A1     | vial           | P    | |
 37142  | EXPLORIS_2 | EVOSEP   |          | 1:A1     | plate 479[34]  | P    | |
