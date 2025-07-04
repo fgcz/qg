@@ -115,7 +115,11 @@
   currentdate <- format(Sys.time(), "%Y%m%d")
   
   for (i in 1:7){
-    pool[i, "File Name"] <- sprintf("%s_@@@_C%s_pooledQCDil%d%s", currentdate, containerid, i, mode)
+    if (i != 7){
+      pool[i, "File Name"] <- sprintf("%s_@@@_C%s_pooledQCDil%d%s", currentdate, containerid, i, mode)
+    }else{
+      pool[i, "File Name"] <- sprintf("%s_@@@_C%s_pooledQC%s", currentdate, containerid, mode)
+    }
     pool$Position[i] <- sprintf("%s:%s%d", plateId, QCrow,i + 1)
     pool$`Sample Name`[i] <- sprintf("QC dil%d%s", i, mode)
     pool$`Instrument Method`[i] <- "xxxxxx  xxxx  x"
