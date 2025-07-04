@@ -190,7 +190,7 @@
   output$orderID <- renderUI({
     shiny::req(user())
     
-    if (user()$login == 'cxpanse'){
+    if (user()$login == 'cpanse'){
       return( selectInput(
         "orderID",
         "Order ID:",
