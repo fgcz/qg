@@ -14,11 +14,10 @@ EXPLORIS_4;Metabolomics;XCalibur;Vanquish
 FUSION_2;Proteomics;XCalibur;M_CLASS48_48
 LUMOS_1;Proteomics;XCalibur;M_CLASS48_48
 LUMOS_2;Proteomics;XCalibur;Vanquish
+LUMOS_2;Proteomics;XCalibur;M_CLASS48_48
 QEXACTIVEHF_2;Metabolomics;XCalibur;Vanquish
 QEXACTIVEHF_3;Proteomics;XCalibur;M_CLASS48_48
 QEXACTIVEHF_4;Proteomics;XCalibur;M_CLASS48_48
-QEXACTIVE_2;Metabolomics;XCalibur;Vanquish
-QEXACTIVE_2;Proteomics;XCalibur;M_CLASS48_48
 QEXACTIVE_3;Metabolomics;XCalibur;Vanquish
 QUANTIVA_1;Metabolomics;XCalibur;Vanquish
 TIMSTOFFLEX_1;Proteomics;Hystar;EVOSEP6x12x8
