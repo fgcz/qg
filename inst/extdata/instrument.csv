@@ -1,19 +1,21 @@
 instrument;area;system;lc
 ASTRAL_1;Proteomics;VialChronos;EVOSEP6x12x8
-ASTRAL_1;Proteomics;XCaliburSII;Vanquish
-ASCEND_1;Proteomics;XCaliburSII;M_CLASS48_48
-EXPLORIS_1;Proteomics;Chronos;EVOSEP6x12x8
-EXPLORIS_1;Proteomics;XCaliburLCDevices;M_CLASS48_48
+ASTRAL_1;Proteomics;VialXCaliburSII;Vanquish
+ASCEND_1;Proteomics;VialXCaliburSII;M_CLASS48_48
+EXPLORIS_1;Proteomics;VialChronos;EVOSEP6x12x8
+EXPLORIS_1;Proteomics;VialXCaliburLCDevices;M_CLASS48_48
 EXPLORIS_2;Proteomics;VialChronos;EVOSEP6x12x8
 EXPLORIS_2;Proteomics;VialXCaliburLCDevices;M_CLASS48_48
-EXPLORIS_2;Proteomics;XCaliburSII;M_CLASS48_48
-LUMOS_2;Proteomics;XCaliburLCDevices;Vanquish
-LUMOS_2;Proteomics;XCaliburLCDevices;M_CLASS48_48
-QEXACTIVE_1;Proteomics;XCaliburLCDevices;M_CLASS48_48
+EXPLORIS_2;Proteomics;PlateXCaliburLCDevices;M_CLASS48_48
+# EXPLORIS_2;Proteomics;XCaliburSII;M_CLASS48_48
+# LUMOS_2;Proteomics;XCaliburLCDevices;Vanquish
+LUMOS_2;Proteomics;PlateXCaliburLCDevices;M_CLASS48_48
+LUMOS_2;Proteomics;VialXCaliburLCDevices;M_CLASS48_48
+QEXACTIVE_1;Proteomics;VialXCaliburLCDevices;M_CLASS48_48
 TIMSTOFFLEX_1;Proteomics;Hystar;EVOSEP6x12x8
 TIMSTOF_1;Proteomics;Hystar;EVOSEP6x12x8
-EXPLORIS_3;Metabolomics;XCalibur;Vanquish
-EXPLORIS_4;Metabolomics;XCalibur;Vanquish
-QEXACTIVEHF_2;Metabolomics;XCalibur;Vanquish
-QEXACTIVE_3;Metabolomics;XCalibur;Vanquish
-QUANTIVA_1;Metabolomics;XCalibur;Vanquish
+EXPLORIS_3;Metabolomics;XCaliburSII;Vanquish
+EXPLORIS_4;Metabolomics;XCaliburSII;Vanquish
+QEXACTIVEHF_2;Metabolomics;XCaliburSII;Vanquish
+# QEXACTIVE_3;Metabolomics;XCaliburSII;Vanquish
+QUANTIVA_1;Metabolomics;XCaliburSII;Vanquish
