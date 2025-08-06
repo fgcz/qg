@@ -355,9 +355,13 @@ qconfigMetabolomicsVanquishVialXCaliburSII <- function(x, howOften = 22, ...){
 }
 
 #' qconfig metabolomics for plates
-#'
+#' 
+#' @seealso also test-Metabolomics-Vanquish-VialXCaliburSII-EXPLORIS_4-c37530.R
 #' @inheritParams qconfigMetabolomicsVanquishPlateXCaliburSII
 #' @export
+#' @examples
+#' qg:::.readPackageFile('test-Metabolomics-Vanquish-VialXCaliburSII-EXPLORIS_4-c37530.RData') |>
+#' qconfigMetabolomicsVanquishVialXCaliburSIIEquiSPLASH()
 qconfigMetabolomicsVanquishVialXCaliburSIIEquiSPLASH <- function(x, howOften = 22, ...){
   #write.csv2(x, file ="/tmp/c37530-MetabolomicsVanquishVialXCaliburSIIEquiSPLASH.csv", row.names = FALSE)
   #browser()

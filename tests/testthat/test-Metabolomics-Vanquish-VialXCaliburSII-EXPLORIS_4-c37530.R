@@ -10,7 +10,7 @@ testthat::test_that("test Metabolomics Vanquish VialXCaliburSII EquiSPLASH", {
   qFUN <- "qconfigMetabolomicsVanquishVialXCaliburSIIEquiSPLASH"
   
   
-  qg:::.readPackageFile('test-c37530-MetabolomicsVanquishVialXCaliburSIIEquiSPLASH.RData') -> df
+  qg:::.readPackageFile('test-Metabolomics-Vanquish-VialXCaliburSII-EXPLORIS_4-c37530.RData') -> df
 
   howOften <- 16
 
