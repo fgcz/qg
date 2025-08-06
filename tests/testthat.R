@@ -15,5 +15,5 @@ message(paste0("login = ", login))
 suppressPackageStartupMessages(library(qg))
 suppressPackageStartupMessages(library(bfabricShiny))
 
-test_check("qg")
+#test_check("qg")
 

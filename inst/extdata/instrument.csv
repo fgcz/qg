@@ -14,8 +14,9 @@ LUMOS_2;Proteomics;VialXCaliburLCDevices;M_CLASS48_48
 QEXACTIVE_1;Proteomics;VialXCaliburLCDevices;M_CLASS48_48
 TIMSTOFFLEX_1;Proteomics;Hystar;EVOSEP6x12x8
 TIMSTOF_1;Proteomics;Hystar;EVOSEP6x12x8
-EXPLORIS_3;Metabolomics;XCaliburSII;Vanquish
-EXPLORIS_4;Metabolomics;XCaliburSII;Vanquish
-QEXACTIVEHF_2;Metabolomics;XCaliburSII;Vanquish
+EXPLORIS_3;Metabolomics;VialXCaliburSII;Vanquish
+EXPLORIS_3;Metabolomics;PlateXCaliburSII;Vanquish
+EXPLORIS_4;Metabolomics;VialXCaliburSII;Vanquish
+QEXACTIVEHF_2;Metabolomics;VialXCaliburSII;Vanquish
 # QEXACTIVE_3;Metabolomics;XCaliburSII;Vanquish
-QUANTIVA_1;Metabolomics;XCaliburSII;Vanquish
+QUANTIVA_1;Metabolomics;VialXCaliburSII;Vanquish

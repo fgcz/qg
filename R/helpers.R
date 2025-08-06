@@ -2,14 +2,31 @@
 
 ## Christian Panse <cp@fgcz.ethz.ch> 2025-08-06
 
-.validateReadInstrumentConfig <- function(x){
+.validateReadConfigInstrument <- function(x){
+  
+  stopifnot(c("area", "system", "lc", "instrument") %in% names(x))
+  
+  stopifnot(x$area |> unique()  %in% c("Proteomics","Metabolomics"))
+  
+  stopifnot(x$system |> unique() %in% c("Hystar",
+              "VialChronos",
+              "VialXCaliburSII",
+              "VialXCaliburLCDevices",
+              "VialXCaliburSII",
+              "PlateXCaliburLCDevices",
+              "PlateXCaliburSII"))
+  
+  stopifnot(x$lc |> unique() %in% c("EVOSEP6x12x8", "Vanquish", "M_CLASS48_48"))
+  
   x
 }
 
-.readInstrumentConfig <- function(){
-  file.path(system.file(package = "qg"), "extdata", 
-            "instrument.csv") -> f
+.readConfigInstrument <- function(f = file.path(system.file(package = "qg"), "extdata", 
+                                             "instrument.csv") ){
   stopifnot(file.exists(f))
+  
+  message("Reading instrument configuration from file", f, "...")
+  
   read.table(f, header = TRUE, sep = ";") |>
-    .validateReadInstrumentConfig()
+    .validateReadConfigInstrument()
 }

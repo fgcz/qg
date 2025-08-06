@@ -2,7 +2,7 @@
 ## 2024-07-04 Claudia Fortes / Christian Panse
 
 #' @title queue config for Proteomics EVOSEP 6 x 12 x 8 Plate Hystar
-#' @inheritParams qconfigMetabolomicsVanquishPlateXCalibur
+#' @inheritParams qconfigMetabolomicsVanquishPlateXCaliburSII
 #' @details increments clean and qc positions 
 #' @author Claudia Fortes & Christian Panse 2024-07-04, 2025-01-29
 #' @return a data.frame with the eight columns queue configuration
@@ -175,7 +175,6 @@ validate.qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x){
 }
 
 #' @title queue confiug for Proteomics 
-#' @inheritParams qconfigMetabolomicsVanquishPlateXCalibur
 #' @details increments clean and qc positions 
 #' \itemize{
 #' \item position mapping f: 1-48 -> (1:8; A:F) starting: A,1; A,2; ...; A,8; B,1; ...; F,8
@@ -184,7 +183,7 @@ validate.qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x){
 #' 
 #' qconfig metabolomics for plates
 #'
-#' @inheritParams qconfigMetabolomicsVanquishPlateXCalibur
+#' @inheritParams qconfigMetabolomicsVanquishPlateXCaliburSII
 #' @export
 qconfigProteomicsVialXCaliburLCDevices <- function(x, howOften = 4, ...){
   cn <- c("File Name", "Path", "Position", "Inj Vol", "L3 Laboratory",
@@ -213,7 +212,7 @@ qconfigProteomicsVialXCaliburLCDevices <- function(x, howOften = 4, ...){
 }
 
 #' @title queue config for Proteomics Vial and Chronos 
-#' @inherit qconfigMetabolomicsVanquishPlateXCalibur
+#' @inherit qconfigMetabolomicsVanquishPlateXCaliburSII
 #' @export
 qconfigProteomicsVialChronos <- function(x, howOften = 4, ...){
   # qconfigProteomicsVialXCalibur(x, howOften = howOften, ...) -> rv
@@ -256,7 +255,7 @@ qconfigProteomicsVialChronos <- function(x, howOften = 4, ...){
 
 
 #'  Proteomics Exploris EVOSEP 6x12x8 Plate Chronos
-#' @inheritParams qconfigMetabolomicsVanquishPlateXCalibur 
+#' @inheritParams qconfigMetabolomicsVanquishPlateXCaliburSII
 #' @returns a data.frame object
 #' @author Antje Dittmann 2024-09-03 2025-01-31
 #' @export
@@ -362,6 +361,14 @@ qconfigProteomicsPlateChronos <- function(x, howOften = 4, ...){
 
 
 qconfigProteomicsPlateChronosX <- function(x, howOften = 4, ...){
-  x
+  shiny::showNotification("qconfigProteomicsPlateChronosX is not implemented.",
+                          duration = 20, type = "error")
+  return(x)
+}
+
+qconfigProteomicsPlateXCaliburSII <- function(x, ...){
+  shiny::showNotification("method qconfigProteomicsPlateXCaliburSII is not implemented.",
+                          duration = 20, type = "error")
+ return(x)
 }
   

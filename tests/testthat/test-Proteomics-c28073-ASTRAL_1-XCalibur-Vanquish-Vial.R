@@ -8,8 +8,8 @@ test_that("test Proteomics ASTRAL_1 XCalibur Vanquish Vial", {
   ####################################################
   orderId <- 28073
   instrumentMode <- ""
-  qFUN <- "qconfigProteomicsVialXCalibur"
- 
+  qFUN <- "qconfigProteomicsVialXCaliburLCDevices"
+  
   ####################################################
   
   rv <- qg::.readSampleOfContainer(containerID = orderId,

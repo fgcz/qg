@@ -25,6 +25,7 @@ License: GPL-3 + file LICENSE
 LazyData: FALSE
 SystemRequirements: installed bfabricPy python3 package
 Collate:
+    helpers.R
     configs.R
     configProteomics.R
     configMetabolomics.R

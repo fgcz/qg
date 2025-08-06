@@ -212,7 +212,7 @@
 #' @return data.frame
 #' @export
 #' @author Martina CP 2024-11-05
-qconfigMetabolomicsVanquishPlateXCalibur <- function(x, howOften = 22, ...){
+qconfigMetabolomicsVanquishPlateXCaliburSII <- function(x, howOften = 22, ...){
   cn <- c("File Name", "Path", "Position", "Inj Vol", "L3 Laboratory",
           "Sample ID", "Sample Name", "Instrument Method")
   
@@ -247,9 +247,9 @@ qconfigMetabolomicsVanquishPlateXCalibur <- function(x, howOften = 22, ...){
 
 #' qconfig metabolomics for plates
 #'
-#' @inheritParams qconfigMetabolomicsVanquishPlateXCalibur
+#' @inheritParams qconfigMetabolomicsVanquishPlateXCaliburSII
 #' @export
-qconfigMetabolomicsVanquishVialXCalibur <- function(x, howOften = 22, ...){
+qconfigMetabolomicsVanquishVialXCaliburSII <- function(x, howOften = 22, ...){
   cn <- c("File Name", "Path", "Position", "Inj Vol", "L3 Laboratory",
           "Sample ID", "Sample Name", "Instrument Method")
   
@@ -283,9 +283,9 @@ qconfigMetabolomicsVanquishVialXCalibur <- function(x, howOften = 22, ...){
 
 #' qconfig metabolomics for plates
 #'
-#' @inheritParams qconfigMetabolomicsVanquishPlateXCalibur
+#' @inheritParams qconfigMetabolomicsVanquishPlateXCaliburSII
 #' @export
-qconfigMetabolomicsVanquishVialXCaliburSplash <- function(x, howOften = 22, ...){
+qconfigMetabolomicsVanquishVialXCaliburSIISplash <- function(x, howOften = 22, ...){
   cn <- c("File Name", "Path", "Position", "Inj Vol", "L3 Laboratory",
           "Sample ID", "Sample Name", "Instrument Method")
   

@@ -17,10 +17,7 @@
   
   
   configInstrument <- reactive({
-    f <- file.path(system.file(package = "qg"), "extdata", 
-                   "instrument.csv")
-    stopifnot(file.exists(f))
-    read.table(f, header = TRUE, sep = ";")
+   .readConfigInstrument()
   })
   
   columnOrder <<- c("File Name",
@@ -153,15 +150,13 @@
     #shiny::req(read_plateid())
     #browser()
     c(
-      "qconfigMetabolomicsVanquishPlateXCaliburLCDevices",
-      "qconfigMetabolomicsVanquishVialXCalibur",
-      "qconfigMetabolomicsVanquishVialXCaliburSPLASH",
-      "qconfigMetabolomicsVanquishVialXCaliburEquiSPLASH",
+      "qconfigMetabolomicsVanquishPlateXCaliburSII",
+      "qconfigMetabolomicsVanquishVialXCaliburSII",
+      "qconfigMetabolomicsVanquishVialXCaliburSIISPLASH",
+      "qconfigMetabolomicsVanquishVialXCaliburSIIEquiSPLASH",
       "qconfigProteomicsVialXCaliburLCDevices",
       "qconfigProteomicsPlateXCaliburLCDevices",
-       
       "qconfigProteomicsVialXCaliburSII",
-      
       "qconfigProteomicsPlateXCaliburSII",
       "qconfigProteomicsVialChronos",
       "qconfigProteomicsPlateChronos",
