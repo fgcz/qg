@@ -1,0 +1,55 @@
+---
+title: "config"
+author: "Christian Panse"
+format: revealjs
+---
+
+## setup
+
+```{bash}
+cat ../inst/extdata/instrument.csv \
+  | grep Proteomics \
+  | awk -F";" '
+    BEGIN{
+      print "digraph G {"
+      print "\trankdir = LR;"
+      print "\tnode [shape=box, style=rounded, fontname=\"Arial\"];"
+      print "\tedge [fontname=\"Arial\", fontsize=10];"
+      print "\tgraph [bgcolor=white, fontname=\"Arial\", fontsize=12];"
+      print ""
+      print "\t// Area node"
+      print "\tProteomics [shape=ellipse, style=filled, fillcolor=lightblue, fontsize=14, fontweight=bold];"
+      print ""
+    }
+    {
+      instrument = $2$1
+      lc = $2$1$4
+      system = $2$1$4$3
+      
+      print "\t// Instrument: " $1
+      print "\t" instrument " [style=filled, fillcolor=lightgreen];"
+      print "\t" lc " [style=filled, fillcolor=lightyellow];"
+      print "\t" system " [style=filled, fillcolor=lightcoral];"
+      print "\tProteomics -> " instrument " -> " lc " -> " system ";"
+      print ""
+    }
+    END{
+      print "\t// Legend"
+      print "\tsubgraph cluster_legend {"
+      print "\t\tlabel=\"Legend\";"
+      print "\t\tstyle=filled;"
+      print "\t\tfillcolor=lightgray;"
+      print "\t\tarea_legend [label=\"Area\", shape=ellipse, style=filled, fillcolor=lightblue];"
+      print "\t\tinstrument_legend [label=\"Instrument\", style=filled, fillcolor=lightgreen];"
+      print "\t\tlc_legend [label=\"LC System\", style=filled, fillcolor=lightyellow];"
+      print "\t\tsystem_legend [label=\"Control System\", style=filled, fillcolor=lightcoral];"
+      print "\t}"
+      print "}"
+    }' > proteomics.dot 
+```
+
+## config
+
+```{dot}
+#| file: proteomics.dot
+```
