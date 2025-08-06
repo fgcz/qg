@@ -186,7 +186,7 @@ validate.qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x){
 #'
 #' @inheritParams qconfigMetabolomicsVanquishPlateXCalibur
 #' @export
-qconfigProteomicsVialXCalibur <- function(x, howOften = 4, ...){
+qconfigProteomicsVialXCaliburLCDevices <- function(x, howOften = 4, ...){
   cn <- c("File Name", "Path", "Position", "Inj Vol", "L3 Laboratory",
           "Sample ID", "Sample Name", "Instrument Method")
   

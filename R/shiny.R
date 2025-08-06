@@ -152,21 +152,27 @@
     shiny::req(input$system)
     #shiny::req(read_plateid())
     #browser()
-    c("qconfigProteomicsEVOSEP6x12x8PlateHystar",
-      "qconfigMetabolomicsVanquishPlateXCalibur",
-      "qconfigProteomicsVialXCalibur",
+    c(
+      "qconfigMetabolomicsVanquishPlateXCaliburLCDevices",
+      "qconfigMetabolomicsVanquishVialXCalibur",
+      "qconfigMetabolomicsVanquishVialXCaliburSPLASH",
+      "qconfigMetabolomicsVanquishVialXCaliburEquiSPLASH",
+      "qconfigProteomicsVialXCaliburLCDevices",
+      "qconfigProteomicsPlateXCaliburLCDevices",
+       
+      "qconfigProteomicsVialXCaliburSII",
+      
+      "qconfigProteomicsPlateXCaliburSII",
       "qconfigProteomicsVialChronos",
       "qconfigProteomicsPlateChronos",
       "qconfigProteomicsPlateChronosX",
-      "qconfigMetabolomicsVanquishVialXCalibur",
-      "qconfigMetabolomicsVanquishVialXCaliburSplash"
+      "qconfigProteomicsEVOSEP6x12x8PlateHystar"
      ) -> qc
     
     ## filter for area and system and lc
     qc[ base::grepl(pattern = input$area, x = qc) ] -> qc
     qc[ base::grepl(pattern = input$system, x = qc) ] -> qc
-   # qc[ base::grepl(pattern = input$lc, x = qc) ] -> qc
-    
+   
     if (is.null(read_plateid())){
       qc[ base::grepl(pattern = "Vial", x = qc) ] -> qc
     }else{
@@ -194,7 +200,7 @@
       return( selectInput(
         "orderID",
         "Order ID:",
-        c("28073", "31741",  "35464", "34843", "34777", "34778", "35117", "35270", "35394"),
+        c("28073", "31741",  "35464", "34843", "34777", "34778", "35117", "35270", "35394", "38884"),
         selected = "31741",
         multiple = TRUE,
         selectize = FALSE
