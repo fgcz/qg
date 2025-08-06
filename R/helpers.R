@@ -30,3 +30,15 @@
   read.table(f, header = TRUE, sep = ";") |>
     .validateReadConfigInstrument()
 }
+
+#' export
+.readPackageFile <- function(f = "test-c37530-MetabolomicsVanquishVialXCaliburSIIEquiSPLASH.RData"){
+  
+  file.path(system.file(package = "qg"), "extdata", f) -> f
+  stopifnot(file.exists(f))
+  
+  e <- new.env()
+  base::load(file = f, envir = e)
+  
+  e$df
+}

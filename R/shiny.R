@@ -195,7 +195,8 @@
       return( selectInput(
         "orderID",
         "Order ID:",
-        c("28073", "31741",  "35464", "34843", "34777", "34778", "35117", "35270", "35394", "38884"),
+        c("28073", "31741",  "35464", "34843", "34777", "34778",
+          "35117", "35270", "35394", "38884", "37530") |> unique(),
         selected = "31741",
         multiple = TRUE,
         selectize = FALSE
@@ -480,7 +481,7 @@
     shiny::req(input$area)
     #shiny::req(input$plateID)
     shiny::req(input$qFUN)
-    
+    SAVERDATA <- TRUE
     QCrow <- "F"
     instrumentMode <- ""
     if (input$area == "Metabolomics"){
@@ -516,7 +517,7 @@
       shiny::withProgress(message = 'Reading sample of plate(s)',
                           value = 0, session = session, {
         input$plateID |>
-          lapply(FUN=function(pid){
+          lapply(FUN = function(pid){
             shiny::incProgress(1/length(input$plateID))
             readPlate(pid, login = bf$login(),
                       webservicepassword = bf$webservicepassword(),
@@ -552,10 +553,26 @@
       message("Output table saved to ", tf)
     } 
     
+    if (SAVERDATA) {
+      
+      filenameRData <- file.path("/tmp/", paste("test", input$area,
+                                                input$lc,
+                                                input$system,
+                                                input$instrument,
+                                                paste0("c", input$orderID[1], ".RData"),
+                                                sep='-'))
+      
+      shiny::showNotification(paste0("Save file ", filenameRData))
+      base::save(df, file = filenameRData)
+    }
+    
     ## ------injectSamples------
     ## here we inject the clean|blank|qc runs and finally replace @@@ with run#
     #df$`Sample Name` <- paste0(df$`Sample Name`, mode)
     if (input$area == "Metabolomics"){
+      
+     
+      
       do.call(what = input$qFUN, args = list(x = df,
                                              containerid = input$orderID[1],
                                              QCrow = QCrow,
@@ -563,7 +580,10 @@
                                              howOften = as.integer(input$frequency))) |>
         qg::.replaceRunIds()
     }else{
-      
+      if (SAVERDATA) {
+       # filenameRData <- file.path("/tmp/", paste0(input$area,"_c", input$orderID[1], ".RData"))
+       # base::save(df, file = filenameRData)
+      }
       #browser()
       do.call(what = input$qFUN, args = list(x = df,
                                              lc = input$lc,
@@ -590,7 +610,6 @@
       text(x = x, y = y, labels = run, cex = 1.4)
       
       lines(x, y)
-      
     }
   })
   

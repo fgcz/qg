@@ -285,7 +285,7 @@ qconfigMetabolomicsVanquishVialXCaliburSII <- function(x, howOften = 22, ...){
 #'
 #' @inheritParams qconfigMetabolomicsVanquishPlateXCaliburSII
 #' @export
-qconfigMetabolomicsVanquishVialXCaliburSIISplash <- function(x, howOften = 22, ...){
+qconfigMetabolomicsVanquishVialXCaliburSIISPLASH <- function(x, howOften = 22, ...){
   cn <- c("File Name", "Path", "Position", "Inj Vol", "L3 Laboratory",
           "Sample ID", "Sample Name", "Instrument Method")
   
@@ -297,6 +297,82 @@ qconfigMetabolomicsVanquishVialXCaliburSIISplash <- function(x, howOften = 22, .
   im <- paste0(x$Path[1], "\\methods\\")
   
   x |> .insertSample(howOften = howOften + 1, sampleFUN = .pooledQCSplash,
+                     path = x$Path[1], ...) -> x
+  
+  # START
+  x |> .insertSample(where = 0, sampleFUN = .pooledQCDilSplash, path = x$Path[1], ...) -> x
+  x |> .insertSample(where = 0, sampleFUN = .clean, path = x$Path[1], ...) -> x
+  x |> .insertSample(where = 0, sampleFUN = .clean, path = x$Path[1], ...) -> x
+  
+  # END
+  x |> .insertSample(where = (nrow(x) + 1), sampleFUN = .clean, path = x$Path[1], ...) -> x
+  x |> .insertSample(where = (nrow(x) + 1), sampleFUN = .clean, path = x$Path[1], ...) -> x
+  
+  x |> .insertSample(where = (nrow(x) + 1), sampleFUN = .pooledQCDil, path = x$Path[1], ...) -> x
+  
+  x$`L3 Laboratory` <- "FGCZ"
+  # x$Position |> sapply(FUN = .parsePlateNumber) -> x$Position
+  x$`Instrument Method` <- im
+  # x$Position |> sapply(FUN = .parsePlateNumber) -> x$Position
+  x[, cn]
+}
+
+
+#' qconfig metabolomics for plates
+#'
+#' @inheritParams qconfigMetabolomicsVanquishPlateXCaliburSII
+#' @export
+qconfigMetabolomicsVanquishVialXCaliburSII <- function(x, howOften = 22, ...){
+  cn <- c("File Name", "Path", "Position", "Inj Vol", "L3 Laboratory",
+          "Sample ID", "Sample Name", "Instrument Method")
+  
+  # base::save(x, file="/tmp/mx.RData")
+  # browser()
+  # ignore F (last) row TODO(cp): how to generalize it?
+  x[grepl(pattern = ":[ABCDEFG][1-9]", x = x$Position), ] -> x
+  
+  im <- paste0(x$Path[1], "\\methods\\")
+  
+  x |> .insertSample(howOften = howOften + 1, sampleFUN = .pooledQC,
+                     path = x$Path[1], ...) -> x
+  
+  # START
+  x |> .insertSample(where = 0, sampleFUN = .pooledQCDil, path = x$Path[1], ...) -> x
+  x |> .insertSample(where = 0, sampleFUN = .clean, path = x$Path[1], ...) -> x
+  x |> .insertSample(where = 0, sampleFUN = .clean, path = x$Path[1], ...) -> x
+  
+  # END
+  x |> .insertSample(where = (nrow(x) + 1), sampleFUN = .clean, path = x$Path[1], ...) -> x
+  x |> .insertSample(where = (nrow(x) + 1), sampleFUN = .clean, path = x$Path[1], ...) -> x
+  
+  x |> .insertSample(where = (nrow(x) + 1), sampleFUN = .pooledQCDil, path = x$Path[1], ...) -> x
+  
+  x$`L3 Laboratory` <- "FGCZ"
+  # x$Position |> sapply(FUN = .parsePlateNumber) -> x$Position
+  x$`Instrument Method` <- im
+  # x$Position |> sapply(FUN = .parsePlateNumber) -> x$Position
+  x[, cn]
+}
+
+#' qconfig metabolomics for plates
+#'
+#' @inheritParams qconfigMetabolomicsVanquishPlateXCaliburSII
+#' @export
+qconfigMetabolomicsVanquishVialXCaliburSIIEquiSPLASH <- function(x, howOften = 22, ...){
+  #write.csv2(x, file ="/tmp/c37530-MetabolomicsVanquishVialXCaliburSIIEquiSPLASH.csv", row.names = FALSE)
+  #browser()
+  
+  cn <- c("File Name", "Path", "Position", "Inj Vol", "L3 Laboratory",
+          "Sample ID", "Sample Name", "Instrument Method")
+  
+  # base::save(x, file="/tmp/mx.RData")
+  # browser()
+  # ignore F (last) row TODO(cp): how to generalize it?
+  x[grepl(pattern = ":[ABCDEFG][1-9]", x = x$Position), ] -> x
+  
+  im <- paste0(x$Path[1], "\\methods\\")
+  
+  x |> .insertSample(howOften = howOften + 1, sampleFUN = qg:::.pooledQCSplash,
                      path = x$Path[1], ...) -> x
   
   # START

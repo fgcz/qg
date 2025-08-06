@@ -29,8 +29,8 @@ cat ../inst/extdata/instrument.csv \
       print "\t// Instrument: " $1
       print "\t" instrument " [style=filled, fillcolor=lightgreen];"
       print "\t" lc " [style=filled, fillcolor=lightyellow];"
-      print "\t" system " [style=filled, fillcolor=lightcoral];"
-      print "\tProteomics -> " instrument " -> " lc " -> " system ";"
+      print "\t" csystem " [style=filled, fillcolor=lightcoral];"
+      print "\tProteomics -> " instrument " -> " lc " -> " csystem ";"
       print ""
     }
     END{
@@ -42,7 +42,7 @@ cat ../inst/extdata/instrument.csv \
       print "\t\tarea_legend [label=\"Area\", shape=ellipse, style=filled, fillcolor=lightblue];"
       print "\t\tinstrument_legend [label=\"Instrument\", style=filled, fillcolor=lightgreen];"
       print "\t\tlc_legend [label=\"LC System\", style=filled, fillcolor=lightyellow];"
-      print "\t\tsystem_legend [label=\"Control System\", style=filled, fillcolor=lightcoral];"
+      print "\t\tcsystem_legend [label=\"Control System\", style=filled, fillcolor=lightcoral];"
       print "\t}"
       print "}"
     }' > proteomics.dot 

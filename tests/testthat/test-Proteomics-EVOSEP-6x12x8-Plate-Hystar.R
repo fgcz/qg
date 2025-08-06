@@ -8,7 +8,7 @@ test_that("test Proteomics TimsTOFFlex EVOSEP 6x12x8 Plate Hystar", {
   orderid <- 37202
   plateid <- c(4748, 4749)
   plateCounter <- 1
-  qFUN <- "qconfigProteomicsEVOSEP6x12x8PlateHystar"
+  qFUN <- "qg::qconfigProteomicsEVOSEP6x12x8PlateHystar"
   ####################################################
   
   plateid |>
@@ -33,16 +33,16 @@ test_that("test Proteomics TimsTOFFlex EVOSEP 6x12x8 Plate Hystar", {
   
   df -> df0
   
-  expect_true(ncol(df) == 10)
-  expect_no_error(qg:::validate.composePlateSampleTable(df0))
+  testthat::expect_true(ncol(df) == 10)
+  testthat::expect_no_error(qg:::validate.composePlateSampleTable(df0))
   
-  expect_error(qg:::validate.composePlateSampleTable(df[, 1:9]))
+  testthat::expect_error(qg:::validate.composePlateSampleTable(df[, 1:9]))
   
   colnames(df) -> cn
   paste0(cn[1], "__") -> cn[1]
   
   colnames(df) <- cn
-  expect_error(qg:::validate.composePlateSampleTable(df))
+  testthat::expect_error(qg:::validate.composePlateSampleTable(df))
   
   
   
