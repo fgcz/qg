@@ -518,7 +518,7 @@
                           value = 0, session = session, {
         input$plateID |>
           lapply(FUN = function(pid){
-            shiny::incProgress(1/length(input$plateID))
+            shiny::incProgress(1 / length(input$plateID))
             readPlate(pid, login = bf$login(),
                       webservicepassword = bf$webservicepassword(),
                       posturl = posturl()) |>
