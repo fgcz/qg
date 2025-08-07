@@ -8,8 +8,10 @@
   
   stopifnot(x$area |> unique()  %in% c("Proteomics","Metabolomics"))
   
-  stopifnot(x$system |> unique() %in% c("Hystar",
+  stopifnot(x$system |> unique() %in% c("VialHystar",
+                                        "PlateHystar",
               "VialChronos",
+              "PlateChronos",
               "VialXCaliburSII",
               "VialXCaliburLCDevices",
               "VialXCaliburSII",
