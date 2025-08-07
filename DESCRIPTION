@@ -29,6 +29,7 @@ Collate:
     configs.R
     configProteomics.R
     configMetabolomics.R
+    configMetabolomicsEquiSPLASH.R
     lc-systems.R
     shiny.R
 URL: https://github.com/fgcz/qg.git
