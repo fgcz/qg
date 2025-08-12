@@ -12,6 +12,7 @@ EXPLORIS_2;Proteomics;PlateChronos;EVOSEP6x12x8
 EXPLORIS_2;Proteomics;VialXCaliburLCDevices;M_CLASS48_48
 EXPLORIS_2;Proteomics;PlateXCaliburLCDevices;M_CLASS48_48
 # EXPLORIS_2;Proteomics;XCaliburSII;M_CLASS48_48
+EXPLORIS_5;Proteomics;VialXCaliburSII;Vanquish
 # LUMOS_2;Proteomics;XCaliburLCDevices;Vanquish
 LUMOS_2;Proteomics;PlateXCaliburLCDevices;M_CLASS48_48
 LUMOS_2;Proteomics;VialXCaliburLCDevices;M_CLASS48_48
