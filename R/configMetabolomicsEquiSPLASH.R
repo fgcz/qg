@@ -1,6 +1,20 @@
 #R
 
-.blankEquiSPLASH <- function(x, plateId = "Y", QCrow = "F", containerid = ""){
+#' blank Equi SPLASH
+#'
+#' @param x \code{data.frame} contains sample information, e.g., "Sample Name", "Sample ID", "Tube ID", "File Name", "Path", "Position" 
+#' @param plateId plate of the sample.
+#' @param QCrow plate row of the sample.
+#' @param QCcol plate col of the sample.
+#' @param containerid bfabric container, order or project id.
+#' @param ... 
+#' 
+#' @author Christian Panse <cp@fgcz.ethz.ch>, 2025-08-13
+#' @returns \code{data.frame}
+#' @export
+#'
+#' @examples
+.blankEquiSPLASH <- function(x, plateId = "Y", QCrow = "F",  containerid = "", ...){
   
   #' take Inj Vol from x
   x[['Inj Vol']][1] -> InjVol
@@ -16,6 +30,28 @@
   
   pool$`Sample Name`[1] <- sprintf("blank")
  
+  pool$`Inj Vol` <- InjVol
+  
+  pool
+}
+
+
+.pooledQCEquiSPLASH <- function(x, plateId = "Y", QCrow = "F", containerid = "", ...){
+  
+  #' take Inj Vol from x
+  x[['Inj Vol']][1] -> InjVol
+  
+  data.frame(matrix(NA, ncol = ncol(x), nrow = 1)) -> pool
+  colnames(x) -> colnames(pool)
+  format(Sys.time(), "%Y%m%d") ->  currentdate
+  
+  pool[1, "File Name"] <- sprintf("%s_@@@_C%s_pooledQC", currentdate, containerid)
+  
+  
+  pool$Position[1] <- sprintf("%s:%s%d", plateId, QCrow, 8)
+  
+  pool$`Sample Name`[1] <- sprintf("blank")
+  
   pool$`Inj Vol` <- InjVol
   
   pool
@@ -42,7 +78,7 @@
   pool
 }
 
-.pooledQCDilEquiSPLASH <- function(x, plateId = "Y", QCrow = "H", mode = "", containerid=""){
+.pooledQCDilEquiSPLASH <- function(x, plateId = "Y", QCrow = "H", containerid="", mode = '', path = '???'){
   data.frame(matrix(NA, ncol = ncol(x), nrow = 6)) -> pool
   
   colnames(pool) <- colnames(x)
@@ -52,10 +88,10 @@
   
   for (i in 1:6){
     
-    pool[i, "File Name"] <- sprintf("%s_@@@_C%s_pooledQCDil%d%s", currentdate, containerid, i, mode)
+    pool[i, "File Name"] <- sprintf("%s_@@@_C%s_pooledQCDil%d", currentdate, containerid, i)
     
     pool$Position[i] <- sprintf("%s:%s%d", plateId, QCrow,i + 1)
-    pool$`Sample Name`[i] <- sprintf("QC dil%d%s", i, mode)
+    pool$`Sample Name`[i] <- sprintf("QC dil%d", i)
     pool$`Instrument Method`[i] <- "xxxxxx  xxxx  x"
   }
   
@@ -64,7 +100,7 @@
 }
 
 
-.alternatingPosNegSample <- function(x){
+.alternatingPosNegSample <- function(x, ...){
   # Implementation by Claude Code
   
   x_pos <- x
@@ -90,7 +126,21 @@
   
 }
 
-#' qconfig metabolomics for plates
+
+.EquiSPLASHrep <- function(x, plateId = "Y", containerid = '', ...){
+  
+  data.frame(matrix(NA, ncol = ncol(x), nrow = 3)) -> pool
+  colnames(pool) <- colnames(x)
+  
+  .blankEquiSPLASH(x, plateId = plateId,  containerid = containerid, ...) -> pool[1,]
+  .EquiSPLASH(x, plateId = plateId,  containerid = containerid, ...) -> pool[2,]
+  .pooledQCEquiSPLASH(x, plateId = plateId,  containerid = containerid, ...)-> pool[3,]
+  
+  pool
+}
+
+
+#' qconfig metabolomics for vials EquiSPLASH pos_neg
 #' 
 #' @details
 #' start with
@@ -109,9 +159,9 @@
 #' @inheritParams qconfigMetabolomicsVanquishPlateXCaliburSII
 #' @export
 #' @examples
-#' qg:::.readPackageFile('test-Metabolomics-Vanquish-VialXCaliburSII-EXPLORIS_4-c37530.RData') |>
-#' qconfigMetabolomicsVanquishVialXCaliburSIIEquiSPLASH(containerid = 37530)
-qconfigMetabolomicsVanquishVialXCaliburSIIEquiSPLASH <- function(x, howOften = 22, ...){
+#' qg:::.readPackageFile('test-Metabolomics-Vanquish-VialXCaliburSII-EXPLORIS_4-c37530.RData') -> S
+#' S|> qconfigMetabolomicsVanquishVialXCaliburSIIEquiSPLASH(containerid = 37530) |> View()
+qconfigMetabolomicsVanquishVialXCaliburSIIEquiSPLASH <- function(x, howOften = 8, mode = '', ...){
   #write.csv2(x, file ="/tmp/c37530-MetabolomicsVanquishVialXCaliburSIIEquiSPLASH.csv", row.names = FALSE)
   #browser()
   
@@ -125,32 +175,28 @@ qconfigMetabolomicsVanquishVialXCaliburSIIEquiSPLASH <- function(x, howOften = 2
   
   im <- paste0(x$Path[1], "\\methods\\")
   
-  
-  
-  #x |> .insertSample(howOften = howOften + 1, sampleFUN = qg:::.pooledQCSplash,
-  #                   path = x$Path[1], ...) -> x
+  ########################
+  x |> qg::.insertSample(howOften = howOften + 1, sampleFUN = .EquiSPLASHrep, path = x$Path[1], ...) -> x
+  x |> qg::.insertSample(howOften = 2 * (howOften +1 ), sampleFUN = .pooledQCDilEquiSPLASH, path = x$Path[1], ...) -> x
+  #x |> qg::.insertSample(howOften = howOften + 1, sampleFUN =  .pooledQCDilEquiSPLASH, path = x$Path[1], ...) -> x
   
   # START
-  
-
-  
+  x |> qg::.insertSample(where = 0, sampleFUN = .blankEquiSPLASH, path = x$Path[1], ...) -> x
+  x |> qg::.insertSample(where = 0, sampleFUN = .pooledQCDilEquiSPLASH, path = x$Path[1], ...) -> x
+  x |> qg::.insertSample(where = 0, sampleFUN = .blankEquiSPLASH, path = x$Path[1], ...) -> x
+  x |> qg::.insertSample(where = 0, sampleFUN = .pooledQCEquiSPLASH, path = x$Path[1], ...) -> x
+  x |> qg::.insertSample(where = 0, sampleFUN = .EquiSPLASH, path = x$Path[1], ...) -> x
+  x |> qg::.insertSample(where = 0, sampleFUN = .blankEquiSPLASH, path = x$Path[1], ...) -> x
+  x |> qg::.insertSample(where = 0, sampleFUN = .blankEquiSPLASH, path = x$Path[1], ...) -> x
   
  
-  x |> .insertSample(where = 0, sampleFUN = .blankEquiSPLASH, path = x$Path[1], ...) -> x
-  x |> .insertSample(where = 0, sampleFUN = .pooledQCDilEquiSPLASH, path = x$Path[1], ...) -> x
-  x |> .insertSample(where = 0, sampleFUN = .blankEquiSPLASH, path = x$Path[1], ...) -> x
-  x |> .insertSample(where = 0, sampleFUN = .EquiSPLASH, path = x$Path[1], ...) -> x
-  x |> .insertSample(where = 0, sampleFUN = .blankEquiSPLASH, path = x$Path[1], ...) -> x
-  
-  #x |> .insertSample(where = 0, sampleFUN = .clean, path = x$Path[1], ...) -> x
-  #x |> .insertSample(where = 0, sampleFUN = .clean, path = x$Path[1], ...) -> x
-  
   # END
-  #x |> .insertSample(where = (nrow(x) + 1), sampleFUN = .clean, path = x$Path[1], ...) -> x
-  #x |> .insertSample(where = (nrow(x) + 1), sampleFUN = .clean, path = x$Path[1], ...) -> x
+
+  x |> qg::.insertSample(where = (nrow(x) + 1), sampleFUN =  .EquiSPLASHrep, path = x$Path[1], ...) -> x
+  x |> qg::.insertSample(where = (nrow(x) + 1), sampleFUN = .blankEquiSPLASH, path = x$Path[1], ...) -> x
+ 
   
-  #x |> .insertSample(where = (nrow(x) + 1), sampleFUN = .pooledQCDil, path = x$Path[1], ...) -> x
-  
+  ########################
   x$`L3 Laboratory` <- "FGCZ"
   # x$Position |> sapply(FUN = .parsePlateNumber) -> x$Position
   x$`Instrument Method` <- im

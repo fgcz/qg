@@ -317,7 +317,8 @@
     if (input$area == "Metabolomics"){
       shiny::radioButtons("mode", "Mode:",
                           c("neg" = "_neg",
-                            "pos" = "_pos"), 
+                            "pos" = "_pos",
+                            "pos_neg" = ""), 
                           inline = TRUE)
     }else{NULL}
   })
@@ -486,6 +487,8 @@
     instrumentMode <- ""
     if (input$area == "Metabolomics"){
       instrumentMode <- input$mode
+    }else{
+      instrumentMode <- ""
     }
     
   
