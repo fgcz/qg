@@ -618,6 +618,9 @@
   
   output$outputKable <- DT::renderDataTable({
     shiny::req(composeTable())
+    
+   
+    
     DT::datatable(composeTable(),
                   rownames = FALSE,
                   style = 'auto',
