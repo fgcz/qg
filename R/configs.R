@@ -3,14 +3,17 @@
 
 
 #' Generic function to place a sample into a queue configuration
-#' \code{...} is used to pass the parameters to FUN
-#' @param x 
+#' \code{...} is used to pass the parameters to \code{sampleFUN} method.
+#' 
+#' @param x \code{data.frame} contains sample information, e.g., \code{"Sample Name", "Sample ID", "Tube ID", "File Name", "Path", "Position"}.
 #'
 #' @param where the position where the sample should be inserted
 #' @param howOften how frequently the sample should be inserted
-#' @param sampleFUN the function to generate the sample
-#' @param path the path of the sample
-#' @param ... parameters to pass to sampleFUN
+#' @param sampleFUN the implemented function used defining the sample, e.g., \link[qg]{.autoQC01VialXCaliburSII}.
+#' @param path the path of the sample.
+#' @param ... parameters to pass to sampleFUN function.
+#' 
+#' @aliases Christian.Panse <cp@fgcz.ethz.ch> 2023
 #'
 #' @export
 .insertSample <- function(x,
@@ -45,7 +48,7 @@
 
 
 
-## TODO(cp): check replacemet for QHF2!!
+## TODO(cp): check replacement for QHF2!!
 #' generator Hystar config XML file
 #'
 #' @param x a data frame
@@ -108,6 +111,8 @@
 		  stringr::str_replace("#", "_") -> x[[cn]][i]
 
 	}
+  
+  stopifnot(vapply(x$`File Name`, qg:::.validateFilename, FUN.VALUE = TRUE) |> all())
 	x
 }
 
