@@ -345,8 +345,6 @@ qconfigProteomicsPlateChronos <- function(x, howOften = 4, ...){
   
   currentdate <- format(Sys.time(), "%Y%m%d")
   
-
- 
   pool$`Position`[1] <- counterAutoQC03; 
   pool$`Tray`[1] <- 5
   pool$`Sample Name`[1] <- sprintf("autoQC03")
