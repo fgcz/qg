@@ -16,17 +16,17 @@
 )
 }
 \arguments{
-\item{x}{}
+\item{x}{\code{data.frame} contains sample information, e.g., \code{"Sample Name", "Sample ID", "Tube ID", "File Name", "Path", "Position"}.}
 
 \item{where}{the position where the sample should be inserted}
 
 \item{howOften}{how frequently the sample should be inserted}
 
-\item{sampleFUN}{the function to generate the sample}
+\item{sampleFUN}{the implemented function used defining the sample, e.g., \link[qg]{.autoQC01VialXCaliburSII}.}
 
-\item{path}{the path of the sample}
+\item{path}{the path of the sample.}
 
-\item{...}{parameters to pass to sampleFUN}
+\item{...}{parameters to pass to sampleFUN function.}
 }
 \description{
 Generic function to place a sample into a queue configuration
