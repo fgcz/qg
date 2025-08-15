@@ -60,3 +60,33 @@ testthat::test_that("test .alternatingPosNegSample function", {
   testthat::expect_equal(result[["Inj Vol"]], c(10, 10, 10, 10))
   
 })
+
+testthat::test_that("test .lcVanquish function", {
+  
+  # Test with small number of vials
+  result_10 <- qg:::.lcVanquish(10)
+  
+  # Check dimensions
+  testthat::expect_equal(length(result_10), 10)
+  
+  # Check first few positions follow expected pattern
+  testthat::expect_equal(result_10[1:5], c("Y:A1", "Y:A2", "Y:A3", "Y:A4", "Y:A5"))
+  testthat::expect_equal(result_10[9:10], c("Y:A9", "Y:B1"))
+  
+  # Test with larger number (96 vials - full plate)
+  result_96 <- qg:::.lcVanquish(96)
+  testthat::expect_equal(length(result_96), 96)
+  
+  # Check that all positions are valid format
+  testthat::expect_true(all(grepl("^[YRBG]:[ABCDE][1-9]$", result_96)))
+  
+  # Check plate transitions
+  testthat::expect_equal(result_96[45], "Y:E9")  # Last position on first plate
+  testthat::expect_equal(result_96[46], "R:A1")  # First position on second plate
+  
+  # Test default parameter
+  result_default <- qg:::.lcVanquish()
+  testthat::expect_equal(length(result_default), 10)
+  testthat::expect_equal(result_default, result_10)
+  
+})

@@ -304,11 +304,21 @@ validate.composePlateSampleTable <- function(x){
   p$"Sample Name" <- paste0(p$"Sample Name", mode)
   
   if (lc == "M_CLASS48_48"){
-    message("M_CLASS48_48")
+    message("lc = M_CLASS48_48")
     .lcWaters(n = nrow(p)) -> p$Position
   }else{
-    message("Vanquish")
-    .lcVanquish(n = nrow(p)) |> sapply(FUN = .parseVanquishPlateNumber) -> p$Position
+    message("lc = 'Vanquish'")
+    if (area == "Metabolomics"){
+      ## Metabolomics uses the F row for QCs
+      qg:::.lcVanquish(n = nrow(p), patternLastPos = "E9", availablePlates = c("Y", "R", "B", "G") ) |>
+        sapply(FUN = .parseVanquishPlateNumber) -> p$Position
+    }else if(area == "Proteomics") {
+      ## Proteomics uses the Blue plate for QC
+      qg:::.lcVanquish(n = nrow(p), patternLastPos = "F9", availablePlates = c("Y", "R", "G") ) |>
+      sapply(FUN = .parseVanquishPlateNumber) -> p$Position
+    }else{
+      stop(sprintf("%s - is no valid LC system", lc))
+    }
   }
   #browser()
   p$"Inj Vol" <- injVol

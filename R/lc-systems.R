@@ -57,32 +57,31 @@
 #' @references \url{https://www.thermofisher.com/ch/en/home/industrial/chromatography/liquid-chromatography-lc/hplc-uhplc-systems/vanquish-core-hplc-system.html}
 #'
 #' @examples
-#' .lcVanquish(96)
+#' .lcVanquish(96, patternLastPos = ":E9")
+#' .lcVanquish(96, patternLastPos = ":F6")
 #' @export
-.lcVanquish <- function(n = 10){
-  X <- c("A", "B", "C", "D", "E")
+.lcVanquish <- function(n = 10, patternLastPos = ":E9", availablePlates =  c("Y", "R", "B", "G")){
+  X <- c("A", "B", "C", "D", "E", "F")
   nY <- 9
-  P <- c("Y", "R", "B", "G")
+
   counterPlate <- 1
   counterX <- 0
   counterY <- 0
   
   pos <- rep("", n)
   for (i in 1:n){
-    pos[i] <- sprintf("%s:%s%d", P[counterPlate], X[counterX + 1], (counterY+1))
+    pos[i] <- sprintf("%s:%s%d", availablePlates[counterPlate], X[counterX + 1], (counterY+1))
     
     counterY <- counterY + 1
     
-    if (i %% nY == 0){
-      counterX <- counterX + 1
-      counterY <- 0
-    }
-    if (i %% (length(X) * nY) == 0){
+    if (grepl(pattern = patternLastPos, pos[i])){
       counterPlate <- counterPlate + 1 
       counterX <- 0
       counterY <- 0
+    }else if (i %% nY == 0){
+      counterX <- counterX + 1
+      counterY <- 0
     }
-    
   }
   pos
 } 
