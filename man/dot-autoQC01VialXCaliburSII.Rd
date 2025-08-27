@@ -2,14 +2,14 @@
 % Please edit documentation in R/configProteomicsVialXCaliburSII.R
 \name{.autoQC01VialXCaliburSII}
 \alias{.autoQC01VialXCaliburSII}
-\title{autoQC01VialXCaliburSII autoQC01}
+\title{autoQC01 Vial XCaliburSII}
 \usage{
 .autoQC01VialXCaliburSII(
   x,
   plateId = "Y",
   QCrow = "F",
   QCcol = 9,
-  mode = "dia",
+  mode = "",
   containerid = "",
   lc = "Vanquish"
 )
@@ -23,7 +23,7 @@
 
 \item{QCcol}{column plate coordinate, e.g., \code{9}.}
 
-\item{mode}{dia|dda}
+\item{mode}{dia or dda}
 
 \item{containerid}{}
 
@@ -33,7 +33,7 @@
 \code{data.frame} object
 }
 \description{
-autoQC01VialXCaliburSII autoQC01
+autoQC01 Vial XCaliburSII
 }
 \author{
 Christian Panse <cp@fgcz.ethz.ch> 2025-08-14

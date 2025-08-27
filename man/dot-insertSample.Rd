@@ -2,8 +2,11 @@
 % Please edit documentation in R/configs.R
 \name{.insertSample}
 \alias{.insertSample}
+\alias{Christian.Panse}
+\alias{<cp@fgcz.ethz.ch>}
+\alias{2023}
 \title{Generic function to place a sample into a queue configuration
-\code{...} is used to pass the parameters to FUN}
+\code{...} is used to pass the parameters to \code{sampleFUN} method.}
 \usage{
 .insertSample(
   x,
@@ -30,5 +33,5 @@
 }
 \description{
 Generic function to place a sample into a queue configuration
-\code{...} is used to pass the parameters to FUN
+\code{...} is used to pass the parameters to \code{sampleFUN} method.
 }

@@ -157,6 +157,7 @@
       "qconfigProteomicsVialXCaliburLCDevices",
       "qconfigProteomicsPlateXCaliburLCDevices",
       "qconfigProteomicsVialXCaliburSII",
+      "qconfigProteomicsMclassVialXCaliburSII",
       "qconfigProteomicsPlateXCaliburSII",
       "qconfigProteomicsVialChronos",
       "qconfigProteomicsPlateChronos",
@@ -196,7 +197,7 @@
         "orderID",
         "Order ID:",
         c("28073", "31741",  "35464", "34843", "34777", "34778",
-          "35117", "35270", "35394", "38884", "37530", "39408") |> sort() |> unique(),
+          "35117", "35270", "35394", "38884", "37530", "39408", "39061") |> sort() |> unique(),
         selected = "31741",
         multiple = TRUE,
         selectize = FALSE

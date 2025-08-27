@@ -31,6 +31,7 @@ Collate:
     configMetabolomics.R
     configMetabolomicsEquiSPLASH.R
     configProteomicsVialXCaliburSII.R
+    configProteomicsMclassVialXCaliburSII.R
     lc-systems.R
     shiny.R
     validatePattern.R

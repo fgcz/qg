@@ -4,7 +4,11 @@
 \alias{.lcVanquish}
 \title{Implementation of the Thermo Fisher Scientific Vanquish}
 \usage{
-.lcVanquish(n = 10)
+.lcVanquish(
+  n = 10,
+  patternLastPos = ":E9",
+  availablePlates = c("Y", "R", "B", "G")
+)
 }
 \arguments{
 \item{n}{number of vials}
@@ -16,7 +20,8 @@ a string vector of vial positions.
 Implementation of the Thermo Fisher Scientific Vanquish
 }
 \examples{
-.lcVanquish(96)
+.lcVanquish(96, patternLastPos = ":E9")
+.lcVanquish(96, patternLastPos = ":F6")
 }
 \references{
 \url{https://www.thermofisher.com/ch/en/home/industrial/chromatography/liquid-chromatography-lc/hplc-uhplc-systems/vanquish-core-hplc-system.html}

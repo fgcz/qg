@@ -1,7 +1,7 @@
 #R
 
 
-#' autoQC01VialXCaliburSII autoQC01 
+#' autoQC01 Vial XCaliburSII 
 #'
 #' @param x 
 #' @param plateId e.g., \code{"Y"}.
@@ -104,7 +104,7 @@
 #' @examples 
 #' S |> qconfigProteomicsVialXCaliburSII()
 qconfigProteomicsVialXCaliburSII <- function(x, howOften = 8, ...){
-  shiny::showNotification("method qconfigProteomicsPlateXCaliburSII new implemented.",
+  shiny::showNotification("method qconfigProteomicsVialXCaliburSII new implemented.",
                           duration = 10, type = "warning")
   
   
