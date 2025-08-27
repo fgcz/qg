@@ -1,31 +1,30 @@
-instrument;area;system;lc
-ASTRAL_1;Proteomics;VialChronos;EVOSEP6x12x8
-ASTRAL_1;Proteomics;PlateChronos;EVOSEP6x12x8
-ASTRAL_1;Proteomics;VialXCaliburSII;Vanquish
-ASTRAL_1;Proteomics;PlateXCaliburSII;Vanquish
-ASCEND_1;Proteomics;VialXCaliburSII;M_CLASS48_48
-ASCEND_1;Proteomics;PlateXCaliburSII;M_CLASS48_48
-EXPLORIS_1;Proteomics;VialChronos;EVOSEP6x12x8
-EXPLORIS_1;Proteomics;VialXCaliburLCDevices;M_CLASS48_48
-EXPLORIS_2;Proteomics;VialChronos;EVOSEP6x12x8
-EXPLORIS_2;Proteomics;PlateChronos;EVOSEP6x12x8
-EXPLORIS_2;Proteomics;VialXCaliburLCDevices;M_CLASS48_48
-EXPLORIS_2;Proteomics;PlateXCaliburLCDevices;M_CLASS48_48
-# EXPLORIS_2;Proteomics;XCaliburSII;M_CLASS48_48
-EXPLORIS_5;Proteomics;VialXCaliburSII;Vanquish
-# LUMOS_2;Proteomics;XCaliburLCDevices;Vanquish
-LUMOS_2;Proteomics;PlateXCaliburLCDevices;M_CLASS48_48
-LUMOS_2;Proteomics;VialXCaliburLCDevices;M_CLASS48_48
-LUMOS_2;Proteomics;VialXCaliburSII;M_CLASS48_48
-QEXACTIVE_1;Proteomics;VialXCaliburLCDevices;M_CLASS48_48
-TIMSTOFFLEX_1;Proteomics;VialHystar;EVOSEP6x12x8
-TIMSTOFFLEX_1;Proteomics;PlateHystar;EVOSEP6x12x8
-TIMSTOF_1;Proteomics;VialHystar;EVOSEP6x12x8
-TIMSTOF_1;Proteomics;PlateHystar;EVOSEP6x12x8
-EXPLORIS_3;Metabolomics;VialXCaliburSII;Vanquish
-EXPLORIS_3;Metabolomics;PlateXCaliburSII;Vanquish
-EXPLORIS_4;Metabolomics;VialXCaliburSII;Vanquish
-QEXACTIVEHF_2;Metabolomics;VialXCaliburSII;Vanquish
-# QEXACTIVE_3;Metabolomics;XCaliburSII;Vanquish
-QUANTIVA_1;Metabolomics;VialXCaliburSII;Vanquish
-
+instrument	area	system	lc	function
+ASTRAL_1	Proteomics	VialChronos	EVOSEP6x12x8	NA
+ASTRAL_1	Proteomics	PlateChronos	EVOSEP6x12x8	NA
+ASTRAL_1	Proteomics	VialXCaliburSII	Vanquish	qconfigProteomicsVialXCaliburSII
+ASTRAL_1	Proteomics	PlateXCaliburSII	Vanquish	NA
+ASCEND_1	Proteomics	VialXCaliburSII	M_CLASS48_48	qconfigProteomicsMclassVialXCaliburSIIdia
+ASCEND_1	Proteomics	PlateXCaliburSII	M_CLASS48_48	NA
+EXPLORIS_1	Proteomics	VialChronos	EVOSEP6x12x8	NA
+EXPLORIS_1	Proteomics	VialXCaliburLCDevices	M_CLASS48_48	NA
+EXPLORIS_2	Proteomics	VialChronos	EVOSEP6x12x8	NA
+EXPLORIS_2	Proteomics	PlateChronos	EVOSEP6x12x8	NA
+EXPLORIS_2	Proteomics	VialXCaliburLCDevices	M_CLASS48_48	NA
+EXPLORIS_2	Proteomics	PlateXCaliburLCDevices	M_CLASS48_48	NA
+# EXPLORIS_2	Proteomics	XCaliburSII	M_CLASS48_48	NA
+EXPLORIS_5	Proteomics	VialXCaliburSII	Vanquish	NA
+# LUMOS_2	Proteomics	XCaliburLCDevices	Vanquish	NA
+LUMOS_2	Proteomics	PlateXCaliburLCDevices	M_CLASS48_48	NA
+LUMOS_2	Proteomics	VialXCaliburLCDevices	M_CLASS48_48	NA
+LUMOS_2	Proteomics	VialXCaliburSII	M_CLASS48_48	NA
+QEXACTIVE_1	Proteomics	VialXCaliburLCDevices	M_CLASS48_48	NA
+TIMSTOFFLEX_1	Proteomics	VialHystar	EVOSEP6x12x8	NA
+TIMSTOFFLEX_1	Proteomics	PlateHystar	EVOSEP6x12x8	NA
+TIMSTOF_1	Proteomics	VialHystar	EVOSEP6x12x8	NA
+TIMSTOF_1	Proteomics	PlateHystar	EVOSEP6x12x8	NA
+EXPLORIS_3	Metabolomics	VialXCaliburSII	Vanquish	NA
+EXPLORIS_3	Metabolomics	PlateXCaliburSII	Vanquish	NA
+EXPLORIS_4	Metabolomics	VialXCaliburSII	Vanquish	qconfigMetabolomicsVanquishVialXCaliburSIIEquiSPLASH
+QEXACTIVEHF_2	Metabolomics	VialXCaliburSII	Vanquish	NA
+# QEXACTIVE_3	Metabolomics	XCaliburSII	Vanquish	NA
+QUANTIVA_1	Metabolomics	VialXCaliburSII	Vanquish	NA

@@ -29,7 +29,7 @@
   
   message("Reading instrument configuration from file", f, "...")
   
-  read.table(f, header = TRUE, sep = ";") |>
+  read.table(f, header = TRUE, sep = "\t") |>
     .validateReadConfigInstrument()
 }
 
