@@ -1,3 +1,3 @@
 #R
 
-shiny::shinyApp(ui = qg::.buildQgUI , server = qg::.buildQgServer)
+shiny::shinyApp(ui = qg::.buildQgUI , server = qg::.buildQgServer) 

@@ -20,6 +20,15 @@
    .readConfigInstrument()
   })
   
+  output$instrumentTable <- DT::renderDataTable({
+    DT::datatable(configInstrument(),
+                  rownames = FALSE,
+                  style = 'auto',
+                  editable = FALSE,
+                  options = list(paging = FALSE))
+  })
+  
+  
   columnOrder <<- c("File Name",
                     "Path",
                     "Position",
@@ -143,48 +152,33 @@
     )
   })
   
-  #input queue configuration FUN ------------
+  ## input queue configuration FUN =======
   output$selectqFUN <- renderUI({
     shiny::req(input$area)
     shiny::req(input$system)
-    #shiny::req(read_plateid())
+    qg:::.readConfigInstrument() -> configDf
+    
+    
+    ## Find Index of queue config functions
+    (input$area == configDf$area &
+        input$system == configDf$system &
+        input$instrument == configDf$instrument &
+        input$lc == configDf$lc &
+        !is.na(configDf$func)) |> which() -> idxFunc
+    
+    configDf$func[idxFunc] -> availableConfigFunctions
+    
+    
     #browser()
-    c(
-      "qconfigMetabolomicsVanquishPlateXCaliburSII",
-      "qconfigMetabolomicsVanquishVialXCaliburSII",
-      "qconfigMetabolomicsVanquishVialXCaliburSIISPLASH",
-      "qconfigMetabolomicsVanquishVialXCaliburSIIEquiSPLASH",
-      "qconfigProteomicsVialXCaliburLCDevices",
-      "qconfigProteomicsPlateXCaliburLCDevices",
-      "qconfigProteomicsVialXCaliburSII",
-      "qconfigProteomicsMclassVialXCaliburSII",
-      "qconfigProteomicsPlateXCaliburSII",
-      "qconfigProteomicsVialChronos",
-      "qconfigProteomicsPlateChronos",
-      "qconfigProteomicsPlateChronosX",
-      "qconfigProteomicsEVOSEP6x12x8PlateHystar"
-     ) -> qc
-    
-    ## filter for area and system and lc
-    qc[ base::grepl(pattern = input$area, x = qc) ] -> qc
-    qc[ base::grepl(pattern = input$system, x = qc) ] -> qc
-   
-    if (is.null(read_plateid())){
-      qc[ base::grepl(pattern = "Vial", x = qc) ] -> qc
-    }else{
-      qc[ base::grepl(pattern = "Plate", x = qc) ] -> qc
-    }
-    
-    
-    if (length(qc) == 0){
+    if (length(availableConfigFunctions) == 0){
       return(HTML("<p>No queue configuration available for this area and system</p>"))
     }
     
     shiny::selectInput(inputId = "qFUN", 
                        label = "Queue configuration:",
-                       choices = qc,
+                       choices = availableConfigFunctions,
                        multiple = FALSE,
-                       selected = qc[1],
+                       selected = availableConfigFunctions[1],
                        selectize = FALSE)
   })
   
@@ -767,8 +761,9 @@
         plotOutput('plotFirstPlate')
       ),
       mainPanel(
-        list(
-          dataTableOutput(("outputKable"))
+        tabsetPanel( 
+          tabPanel("Queue Table", dataTableOutput("outputKable")),  
+          tabPanel("Instrument Configuration", dataTableOutput("instrumentTable"))
         )
       )
     )
