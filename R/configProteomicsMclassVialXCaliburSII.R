@@ -117,7 +117,7 @@ qconfigProteomicsMclassVialXCaliburSIIdia <- function(x, howOften = 8, ...){
   x$`Instrument Method` <- im
   # x$Position |> sapply(FUN = .parsePlateNumber) -> x$Position
   
-  
+  gsub(pattern = ',', replacement = '', x = x$Position) -> x$Position
   
   return(x[, cn])
 }
