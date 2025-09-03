@@ -12,7 +12,7 @@ EXPLORIS_2	Proteomics	PlateChronos	EVOSEP6x12x8	NA
 EXPLORIS_2	Proteomics	VialXCaliburLCDevices	M_CLASS48_48	NA
 EXPLORIS_2	Proteomics	PlateXCaliburLCDevices	M_CLASS48_48	NA
 # EXPLORIS_2	Proteomics	XCaliburSII	M_CLASS48_48	NA
-EXPLORIS_5	Proteomics	VialXCaliburSII	Vanquish	NA
+EXPLORIS_5	Proteomics	VialXCaliburSII	Vanquish	qconfigProteomicsVialXCaliburSII
 # LUMOS_2	Proteomics	XCaliburLCDevices	Vanquish	NA
 LUMOS_2	Proteomics	PlateXCaliburLCDevices	M_CLASS48_48	NA
 LUMOS_2	Proteomics	VialXCaliburLCDevices	M_CLASS48_48	NA
