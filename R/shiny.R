@@ -576,7 +576,7 @@
                                              QCrow = QCrow,
                                              mode = instrumentMode,
                                              howOften = as.integer(input$frequency))) |>
-        qg::.replaceRunIds()
+        qg::.interpolateFilenames(container = input$orderID[1])
     }else{
       if (SAVERDATA) {
        # filenameRData <- file.path("/tmp/", paste0(input$area,"_c", input$orderID[1], ".RData"))
@@ -585,9 +585,10 @@
       #browser()
       do.call(what = input$qFUN, args = list(x = df,
                                              lc = input$lc,
+                                             # TODO why is it orderID[1] but $orderID elsewhere
                                              containerid = input$orderID[1],
                                              howOften = as.integer(input$frequency))) |>
-        qg::.replaceRunIds()
+        qg::.interpolateFilenames(container = input$orderID[1])
     }
     
   })

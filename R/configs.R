@@ -112,6 +112,36 @@
 
 	}
   
+  # TODO will these work for XCalibur?
+  stopifnot(vapply(x$`File Name`, qg:::.validateFilename, FUN.VALUE = TRUE) |> all())
+	x
+}
+
+#' Interpolates placeholders in filenames.
+#' @param x
+#'
+#' @export
+.interpolateFilenames <- function(x, container) {
+  column <- ifelse("File Name" %in% colnames(x), "File Name", "Xcalibur Filename")
+  date <- format(Sys.time(), "%Y%m%d")
+
+  for (i in 1:nrow(x)) {
+    # TODO to make refactoring easier, we can support temporarily the old syntax, but to be removed later
+    template_str <- gsub('@@@', '{run}', x[[column]][[i]])
+    # TODO also unclear why it's here
+    template_str <- stringr::str_replace(template_str, "#", "_")
+
+    # NOTE: Only order-level placeholders are supported here.
+    #       Do not add too many placeholders to avoid confusion.
+    x[[column]][[i]] <- stringr::str_glue(
+      template_str,
+      date = date,
+      run = sprintf("%03d", i),
+      container = container
+    )
+  }
+
+  # TODO will these work for XCalibur?
   stopifnot(vapply(x$`File Name`, qg:::.validateFilename, FUN.VALUE = TRUE) |> all())
 	x
 }

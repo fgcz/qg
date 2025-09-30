@@ -35,17 +35,16 @@
   #plateId <- x$Position[nrow(x)] |> substr(1,1)
   data.frame(matrix(NA, ncol = ncol(x), nrow = 3)) -> pool
   colnames(pool) <- colnames(x)
-  currentdate <- format(Sys.time(), "%Y%m%d")
-  
-  pool[1, "File Name"] <- sprintf("%s_@@@_C%s_pooledQC%s", currentdate, containerid, mode)
+
+  pool[1, "File Name"] <- sprintf("{date}_{run}_C{container}_pooledQC%s", mode)
   pool$Position[1] <- sprintf("%s:%s%d", plateId, QCrow, 8)
   pool$`Sample Name`[1] <- sprintf("pooledQC%s", mode)
-  
-  pool[2, "File Name"] <- sprintf("%s_@@@_C%s_splash%s", currentdate, containerid, mode)
+
+  pool[2, "File Name"] <- sprintf("{date}_{run}_C{container}_splash%s", mode)
   pool$Position[2] <- sprintf("%s:%s%d", plateId, QCrow, 9)
   pool$`Sample Name`[2] <- sprintf("splash%s", mode)
-  
-  pool[3, "File Name"] <- sprintf("%s_@@@_C%s_blank%s", currentdate, containerid, mode)
+
+  pool[3, "File Name"] <- sprintf("{date}_{run}_C{container}_blank%s", mode)
   pool$Position[3] <- sprintf("%s:%s%d", plateId, QCrow, 1)
   pool$`Sample Name`[3] <- sprintf("blank%s", mode)
   
