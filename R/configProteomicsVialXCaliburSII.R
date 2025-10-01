@@ -14,71 +14,68 @@
 #' @author Christian Panse <cp@fgcz.ethz.ch> 2025-08-14
 #' @return \code{data.frame} object
 .autoQC01VialXCaliburSII <- function(x, plateId = "Y", QCrow = "F", QCcol = 9,
-                             mode = "", containerid = "", lc = "Vanquish"){
-  
+                             mode = "", lc = "Vanquish"){
+
   plateId <- 'B'
   message(paste0("autoQC01VialXCaliburSII lc = ", lc, 'hard coded plaeId = ', plateId))
-  
+
   data.frame(matrix(NA, ncol = ncol(x), nrow = 1)) -> pool
   colnames(pool) <- colnames(x)
-  currentdate <- format(Sys.time(), "%Y%m%d")
-  
-  pool[1, "File Name"] <- sprintf("%s_@@@_C%s_autoQC01%s", currentdate, containerid, mode)
+
+  pool[1, "File Name"] <- sprintf("{date}_{run}_C{container}_autoQC01%s", mode)
   pool[1, "Position"] <- switch(lc,
                                 "M_CLASS48_48" = sprintf("%s:%s,%d", plateId, QCrow, QCcol),
                                 "Vanquish"     = sprintf("%s:%s%d", plateId, QCrow, QCcol),
                                 sprintf("%s:%s%d", plateId, QCrow = "H")
   )
   pool[1, "Sample Name"] <- sprintf("autoQC01%s", mode)
-  
+
   pool$`Inj Vol` <- 2
   pool
-  
+
 }
 
 .autoQC03VialXCaliburSII <- function(x, plateId = "Y", QCrow = "F", QCcol = 8,
-                                     mode = "dia", containerid = "", lc = "Vanquish"){
-  
+                                     mode = "dia", lc = "Vanquish"){
+
   plateId <- 'B'
   message(paste0("autoQC01 lc = ", lc, 'hard coded plaeId = ', plateId))
-  
+
   data.frame(matrix(NA, ncol = ncol(x), nrow = 1)) -> pool
   colnames(pool) <- colnames(x)
-  currentdate <- format(Sys.time(), "%Y%m%d")
-  
-  pool[1, "File Name"] <- sprintf("%s_@@@_C%s_autoQC03%s", currentdate, containerid, mode)
+
+  pool[1, "File Name"] <- sprintf("{date}_{run}_C{container}_autoQC03%s", mode)
   pool[1, "Position"] <- switch(lc,
                                 "M_CLASS48_48" = sprintf("%s:%s,%d", plateId, QCrow, QCcol),
                                 "Vanquish"     = sprintf("%s:%s%d", plateId, QCrow, QCcol),
                                 sprintf("%s:%s%d", plateId, QCrow = "H")
   )
   pool[1, "Sample Name"] <- sprintf("autoQC03%s", mode)
-  
+
   pool$`Inj Vol` <- 1
   pool
-  
+
 }
 
 .cleanVialXCaliburSII <- function(x, plateId = "Y", QCrow = "F", QCcol = 7,
-                                     mode = "", containerid = "", lc = "Vanquish"){
-  
+                                     mode = "", lc = "Vanquish"){
+
   plateId <- 'B'
   message(paste0("autoQC01 lc = ", lc, 'hard coded plaeId = ', plateId))
   data.frame(matrix(NA, ncol = ncol(x), nrow = 1)) -> pool
   colnames(pool) <- colnames(x)
-  currentdate <- format(Sys.time(), "%Y%m%d")
-  
-  pool[1, "File Name"] <- sprintf("%s_@@@_C%s_clean%s", currentdate, containerid, mode)
+
+  pool[1, "File Name"] <- sprintf("{date}_{run}_C{container}_clean%s", mode)
   pool[1, "Position"] <- switch(lc,
                                 "M_CLASS48_48" = "1:F,8",
                                 "Vanquish"     = sprintf("%s:%s%d", plateId, QCrow, QCcol),
                                 sprintf("%s:%s%d", plateId, QCrow = "H")
   )
   pool[1, "Sample Name"] <- sprintf("clean%s", mode)
-  
+
   pool$`Inj Vol` <- 2
   pool
-  
+
 }
 
 
