@@ -29,8 +29,7 @@ qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x, howOften = 48,  ...){
   df$`File Name` |> stringr::str_replace(pattern = "#", replacement = "_") -> df$`File Name` 
   
   Y <- c('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H')
-  
-  currentdate <- format(Sys.time(), "%Y%m%d")
+
   output <- data.frame(matrix(ncol = 8, nrow = 0))
   colnames(output) <- cn
   
@@ -55,7 +54,7 @@ qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x, howOften = 48,  ...){
     output <- rbind(output, df[i, ])
     
     if (i %% howOftenClean == 0) {
-      clean <- c(sprintf("%s_@@@_clean_%02d", currentdate, cleancount),
+      clean <- c(sprintf("{date}_{run}_clean_%02d", cleancount),
                  df$Path[1], sprintf("5:%s,%d", Y[cleancounty], cleancountx),
                  1, "FGCZ", "clean", "clean", "clean")
       cleancountx <- cleancountx + 1
@@ -64,11 +63,11 @@ qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x, howOften = 48,  ...){
     }
   
     if(i %% howOften == 0) {
-      autoQC03 <- c(sprintf("%s_@@@_autoQC03dia_%02d", currentdate, autoQC03countx),
+      autoQC03 <- c(sprintf("{date}_{run}_autoQC03dia_%02d", autoQC03countx),
                     df$Path[1],
                     sprintf("6:%s,%d", Y[autoQC03county], autoQC03countx),
                     1, "FGCZ", "autoQC03", "autoQC03", "autoQC03")
-      
+
       autoQC03countx <- autoQC03countx + 1
       autoQC03count <- autoQC03count + 1
       output <- rbind(output, autoQC03)
@@ -89,14 +88,14 @@ qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x, howOften = 48,  ...){
   message("DEBUG -> howOften qconfigProteomicsEVOSEP6x12x8PlateHystar:\t")
  
   ## START ##########################
-  autoQC03 <- c(sprintf("%s_@@@_autoQC03dia_%02d", currentdate, 1),
+  autoQC03 <- c(sprintf("{date}_{run}_autoQC03dia_%02d", 1),
                 df$Path[1],
                 sprintf("6:%s,%d", Y[autoQC03county], 1),
                 1, "FGCZ", "autoQC03", "autoQC03", "autoQC03")
 
     output <- rbind(autoQC03, output)
-    
-  clean <- c(sprintf("%s_@@@_clean_%02d", currentdate, 1), df$Path[1],
+
+  clean <- c(sprintf("{date}_{run}_clean_%02d", 1), df$Path[1],
              sprintf("5:%s,%d", Y[1], 1),
              1, "FGCZ", "clean", "clean", "clean")
   
@@ -115,11 +114,11 @@ qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x, howOften = 48,  ...){
   
   ## TODO add autoQC03
   ## END ###############################
-  clean <- c(sprintf("%s_@@@_clean_%02d", currentdate, cleancount), df$Path[1],
+  clean <- c(sprintf("{date}_{run}_clean_%02d", cleancount), df$Path[1],
              sprintf("5:%s,%d", Y[cleancounty], cleancountx), 1, "FGCZ", "clean", "clean", "clean")
   output <- rbind(output, clean)
-  
-  autoQC03 <- c(sprintf("%s_@@@_autoQC03dia_%02d", currentdate, autoQC03countx),
+
+  autoQC03 <- c(sprintf("{date}_{run}_autoQC03dia_%02d", autoQC03countx),
                 df$Path[1], sprintf("6:%s,%d", Y[autoQC03county], autoQC03countx),
                 1, "FGCZ", "autoQC03", "autoQC03", "autoQC03")
   output <- rbind(output, autoQC03)
@@ -156,20 +155,19 @@ validate.qconfigProteomicsEVOSEP6x12x8PlateHystar <- function(x){
 #' @param lssystem 
 #'
 #' @return \code{data.frame} object
-.autoQC01 <- function(x, plateId = "1", QCrow = "H", mode = "", containerid="", lc = "M_CLASS48_48"){
+.autoQC01 <- function(x, plateId = "1", QCrow = "H", mode = "", lc = "M_CLASS48_48"){
   message(paste0("autoQC01 lc = ", lc))
   data.frame(matrix(NA, ncol = ncol(x), nrow = 1)) -> pool
   colnames(pool) <- colnames(x)
-  currentdate <- format(Sys.time(), "%Y%m%d")
-  
-  pool[1, "File Name"] <- sprintf("%s_@@@_C%s_autoQC01%s", currentdate, containerid, mode)
+
+  pool[1, "File Name"] <- sprintf("{date}_{run}_C{container}_autoQC01%s", mode)
   pool[1, "Position"] <- switch(lc,
                              "M_CLASS48_48" = "1:F,8",
                              "Vanquish"     = "1:F8",
                              sprintf("%s:%s%d", plateId, QCrow, 1)
   )
   pool[1, "Sample Name"] <- sprintf("autoQC01%s", mode)
-  
+
   pool$`Inj Vol` <- 2
   pool
 }
@@ -306,28 +304,24 @@ qconfigProteomicsPlateChronos <- function(x, howOften = 4, ...){
 ## AutoQC01 is Tray 5 1-48
 ## AutoQC03 is Tray 5 49-96
 #' @noRd
-.chronos_autoQC01 <- function(x, containerid, ...){
+.chronos_autoQC01 <- function(x, ...){
   data.frame(matrix(NA, ncol = ncol(x), nrow = 2)) -> pool
   colnames(pool) <- colnames(x)
-  
- 
-  currentdate <- format(Sys.time(), "%Y%m%d")
-  
+
+
   ## 1st the clean
-  pool$`Position`[1] <- counterClean; 
-  
+  pool$`Position`[1] <- counterClean;
+
   pool$`Tray`[1] <- 6
   pool$`Sample Name`[1] <- sprintf("clean")
-  pool$`File Name`[1] <- sprintf("%s_@@@_C%s_clean",
-                                         currentdate, containerid)
-  
+  pool$`File Name`[1] <- sprintf("{date}_{run}_C{container}_clean")
+
   # 2nd the autoQC01
-  pool$`Position`[2] <- counterAutoQC01; 
+  pool$`Position`[2] <- counterAutoQC01;
   pool$`Tray`[2] <- 5
   pool$`Sample Name`[2] <- sprintf("autoQC01")
-  pool$`File Name`[2] <- sprintf("%s_@@@_C%s_autoQC01",
-                                         currentdate, containerid)
- 
+  pool$`File Name`[2] <- sprintf("{date}_{run}_C{container}_autoQC01")
+
   ## TODO(cpanse): think about the counters
   counterAutoQC01 <<- counterAutoQC01 + 1
   counterClean <<- counterClean + 1
@@ -338,19 +332,16 @@ qconfigProteomicsPlateChronos <- function(x, howOften = 4, ...){
 ## AutoQC01 is Tray 5 1-48
 ## AutoQC03 is Tray 5 49-96
 #' @noRd
-.chronos_autoQC03 <- function(x, containerid, ...){
+.chronos_autoQC03 <- function(x, ...){
   data.frame(matrix(NA, ncol = ncol(x), nrow = 1)) -> pool
   colnames(pool) <- colnames(x)
-  
-  
-  currentdate <- format(Sys.time(), "%Y%m%d")
-  
-  pool$`Position`[1] <- counterAutoQC03; 
+
+
+  pool$`Position`[1] <- counterAutoQC03;
   pool$`Tray`[1] <- 5
   pool$`Sample Name`[1] <- sprintf("autoQC03")
-  pool$`File Name`[1] <- sprintf("%s_@@@_C%s_autoQC03",
-                                 currentdate, containerid)
-  
+  pool$`File Name`[1] <- sprintf("{date}_{run}_C{container}_autoQC03")
+
   ## TODO(cpanse): think about the counters
   counterAutoQC03 <<- counterAutoQC03 + 1
 

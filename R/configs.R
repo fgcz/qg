@@ -83,40 +83,6 @@
     rvSave <- XML::saveXML(xml$value(), file = file, encoding = "utf-8")
 }
 
-#' Replace run IDs in a data frame
-#' @param x 
-#'
-#' @export
-.replaceRunIds <- function(x){
-
-  cn <- NULL
-  
-  for (cnc in c("File Name", "Xcalibur Filename")){
-    if (cnc %in% colnames(x)){
-      cn <- cnc
-      message("Column name to replace @@@ run ids: ", cn)
-      break
-    }
-  }
-  
-  shiny::validate(shiny::need(isFALSE(is.null(cn)),
-                       "No column name to replace @@@ run ids."))
-                  
-	for (i in 1:nrow(x)){
-		rn <- sprintf("_%03d_", i)
-		x[[cn]][i] |>
-		  stringr::str_replace("_@@@_", rn) -> x[[cn]][i]
-		
-		x[[cn]][i] |>
-		  stringr::str_replace("#", "_") -> x[[cn]][i]
-
-	}
-  
-  # TODO will these work for XCalibur?
-  stopifnot(vapply(x$`File Name`, qg:::.validateFilename, FUN.VALUE = TRUE) |> all())
-	x
-}
-
 #' Interpolates placeholders in filenames.
 #' @param x
 #'
@@ -126,10 +92,8 @@
   date <- format(Sys.time(), "%Y%m%d")
 
   for (i in 1:nrow(x)) {
-    # TODO to make refactoring easier, we can support temporarily the old syntax, but to be removed later
-    template_str <- gsub('@@@', '{run}', x[[column]][[i]])
     # TODO also unclear why it's here
-    template_str <- stringr::str_replace(template_str, "#", "_")
+    template_str <- stringr::str_replace(x[[column]][[i]], "#", "_")
 
     # NOTE: Only order-level placeholders are supported here.
     #       Do not add too many placeholders to avoid confusion.
@@ -139,6 +103,15 @@
       run = sprintf("%03d", i),
       container = container
     )
+
+    # Also interpolate Path if it contains placeholders
+    if ("Path" %in% colnames(x) && !is.na(x$Path[i]) && grepl("\\{date\\}", x$Path[i])) {
+      x$Path[i] <- stringr::str_glue(
+        x$Path[i],
+        date = date,
+        container = container
+      )
+    }
   }
 
   # TODO will these work for XCalibur?
@@ -231,21 +204,19 @@ validate.composePlateSampleTable <- function(x){
                                      system = NULL,
                                      lc = "M_CLASS48_48",
                                      user = 'cpanse',
-                                     injVol = 3.5, 
+                                     injVol = 3.5,
                                      plateCounter = 0,
                                      randomization = 'plate'){
-  format(Sys.time(), "%Y%m%d") -> currentdate
-  
-  p$"File Name" <- sprintf("%s_@@@_C%s_S%d%s_%s",
-                           currentdate,
+
+  p$"File Name" <- sprintf("{date}_{run}_C%s_S%d%s_%s",
                            .extractSampleIdfromTubeID(orderID, p$`Tube ID`),
                            p$"Sample ID",
                            mode,
                            p$"Sample Name")
-  
+
   p$"Path" <- paste0("D:\\Data2San\\p", orderID, "\\", area,
                      "\\", instrument, "\\",
-                     user, "_", currentdate)
+                     user, "_{date}")
   p$"Sample Name" <- paste0(p$"Sample Name", mode)
   
   ## TODO(cpanse): test it
@@ -316,21 +287,19 @@ validate.composePlateSampleTable <- function(x){
                                 mode = "",
                                 instrument = 'ASTRAL_1',
                                 user = 'cpanse',
-                                injVol = 3.5, 
+                                injVol = 3.5,
                                 lc = 'M_CLASS48_48',
                                 randomization = TRUE){
-  
-  format(Sys.time(), "%Y%m%d") -> currentdate
+
   p <- x
-  p$"File Name" <- sprintf("%s_@@@_C%s_S%d%s_%s",
-                           currentdate,
+  p$"File Name" <- sprintf("{date}_{run}_C%s_S%d%s_%s",
                            orderID,
                            p$"Sample ID",
                            mode,
                            p$"Sample Name")
   p$"Path" <- paste0("D:\\Data2San\\p", orderID, "\\", area,
                      "\\", instrument, "\\",
-                     user, "_", currentdate)
+                     user, "_{date}")
   p$"Sample Name" <- paste0(p$"Sample Name", mode)
   
   if (lc == "M_CLASS48_48"){
