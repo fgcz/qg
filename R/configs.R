@@ -1,6 +1,29 @@
 #R
 ## 2024-07-04 Clauda Fortes / Christian Panse
 
+# System Constants ====
+#' @noRd
+.CONSTANTS <- list(
+  DATA_PATH_PREFIX = "D:\\Data2San\\p",
+  L3_LABORATORY = "FGCZ",
+  METHODS_SUBDIR = "\\methods\\",
+  BIOBEAMER_PATH = "c:\\FGCZ\\BioBeamer\\biobeamer.bat",
+  RANDOMIZATION_SEED = 872436,
+  VANQUISH_PLATES_ALL = c("Y", "R", "B", "G"),
+  VANQUISH_PLATES_PROTEOMICS = c("Y", "R", "G")  # Blue reserved for QC
+)
+
+# Helper Functions ====
+#' Apply common fields to queue configuration data frame
+#' @param x data frame
+#' @param lab laboratory name, defaults to FGCZ
+#' @noRd
+.applyCommonFields <- function(x, lab = .CONSTANTS$L3_LABORATORY) {
+  x$`L3 Laboratory` <- lab
+  x$`Instrument Method` <- sprintf("%s%s", x$Path, .CONSTANTS$METHODS_SUBDIR)
+  x
+}
+
 
 #' Generic function to place a sample into a queue configuration
 #' \code{...} is used to pass the parameters to \code{sampleFUN} method.
@@ -71,7 +94,7 @@
 	    DataPath = x$Path |> stringr::str_replace("QEXACTIVEHF_2", "TIMSTOFFLEX_1"),
 	    SuperMethod = "",
 	    ResultDatafile = sprintf("%s\\%s.d", x$Path, x$"File Name"),
-	    ACQEND_EXECUTE = "C:\\FGCZ\\Biobeamer\\biobeamer.bat"
+	    ACQEND_EXECUTE = qg:::.CONSTANTS$BIOBEAMER_PATH
 	    ) -> df
 
 
@@ -214,7 +237,7 @@ validate.composePlateSampleTable <- function(x){
                            mode,
                            p$"Sample Name")
 
-  p$"Path" <- paste0("D:\\Data2San\\p", orderID, "\\", area,
+  p$"Path" <- paste0(qg:::.CONSTANTS$DATA_PATH_PREFIX, orderID, "\\", area,
                      "\\", instrument, "\\",
                      user, "_{date}")
   p$"Sample Name" <- paste0(p$"Sample Name", mode)
@@ -223,8 +246,7 @@ validate.composePlateSampleTable <- function(x){
   ## TODO(cpanse): generalise Position and GridPosition
   if (lc == "Vanquish"){
     ## changed from Position to GridPosition 2024-12-12 CP
-    VanquishPlateIDs <- c("Y", "R", "B", "G")
-    p$Position <- sprintf("%s:%s", VanquishPlateIDs[plateCounter], p$GridPosition)
+    p$Position <- sprintf("%s:%s", qg:::.CONSTANTS$VANQUISH_PLATES_ALL[plateCounter], p$GridPosition)
   } else if (system == "Chronos" && lc == "EVOSEP6x12x8"){
     message("Chronos EVOSEP6x12x8 .composePlateSampleTable")
     p$Position <- sprintf("%s", p$Position)
@@ -234,13 +256,11 @@ validate.composePlateSampleTable <- function(x){
   }
   
   p$"Inj Vol" <- injVol
-  
-  p$"L3 Laboratory" <- "FGCZ"
-  
-  p$"Instrument Method" <- sprintf("%s\\methods\\", p$Path)
-  
+
+  p <- qg:::.applyCommonFields(p)
+
   if (randomization == "plate"){
-    set.seed(872436)
+    set.seed(qg:::.CONSTANTS$RANDOMIZATION_SEED)
     p[sample(nrow(p)), ] -> p
   }
   
@@ -297,7 +317,7 @@ validate.composePlateSampleTable <- function(x){
                            p$"Sample ID",
                            mode,
                            p$"Sample Name")
-  p$"Path" <- paste0("D:\\Data2San\\p", orderID, "\\", area,
+  p$"Path" <- paste0(qg:::.CONSTANTS$DATA_PATH_PREFIX, orderID, "\\", area,
                      "\\", instrument, "\\",
                      user, "_{date}")
   p$"Sample Name" <- paste0(p$"Sample Name", mode)
@@ -309,11 +329,11 @@ validate.composePlateSampleTable <- function(x){
     message("lc = 'Vanquish'")
     if (area == "Metabolomics"){
       ## Metabolomics uses the F row for QCs
-      qg:::.lcVanquish(n = nrow(p), patternLastPos = "E9", availablePlates = c("Y", "R", "B", "G") ) |>
+      qg:::.lcVanquish(n = nrow(p), patternLastPos = "E9", availablePlates = qg:::.CONSTANTS$VANQUISH_PLATES_ALL) |>
         sapply(FUN = .parseVanquishPlateNumber) -> p$Position
     }else if(area == "Proteomics") {
       ## Proteomics uses the Blue plate for QC
-      qg:::.lcVanquish(n = nrow(p), patternLastPos = "F9", availablePlates = c("Y", "R", "G") ) |>
+      qg:::.lcVanquish(n = nrow(p), patternLastPos = "F9", availablePlates = qg:::.CONSTANTS$VANQUISH_PLATES_PROTEOMICS) |>
       sapply(FUN = .parseVanquishPlateNumber) -> p$Position
     }else{
       stop(sprintf("%s - is no valid LC system", lc))
@@ -321,9 +341,8 @@ validate.composePlateSampleTable <- function(x){
   }
   #browser()
   p$"Inj Vol" <- injVol
-  p$"L3 Laboratory" <- "FGCZ"
-  p$"Instrument Method" <- sprintf("%s\\methods\\", p$Path)
-  
+  p <- qg:::.applyCommonFields(p)
+
   if (randomization){
     split(1:nrow(p), substr(p$Position, 1, 1)) |>
       lapply(function(idx){p[idx[sample(length(idx))], ]}) |>

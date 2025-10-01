@@ -168,9 +168,7 @@ qconfigMetabolomicsVanquishVialXCaliburSIIEquiSPLASH <- function(x, howOften = 8
   # browser()
   # ignore F (last) row TODO(cp): how to generalize it?
   x[grepl(pattern = ":[ABCDEFG][1-9]", x = x$Position), ] -> x
-  
-  im <- paste0(x$Path[1], "\\methods\\")
-  
+
   ########################
   x |> qg::.insertSample(howOften = howOften + 1, sampleFUN = .EquiSPLASHrep, path = x$Path[1], ...) -> x
   x |> qg::.insertSample(howOften = 2 * (howOften +1 ), sampleFUN = .pooledQCDilEquiSPLASH, path = x$Path[1], ...) -> x
@@ -191,13 +189,13 @@ qconfigMetabolomicsVanquishVialXCaliburSIIEquiSPLASH <- function(x, howOften = 8
   x |> qg::.insertSample(where = (nrow(x) + 1), sampleFUN =  .EquiSPLASHrep, path = x$Path[1], ...) -> x
   x |> qg::.insertSample(where = (nrow(x) + 1), sampleFUN = .blankEquiSPLASH, path = x$Path[1], ...) -> x
  
-  
+
+
   ########################
-  x$`L3 Laboratory` <- "FGCZ"
+  x <- qg:::.applyCommonFields(x)
   # x$Position |> sapply(FUN = .parsePlateNumber) -> x$Position
-  x$`Instrument Method` <- im
   # x$Position |> sapply(FUN = .parsePlateNumber) -> x$Position
-  
+
   .alternatingPosNegSample(x) -> x
   x[, cn]
 }

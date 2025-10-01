@@ -214,8 +214,7 @@ qconfigMetabolomicsVanquishPlateXCaliburSII <- function(x, howOften = 22, ...){
   x[grepl(pattern = ":[ABCDEFG][1-9]", x = x$Position), ] -> x
   
   message(x$Path[1])
-  im <- paste0(x$Path[1], "\\methods\\")
-  
+
   # in between
   x |> .insertSample(howOften = howOften + 1, sampleFUN = .pooledQCPlate,
                      path = x$Path[1], ...) -> x
@@ -229,10 +228,9 @@ qconfigMetabolomicsVanquishPlateXCaliburSII <- function(x, howOften = 22, ...){
   x |> .insertSample(where = (nrow(x) + 1), sampleFUN = .cleanPlate, path = x$Path[1], ...) -> x
   x |> .insertSample(where = (nrow(x) + 1), sampleFUN = .cleanPlate, path = x$Path[1], ...) -> x
   x |> .insertSample(where = (nrow(x) + 1), sampleFUN = .pooledQCDilPlate, path = x$Path[1], ...) -> x
-  
-  x$`L3 Laboratory` <- "FGCZ"
+
+  x <- qg:::.applyCommonFields(x)
   # x$Position |> sapply(FUN = .parsePlateNumber) -> x$Position
-  x$`Instrument Method` <- im
   #x$Position |> sapply(FUN = .parsePlateNumber) -> x$Position
   x[, cn]
 }
@@ -250,7 +248,6 @@ qconfigMetabolomicsVanquishVialXCaliburSII <- function(x, howOften = 22, ...){
   # ignore F (last) row TODO(cp): how to generalize it?
   x[grepl(pattern = ":[ABCDEFG][1-9]", x = x$Position), ] -> x
   
-  im <- paste0(x$Path[1], "\\methods\\")
   
   x |> .insertSample(howOften = howOften + 1, sampleFUN = .pooledQC,
                      path = x$Path[1], ...) -> x
@@ -266,9 +263,8 @@ qconfigMetabolomicsVanquishVialXCaliburSII <- function(x, howOften = 22, ...){
   
   x |> .insertSample(where = (nrow(x) + 1), sampleFUN = .pooledQCDil, path = x$Path[1], ...) -> x
   
-  x$`L3 Laboratory` <- "FGCZ"
+  x <- qg:::.applyCommonFields(x)
   # x$Position |> sapply(FUN = .parsePlateNumber) -> x$Position
-  x$`Instrument Method` <- im
   # x$Position |> sapply(FUN = .parsePlateNumber) -> x$Position
   x[, cn]
 }
@@ -286,7 +282,6 @@ qconfigMetabolomicsVanquishVialXCaliburSIISPLASH <- function(x, howOften = 22, .
   # ignore F (last) row TODO(cp): how to generalize it?
   x[grepl(pattern = ":[ABCDEFG][1-9]", x = x$Position), ] -> x
   
-  im <- paste0(x$Path[1], "\\methods\\")
   
   x |> .insertSample(howOften = howOften + 1, sampleFUN = .pooledQCSplash,
                      path = x$Path[1], ...) -> x
@@ -302,9 +297,8 @@ qconfigMetabolomicsVanquishVialXCaliburSIISPLASH <- function(x, howOften = 22, .
   
   x |> .insertSample(where = (nrow(x) + 1), sampleFUN = .pooledQCDil, path = x$Path[1], ...) -> x
   
-  x$`L3 Laboratory` <- "FGCZ"
+  x <- qg:::.applyCommonFields(x)
   # x$Position |> sapply(FUN = .parsePlateNumber) -> x$Position
-  x$`Instrument Method` <- im
   # x$Position |> sapply(FUN = .parsePlateNumber) -> x$Position
   x[, cn]
 }
@@ -323,7 +317,6 @@ qconfigMetabolomicsVanquishVialXCaliburSII <- function(x, howOften = 22, ...){
   # ignore F (last) row TODO(cp): how to generalize it?
   x[grepl(pattern = ":[ABCDEFG][1-9]", x = x$Position), ] -> x
   
-  im <- paste0(x$Path[1], "\\methods\\")
   
   x |> .insertSample(howOften = howOften + 1, sampleFUN = .pooledQC,
                      path = x$Path[1], ...) -> x
@@ -339,9 +332,8 @@ qconfigMetabolomicsVanquishVialXCaliburSII <- function(x, howOften = 22, ...){
   
   x |> .insertSample(where = (nrow(x) + 1), sampleFUN = .pooledQCDil, path = x$Path[1], ...) -> x
   
-  x$`L3 Laboratory` <- "FGCZ"
+  x <- qg:::.applyCommonFields(x)
   # x$Position |> sapply(FUN = .parsePlateNumber) -> x$Position
-  x$`Instrument Method` <- im
   # x$Position |> sapply(FUN = .parsePlateNumber) -> x$Position
   x[, cn]
 }

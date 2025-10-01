@@ -191,9 +191,7 @@ qconfigProteomicsVialXCaliburLCDevices <- function(x, howOften = 4, ...){
   # browser()
   # ignore F (last) row TODO(cp): how to generalize it?
   x[grepl(pattern = ":[ABCDEFG][,]{0,1}[1-9]", x = x$Position), ] -> x
-  
-  im <- paste0(x$Path[1], "\\methods\\")
-  
+
   x |> .insertSample(howOften = howOften, sampleFUN = .autoQC01, path = x$Path[1], ...) -> x
  
   # START
@@ -202,9 +200,8 @@ qconfigProteomicsVialXCaliburLCDevices <- function(x, howOften = 4, ...){
   # END
   x |> .insertSample(where = (nrow(x) + 1), sampleFUN = .autoQC01, path = x$Path[1], ...) -> x
 
-  x$`L3 Laboratory` <- "FGCZ"
+  x <- qg:::.applyCommonFields(x)
   # x$Position |> sapply(FUN = .parsePlateNumber) -> x$Position
-  x$`Instrument Method` <- im
   # x$Position |> sapply(FUN = .parsePlateNumber) -> x$Position
   x[, cn]
 }
@@ -241,7 +238,7 @@ qconfigProteomicsVialChronos <- function(x, howOften = 4, ...){
     `Sample Name` = rep("", nrow(x)),
     `Xcalibur Method` = rep("", nrow(x)),
     `Xcalibur Filename` = x$`File Name`,
-    `Xcalibur Post Acquisition Program` = rep("c:\\FGCZ\\BioBeamer\\biobeamer.bat", nrow(x)),
+    `Xcalibur Post Acquisition Program` = rep(qg:::.CONSTANTS$BIOBEAMER_PATH, nrow(x)),
     `Xcalibur Output Dir` = x$Path,
     `Comment` = rep("", nrow(x))
   ) -> x
@@ -290,7 +287,7 @@ qconfigProteomicsPlateChronos <- function(x, howOften = 4, ...){
     `Sample Name` = x$`Sample Name`,
     `Xcalibur Method` = "", ## x$`Instrument Method`,
     `Xcalibur Filename` = x$`File Name`,
-    `Xcalibur Post Acquisition Program` = rep("c:\\FGCZ\\BioBeamer\\biobeamer.bat", nrow(x)),
+    `Xcalibur Post Acquisition Program` = rep(qg:::.CONSTANTS$BIOBEAMER_PATH, nrow(x)),
     `Xcalibur Output Dir` = x$Path,
     `Comment` = rep("", nrow(x))
   ) -> x

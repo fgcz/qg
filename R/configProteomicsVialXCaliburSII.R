@@ -112,9 +112,7 @@ qconfigProteomicsVialXCaliburSII <- function(x, howOften = 8, ...){
   # browser()
   # ignore F (last) row TODO(cp): how to generalize it?
   x[grepl(pattern = ":[ABCDEFG][,]{0,1}[1-9]", x = x$Position), ] -> x
-  
-  im <- paste0(x$Path[1], "\\methods\\")
-  
+
   x |> .insertSample(howOften = howOften, path = x$Path[1], sampleFUN = .autoQC01VialXCaliburSII, ...) -> x
   
   # START
@@ -128,14 +126,15 @@ qconfigProteomicsVialXCaliburSII <- function(x, howOften = 8, ...){
   x |> .insertSample(where = (nrow(x) + 1), path = x$Path[1], sampleFUN = .autoQC03VialXCaliburSII, ...) -> x
   x |> .insertSample(where = (nrow(x) + 1), path = x$Path[1], sampleFUN = .cleanVialXCaliburSII, ...) -> x
   
-  
-  
-  x$`L3 Laboratory` <- "FGCZ"
+
+
+
+
+  x <- qg:::.applyCommonFields(x)
   # x$Position |> sapply(FUN = .parsePlateNumber) -> x$Position
-  x$`Instrument Method` <- im
   # x$Position |> sapply(FUN = .parsePlateNumber) -> x$Position
-  
-  
-  
+
+
+
   return(x[, cn])
 }
