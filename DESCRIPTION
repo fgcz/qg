@@ -29,6 +29,7 @@ Collate:
     configs.R
     configProteomics.R
     configMetabolomics.R
+    configMetabolomicsNew.R
     configMetabolomicsEquiSPLASH.R
     configProteomicsVialXCaliburSII.R
     configProteomicsMclassVialXCaliburSII.R
