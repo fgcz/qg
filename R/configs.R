@@ -116,6 +116,42 @@
 	x
 }
 
+#' Interpolates placeholders in filenames.
+#' @param x
+#'
+#' @export
+.interpolateFilenames <- function(x, container) {
+  column <- ifelse("File Name" %in% colnames(x), "File Name", "Xcalibur Filename")
+  date <- format(Sys.time(), "%Y%m%d")
+
+  for (i in 1:nrow(x)) {
+    # TODO also unclear why it's here
+    template_str <- stringr::str_replace(x[[column]][[i]], "#", "_")
+
+    # NOTE: Only order-level placeholders are supported here.
+    #       Do not add too many placeholders to avoid confusion.
+    x[[column]][[i]] <- stringr::str_glue(
+      template_str,
+      date = date,
+      run = sprintf("%03d", i),
+      container = container
+    )
+
+    # Also interpolate Path if it contains placeholders
+    if ("Path" %in% colnames(x) && !is.na(x$Path[i]) && grepl("\\{date\\}", x$Path[i])) {
+      x$Path[i] <- stringr::str_glue(
+        x$Path[i],
+        date = date,
+        container = container
+      )
+    }
+  }
+
+  # TODO will these work for XCalibur?
+  stopifnot(vapply(x$`File Name`, qg:::.validateFilename, FUN.VALUE = TRUE) |> all())
+	x
+}
+
 #' Read samples of a given container
 #' @author Christian Panse
 #' @param containerID integer container ID
