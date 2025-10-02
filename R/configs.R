@@ -241,8 +241,8 @@ validate.composePlateSampleTable <- function(x){
                                      randomization = 'plate'){
   format(Sys.time(), "%Y%m%d") -> currentdate
   
-  p$"File Name" <- sprintf("%s_@@@_C%s_S%d%s_%s",
-                           currentdate,
+  # TODO this looks a bit weird to me
+  p$"File Name" <- sprintf("{date}_{run}_C{container}_S%d_%s",
                            .extractSampleIdfromTubeID(orderID, p$`Tube ID`),
                            p$"Sample ID",
                            p$"Sample Name")
@@ -324,9 +324,7 @@ validate.composePlateSampleTable <- function(x){
   
   format(Sys.time(), "%Y%m%d") -> currentdate
   p <- x
-  p$"File Name" <- sprintf("%s_@@@_C%s_S%d_%s",
-                           currentdate,
-                           orderID,
+  p$"File Name" <- sprintf("{date}_{run}_C{container}_S%d_%s",
                            p$"Sample ID",
                            p$"Sample Name")
   p$"Path" <- paste0("D:\\Data2San\\p", orderID, "\\", area,

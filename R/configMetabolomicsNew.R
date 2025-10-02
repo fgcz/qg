@@ -2,7 +2,7 @@
 #' Generic queue function for metabolomics
 #' 
 #' @param x input data frame w
-.metabolomicsQueueVial <- function(x, polarities) {
+.metabolomicsQueueVial <- function(x, howOften, polarities) {
   cn <- c("File Name", "Path", "Position", "Inj Vol", "L3 Laboratory", "Sample ID", "Sample Name", "Instrument Method")
   
   # TODO still needed?
@@ -10,7 +10,6 @@
   im <- paste0(x$Path[1], "\\methods\\")
 
   ########################
-  howOften = 8
   x <- qg::.insertSample(x, howOften = howOften + 1, sampleFUN = .EquiSPLASHrep, path = x$Path[1])
   x <- qg::.insertSample(x, howOften = 2 * (howOften + 1), sampleFUN = .pooledQCDilEquiSPLASH, path = x$Path[1])
 
@@ -55,16 +54,16 @@
 }
 
 #' @export
-qconfigMetabolomicsVanquishVialXCaliburSII_pos <- function(x, howOften = 8, ...) {
-  .metabolomicsQueueVial(x, polarities = c("pos"))
+qconfigMetabolomicsVanquishVialXCaliburSII_pos <- function(x, howOften, ...) {
+  .metabolomicsQueueVial(x, howOften = howOften, polarities = c("pos"))
 }
 
 #' @export
-qconfigMetabolomicsVanquishVialXCaliburSII_neg <- function(x, howOften = 8, ...) {
-  .metabolomicsQueueVial(x, polarities = c("neg"))
+qconfigMetabolomicsVanquishVialXCaliburSII_neg <- function(x, howOften, ...) {
+  .metabolomicsQueueVial(x, howOften = howOften, polarities = c("neg"))
 }
 
 #' @export
-qconfigMetabolomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften = 8, ...) {
-  .metabolomicsQueueVial(x, polarities = c("pos", "neg"))
+qconfigMetabolomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften, ...) {
+  .metabolomicsQueueVial(x, howOften = howOften, polarities = c("pos", "neg"))
 }
