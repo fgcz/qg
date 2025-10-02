@@ -305,19 +305,6 @@
     }
   })
   
-  
-  output$instrumentMode <- renderUI({
-    shiny::req(input$instrument)
-    
-    if (input$area == "Metabolomics"){
-      shiny::radioButtons("mode", "Mode:",
-                          c("neg" = "_neg",
-                            "pos" = "_pos",
-                            "pos_neg" = ""), 
-                          inline = TRUE)
-    }else{NULL}
-  })
-  
   # input extratext (not used)  ------------
   output$extratext <- renderUI({
     shiny::req(input$orderID)
@@ -479,13 +466,6 @@
     shiny::req(input$qFUN)
     SAVERDATA <- TRUE
     QCrow <- "F"
-    instrumentMode <- ""
-    if (input$area == "Metabolomics"){
-      instrumentMode <- input$mode
-    }else{
-      instrumentMode <- ""
-    }
-    
   
     if (length(input$plateID) == 0){
       ## --------vial block (no plateid)------------ 
@@ -503,7 +483,6 @@
                                 injVol = input$injvol,
                                 area = input$area,
                                 lc = input$lc,
-                                mode = instrumentMode,
                                 randomization = randomization) -> df
       
      
@@ -527,7 +506,6 @@
                                            user = bf$login(),
                                            injVol = input$injvol,
                                            area = input$area,
-                                           mode = instrumentMode,
                                            plateCounter = plateCounter,
                                            randomization = input$randomization) -> p
             
@@ -574,7 +552,6 @@
       do.call(what = input$qFUN, args = list(x = df,
                                              containerid = input$orderID[1],
                                              QCrow = QCrow,
-                                             mode = instrumentMode,
                                              howOften = as.integer(input$frequency))) |>
         qg::.interpolateFilenames(container = input$orderID[1])
     }else{
@@ -744,7 +721,6 @@
         uiOutput(("lc")),
         uiOutput(("selectqFUN")),
         uiOutput(("plateID")),
-        uiOutput(("instrumentMode")),
         uiOutput(("checkSampleSelection")),
         uiOutput(("selectSampleSelection")),
         uiOutput(("injvol")),

@@ -55,16 +55,16 @@
 }
 
 #' @export
-qconfigMetabolomicsVanquishVialXCaliburSII_pos <- function(x, howOften = 8, mode = '', ...) {
+qconfigMetabolomicsVanquishVialXCaliburSII_pos <- function(x, howOften = 8, ...) {
   .metabolomicsQueueVial(x, polarities = c("pos"))
 }
 
 #' @export
-qconfigMetabolomicsVanquishVialXCaliburSII_neg <- function(x, howOften = 8, mode = '', ...) {
+qconfigMetabolomicsVanquishVialXCaliburSII_neg <- function(x, howOften = 8, ...) {
   .metabolomicsQueueVial(x, polarities = c("neg"))
 }
 
 #' @export
-qconfigMetabolomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften = 8, mode = '', ...) {
+qconfigMetabolomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften = 8, ...) {
   .metabolomicsQueueVial(x, polarities = c("pos", "neg"))
 }

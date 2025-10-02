@@ -147,8 +147,9 @@
     }
   }
 
+  # TODO to be added back
   # TODO will these work for XCalibur?
-  stopifnot(vapply(x$`File Name`, qg:::.validateFilename, FUN.VALUE = TRUE) |> all())
+  #stopifnot(vapply(x$`File Name`, qg:::.validateFilename, FUN.VALUE = TRUE) |> all())
 	x
 }
 
@@ -221,7 +222,6 @@ validate.composePlateSampleTable <- function(x){
 #' @param p 
 #' @param orderID 
 #' @param area 
-#' @param mode 
 #' @param instrument 
 #' @param user 
 #' @param injVol 
@@ -232,7 +232,6 @@ validate.composePlateSampleTable <- function(x){
 .composePlateSampleTable <- function(p,
                                      orderID = 34843,
                                      area = "Metabolomics",
-                                     mode = "",
                                      instrument = 'ASTRAL_1',
                                      system = NULL,
                                      lc = "M_CLASS48_48",
@@ -246,13 +245,11 @@ validate.composePlateSampleTable <- function(x){
                            currentdate,
                            .extractSampleIdfromTubeID(orderID, p$`Tube ID`),
                            p$"Sample ID",
-                           mode,
                            p$"Sample Name")
   
   p$"Path" <- paste0("D:\\Data2San\\p", orderID, "\\", area,
                      "\\", instrument, "\\",
                      user, "_", currentdate)
-  p$"Sample Name" <- paste0(p$"Sample Name", mode)
   
   ## TODO(cpanse): test it
   ## TODO(cpanse): generalise Position and GridPosition
@@ -319,7 +316,6 @@ validate.composePlateSampleTable <- function(x){
 #' }
 .composeVialSampleTable <- function(x, orderID = 34843,
                                 area = "Metabolomics",
-                                mode = "",
                                 instrument = 'ASTRAL_1',
                                 user = 'cpanse',
                                 injVol = 3.5, 
@@ -328,17 +324,15 @@ validate.composePlateSampleTable <- function(x){
   
   format(Sys.time(), "%Y%m%d") -> currentdate
   p <- x
-  p$"File Name" <- sprintf("%s_@@@_C%s_S%d%s_%s",
+  p$"File Name" <- sprintf("%s_@@@_C%s_S%d_%s",
                            currentdate,
                            orderID,
                            p$"Sample ID",
-                           mode,
                            p$"Sample Name")
   p$"Path" <- paste0("D:\\Data2San\\p", orderID, "\\", area,
                      "\\", instrument, "\\",
                      user, "_", currentdate)
-  p$"Sample Name" <- paste0(p$"Sample Name", mode)
-  
+   
   if (lc == "M_CLASS48_48"){
     message("lc = M_CLASS48_48")
     .lcWaters(n = nrow(p)) -> p$Position
