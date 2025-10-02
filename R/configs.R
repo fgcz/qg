@@ -11,9 +11,10 @@
 #' @param howOften how frequently the sample should be inserted
 #' @param sampleFUN the implemented function used defining the sample, e.g., \link[qg]{.autoQC01VialXCaliburSII}.
 #' @param path the path of the sample.
+#' @modOffset to make insert modulo operation work set \code{modOffset = -1}.
 #' @param ... parameters to pass to sampleFUN function.
 #' 
-#' @aliases Christian.Panse <cp@fgcz.ethz.ch> 2023
+#' @aliases Christian.Panse <cp@fgcz.ethz.ch> 2023, 2025-10-02
 #'
 #' @export
 .insertSample <- function(x,
@@ -24,10 +25,10 @@
                          path = NA, ...){
   output <- data.frame(matrix(ncol = ncol(x), nrow = 0))
   colnames(output) <- colnames(x)
-  
+
   if (is.na(where)){
     for (i in 1:nrow(x)){
-      if (((i + modOffset) %% howOften) == 0){
+      if (((i + modOffset) %% howOften) == 0 & i > 1){
         ## inject sampleFUN
         plateId <- output$Position[nrow(output)] |> substr(1,1)
         rbind(output, sampleFUN(x, plateId = plateId, ...)) -> output
