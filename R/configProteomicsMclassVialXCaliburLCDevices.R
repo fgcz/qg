@@ -99,13 +99,13 @@ qconfigProteomicsMclassVialXCaliburLCDevicesDia <- function(x, howOften = 8, ...
   x |> qg:::.insertSample(howOften = howOften + 2, path = x$Path[1], sampleFUN = .autoQC01MclassVialXCaliburLCDevices, modOffset = -1, ...) -> x
   
   # START
-  #x |> .insertSample(where = 0, path = x$Path[1], sampleFUN = .autoQC01MclassVialXCaliburLCDevices, ...) -> x
-  #x |> .insertSample(where = 0, path = x$Path[1], sampleFUN = .autoQC03MclassVialXCaliburLCDevices, ...) -> x
+  x |> .insertSample(where = 0, path = x$Path[1], sampleFUN = .autoQC01MclassVialXCaliburLCDevices, ...) -> x
+  x |> .insertSample(where = 0, path = x$Path[1], sampleFUN = .autoQC03MclassVialXCaliburLCDevices, ...) -> x
   
   # END
-  #x |> .insertSample(where = (nrow(x) + 1), path = x$Path[1], sampleFUN = .cleanMclassVialXCaliburLCDevices, ...) -> x
-  #x |> .insertSample(where = (nrow(x) + 1), path = x$Path[1], sampleFUN = .autoQC01MclassVialXCaliburLCDevices, ...) -> x
-  #x |> .insertSample(where = (nrow(x) + 1), path = x$Path[1], sampleFUN = .autoQC03MclassVialXCaliburLCDevices, ...) -> x
+  x |> .insertSample(where = (nrow(x) + 1), path = x$Path[1], sampleFUN = .cleanMclassVialXCaliburLCDevices, ...) -> x
+  x |> .insertSample(where = (nrow(x) + 1), path = x$Path[1], sampleFUN = .autoQC01MclassVialXCaliburLCDevices, ...) -> x
+  x |> .insertSample(where = (nrow(x) + 1), path = x$Path[1], sampleFUN = .autoQC03MclassVialXCaliburLCDevices, ...) -> x
   ##x |> .insertSample(where = (nrow(x) + 1), path = x$Path[1], sampleFUN = .cleanMclassVialXCaliburSII, ...) -> x
   
   
@@ -115,7 +115,7 @@ qconfigProteomicsMclassVialXCaliburLCDevicesDia <- function(x, howOften = 8, ...
   x$`Instrument Method` <- im
   # x$Position |> sapply(FUN = .parsePlateNumber) -> x$Position
   
-  gsub(pattern = ',', replacement = '', x = x$Position) -> x$Position
+  #gsub(pattern = ',', replacement = '', x = x$Position) -> x$Position
   
   return(x[, cn])
 }
