@@ -1,39 +1,5 @@
 #R
 
-#' blank Equi SPLASH
-#'
-#' @param x \code{data.frame} contains sample information, e.g., "Sample Name", "Sample ID", "Tube ID", "File Name", "Path", "Position" 
-#' @param plateId plate of the sample.
-#' @param QCrow plate row of the sample.
-#' @param QCcol plate col of the sample.
-#' @param containerid bfabric container, order or project id.
-#' @param ... 
-#' 
-#' @author Christian Panse <cp@fgcz.ethz.ch>, 2025-08-13
-#' @returns \code{data.frame}
-#' @export
-#'
-#' @examples
-.blankEquiSPLASH <- function(x, plateId = "Y", QCrow = "F", ...){
-
-  #' take Inj Vol from x
-  x[['Inj Vol']][1] -> InjVol
-
-  data.frame(matrix(NA, ncol = ncol(x), nrow = 1)) -> pool
-  colnames(x) -> colnames(pool)
-
-  pool[1, "File Name"] <- sprintf("{date}_{run}_C{container}_blank")
-
-
-  pool$Position[1] <- sprintf("%s:%s%d", plateId, QCrow, 1)
-
-  pool$`Sample Name`[1] <- sprintf("blank")
-
-  pool$`Inj Vol` <- InjVol
-
-  pool
-}
-
 
 .pooledQCEquiSPLASH <- function(x, plateId = "Y", QCrow = "F", ...){
 
