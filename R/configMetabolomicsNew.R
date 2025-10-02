@@ -50,6 +50,8 @@
   return(res)
 }
 
+# NOTE: These are all vial configs
+
 #' @export
 qconfigMetabolomicsVanquishVialXCaliburSII_pos <- function(x, howOften, ...) {
   .metabolomicsQueueVial(x, howOften = howOften, polarities = c("pos"), standard = "108mix")
@@ -80,6 +82,11 @@ qconfigLipidomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften, ...) {
   .metabolomicsQueueVial(x, howOften = howOften, polarities = c("pos", "neg"), standard = "EquiSPLASH")
 }
 
+# NOTE: These are all plate configs
+
+# TODO to be implemented
+
+
 
 #' One blank sample
 #'
@@ -107,24 +114,40 @@ qconfigLipidomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften, ...) {
   pool
 }
 
+
+.standardsConfig <- data.frame(
+  standard = c("EquiSPLASH", "108mix_AA", "108mix_OAP"),
+  plateId = c("Y", "Y", "Y"),
+  row = c("F", "F", "E"),
+  col = c(9, 9, 9)
+)
+
+
 .standardMetabolomics <- function(x, plateId = "Y", QCrow = "F", standard = "EquiSPLASH"){
+  # Determine which standards to use
   if (standard == "108mix") {
-    pool <- data.frame(matrix(NA, ncol = ncol(x), nrow = 2))
-    colnames(pool) <- colnames(x)
-
-    pool$`File Name` <- sprintf("{date}_{run}_C{container}_%s", c("108mix_AA", "108mix_OAP"))
-    # TODO F9, E9
-    pool$Position <- sprintf("%s:%s%d", plateId, QCrow, c(9, 10))
-    pool$`Sample Name` <- c("108mix_AA", "108mix_OAP")
-    pool$`Inj Vol` <- x[['Inj Vol']][1]
+    standards_to_use <- c("108mix_AA", "108mix_OAP")
   } else {
-    pool <- data.frame(matrix(NA, ncol = ncol(x), nrow = 1))
-    colnames(pool) <- colnames(x)
+    standards_to_use <- standard
+  }
 
-    pool$`File Name` <- sprintf("{date}_{run}_C{container}_%s", standard)
-    pool$Position <- sprintf("%s:%s%d", plateId, QCrow, 9)
-    pool$`Sample Name` <- standard
-    pool$`Inj Vol` <- x[['Inj Vol']][1]
+  # Look up config for each standard
+  configs <- .standardsConfig[.standardsConfig$standard %in% standards_to_use, , drop = FALSE]
+
+  # Reset row names to avoid indexing issues
+  rownames(configs) <- NULL
+
+  # Create output data frame with correct number of rows
+  n_standards <- nrow(configs)
+  pool <- data.frame(matrix(NA, ncol = ncol(x), nrow = n_standards))
+  colnames(pool) <- colnames(x)
+
+  # Fill in values from config for each standard
+  for (i in 1:n_standards) {
+    pool$`File Name`[i] <- sprintf("{date}_{run}_C{container}_%s", configs$standard[i])
+    pool$Position[i] <- sprintf("%s:%s%d", configs$plateId[i], configs$row[i], configs$col[i])
+    pool$`Sample Name`[i] <- configs$standard[i]
+    pool$`Inj Vol`[i] <- x[['Inj Vol']][1]
   }
 
   pool

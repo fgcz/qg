@@ -52,13 +52,11 @@
 
 
 .EquiSPLASHrep <- function(x, standard, plateId = "Y"){
-  data.frame(matrix(NA, ncol = ncol(x), nrow = 3)) -> pool
-  colnames(pool) <- colnames(x)
+  blank <- .blankMetabolomics(x, plateId = plateId)
+  std <- .standardMetabolomics(x, plateId = plateId, standard = standard)
+  pooledQC <- .pooledQCMetabolomics(x, plateId = plateId)
 
-  pool[1, ] <- .blankMetabolomics(x, plateId = plateId)
-  pool[2, ] <- .standardMetabolomics(x, plateId = plateId, standard = standard)
-  pool[3, ] <- .pooledQCMetabolomics(x, plateId = plateId)
-
+  pool <- rbind(blank, std, pooledQC)
   pool
 }
 
