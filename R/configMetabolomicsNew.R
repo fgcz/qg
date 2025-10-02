@@ -1,8 +1,7 @@
-
 #' Generic queue function for metabolomics
 #' 
 #' @param x input data frame w
-.metabolomicsQueueVial <- function(x, howOften, polarities) {
+.metabolomicsQueueVial <- function(x, howOften, polarities, standard) {
   cn <- c("File Name", "Path", "Position", "Inj Vol", "L3 Laboratory", "Sample ID", "Sample Name", "Instrument Method")
   
   # TODO still needed?
@@ -10,21 +9,20 @@
   im <- paste0(x$Path[1], "\\methods\\")
 
   ########################
-  x <- qg::.insertSample(x, howOften = howOften + 1, sampleFUN = .EquiSPLASHrep, path = x$Path[1])
+  x <- qg::.insertSample(x, howOften = howOften + 1, sampleFUN = .EquiSPLASHrep, path = x$Path[1], standard = standard)
   x <- qg::.insertSample(x, howOften = 2 * (howOften + 1), sampleFUN = .pooledQCDilEquiSPLASH, path = x$Path[1])
 
   # START
   x <- qg::.insertSample(x, where = 0, sampleFUN = .blankMetabolomics, path = x$Path[1])
   x <- qg::.insertSample(x, where = 0, sampleFUN = .pooledQCDilEquiSPLASH, path = x$Path[1])
   x <- qg::.insertSample(x, where = 0, sampleFUN = .blankMetabolomics, path = x$Path[1])
-  x <- qg::.insertSample(x, where = 0, sampleFUN = .pooledQCEquiSPLASH, path = x$Path[1])
-  x <- qg::.insertSample(x, where = 0, sampleFUN = .EquiSPLASH, path = x$Path[1])
+  x <- qg::.insertSample(x, where = 0, sampleFUN = .pooledQCMetabolomics, path = x$Path[1])
+  x <- qg::.insertSample(x, where = 0, sampleFUN = .standardMetabolomics, path = x$Path[1], standard = standard)
   x <- qg::.insertSample(x, where = 0, sampleFUN = .blankMetabolomics, path = x$Path[1])
   x <- qg::.insertSample(x, where = 0, sampleFUN = .blankMetabolomics, path = x$Path[1])
-
 
   # END
-  x <- qg::.insertSample(x, where = (nrow(x) + 1), sampleFUN = .EquiSPLASHrep, path = x$Path[1])
+  x <- qg::.insertSample(x, where = (nrow(x) + 1), sampleFUN = .EquiSPLASHrep, path = x$Path[1], standard = standard)
   x <- qg::.insertSample(x, where = (nrow(x) + 1), sampleFUN = .blankMetabolomics, path = x$Path[1])
 
   ########################
@@ -54,19 +52,33 @@
 
 #' @export
 qconfigMetabolomicsVanquishVialXCaliburSII_pos <- function(x, howOften, ...) {
-  .metabolomicsQueueVial(x, howOften = howOften, polarities = c("pos"))
+  .metabolomicsQueueVial(x, howOften = howOften, polarities = c("pos"), standard = "108mix")
 }
 
 #' @export
 qconfigMetabolomicsVanquishVialXCaliburSII_neg <- function(x, howOften, ...) {
-  .metabolomicsQueueVial(x, howOften = howOften, polarities = c("neg"))
+  .metabolomicsQueueVial(x, howOften = howOften, polarities = c("neg"), standard = "108mix")
 }
 
 #' @export
 qconfigMetabolomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften, ...) {
-  .metabolomicsQueueVial(x, howOften = howOften, polarities = c("pos", "neg"))
+  .metabolomicsQueueVial(x, howOften = howOften, polarities = c("pos", "neg"), standard = "108mix")
 }
 
+#' @export
+qconfigLipidomicsVanquishVialXCaliburSII_pos <- function(x, howOften, ...) {
+  .metabolomicsQueueVial(x, howOften = howOften, polarities = c("pos"), standard = "EquiSPLASH")
+}
+
+#' @export
+qconfigLipidomicsVanquishVialXCaliburSII_neg <- function(x, howOften, ...) {
+  .metabolomicsQueueVial(x, howOften = howOften, polarities = c("neg"), standard = "EquiSPLASH")
+}
+
+#' @export
+qconfigLipidomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften, ...) {
+  .metabolomicsQueueVial(x, howOften = howOften, polarities = c("pos", "neg"), standard = "EquiSPLASH")
+}
 
 
 #' One blank sample
@@ -84,16 +96,48 @@ qconfigMetabolomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften, ...)
 #'
 #' @examples
 .blankMetabolomics <- function(x, plateId = "Y", QCrow = "F"){
-  # take Inj Vol from x
-  InjVol <- x[['Inj Vol']][1]
-
   pool <- data.frame(matrix(NA, ncol = ncol(x), nrow = 1))
   colnames(pool) <- colnames(x)
 
-  pool[1, "File Name"] <- "{date}_{run}_C{container}_blank"
-  pool$Position[1] <- sprintf("%s:%s%d", plateId, QCrow, 1)
-  pool$`Sample Name`[1] <- "blank"
-  pool$`Inj Vol` <- InjVol
+  pool$`File Name` <- "{date}_{run}_C{container}_blank"
+  pool$Position <- sprintf("%s:%s%d", plateId, QCrow, 1)
+  pool$`Sample Name` <- "blank"
+  pool$`Inj Vol` <- x[['Inj Vol']][1]
+
   pool
 }
 
+.standardMetabolomics <- function(x, plateId = "Y", QCrow = "F", standard = "EquiSPLASH"){
+  if (standard == "108mix") {
+    pool <- data.frame(matrix(NA, ncol = ncol(x), nrow = 2))
+    colnames(pool) <- colnames(x)
+
+    pool$`File Name` <- sprintf("{date}_{run}_C{container}_%s", c("108mix_AA", "108mix_OAP"))
+    # TODO F9, E9
+    pool$Position <- sprintf("%s:%s%d", plateId, QCrow, c(9, 10))
+    pool$`Sample Name` <- c("108mix_AA", "108mix_OAP")
+    pool$`Inj Vol` <- x[['Inj Vol']][1]
+  } else {
+    pool <- data.frame(matrix(NA, ncol = ncol(x), nrow = 1))
+    colnames(pool) <- colnames(x)
+
+    pool$`File Name` <- sprintf("{date}_{run}_C{container}_%s", standard)
+    pool$Position <- sprintf("%s:%s%d", plateId, QCrow, 9)
+    pool$`Sample Name` <- standard
+    pool$`Inj Vol` <- x[['Inj Vol']][1]
+  }
+
+  pool
+}
+
+.pooledQCMetabolomics <- function(x, plateId = "Y", QCrow = "F", ...){
+  pool <- data.frame(matrix(NA, ncol = ncol(x), nrow = 1))
+  colnames(pool) <- colnames(x)
+
+  pool$`File Name` <- "{date}_{run}_C{container}_pooledQC"
+  pool$Position <- sprintf("%s:%s%d", plateId, QCrow, 8)
+  pool$`Sample Name` <- "blank"
+  pool$`Inj Vol` <- x[['Inj Vol']][1]
+
+  pool
+}

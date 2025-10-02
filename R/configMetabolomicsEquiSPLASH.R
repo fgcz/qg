@@ -1,45 +1,7 @@
 #R
 
 
-.pooledQCEquiSPLASH <- function(x, plateId = "Y", QCrow = "F", ...){
 
-  #' take Inj Vol from x
-  x[['Inj Vol']][1] -> InjVol
-
-  data.frame(matrix(NA, ncol = ncol(x), nrow = 1)) -> pool
-  colnames(x) -> colnames(pool)
-
-  pool[1, "File Name"] <- sprintf("{date}_{run}_C{container}_pooledQC")
-
-
-  pool$Position[1] <- sprintf("%s:%s%d", plateId, QCrow, 8)
-
-  pool$`Sample Name`[1] <- sprintf("blank")
-
-  pool$`Inj Vol` <- InjVol
-
-  pool
-}
-
-.EquiSPLASH <- function(x, plateId = "Y", QCrow = "F"){
-
-  #' take Inj Vol from x
-  x[['Inj Vol']][1] -> InjVol
-
-  data.frame(matrix(NA, ncol = ncol(x), nrow = 1)) -> pool
-  colnames(x) -> colnames(pool)
-
-  pool[1, "File Name"] <- sprintf("{date}_{run}_C{container}_EquiSPLASH")
-
-
-  pool$Position[1] <- sprintf("%s:%s%d", plateId, QCrow, 9)
-
-  pool$`Sample Name`[1] <- sprintf("EquiSPLASH")
-
-  pool$`Inj Vol` <- InjVol
-
-  pool
-}
 
 .pooledQCDilEquiSPLASH <- function(x, plateId = "Y", QCrow = "H", mode = '', path = '???'){
   data.frame(matrix(NA, ncol = ncol(x), nrow = 6)) -> pool
@@ -89,14 +51,13 @@
 }
 
 
-.EquiSPLASHrep <- function(x, plateId = "Y", ...){
-
+.EquiSPLASHrep <- function(x, standard, plateId = "Y"){
   data.frame(matrix(NA, ncol = ncol(x), nrow = 3)) -> pool
   colnames(pool) <- colnames(x)
 
-  .blankEquiSPLASH(x, plateId = plateId, ...) -> pool[1,]
-  .EquiSPLASH(x, plateId = plateId, ...) -> pool[2,]
-  .pooledQCEquiSPLASH(x, plateId = plateId, ...)-> pool[3,]
+  pool[1, ] <- .blankMetabolomics(x, plateId = plateId)
+  pool[2, ] <- .standardMetabolomics(x, plateId = plateId, standard = standard)
+  pool[3, ] <- .pooledQCMetabolomics(x, plateId = plateId)
 
   pool
 }
