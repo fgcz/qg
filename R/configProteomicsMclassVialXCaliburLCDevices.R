@@ -1,5 +1,5 @@
 #R
-## DevDay Claudia/Christian 20251002
+## DevDay Claudia/Christian 2025-10-02
 
 #' autoQC01 Mclass Vial XCalibur SII
 #'
@@ -8,7 +8,7 @@
 #' @author Christian Panse <cp@fgcz.ethz.ch> 2025-08-27
 #' @return \code{data.frame} object
 .autoQC01MclassVialXCaliburLCDevices <- function(x, plateId = "1", QCrow = "F", QCcol = 8,
-                                           mode = "", containerid = "", lc = "Vanquish"){
+                                           mode = "dda", containerid = "", lc = "M_CLASS48_48"){
   
   # plateId <- '1'
   message(paste0("autoQC01 Mlass Vial XCalibur SII lc = ", lc, 'hard coded plaeId = ', plateId))
@@ -28,7 +28,7 @@
 
 #' @inheritParams .autoQC01VialXCaliburSII
 .autoQC03MclassVialXCaliburLCDevices <- function(x, plateId = "1", QCrow = "F", QCcol = 7,
-                                           mode = "dia", containerid = "", lc = "Vanquish"){
+                                           mode = "dia", containerid = "", lc = "M_CLASS48_48"){
   data.frame(matrix(NA, ncol = ncol(x), nrow = 1)) -> pool
   colnames(pool) <- colnames(x)
   currentdate <- format(Sys.time(), "%Y%m%d")
@@ -43,7 +43,7 @@
 
 #' @inheritParams .autoQC01VialXCaliburSII
 .cleanMclassVialXCaliburLCDevices <- function(x, plateId = "1", QCrow = "F", QCcol = 6,
-                                        mode = "", containerid = "", lc = "Vanquish"){
+                                        mode = "", containerid = "", lc = "M_CLASS48_48"){
   
   data.frame(matrix(NA, ncol = ncol(x), nrow = 1)) -> pool
   colnames(pool) <- colnames(x)
@@ -80,7 +80,7 @@
 #' 
 #' @author Christan Panse <cp@fgcz.ethz.ch> 2025-10-02
 qconfigProteomicsMclassVialXCaliburLCDevicesDia <- function(x, howOften = 8, ...){
-  shiny::showNotification("method qconfigProteomicsMclassVialXCaliburSII new implemented.",
+  shiny::showNotification("qconfigProteomicsMclassVialXCaliburLCDevicesDia method is now live.",
                           duration = 10, type = "warning")
   
   
@@ -94,17 +94,18 @@ qconfigProteomicsMclassVialXCaliburLCDevicesDia <- function(x, howOften = 8, ...
   
   im <- paste0(x$Path[1], "\\methods\\")
   
-  x |> .insertSample(howOften = howOften, path = x$Path[1], sampleFUN = .autoQC01MclassVialXCaliburLCDevices, ...) -> x
-  x |> .insertSample(howOften = round(howOften/2), path = x$Path[1], sampleFUN = .cleanMclassVialXCaliburLCDevices, ...) -> x
+  #base::save(x, file='/Users/cp/xxx.RData')
+  x |> qg:::.insertSample(howOften = howOften / 2, path = x$Path[1], sampleFUN = .cleanMclassVialXCaliburLCDevices, modOffset = -1, ...) -> x
+  x |> qg:::.insertSample(howOften = howOften + 2, path = x$Path[1], sampleFUN = .autoQC01MclassVialXCaliburLCDevices, modOffset = -1, ...) -> x
   
   # START
-  #x |> .insertSample(where = 0, path = x$Path[1], sampleFUN = .autoQC01MclassVialXCaliburSII, ...) -> x
-  #x |> .insertSample(where = 0, path = x$Path[1], sampleFUN = .autoQC03MclassVialXCaliburSII, ...) -> x
+  #x |> .insertSample(where = 0, path = x$Path[1], sampleFUN = .autoQC01MclassVialXCaliburLCDevices, ...) -> x
+  #x |> .insertSample(where = 0, path = x$Path[1], sampleFUN = .autoQC03MclassVialXCaliburLCDevices, ...) -> x
   
   # END
-  #x |> .insertSample(where = (nrow(x) + 1), path = x$Path[1], sampleFUN = .cleanMclassVialXCaliburSII, ...) -> x
-  #x |> .insertSample(where = (nrow(x) + 1), path = x$Path[1], sampleFUN = .autoQC01MclassVialXCaliburSII, ...) -> x
-  #x |> .insertSample(where = (nrow(x) + 1), path = x$Path[1], sampleFUN = .autoQC03MclassVialXCaliburSII, ...) -> x
+  #x |> .insertSample(where = (nrow(x) + 1), path = x$Path[1], sampleFUN = .cleanMclassVialXCaliburLCDevices, ...) -> x
+  #x |> .insertSample(where = (nrow(x) + 1), path = x$Path[1], sampleFUN = .autoQC01MclassVialXCaliburLCDevices, ...) -> x
+  #x |> .insertSample(where = (nrow(x) + 1), path = x$Path[1], sampleFUN = .autoQC03MclassVialXCaliburLCDevices, ...) -> x
   ##x |> .insertSample(where = (nrow(x) + 1), path = x$Path[1], sampleFUN = .cleanMclassVialXCaliburSII, ...) -> x
   
   
