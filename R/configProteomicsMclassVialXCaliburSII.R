@@ -96,8 +96,9 @@ qconfigProteomicsMclassVialXCaliburSIIdia <- function(x, howOften = 8, ...){
   
   im <- paste0(x$Path[1], "\\methods\\")
   
-  x |> .insertSample(howOften = howOften, path = x$Path[1], sampleFUN = .autoQC01MclassVialXCaliburSII, ...) -> x
-  x |> .insertSample(howOften = round(howOften/2), path = x$Path[1], sampleFUN = .cleanMclassVialXCaliburSII, ...) -> x
+  x |> .insertSample(howOften = round(howOften / 2), path = x$Path[1], sampleFUN = .cleanMclassVialXCaliburSII, modOffset = -1, ...) -> x
+  x |> .insertSample(howOften = howOften + 2, path = x$Path[1], sampleFUN = .autoQC01MclassVialXCaliburSII, modOffset = -1, ...) -> x
+  
   
   # START
   x |> .insertSample(where = 0, path = x$Path[1], sampleFUN = .autoQC01MclassVialXCaliburSII, ...) -> x
