@@ -6,7 +6,8 @@ ASTRAL_1	Proteomics	PlateXCaliburSII	Vanquish	NA
 ASCEND_1	Proteomics	VialXCaliburSII	M_CLASS48_48	qconfigProteomicsMclassVialXCaliburSIIdia
 ASCEND_1	Proteomics	PlateXCaliburSII	M_CLASS48_48	NA
 EXPLORIS_1	Proteomics	VialChronos	EVOSEP6x12x8	NA
-EXPLORIS_1	Proteomics	VialXCaliburLCDevices	M_CLASS48_48	NA
+EXPLORIS_1	Proteomics	VialXCaliburLCDevices	M_CLASS48_48	qconfigProteomicsMclassVialXCaliburLCDevicesDia
+EXPLORIS_1	Proteomics	VialXCaliburLCDevices	M_CLASS48_48	qconfigProteomicsMclassVialXCaliburLCDevicesDda
 EXPLORIS_2	Proteomics	VialChronos	EVOSEP6x12x8	NA
 EXPLORIS_2	Proteomics	PlateChronos	EVOSEP6x12x8	NA
 EXPLORIS_2	Proteomics	VialXCaliburLCDevices	M_CLASS48_48	NA
