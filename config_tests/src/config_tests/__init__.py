@@ -1,4 +1,5 @@
 import csv
+import os
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -122,3 +123,151 @@ def load_test_manifest(manifest_path=None):
             )
 
     return test_cases
+
+
+def _get_project_root():
+    """Find project root by looking for pyproject.toml."""
+    current = Path(__file__).parent
+    while current != current.parent:
+        if (current / "pyproject.toml").exists():
+            return current
+        current = current.parent
+    raise FileNotFoundError("Could not find project root with pyproject.toml")
+
+
+def _get_expected_output_path(config_name: str, input_type: str) -> Path:
+    """Get path to expected output TSV file.
+
+    Args:
+        config_name: Name of the config function
+        input_type: Type of input fixture
+
+    Returns:
+        Path to the expected output TSV file
+    """
+    project_root = _get_project_root()
+    return project_root / "data" / "expected" / config_name / f"{input_type}.tsv"
+
+
+def save_expected_output(df: pl.DataFrame, config_name: str, input_type: str):
+    """Save DataFrame as expected output TSV.
+
+    Args:
+        df: DataFrame to save
+        config_name: Name of the config function
+        input_type: Type of input fixture
+    """
+    output_path = _get_expected_output_path(config_name, input_type)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Save as TSV with proper formatting
+    df.write_csv(output_path, separator="\t")
+    print(f"Created expected output: {output_path}")
+
+
+def load_expected_output(config_name: str, input_type: str) -> pl.DataFrame:
+    """Load expected output TSV.
+
+    Args:
+        config_name: Name of the config function
+        input_type: Type of input fixture
+
+    Returns:
+        Expected DataFrame
+
+    Raises:
+        FileNotFoundError: If expected output file doesn't exist
+    """
+    output_path = _get_expected_output_path(config_name, input_type)
+
+    if not output_path.exists():
+        raise FileNotFoundError(f"Expected output not found: {output_path}")
+
+    return pl.read_csv(output_path, separator="\t")
+
+
+def compare_with_expected(
+    actual: pl.DataFrame, config_name: str, input_type: str, update: bool = None
+) -> bool:
+    """Compare actual output with expected output TSV.
+
+    Args:
+        actual: Actual output DataFrame
+        config_name: Name of the config function
+        input_type: Type of input fixture
+        update: Whether to update expected output. If None, checks UPDATE_EXPECTED env var
+
+    Returns:
+        True if outputs match or were updated, False otherwise
+
+    Raises:
+        AssertionError: If outputs don't match and update=False
+    """
+    if update is None:
+        update = os.environ.get("UPDATE_EXPECTED", "").lower() in ("1", "true", "yes")
+
+    output_path = _get_expected_output_path(config_name, input_type)
+
+    # If expected output doesn't exist, create it if update=True
+    if not output_path.exists():
+        if update:
+            save_expected_output(actual, config_name, input_type)
+            return True
+        else:
+            raise FileNotFoundError(
+                f"Expected output not found: {output_path}\n"
+                f"Run with UPDATE_EXPECTED=1 to create it."
+            )
+
+    # Load expected output
+    expected = load_expected_output(config_name, input_type)
+
+    # Compare DataFrames
+    try:
+        # Use frame_equal with null_equal=True to handle None values properly
+        if actual.frame_equal(expected, null_equal=True):
+            return True
+    except Exception:
+        pass  # Fall through to detailed comparison
+
+    # If not equal, provide detailed diff
+    if update:
+        save_expected_output(actual, config_name, input_type)
+        print(f"Updated expected output: {output_path}")
+        return True
+
+    # Show differences
+    print("\n" + "=" * 70)
+    print("MISMATCH: Actual output differs from expected")
+    print("=" * 70)
+    print(f"Expected: {output_path}")
+    print(f"\nShape - Expected: {expected.shape}, Actual: {actual.shape}")
+
+    # Check for column differences
+    expected_cols = set(expected.columns)
+    actual_cols = set(actual.columns)
+
+    if expected_cols != actual_cols:
+        print(f"\nColumn differences:")
+        if expected_cols - actual_cols:
+            print(f"  Missing columns: {expected_cols - actual_cols}")
+        if actual_cols - expected_cols:
+            print(f"  Extra columns: {actual_cols - expected_cols}")
+
+    # Show first few rows of diff
+    if expected.shape == actual.shape and expected_cols == actual_cols:
+        print("\nFirst few differing rows:")
+        for i in range(min(10, expected.height)):
+            if not expected.row(i) == actual.row(i):
+                print(f"\n  Row {i}:")
+                print(f"    Expected: {expected.row(i)}")
+                print(f"    Actual:   {actual.row(i)}")
+
+    print("\n" + "=" * 70)
+    print("To update expected output, run with UPDATE_EXPECTED=1")
+    print("=" * 70 + "\n")
+
+    raise AssertionError(
+        f"Output mismatch for {config_name}/{input_type}. "
+        f"See diff above or run with UPDATE_EXPECTED=1 to update."
+    )
