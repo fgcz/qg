@@ -78,6 +78,10 @@
 }
 
 
+#' Queue configuration for metabolomics (positive mode only)
+#' @param x input data frame with primary samples and column structure
+#' @param howOften integer, how often to insert QC samples
+#' @return data frame with queue configuration
 #' @export
 qconfigMetabolomicsVanquishVialXCaliburSII_pos <- function(x, howOften) {
   .metabolomicsQueue(x, howOften = howOften, polarities = c("pos"), standard = "108mix")

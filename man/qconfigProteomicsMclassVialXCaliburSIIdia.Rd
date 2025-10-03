@@ -6,8 +6,25 @@
 \usage{
 qconfigProteomicsMclassVialXCaliburSIIdia(x, howOften = 8, ...)
 }
+\arguments{
+\item{x}{}
+
+\item{howOften}{integer, how often to insert QC samples}
+}
+\value{
+data frame with queue configuration
+}
 \description{
 Proteomics MCLASS Vial XCalibur SII
+}
+\details{
+sample input see o39408
+
+B:F8 autoQC01
+B:F7 autoQC03
+B:F6 clean
+
+order 39061
 }
 \author{
 Christan Panse <cp@fgcz.ethz.ch> 2025-08-27

@@ -9,13 +9,19 @@ qconfigProteomicsVialXCaliburSII(x, howOften = 8, ...)
 \arguments{
 \item{x}{}
 
+\item{howOften}{integer, how often to insert QC samples}
+
 \item{...}{}
+}
+\value{
+data frame with queue configuration
 }
 \description{
 Proteomics Vial XCalibur SII
 }
 \details{
-similar setup as Astral - Vanquish - SII XCalibur 
+similar setup as Astral - Vanquish - SII XCalibur
+
 sample input see o39408
 B:F9 autoQC01
 B:F8 autoQC03
