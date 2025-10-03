@@ -150,7 +150,7 @@ qconfigLipidomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften) {
   .createMetabolomicsSample(x, "blank")
 }
 
-.standardMetabolomics <- function(x, standard = "EquiSPLASH") {
+.standardMetabolomics <- function(x, standard) {
   # Determine which standards to use
   if (standard == "108mix") {
     standards_to_use <- c("108mix_AA", "108mix_OAP")
