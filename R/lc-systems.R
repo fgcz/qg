@@ -5,44 +5,55 @@
 #' Implementation of the Water system `M_CLASS48x48`
 #'
 #' @details
-#' works only for 46 vials (one plate); while expecting F7 and F8 are used for
-#' clean and qc vials
+#' works only for 45 vials (one plate); while expecting positions F6, F7 and F8
+#' are used for clean, qc(autoQC03), qc(autoQC01) vials
 #' 
 #' @param n number of vials
 #' 
-#' @author Christian Panse <cp@fgcz.ethz.ch> 2024-09-04
+#' @author Christian Panse <cp@fgcz.ethz.ch> 2024-09-04, Christian Panse <cp@fgcz.ethz.ch>, Claudia 2025-10-02
 #'
 #' @return a string vector of vial positions.
 #' 
 #' @references \url{https://www.waters.com/nextgen/ch/de/products/chromatography/chromatography-systems/acquity-uplc-m-class-system.html}
 #'
 #' @examples
+#' .lcWaters(45)
+#' # two plates
 #' .lcWaters(46)
+#' testthat::expect_true(.lcWaters(47)[1] == "1:A,1")
+#' testthat::expect_true(.lcWaters(47)[47] == "2:A,2")
+#' testthat::expect_true(.lcWaters(47)[45] == "1:F,5")
+#' testthat::expect_true(.lcWaters(90)[90] == "2:F,5")
+#' testthat::expect_error(.lcWaters(91))
 #' @export
-.lcWaters <- function(n = 46){
-  stopifnot(n < 47)
+.lcWaters <- function(n = 45){
+  maxNPlate <- 45 
+  stopifnot(n <= 2 * maxNPlate)
+  
+  # define plate grid
   X <- c("A", "B", "C", "D", "E", "F")
   nY <- 8
-  P <- c("1")
+  
   counterPlate <- 1
   counterX <- 0
   counterY <- 0
   
   pos <- rep("", n)
   for (i in 1:n){
-    pos[i] <- sprintf("%s:%s,%d", counterPlate, X[counterX + 1], (counterY+1))
+    pos[i] <- sprintf("%s:%s,%d", counterPlate, X[counterX + 1], (counterY + 1))
     counterY <- counterY + 1
-    if (i %% nY == 0){
+    if (counterY %% nY == 0){
       counterX <- counterX + 1
       counterY <- 0
     }
-    if (i %% (length(X) * nY) == 0){
+    #if (i %% (length(X) * nY) == 0){
+    if(i >= counterPlate * maxNPlate) {
       counterPlate <- counterPlate + 1 
       counterX <- 0
       counterY <- 0
     }
-  }
-  pos
+  } # for
+  return(pos)
 }
 
 #' Implementation of the Thermo Fisher Scientific Vanquish
