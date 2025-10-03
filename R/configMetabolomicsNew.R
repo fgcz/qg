@@ -169,6 +169,31 @@ qconfigMetabolomicsVanquishPlateXCaliburSII_pos <- function(x, howOften) {
   .metabolomicsQueuePlate(x, howOften = howOften, polarities = c("pos"), standard = "108mix")
 }
 
+#' @export
+qconfigMetabolomicsVanquishPlateXCaliburSII_neg <- function(x, howOften) {
+  .metabolomicsQueuePlate(x, howOften = howOften, polarities = c("neg"), standard = "108mix")
+}
+
+#' @export
+qconfigMetabolomicsVanquishPlateXCaliburSII_pos_neg <- function(x, howOften) {
+  .metabolomicsQueuePlate(x, howOften = howOften, polarities = c("pos", "neg"), standard = "108mix")
+}
+
+#' @export
+qconfigLipidomicsVanquishPlateXCaliburSII_pos <- function(x, howOften) {
+  .metabolomicsQueuePlate(x, howOften = howOften, polarities = c("pos"), standard = "EquiSPLASH")
+}
+
+#' @export
+qconfigLipidomicsVanquishPlateXCaliburSII_neg <- function(x, howOften) {
+  .metabolomicsQueuePlate(x, howOften = howOften, polarities = c("neg"), standard = "EquiSPLASH")
+}
+
+#' @export
+qconfigLipidomicsVanquishPlateXCaliburSII_pos_neg <- function(x, howOften) {
+  .metabolomicsQueuePlate(x, howOften = howOften, polarities = c("pos", "neg"), standard = "EquiSPLASH")
+}
+
 #' Generic builder to create metabolomics sample rows from config
 #' @param x input data frame with column structure
 #' @param sample_types vector of sample type names to create
