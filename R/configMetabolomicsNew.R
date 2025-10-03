@@ -185,7 +185,7 @@ qconfigLipidomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften) {
 }
 
 
-.standardMetabolomics <- function(x, plateId = "Y", QCrow = "F", standard = "EquiSPLASH") {
+.standardMetabolomics <- function(x, standard = "EquiSPLASH") {
   # Determine which standards to use
   if (standard == "108mix") {
     standards_to_use <- c("108mix_AA", "108mix_OAP")
@@ -196,18 +196,18 @@ qconfigLipidomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften) {
   .createMetabolomicsSample(x, standards_to_use)
 }
 
-.pooledQCMetabolomics <- function(x, plateId = "Y", QCrow = "F") {
+.pooledQCMetabolomics <- function(x) {
   .createMetabolomicsSample(x, "pooledQC")
 }
 
-.metabolomicsBlockPooledQCDilution <- function(x, plateId = "Y", QCrow = "H") {
+.metabolomicsBlockPooledQCDilution <- function(x) {
   dilution_types <- paste0("pooledQCDil", 1:6)
   .createMetabolomicsSample(x, dilution_types)
 }
 
-.metabolomicsBlockStandardPoolQC <- function(x, standard, plateId = "Y") {
+.metabolomicsBlockStandardPoolQC <- function(x, standard) {
   blank <- .blankMetabolomics(x)
-  std <- .standardMetabolomics(x, plateId = plateId, standard = standard)
-  pooledQC <- .pooledQCMetabolomics(x, plateId = plateId)
+  std <- .standardMetabolomics(x, standard = standard)
+  pooledQC <- .pooledQCMetabolomics(x)
   rbind(blank, std, pooledQC)
 }
