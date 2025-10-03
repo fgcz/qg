@@ -150,7 +150,7 @@
                             query = list('containerid' = containerID))$res
   
   data.frame('Sample Name' = sapply(res, function(x)x$name),
-             `Sample ID`= sapply(res, function(x) as.str(x$id)),
+             `Sample ID`= sapply(res, function(x) x$id),
              "Tube ID" = sapply(res, function(x)x$tubeid),
              stringsAsFactors = FALSE) -> df
   
