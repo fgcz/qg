@@ -35,7 +35,7 @@ test_that("test Proteomics ASTRAL_1 XCalibur Vanquish Vial", {
                                          lc = "Vanquish",
                                          containerid = orderId,
                                          howOften = 1)) |>
-    qg::.replaceRunIds() -> df2
+    qg::.interpolateFinalRows(container = orderId) -> df2
   
   
   

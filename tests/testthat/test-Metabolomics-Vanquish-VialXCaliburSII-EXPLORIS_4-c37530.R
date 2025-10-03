@@ -7,7 +7,7 @@ testthat::test_that("test Metabolomics Vanquish VialXCaliburSII EquiSPLASH", {
   ####################################################
   orderId <- 37530
   instrumentMode <- ""
-  qFUN <- "qconfigMetabolomicsVanquishVialXCaliburSIIEquiSPLASH"
+  qFUN <- "qconfigLipidomicsVanquishVialXCaliburSII_pos_neg"
   
   
   qg:::.readPackageFile('test-Metabolomics-Vanquish-VialXCaliburSII-EXPLORIS_4-c37530.RData') -> df
@@ -16,22 +16,19 @@ testthat::test_that("test Metabolomics Vanquish VialXCaliburSII EquiSPLASH", {
 
   
   
-  qg:::qconfigMetabolomicsVanquishVialXCaliburSIIEquiSPLASH(x = df,
-                                                            containerid = orderId,
-                                                            howOften = as.integer(16),
-                                                            QCrow = "F") -> rv0
+  qg:::qconfigLipidomicsVanquishVialXCaliburSII_pos_neg(x = df,
+                                                         howOften = as.integer(16)) -> rv0
+  qFUN <- "qconfigLipidomicsVanquishVialXCaliburSII_pos_neg"
   do.call(what = qFUN,
           args = list(x = df,
-                      containerid = orderId,
-                      QCrow = "F",
                       howOften = as.integer(16))) -> rv1
   
   testthat::expect_true(all(rv0 == rv1, na.rm = TRUE))
   
 })
 
-testthat::test_that("test .alternatingPosNegSample function", {
-  
+testthat::test_that("test .metabolomicsInstantiatePolarities function", {
+
   # Create test data frame
   test_df <- data.frame(
     `File Name` = c("sample1", "sample2"),
@@ -41,22 +38,21 @@ testthat::test_that("test .alternatingPosNegSample function", {
     stringsAsFactors = FALSE,
     check.names = FALSE
   )
-  
-  # Test the function
-  result <- qg:::.alternatingPosNegSample(test_df)
-  
-  # Check dimensions
-  testthat::expect_equal(nrow(result), 4)  # 2 * original rows
+
+  # Test the function with two polarities
+  result <- qg:::.metabolomicsInstantiatePolarities(test_df, c("pos", "neg"))
+
+  # Check dimensions - should be 4 rows (2 input * 2 polarities)
+  testthat::expect_equal(nrow(result), 4)
   testthat::expect_equal(ncol(result), ncol(test_df))
-  
-  # Check alternating pattern
+
+  # Check polarity pattern - all pos first, then all neg
   testthat::expect_equal(result[["File Name"]], c("sample1_pos", "sample1_neg", "sample2_pos", "sample2_neg"))
-  testthat::expect_equal(result[["Sample Name"]], c("test1_pos", "test1_neg", "test2_pos", "test2_neg"))
-  
+
   # Check other columns remain unchanged for corresponding rows
   testthat::expect_equal(result[["Position"]], c("A:1", "A:1", "A:2", "A:2"))
   testthat::expect_equal(result[["Inj Vol"]], c(10, 10, 10, 10))
-  
+
 })
 
 testthat::test_that("test .lcVanquish function", {

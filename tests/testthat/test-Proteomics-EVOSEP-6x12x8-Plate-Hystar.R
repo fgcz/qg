@@ -53,7 +53,7 @@ test_that("test Proteomics TimsTOFFlex EVOSEP 6x12x8 Plate Hystar", {
   
   expect_equal(df1$`Inj Vol` |> as.integer() |> sum() , nrow(df1))
   
-  df1 |> qg::.replaceRunIds() -> df2
+  df1 |> qg::.interpolateFinalRows(container = orderid[1]) -> df2
   
   
 })
@@ -110,7 +110,7 @@ test_that("test Proteomics TimsTOFFlex EVOSEP 6x12x8 Plate Hystar p38884", {
   
   expect_equal(df1$`Inj Vol` |> as.integer() |> sum() , nrow(df1))
   
-  df1 |> qg::.replaceRunIds() -> df2
+  df1 |> qg::.interpolateFinalRows(container = orderid[1]) -> df2
   
   
 })
