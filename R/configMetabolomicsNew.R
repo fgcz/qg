@@ -128,28 +128,8 @@ qconfigLipidomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften) {
 }
 
 
-.metabolomicsSampleConfig <- data.frame(
-  sample_type = c("blank", "EquiSPLASH", "108mix_AA", "108mix_OAP", "pooledQC",
-                  "pooledQCDil1", "pooledQCDil2", "pooledQCDil3",
-                  "pooledQCDil4", "pooledQCDil5", "pooledQCDil6"),
-  plateId = c("Y", "Y", "Y", "Y", "Y", "Y", "Y", "Y", "Y", "Y", "Y"),
-  row = c("F", "F", "F", "E", "F", "H", "H", "H", "H", "H", "H"),
-  col = c(1, 9, 9, 9, 8, 2, 3, 4, 5, 6, 7),
-  file_name_template = c("{date}_{run}_C{container}_blank",
-                         "{date}_{run}_C{container}_EquiSPLASH",
-                         "{date}_{run}_C{container}_108mix_AA",
-                         "{date}_{run}_C{container}_108mix_OAP",
-                         "{date}_{run}_C{container}_pooledQC",
-                         "{date}_{run}_C{container}_pooledQCDil1",
-                         "{date}_{run}_C{container}_pooledQCDil2",
-                         "{date}_{run}_C{container}_pooledQCDil3",
-                         "{date}_{run}_C{container}_pooledQCDil4",
-                         "{date}_{run}_C{container}_pooledQCDil5",
-                         "{date}_{run}_C{container}_pooledQCDil6"),
-  sample_name = c("blank", "EquiSPLASH", "108mix_AA", "108mix_OAP", "blank",
-                  "QC dil1", "QC dil2", "QC dil3", "QC dil4", "QC dil5", "QC dil6"),
-  stringsAsFactors = FALSE
-)
+# .metabolomicsSampleConfig is loaded from inst/extdata/metabolomics_sample_config.tsv
+# at package load time via .onLoad() in R/zzz.R
 
 #' Generic builder to create metabolomics sample rows from config
 #' @param x input data frame with column structure
@@ -174,7 +154,7 @@ qconfigLipidomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften) {
   for (i in 1:n_samples) {
     result$`File Name`[i] <- configs$file_name_template[i]
     result$Position[i] <- sprintf("%s:%s%d",
-                                  configs$plateId[i],
+                                  configs$plate_id[i],
                                   configs$row[i],
                                   configs$col[i])
     result$`Sample Name`[i] <- configs$sample_name[i]

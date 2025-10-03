@@ -1,0 +1,12 @@
+sample_type	plate_id	row	col	file_name_template	sample_name
+blank	Y	F	1	{date}_{run}_C{container}_blank	blank
+EquiSPLASH	Y	F	9	{date}_{run}_C{container}_EquiSPLASH	EquiSPLASH
+108mix_AA	Y	F	9	{date}_{run}_C{container}_108mix_AA	108mix_AA
+108mix_OAP	Y	E	9	{date}_{run}_C{container}_108mix_OAP	108mix_OAP
+pooledQC	Y	F	8	{date}_{run}_C{container}_pooledQC	blank
+pooledQCDil1	Y	H	2	{date}_{run}_C{container}_pooledQCDil1	QC dil1
+pooledQCDil2	Y	H	3	{date}_{run}_C{container}_pooledQCDil2	QC dil2
+pooledQCDil3	Y	H	4	{date}_{run}_C{container}_pooledQCDil3	QC dil3
+pooledQCDil4	Y	H	5	{date}_{run}_C{container}_pooledQCDil4	QC dil4
+pooledQCDil5	Y	H	6	{date}_{run}_C{container}_pooledQCDil5	QC dil5
+pooledQCDil6	Y	H	7	{date}_{run}_C{container}_pooledQCDil6	QC dil6

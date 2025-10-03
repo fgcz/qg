@@ -36,6 +36,7 @@ Collate:
     lc-systems.R
     shiny.R
     validatePattern.R
+    zzz.R
 URL: https://github.com/fgcz/qg.git
 BugReports: https://github.com/fgcz/qg/issues
 Encoding: UTF-8
