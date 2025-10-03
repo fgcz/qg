@@ -88,14 +88,15 @@
 #' @param x 
 #' @param ... 
 #'
-#' @details similar setup as Astral - Vanquish - SII XCalibur 
+#' @details similar setup as Astral - Vanquish - SII XCalibur
+#'
 #' sample input see o39408
 #' B:F9 autoQC01
 #' B:F8 autoQC03
 #' B:F7 clean
 #' 
-#' @inheritParams qconfigMetabolomicsVanquishVialXCaliburSIIEquiSPLASH
-#' @inherit qconfigMetabolomicsVanquishVialXCaliburSIIEquiSPLASH return 
+#' @inheritParams qconfigMetabolomicsVanquishVialXCaliburSII_pos
+#' @inherit qconfigMetabolomicsVanquishVialXCaliburSII_pos return 
 #' @export
 #' @author Antje Dittmann <antje.dittmann@fgcz.uzh.ch>,
 #' Pfammatter Sibylle <sibylle.pfammatter@fgcz.ethz.ch>, 

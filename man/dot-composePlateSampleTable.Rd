@@ -8,7 +8,6 @@
   p,
   orderID = 34843,
   area = "Metabolomics",
-  mode = "",
   instrument = "ASTRAL_1",
   system = NULL,
   lc = "M_CLASS48_48",
@@ -24,8 +23,6 @@
 \item{orderID}{}
 
 \item{area}{}
-
-\item{mode}{}
 
 \item{instrument}{}
 

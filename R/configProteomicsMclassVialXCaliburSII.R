@@ -65,18 +65,18 @@
 #'
 #' @inheritParams .autoQC01VialXCaliburSII
 #'
+#' @details
 #' sample input see o39408
-#' 
+#'
 #' B:F8 autoQC01
 #' B:F7 autoQC03
 #' B:F6 clean
-#' 
-#' 
+#'
 #' order 39061
-#' 
-#' @inheritParams qconfigMetabolomicsVanquishVialXCaliburSIIEquiSPLASH
-#' 
-#' @inherit qconfigMetabolomicsVanquishVialXCaliburSIIEquiSPLASH return 
+#'
+#' @inheritParams qconfigMetabolomicsVanquishVialXCaliburSII_pos
+#'
+#' @inherit qconfigMetabolomicsVanquishVialXCaliburSII_pos return 
 #' 
 #' @export
 #' 

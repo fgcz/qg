@@ -84,37 +84,51 @@
     rvSave <- XML::saveXML(xml$value(), file = file, encoding = "utf-8")
 }
 
-#' Replace run IDs in a data frame
-#' @param x 
+#' Interpolates placeholders in filenames.
+#' @param x
 #'
 #' @export
-.replaceRunIds <- function(x){
+.interpolateFinalRows <- function(x, container) {
+  column <- ifelse(
+    "File Name" %in% colnames(x),
+    "File Name",
+    "Xcalibur Filename"
+  )
+  date <- format(Sys.time(), "%Y%m%d")
 
-  cn <- NULL
-  
-  for (cnc in c("File Name", "Xcalibur Filename")){
-    if (cnc %in% colnames(x)){
-      cn <- cnc
-      message("Column name to replace @@@ run ids: ", cn)
-      break
-    }
+  # Interpolate Path
+  if ("Path" %in% colnames(x)) {
+    x$Path <- sapply(x$Path, function(path) {
+      stringr::str_glue(path, date = date, container = container)
+    }, USE.NAMES = FALSE)
   }
-  
-  shiny::validate(shiny::need(isFALSE(is.null(cn)),
-                       "No column name to replace @@@ run ids."))
-                  
-	for (i in 1:nrow(x)){
-		rn <- sprintf("_%03d_", i)
-		x[[cn]][i] |>
-		  stringr::str_replace("_@@@_", rn) -> x[[cn]][i]
-		
-		x[[cn]][i] |>
-		  stringr::str_replace("#", "_") -> x[[cn]][i]
 
-	}
-  
-  stopifnot(vapply(x$`File Name`, qg:::.validateFilename, FUN.VALUE = TRUE) |> all())
-	x
+  # Interpolate Instrument Method
+  if ("Instrument Method" %in% colnames(x)) {
+    x$`Instrument Method` <- sapply(x$`Instrument Method`, function(method) {
+      stringr::str_glue(method, date = date, container = container)
+    }, USE.NAMES = FALSE)
+  }
+
+  # Interpolate File Name (with legacy replacements and run counter)
+  x[[column]] <- x[[column]] |>
+    stringr::str_replace_all("@@@", "{run}") |>
+    stringr::str_replace("#", "_")
+
+  x[[column]] <- sapply(seq_len(nrow(x)), function(i) {
+    stringr::str_glue(
+      x[[column]][i],
+      date = date,
+      run = sprintf("%03d", i),
+      container = container
+    )
+  }, USE.NAMES = FALSE)
+
+  # TODO will these work for XCalibur?
+  stopifnot(
+    vapply(x$`File Name`, qg:::.validateFilename, FUN.VALUE = TRUE) |> all()
+  )
+  x
 }
 
 #' Read samples of a given container
@@ -152,13 +166,12 @@
 
 
 
-#' @importFrom stringr str_replace
-.extractSampleIdfromTubeID <- function(containerid, tid){
-  sapply(tid, FUN = function(x){
-    pattern = sprintf("%s/[0-9]+", containerid)
-    if(grepl(pattern, x)){
+.extractSampleIdfromTubeID <- function(containerid, tid) {
+  sapply(tid, FUN = function(x) {
+    pattern <- sprintf("%s/[0-9]+", containerid)
+    if (grepl(pattern, x)) {
       x |> stringr::str_replace("/", "-")
-    }else{
+    } else {
       containerid
     }
   })
@@ -186,7 +199,6 @@ validate.composePlateSampleTable <- function(x){
 #' @param p 
 #' @param orderID 
 #' @param area 
-#' @param mode 
 #' @param instrument 
 #' @param user 
 #' @param injVol 
@@ -197,7 +209,6 @@ validate.composePlateSampleTable <- function(x){
 .composePlateSampleTable <- function(p,
                                      orderID = 34843,
                                      area = "Metabolomics",
-                                     mode = "",
                                      instrument = 'ASTRAL_1',
                                      system = NULL,
                                      lc = "M_CLASS48_48",
@@ -205,19 +216,13 @@ validate.composePlateSampleTable <- function(x){
                                      injVol = 3.5, 
                                      plateCounter = 0,
                                      randomization = 'plate'){
-  format(Sys.time(), "%Y%m%d") -> currentdate
-  
-  p$"File Name" <- sprintf("%s_@@@_C%s_S%d%s_%s",
-                           currentdate,
-                           .extractSampleIdfromTubeID(orderID, p$`Tube ID`),
+  # TODO this looks a bit weird to me
+  p$"File Name" <- sprintf("{date}_{run}_C{container}_S%d_%s",
                            p$"Sample ID",
-                           mode,
                            p$"Sample Name")
-  
-  p$"Path" <- paste0("D:\\Data2San\\p", orderID, "\\", area,
-                     "\\", instrument, "\\",
-                     user, "_", currentdate)
-  p$"Sample Name" <- paste0(p$"Sample Name", mode)
+
+  p$"Path" <- sprintf("D:\\Data2San\\p{container}\\%s\\%s\\%s_{date}",
+                     area, instrument, user)
   
   ## TODO(cpanse): test it
   ## TODO(cpanse): generalise Position and GridPosition
@@ -284,26 +289,19 @@ validate.composePlateSampleTable <- function(x){
 #' }
 .composeVialSampleTable <- function(x, orderID = 34843,
                                 area = "Metabolomics",
-                                mode = "",
                                 instrument = 'ASTRAL_1',
                                 user = 'cpanse',
                                 injVol = 3.5, 
                                 lc = 'M_CLASS48_48',
                                 randomization = TRUE){
   
-  format(Sys.time(), "%Y%m%d") -> currentdate
   p <- x
-  p$"File Name" <- sprintf("%s_@@@_C%s_S%d%s_%s",
-                           currentdate,
-                           orderID,
+  p$"File Name" <- sprintf("{date}_{run}_C{container}_S%d_%s",
                            p$"Sample ID",
-                           mode,
                            p$"Sample Name")
-  p$"Path" <- paste0("D:\\Data2San\\p", orderID, "\\", area,
-                     "\\", instrument, "\\",
-                     user, "_", currentdate)
-  p$"Sample Name" <- paste0(p$"Sample Name", mode)
-  
+  p$"Path" <- sprintf("D:\\Data2San\\p{container}\\%s\\%s\\%s_{date}",
+                     area, instrument, user)
+   
   if (lc == "M_CLASS48_48"){
     message("lc = M_CLASS48_48")
     .lcWaters(n = nrow(p)) -> p$Position
