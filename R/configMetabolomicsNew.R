@@ -42,7 +42,7 @@
 
   # Add metadata
   result$`L3 Laboratory` <- "FGCZ"
-  result$`Instrument Method` <- paste0(x$Path[1], "\\methods\\")
+  result$`Instrument Method` <- "{path}\\methods\\"
 
   # Process polarities
   result <- .metabolomicsInstantiatePolarities(result, polarities)
@@ -165,12 +165,14 @@ qconfigLipidomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften) {
   .createMetabolomicsSample(x, "pooledQC")
 }
 
-.metabolomicsBlockPooledQCDilution <- function(x) {
+.metabolomicsBlockPooledQCDilution <- function(x, plateId) {
+  # TODO plateId is ignored, but necessary for insertSample
   dilution_types <- paste0("pooledQCDil", 1:6)
   .createMetabolomicsSample(x, dilution_types)
 }
 
-.metabolomicsBlockStandardPoolQC <- function(x, standard) {
+.metabolomicsBlockStandardPoolQC <- function(x, standard, plateId) {
+  # TODO plateId is ignored, but necessary for insertSample
   blank <- .blankMetabolomics(x)
   std <- .standardMetabolomics(x, standard = standard)
   pooledQC <- .pooledQCMetabolomics(x)

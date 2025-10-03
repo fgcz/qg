@@ -95,6 +95,30 @@
   )
   date <- format(Sys.time(), "%Y%m%d")
 
+  # Interpolate Path (same for all rows, no run counter needed)
+  if ("Path" %in% colnames(x) && length(unique(x$Path)) == 1) {
+    path_template <- x$Path[1]
+    interpolated_path <- stringr::str_glue(
+      path_template,
+      date = date,
+      container = container
+    )
+    x$Path <- rep(interpolated_path, nrow(x))
+  }
+
+  # Interpolate Instrument Method (can reference {path})
+  if ("Instrument Method" %in% colnames(x) && length(unique(x$`Instrument Method`)) == 1) {
+    method_template <- x$`Instrument Method`[1]
+    x$`Instrument Method` <- rep(
+      stringr::str_glue(
+        method_template,
+        path = x$Path[1]
+      ),
+      nrow(x)
+    )
+  }
+
+  # Interpolate File Name (with run counter)
   for (i in seq_len(nrow(x))) {
     # TODO kept until {run} is used everywhere (replace @@@)
     template_str <- stringr::str_replace_all(x[[column]][[i]], "@@@", "{run}")
@@ -107,13 +131,6 @@
       template_str,
       date = date,
       run = sprintf("%03d", i),
-      container = container
-    )
-
-    # Also interpolate Path if it contains placeholders
-    x$Path[i] <- stringr::str_glue(
-      x$Path[i],
-      date = date,
       container = container
     )
   }
@@ -211,17 +228,14 @@ validate.composePlateSampleTable <- function(x){
                                      injVol = 3.5, 
                                      plateCounter = 0,
                                      randomization = 'plate'){
-  format(Sys.time(), "%Y%m%d") -> currentdate
-  
   # TODO this looks a bit weird to me
   p$"File Name" <- sprintf("{date}_{run}_C{container}_S%d_%s",
                            .extractSampleIdfromTubeID(orderID, p$`Tube ID`),
                            p$"Sample ID",
                            p$"Sample Name")
-  
-  p$"Path" <- paste0("D:\\Data2San\\p", orderID, "\\", area,
-                     "\\", instrument, "\\",
-                     user, "_", currentdate)
+
+  p$"Path" <- sprintf("D:\\Data2San\\p{container}\\%s\\%s\\%s_{date}",
+                     area, instrument, user)
   
   ## TODO(cpanse): test it
   ## TODO(cpanse): generalise Position and GridPosition
@@ -294,14 +308,12 @@ validate.composePlateSampleTable <- function(x){
                                 lc = 'M_CLASS48_48',
                                 randomization = TRUE){
   
-  format(Sys.time(), "%Y%m%d") -> currentdate
   p <- x
   p$"File Name" <- sprintf("{date}_{run}_C{container}_S%d_%s",
                            p$"Sample ID",
                            p$"Sample Name")
-  p$"Path" <- paste0("D:\\Data2San\\p", orderID, "\\", area,
-                     "\\", instrument, "\\",
-                     user, "_", currentdate)
+  p$"Path" <- sprintf("D:\\Data2San\\p{container}\\%s\\%s\\%s_{date}",
+                     area, instrument, user)
    
   if (lc == "M_CLASS48_48"){
     message("lc = M_CLASS48_48")
