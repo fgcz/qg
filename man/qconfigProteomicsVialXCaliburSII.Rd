@@ -9,8 +9,6 @@ qconfigProteomicsVialXCaliburSII(x, howOften = 8, ...)
 \arguments{
 \item{x}{}
 
-\item{howOften}{how frequently the sample should be inserted}
-
 \item{...}{}
 }
 \description{
