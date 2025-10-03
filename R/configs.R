@@ -97,27 +97,31 @@
 
   # Interpolate Path
   if ("Path" %in% colnames(x)) {
-    x$Path <- stringr::str_glue(x$Path, date = date, container = container)
+    x$Path <- sapply(x$Path, function(path) {
+      stringr::str_glue(path, date = date, container = container)
+    }, USE.NAMES = FALSE)
   }
 
   # Interpolate Instrument Method
   if ("Instrument Method" %in% colnames(x)) {
-    x$`Instrument Method` <- stringr::str_glue(
-      x$`Instrument Method`,
-      date = date,
-      container = container
-    )
+    x$`Instrument Method` <- sapply(x$`Instrument Method`, function(method) {
+      stringr::str_glue(method, date = date, container = container)
+    }, USE.NAMES = FALSE)
   }
 
   # Interpolate File Name (with legacy replacements and run counter)
   x[[column]] <- x[[column]] |>
     stringr::str_replace_all("@@@", "{run}") |>
-    stringr::str_replace("#", "_") |>
+    stringr::str_replace("#", "_")
+
+  x[[column]] <- sapply(seq_len(nrow(x)), function(i) {
     stringr::str_glue(
+      x[[column]][i],
       date = date,
-      run = sprintf("%03d", seq_len(nrow(x))),
+      run = sprintf("%03d", i),
       container = container
     )
+  }, USE.NAMES = FALSE)
 
   # TODO will these work for XCalibur?
   stopifnot(
@@ -161,13 +165,12 @@
 
 
 
-#' @importFrom stringr str_replace
-.extractSampleIdfromTubeID <- function(containerid, tid){
-  sapply(tid, FUN = function(x){
-    pattern = sprintf("%s/[0-9]+", containerid)
-    if(grepl(pattern, x)){
+.extractSampleIdfromTubeID <- function(containerid, tid) {
+  sapply(tid, FUN = function(x) {
+    pattern <- sprintf("%s/[0-9]+", containerid)
+    if (grepl(pattern, x)) {
       x |> stringr::str_replace("/", "-")
-    }else{
+    } else {
       containerid
     }
   })
@@ -214,7 +217,6 @@ validate.composePlateSampleTable <- function(x){
                                      randomization = 'plate'){
   # TODO this looks a bit weird to me
   p$"File Name" <- sprintf("{date}_{run}_C{container}_S%d_%s",
-                           .extractSampleIdfromTubeID(orderID, p$`Tube ID`),
                            p$"Sample ID",
                            p$"Sample Name")
 

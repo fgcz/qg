@@ -61,6 +61,62 @@
   result[, out_cols]
 }
 
+.metabolomicsQueuePlate <- function(x, howOften, polarities, standard) {
+  # TODO this is copy paste from vial
+
+  # START section
+  start_section <- rbind(
+    .blankMetabolomics(x),
+    .metabolomicsBlockStandardPoolQC(x, standard = standard),
+    .blankMetabolomics(x),
+    .metabolomicsBlockPooledQCDilution(x),
+    .blankMetabolomics(x)
+  )
+
+  # Main samples with periodic QC insertions
+  main_section <- qg::.insertSample(
+    x,
+    howOften = howOften + 1,
+    sampleFUN = .metabolomicsBlockStandardPoolQC,
+    standard = standard
+  )
+  main_section <- qg::.insertSample(
+    main_section,
+    howOften = 2 * (howOften + 1),
+    sampleFUN = .metabolomicsBlockPooledQCDilution,
+  )
+
+  # END section
+  end_section <- rbind(
+    .metabolomicsBlockStandardPoolQC(x, standard = standard),
+    .blankMetabolomics(x)
+  )
+
+  # Combine all sections
+  result <- rbind(start_section, main_section, end_section)
+  result$Path <- x$Path[1]
+
+  # Add metadata
+  result$`L3 Laboratory` <- "FGCZ"
+  result$`Instrument Method` <- sprintf("%s\\methods\\", result$Path)
+
+  # Process polarities
+  result <- .metabolomicsInstantiatePolarities(result, polarities)
+
+  # Return specified columns
+  out_cols <- c(
+    "File Name",
+    "Path",
+    "Position",
+    "Inj Vol",
+    "L3 Laboratory",
+    "Sample ID",
+    "Sample Name",
+    "Instrument Method"
+  )
+  result[, out_cols]
+}
+
 .metabolomicsInstantiatePolarities <- function(x, polarities) {
   # Create empty output data frame with same structure as x
   res <- head(x, 0)
@@ -106,6 +162,11 @@ qconfigLipidomicsVanquishVialXCaliburSII_neg <- function(x, howOften) {
 #' @export
 qconfigLipidomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften) {
   .metabolomicsQueueVial(x, howOften = howOften, polarities = c("pos", "neg"), standard = "EquiSPLASH")
+}
+
+#' @export
+qconfigMetabolomicsVanquishPlateXCaliburSII_pos <- function(x, howOften) {
+  .metabolomicsQueuePlate(x, howOften = howOften, polarities = c("pos"), standard = "108mix")
 }
 
 #' Generic builder to create metabolomics sample rows from config
