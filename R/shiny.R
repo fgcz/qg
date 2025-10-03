@@ -542,8 +542,8 @@
     }
     
     ## ------injectSamples------
-    ## here we inject the clean|blank|qc runs and finally replace @@@ with run#
-    #df$`Sample Name` <- paste0(df$`Sample Name`, mode)
+    ## here we evaluate the queue configuration function, and afterwards,
+    ## replace placeholders like {run}, {date}, {container} in the filenames
     if (input$area == "Metabolomics") {
       do.call(
         what = input$qFUN,
@@ -565,7 +565,7 @@
           howOften = as.integer(input$frequency)
         )
       ) |>
-        qg::.replaceRunIds()
+        qg::.interpolateFilenames(container = input$orderID[1])
     }
     
   })
