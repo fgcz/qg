@@ -17,7 +17,6 @@ testthat::test_that("test Metabolomics Vanquish VialXCaliburSII EquiSPLASH", {
   
   
   qg:::qconfigMetabolomicsVanquishVialXCaliburSIIEquiSPLASH(x = df,
-                                                            mode = "pos",
                                                             containerid = orderId,
                                                             howOften = as.integer(16),
                                                             QCrow = "F") -> rv0
@@ -25,7 +24,6 @@ testthat::test_that("test Metabolomics Vanquish VialXCaliburSII EquiSPLASH", {
           args = list(x = df,
                       containerid = orderId,
                       QCrow = "F",
-                      mode = "pos",
                       howOften = as.integer(16))) -> rv1
   
   testthat::expect_true(all(rv0 == rv1, na.rm = TRUE))
