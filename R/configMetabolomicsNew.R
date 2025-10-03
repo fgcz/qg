@@ -1,4 +1,4 @@
-#' Generic queue configuration for metabolomics vial-based workflows
+#' Generic queue configuration for metabolomics workflows
 #'
 #' Since at the queue level, the only difference between metabolomics and lipidomics
 #' is the standard, setting the standard parameter is sufficient to cover both.
@@ -7,63 +7,7 @@
 #' @param howOften integer, how often to insert QC samples
 #' @param polarities character vector, polarities to include
 #' @param standard character, standard to use
-.metabolomicsQueueVial <- function(x, howOften, polarities, standard) {
-  # START section
-  start_section <- rbind(
-    .blankMetabolomics(x),
-    .metabolomicsBlockStandardPoolQC(x, standard = standard),
-    .blankMetabolomics(x),
-    .metabolomicsBlockPooledQCDilution(x),
-    .blankMetabolomics(x)
-  )
-
-  # Main samples with periodic QC insertions
-  main_section <- qg::.insertSample(
-    x,
-    howOften = howOften + 1,
-    sampleFUN = .metabolomicsBlockStandardPoolQC,
-    standard = standard
-  )
-  main_section <- qg::.insertSample(
-    main_section,
-    howOften = 2 * (howOften + 1),
-    sampleFUN = .metabolomicsBlockPooledQCDilution,
-  )
-
-  # END section
-  end_section <- rbind(
-    .metabolomicsBlockStandardPoolQC(x, standard = standard),
-    .blankMetabolomics(x)
-  )
-
-  # Combine all sections
-  result <- rbind(start_section, main_section, end_section)
-  result$Path <- x$Path[1]
-
-  # Add metadata
-  result$`L3 Laboratory` <- "FGCZ"
-  result$`Instrument Method` <- sprintf("%s\\methods\\", result$Path)
-
-  # Process polarities
-  result <- .metabolomicsInstantiatePolarities(result, polarities)
-
-  # Return specified columns
-  out_cols <- c(
-    "File Name",
-    "Path",
-    "Position",
-    "Inj Vol",
-    "L3 Laboratory",
-    "Sample ID",
-    "Sample Name",
-    "Instrument Method"
-  )
-  result[, out_cols]
-}
-
-.metabolomicsQueuePlate <- function(x, howOften, polarities, standard) {
-  # TODO this is copy paste from vial
-
+.metabolomicsQueue <- function(x, howOften, polarities, standard) {
   # START section
   start_section <- rbind(
     .blankMetabolomics(x),
@@ -136,62 +80,62 @@
 
 #' @export
 qconfigMetabolomicsVanquishVialXCaliburSII_pos <- function(x, howOften) {
-  .metabolomicsQueueVial(x, howOften = howOften, polarities = c("pos"), standard = "108mix")
+  .metabolomicsQueue(x, howOften = howOften, polarities = c("pos"), standard = "108mix")
 }
 
 #' @export
 qconfigMetabolomicsVanquishVialXCaliburSII_neg <- function(x, howOften) {
-  .metabolomicsQueueVial(x, howOften = howOften, polarities = c("neg"), standard = "108mix")
+  .metabolomicsQueue(x, howOften = howOften, polarities = c("neg"), standard = "108mix")
 }
 
 #' @export
 qconfigMetabolomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften) {
-  .metabolomicsQueueVial(x, howOften = howOften, polarities = c("pos", "neg"), standard = "108mix")
+  .metabolomicsQueue(x, howOften = howOften, polarities = c("pos", "neg"), standard = "108mix")
 }
 
 #' @export
 qconfigLipidomicsVanquishVialXCaliburSII_pos <- function(x, howOften) {
-  .metabolomicsQueueVial(x, howOften = howOften, polarities = c("pos"), standard = "EquiSPLASH")
+  .metabolomicsQueue(x, howOften = howOften, polarities = c("pos"), standard = "EquiSPLASH")
 }
 
 #' @export
 qconfigLipidomicsVanquishVialXCaliburSII_neg <- function(x, howOften) {
-  .metabolomicsQueueVial(x, howOften = howOften, polarities = c("neg"), standard = "EquiSPLASH")
+  .metabolomicsQueue(x, howOften = howOften, polarities = c("neg"), standard = "EquiSPLASH")
 }
 
 #' @export
 qconfigLipidomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften) {
-  .metabolomicsQueueVial(x, howOften = howOften, polarities = c("pos", "neg"), standard = "EquiSPLASH")
+  .metabolomicsQueue(x, howOften = howOften, polarities = c("pos", "neg"), standard = "EquiSPLASH")
 }
 
 #' @export
 qconfigMetabolomicsVanquishPlateXCaliburSII_pos <- function(x, howOften) {
-  .metabolomicsQueuePlate(x, howOften = howOften, polarities = c("pos"), standard = "108mix")
+  .metabolomicsQueue(x, howOften = howOften, polarities = c("pos"), standard = "108mix")
 }
 
 #' @export
 qconfigMetabolomicsVanquishPlateXCaliburSII_neg <- function(x, howOften) {
-  .metabolomicsQueuePlate(x, howOften = howOften, polarities = c("neg"), standard = "108mix")
+  .metabolomicsQueue(x, howOften = howOften, polarities = c("neg"), standard = "108mix")
 }
 
 #' @export
 qconfigMetabolomicsVanquishPlateXCaliburSII_pos_neg <- function(x, howOften) {
-  .metabolomicsQueuePlate(x, howOften = howOften, polarities = c("pos", "neg"), standard = "108mix")
+  .metabolomicsQueue(x, howOften = howOften, polarities = c("pos", "neg"), standard = "108mix")
 }
 
 #' @export
 qconfigLipidomicsVanquishPlateXCaliburSII_pos <- function(x, howOften) {
-  .metabolomicsQueuePlate(x, howOften = howOften, polarities = c("pos"), standard = "EquiSPLASH")
+  .metabolomicsQueue(x, howOften = howOften, polarities = c("pos"), standard = "EquiSPLASH")
 }
 
 #' @export
 qconfigLipidomicsVanquishPlateXCaliburSII_neg <- function(x, howOften) {
-  .metabolomicsQueuePlate(x, howOften = howOften, polarities = c("neg"), standard = "EquiSPLASH")
+  .metabolomicsQueue(x, howOften = howOften, polarities = c("neg"), standard = "EquiSPLASH")
 }
 
 #' @export
 qconfigLipidomicsVanquishPlateXCaliburSII_pos_neg <- function(x, howOften) {
-  .metabolomicsQueuePlate(x, howOften = howOften, polarities = c("pos", "neg"), standard = "EquiSPLASH")
+  .metabolomicsQueue(x, howOften = howOften, polarities = c("pos", "neg"), standard = "EquiSPLASH")
 }
 
 #' Generic builder to create metabolomics sample rows from config
