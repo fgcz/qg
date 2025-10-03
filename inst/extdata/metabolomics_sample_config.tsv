@@ -1,12 +1,12 @@
 sample_type	plate_id	row	col	file_name_template	sample_name
 blank	Y	F	1	{date}_{run}_C{container}_blank	blank
-pooledQCDil1	Y	F	2	{date}_{run}_C{container}_pooledQCDil1	QC dil1
-pooledQCDil2	Y	F	3	{date}_{run}_C{container}_pooledQCDil2	QC dil2
-pooledQCDil3	Y	F	4	{date}_{run}_C{container}_pooledQCDil3	QC dil3
-pooledQCDil4	Y	F	5	{date}_{run}_C{container}_pooledQCDil4	QC dil4
-pooledQCDil5	Y	F	6	{date}_{run}_C{container}_pooledQCDil5	QC dil5
-pooledQCDil6	Y	F	7	{date}_{run}_C{container}_pooledQCDil6	QC dil6
-pooledQC	Y	F	8	{date}_{run}_C{container}_pooledQC	QC pool
+pooledQCDil1	Y	F	2	{date}_{run}_C{container}_pooledQCDil1	pooledQCDil1
+pooledQCDil2	Y	F	3	{date}_{run}_C{container}_pooledQCDil2	pooledQCDil2
+pooledQCDil3	Y	F	4	{date}_{run}_C{container}_pooledQCDil3	pooledQCDil3
+pooledQCDil4	Y	F	5	{date}_{run}_C{container}_pooledQCDil4	pooledQCDil4
+pooledQCDil5	Y	F	6	{date}_{run}_C{container}_pooledQCDil5	pooledQCDil5
+pooledQCDil6	Y	F	7	{date}_{run}_C{container}_pooledQCDil6	pooledQCDil6
+pooledQC	Y	F	8	{date}_{run}_C{container}_pooledQC	pooledQC
 EquiSPLASH	Y	F	9	{date}_{run}_C{container}_EquiSPLASH	EquiSPLASH
 108mix_AA	Y	F	9	{date}_{run}_C{container}_108mix_AA	108mix_AA
 108mix_OAP	Y	E	9	{date}_{run}_C{container}_108mix_OAP	108mix_OAP
