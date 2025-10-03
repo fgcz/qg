@@ -1,9 +1,13 @@
-#' Generic queue function for metabolomics
+#' Generic queue configuration for metabolomics vial-based workflows
 #'
-#' @param x input data frame w
+#' Since at the queue level, the only difference between metabolomics and lipidomics
+#' is the standard, setting the standard parameter is sufficient to cover both.
+#'
+#' @param x input data frame with primary samples and column structure
+#' @param howOften integer, how often to insert QC samples
+#' @param polarities character vector, polarities to include
+#' @param standard character, standard to use
 .metabolomicsQueueVial <- function(x, howOften, polarities, standard) {
-  path <- x$Path[1]
-
   # START section
   start_section <- rbind(
     .blankMetabolomics(x),
@@ -18,14 +22,12 @@
     x,
     howOften = howOften + 1,
     sampleFUN = .metabolomicsBlockStandardPoolQC,
-    path = path,
     standard = standard
   )
   main_section <- qg::.insertSample(
     main_section,
     howOften = 2 * (howOften + 1),
     sampleFUN = .metabolomicsBlockPooledQCDilution,
-    path = path
   )
 
   # END section
@@ -36,7 +38,7 @@
 
   # Combine all sections
   result <- rbind(start_section, main_section, end_section)
-  result$Path <- path
+  result$Path <- x$Path[1]
 
   # Add metadata
   result$`L3 Laboratory` <- "FGCZ"
@@ -75,7 +77,6 @@
   res
 }
 
-# NOTE: These are all vial configs
 
 #' @export
 qconfigMetabolomicsVanquishVialXCaliburSII_pos <- function(x, howOften) {
@@ -106,11 +107,6 @@ qconfigLipidomicsVanquishVialXCaliburSII_neg <- function(x, howOften) {
 qconfigLipidomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften) {
   .metabolomicsQueueVial(x, howOften = howOften, polarities = c("pos", "neg"), standard = "EquiSPLASH")
 }
-
-# NOTE: These are all plate configs
-
-# TODO to be implemented
-
 
 
 #' One blank sample
@@ -147,8 +143,7 @@ qconfigLipidomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften) {
 
   # Create output data frame with correct number of rows
   n_samples <- nrow(configs)
-  result <- data.frame(matrix(NA, ncol = ncol(x), nrow = n_samples))
-  colnames(result) <- colnames(x)
+  result <- x[0, ][rep(1, n_samples), ]
 
   # Fill in values from config for each sample
   for (i in 1:n_samples) {
@@ -163,7 +158,6 @@ qconfigLipidomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften) {
 
   result
 }
-
 
 .standardMetabolomics <- function(x, standard = "EquiSPLASH") {
   # Determine which standards to use
