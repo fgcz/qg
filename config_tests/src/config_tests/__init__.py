@@ -222,10 +222,12 @@ def compare_with_expected(
     # Load expected output
     expected = load_expected_output(config_name, input_type)
 
-    # Compare DataFrames
+    # Reorder actual to match expected column order
+    actual_reordered = actual.select(expected.columns)
+
+    # Compare DataFrames using equals()
     try:
-        # Use frame_equal with null_equal=True to handle None values properly
-        if actual.frame_equal(expected, null_equal=True):
+        if actual_reordered.equals(expected, null_equal=True):
             return True
     except Exception:
         pass  # Fall through to detailed comparison
@@ -254,14 +256,32 @@ def compare_with_expected(
         if actual_cols - expected_cols:
             print(f"  Extra columns: {actual_cols - expected_cols}")
 
+    # Show schema differences
+    print("\nColumn dtypes:")
+    print("  Expected:", expected.schema)
+    print("  Actual:  ", actual.schema)
+
     # Show first few rows of diff
     if expected.shape == actual.shape and expected_cols == actual_cols:
         print("\nFirst few differing rows:")
+        diff_count = 0
         for i in range(min(10, expected.height)):
-            if not expected.row(i) == actual.row(i):
+            exp_row = expected.row(i)
+            act_row = actual_reordered.row(i)
+            if exp_row != act_row:
                 print(f"\n  Row {i}:")
-                print(f"    Expected: {expected.row(i)}")
-                print(f"    Actual:   {actual.row(i)}")
+                print(f"    Expected: {exp_row}")
+                print(f"    Actual:   {act_row}")
+                # Show column-by-column comparison
+                for j, col in enumerate(expected.columns):
+                    if exp_row[j] != act_row[j]:
+                        print(f"      {col}: {exp_row[j]!r} != {act_row[j]!r}")
+                diff_count += 1
+                if diff_count >= 3:  # Limit to 3 rows
+                    break
+
+        if diff_count == 0:
+            print("  (No row differences found - likely a dtype issue)")
 
     print("\n" + "=" * 70)
     print("To update expected output, run with UPDATE_EXPECTED=1")

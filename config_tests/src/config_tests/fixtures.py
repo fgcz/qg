@@ -18,7 +18,7 @@ def create_vial_input_small() -> pl.DataFrame:
                 "{date}_{run}_C{container}_S990002_Sample_B",
                 "{date}_{run}_C{container}_S990003_Sample_C",
             ],
-            "Path": ["D:\\Data2San\\p99000\\Metabolomics\\TEST\\user_20251003"] * 3,
+            "Path": ["D:\\Data2San\\p{container}\\Metabolomics\\TEST\\user_{date}"] * 3,
             "Position": ["Y:A1", "Y:A2", "Y:A3"],
             "Inj Vol": [3.5, 3.5, 3.5],
         }
@@ -44,7 +44,7 @@ def create_vial_input_large() -> pl.DataFrame:
                 f"{{date}}_{{run}}_C{{container}}_S{sid}_Sample_{chr(65 + (i % 26))}{i // 26 + 1}"
                 for i, sid in enumerate(sample_ids)
             ],
-            "Path": ["D:\\Data2San\\p99000\\Metabolomics\\TEST\\user_20251003"]
+            "Path": ["D:\\Data2San\\p{container}\\Metabolomics\\TEST\\user_{date}"]
             * n_samples,
             "Position": [
                 f"Y:{chr(65 + (i // 9))}{(i % 9) + 1}" for i in range(n_samples)
