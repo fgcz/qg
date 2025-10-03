@@ -549,7 +549,7 @@
         what = input$qFUN,
         args = list(x = df, howOften = as.integer(input$frequency))
       ) |>
-        qg::.interpolateFilenames(container = input$orderID[1])
+        qg::.interpolateFinalRows(container = input$orderID[1])
     } else {
       if (SAVERDATA) {
         # filenameRData <- file.path("/tmp/", paste0(input$area,"_c", input$orderID[1], ".RData"))
@@ -565,7 +565,7 @@
           howOften = as.integer(input$frequency)
         )
       ) |>
-        qg::.interpolateFilenames(container = input$orderID[1])
+        qg::.interpolateFinalRows(container = input$orderID[1])
     }
     
   })

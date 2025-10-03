@@ -87,7 +87,7 @@
 #' @param x
 #'
 #' @export
-.interpolateFilenames <- function(x, container) {
+.interpolateFinalRows <- function(x, container) {
   column <- ifelse(
     "File Name" %in% colnames(x),
     "File Name",
@@ -95,45 +95,29 @@
   )
   date <- format(Sys.time(), "%Y%m%d")
 
-  # Interpolate Path (same for all rows, no run counter needed)
-  if ("Path" %in% colnames(x) && length(unique(x$Path)) == 1) {
-    path_template <- x$Path[1]
-    interpolated_path <- stringr::str_glue(
-      path_template,
+  # Interpolate Path
+  if ("Path" %in% colnames(x)) {
+    x$Path <- stringr::str_glue(x$Path, date = date, container = container)
+  }
+
+  # Interpolate Instrument Method
+  if ("Instrument Method" %in% colnames(x)) {
+    x$`Instrument Method` <- stringr::str_glue(
+      x$`Instrument Method`,
       date = date,
       container = container
     )
-    x$Path <- rep(interpolated_path, nrow(x))
   }
 
-  # Interpolate Instrument Method (can reference {path})
-  if ("Instrument Method" %in% colnames(x) && length(unique(x$`Instrument Method`)) == 1) {
-    method_template <- x$`Instrument Method`[1]
-    x$`Instrument Method` <- rep(
-      stringr::str_glue(
-        method_template,
-        path = x$Path[1]
-      ),
-      nrow(x)
-    )
-  }
-
-  # Interpolate File Name (with run counter)
-  for (i in seq_len(nrow(x))) {
-    # TODO kept until {run} is used everywhere (replace @@@)
-    template_str <- stringr::str_replace_all(x[[column]][[i]], "@@@", "{run}")
-    # TODO also unclear why it's here
-    template_str <- stringr::str_replace(template_str, "#", "_")
-
-    # NOTE: Only order-level placeholders are supported here.
-    #       Do not add too many placeholders to avoid confusion.
-    x[[column]][[i]] <- stringr::str_glue(
-      template_str,
+  # Interpolate File Name (with legacy replacements and run counter)
+  x[[column]] <- x[[column]] |>
+    stringr::str_replace_all("@@@", "{run}") |>
+    stringr::str_replace("#", "_") |>
+    stringr::str_glue(
       date = date,
-      run = sprintf("%03d", i),
+      run = sprintf("%03d", seq_len(nrow(x))),
       container = container
     )
-  }
 
   # TODO will these work for XCalibur?
   stopifnot(

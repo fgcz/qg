@@ -42,7 +42,7 @@
 
   # Add metadata
   result$`L3 Laboratory` <- "FGCZ"
-  result$`Instrument Method` <- "{path}\\methods\\"
+  result$`Instrument Method` <- sprintf("%s\\methods\\", result$Path)
 
   # Process polarities
   result <- .metabolomicsInstantiatePolarities(result, polarities)
