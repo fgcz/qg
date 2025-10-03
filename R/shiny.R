@@ -465,7 +465,6 @@
     #shiny::req(input$plateID)
     shiny::req(input$qFUN)
     SAVERDATA <- TRUE
-    QCrow <- "F"
   
     if (length(input$plateID) == 0){
       ## --------vial block (no plateid)------------ 
@@ -545,25 +544,27 @@
     ## ------injectSamples------
     ## here we inject the clean|blank|qc runs and finally replace @@@ with run#
     #df$`Sample Name` <- paste0(df$`Sample Name`, mode)
-    if (input$area == "Metabolomics"){
-      
-     
-      
-      do.call(what = input$qFUN, args = list(x = df,
-                                             containerid = input$orderID[1],
-                                             QCrow = QCrow,
-                                             howOften = as.integer(input$frequency))) |>
+    if (input$area == "Metabolomics") {
+      do.call(
+        what = input$qFUN,
+        args = list(x = df, howOften = as.integer(input$frequency))
+      ) |>
         qg::.interpolateFilenames(container = input$orderID[1])
-    }else{
+    } else {
       if (SAVERDATA) {
-       # filenameRData <- file.path("/tmp/", paste0(input$area,"_c", input$orderID[1], ".RData"))
-       # base::save(df, file = filenameRData)
+        # filenameRData <- file.path("/tmp/", paste0(input$area,"_c", input$orderID[1], ".RData"))
+        # base::save(df, file = filenameRData)
       }
       #browser()
-      do.call(what = input$qFUN, args = list(x = df,
-                                             lc = input$lc,
-                                             containerid = input$orderID[1],
-                                             howOften = as.integer(input$frequency))) |>
+      do.call(
+        what = input$qFUN,
+        args = list(
+          x = df,
+          lc = input$lc,
+          containerid = input$orderID[1],
+          howOften = as.integer(input$frequency)
+        )
+      ) |>
         qg::.replaceRunIds()
     }
     

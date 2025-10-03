@@ -4,19 +4,15 @@
 
 
 .pooledQCDilEquiSPLASH <- function(x, plateId = "Y", QCrow = "H", mode = '', path = '???'){
-  data.frame(matrix(NA, ncol = ncol(x), nrow = 6)) -> pool
-
+  pool <- data.frame(matrix(NA, ncol = ncol(x), nrow = 6))
   colnames(pool) <- colnames(x)
+  InjVol <- x[['Inj Vol']][1]
 
-  x[['Inj Vol']][1] -> InjVol
-
-  for (i in 1:6){
-
+  for (i in 1:6) {
     pool[i, "File Name"] <- sprintf("{date}_{run}_C{container}_pooledQCDil%d", i)
 
     pool$Position[i] <- sprintf("%s:%s%d", plateId, QCrow,i + 1)
     pool$`Sample Name`[i] <- sprintf("QC dil%d", i)
-    pool$`Instrument Method`[i] <- "xxxxxx  xxxx  x"
   }
 
   pool$`Inj Vol` <- InjVol
@@ -52,7 +48,7 @@
 
 
 .EquiSPLASHrep <- function(x, standard, plateId = "Y"){
-  blank <- .blankMetabolomics(x, plateId = plateId)
+  blank <- .blankMetabolomics(x)
   std <- .standardMetabolomics(x, plateId = plateId, standard = standard)
   pooledQC <- .pooledQCMetabolomics(x, plateId = plateId)
 
