@@ -186,13 +186,13 @@
   output$orderID <- renderUI({
     shiny::req(user())
     
-    if (user()$login == 'cpanse'){
+    if (user()$login == 'cpanseXXX'){
       return( selectInput(
         "orderID",
         "Order ID:",
         c("28073", "31741",  "35464", "34843", "34777", "34778",
           "35117", "35270", "35394", "38884", "37530", "39408", "39061",
-          "39473", "39330", "39555") |> sort() |> unique(),
+          "39473", "39330", "39555", "30646") |> sort() |> unique(),
         selected = "31741",
         multiple = TRUE,
         selectize = FALSE

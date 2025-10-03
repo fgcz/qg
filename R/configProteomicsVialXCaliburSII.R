@@ -118,7 +118,7 @@ qconfigProteomicsVialXCaliburSII <- function(x, howOften = 8, ...){
   
   im <- paste0(x$Path[1], "\\methods\\")
   
-  x |> .insertSample(howOften = howOften, path = x$Path[1], sampleFUN = .autoQC01VialXCaliburSII, ...) -> x
+  x |> .insertSample(howOften = howOften, path = x$Path[1], sampleFUN = .autoQC01VialXCaliburSII, modOffset = -1, ...) -> x
   
   # START
   x |> .insertSample(where = 0, path = x$Path[1], sampleFUN = .autoQC03VialXCaliburSII, ...) -> x
