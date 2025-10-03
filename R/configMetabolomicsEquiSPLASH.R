@@ -3,21 +3,6 @@
 
 
 
-.pooledQCDilEquiSPLASH <- function(x, plateId = "Y", QCrow = "H", mode = '', path = '???'){
-  pool <- data.frame(matrix(NA, ncol = ncol(x), nrow = 6))
-  colnames(pool) <- colnames(x)
-  InjVol <- x[['Inj Vol']][1]
-
-  for (i in 1:6) {
-    pool[i, "File Name"] <- sprintf("{date}_{run}_C{container}_pooledQCDil%d", i)
-
-    pool$Position[i] <- sprintf("%s:%s%d", plateId, QCrow,i + 1)
-    pool$`Sample Name`[i] <- sprintf("QC dil%d", i)
-  }
-
-  pool$`Inj Vol` <- InjVol
-  pool
-}
 
 
 .alternatingPosNegSample <- function(x, ...){
@@ -47,14 +32,7 @@
 }
 
 
-.EquiSPLASHrep <- function(x, standard, plateId = "Y"){
-  blank <- .blankMetabolomics(x)
-  std <- .standardMetabolomics(x, plateId = plateId, standard = standard)
-  pooledQC <- .pooledQCMetabolomics(x, plateId = plateId)
 
-  pool <- rbind(blank, std, pooledQC)
-  pool
-}
 
 
 #' qconfig metabolomics for vials EquiSPLASH pos_neg
@@ -91,13 +69,13 @@ qconfigMetabolomicsVanquishVialXCaliburSIIEquiSPLASH <- function(x, howOften = 8
   x[grepl(pattern = ":[ABCDEFG][1-9]", x = x$Position), ] -> x
 
   ########################
-  x |> qg::.insertSample(howOften = howOften + 1, sampleFUN = .EquiSPLASHrep, path = x$Path[1], ...) -> x
-  x |> qg::.insertSample(howOften = 2 * (howOften +1 ), sampleFUN = .pooledQCDilEquiSPLASH, path = x$Path[1], ...) -> x
+  x |> qg::.insertSample(howOften = howOften + 1, sampleFUN = .metabolomicsBlockStandardPoolQC, path = x$Path[1], ...) -> x
+  x |> qg::.insertSample(howOften = 2 * (howOften +1 ), sampleFUN = .metabolomicsBlockPooledQCDilution, path = x$Path[1], ...) -> x
   #x |> qg::.insertSample(howOften = howOften + 1, sampleFUN =  .pooledQCDilEquiSPLASH, path = x$Path[1], ...) -> x
   
   # START
   x |> qg::.insertSample(where = 0, sampleFUN = .blankEquiSPLASH, path = x$Path[1], ...) -> x
-  x |> qg::.insertSample(where = 0, sampleFUN = .pooledQCDilEquiSPLASH, path = x$Path[1], ...) -> x
+  x |> qg::.insertSample(where = 0, sampleFUN = .metabolomicsBlockPooledQCDilution, path = x$Path[1], ...) -> x
   x |> qg::.insertSample(where = 0, sampleFUN = .blankEquiSPLASH, path = x$Path[1], ...) -> x
   x |> qg::.insertSample(where = 0, sampleFUN = .pooledQCEquiSPLASH, path = x$Path[1], ...) -> x
   x |> qg::.insertSample(where = 0, sampleFUN = .EquiSPLASH, path = x$Path[1], ...) -> x
@@ -107,7 +85,7 @@ qconfigMetabolomicsVanquishVialXCaliburSIIEquiSPLASH <- function(x, howOften = 8
  
   # END
 
-  x |> qg::.insertSample(where = (nrow(x) + 1), sampleFUN =  .EquiSPLASHrep, path = x$Path[1], ...) -> x
+  x |> qg::.insertSample(where = (nrow(x) + 1), sampleFUN =  .metabolomicsBlockStandardPoolQC, path = x$Path[1], ...) -> x
   x |> qg::.insertSample(where = (nrow(x) + 1), sampleFUN = .blankEquiSPLASH, path = x$Path[1], ...) -> x
  
 

@@ -1,5 +1,5 @@
 #' Generic queue function for metabolomics
-#' 
+#'
 #' @param x input data frame w
 .metabolomicsQueueVial <- function(x, howOften, polarities, standard) {
   path <- x$Path[1]
@@ -7,25 +7,30 @@
   # START section
   start_section <- rbind(
     .blankMetabolomics(x),
+    .metabolomicsBlockStandardPoolQC(x, standard = standard),
     .blankMetabolomics(x),
-    .standardMetabolomics(x, standard = standard),
-    .pooledQCMetabolomics(x),
-    .blankMetabolomics(x),
-    .pooledQCDilEquiSPLASH(x),
+    .metabolomicsBlockPooledQCDilution(x),
     .blankMetabolomics(x)
   )
 
   # Main samples with periodic QC insertions
-  main_section <- qg::.insertSample(x, howOften = howOften + 1,
-                                     sampleFUN = .EquiSPLASHrep,
-                                     path = path, standard = standard)
-  main_section <- qg::.insertSample(main_section, howOften = 2 * (howOften + 1),
-                                     sampleFUN = .pooledQCDilEquiSPLASH,
-                                     path = path)
+  main_section <- qg::.insertSample(
+    x,
+    howOften = howOften + 1,
+    sampleFUN = .metabolomicsBlockStandardPoolQC,
+    path = path,
+    standard = standard
+  )
+  main_section <- qg::.insertSample(
+    main_section,
+    howOften = 2 * (howOften + 1),
+    sampleFUN = .metabolomicsBlockPooledQCDilution,
+    path = path
+  )
 
   # END section
   end_section <- rbind(
-    .EquiSPLASHrep(x, standard = standard),
+    .metabolomicsBlockStandardPoolQC(x, standard = standard),
     .blankMetabolomics(x)
   )
 
@@ -141,7 +146,7 @@ qconfigLipidomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften) {
 )
 
 
-.standardMetabolomics <- function(x, plateId = "Y", QCrow = "F", standard = "EquiSPLASH"){
+.standardMetabolomics <- function(x, plateId = "Y", QCrow = "F", standard = "EquiSPLASH") {
   # Determine which standards to use
   if (standard == "108mix") {
     standards_to_use <- c("108mix_AA", "108mix_OAP")
@@ -181,4 +186,24 @@ qconfigLipidomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften) {
   pool$`Inj Vol` <- x[['Inj Vol']][1]
 
   pool
+}
+
+.metabolomicsBlockPooledQCDilution <- function(x, plateId = "Y", QCrow = "H"){
+  pool <- x[0, ][rep(1, 6), ]
+
+  for (i in 1:6) {
+    pool[i, "File Name"] <- sprintf("{date}_{run}_C{container}_pooledQCDil%d", i)
+    pool$Position[i] <- sprintf("%s:%s%d", plateId, QCrow, i + 1)
+    pool$`Sample Name`[i] <- sprintf("QC dil%d", i)
+  }
+
+  pool$`Inj Vol` <- x[['Inj Vol']][1]
+  pool
+}
+
+.metabolomicsBlockStandardPoolQC <- function(x, standard, plateId = "Y") {
+  blank <- .blankMetabolomics(x)
+  std <- .standardMetabolomics(x, plateId = plateId, standard = standard)
+  pooledQC <- .pooledQCMetabolomics(x, plateId = plateId)
+  rbind(blank, std, pooledQC)
 }
