@@ -42,7 +42,7 @@
 
   # Add metadata
   result$`L3 Laboratory` <- "FGCZ"
-  result$`Instrument Method` <- paste0(path, "\\methods\\")
+  result$`Instrument Method` <- paste0(x$Path[1], "\\methods\\")
 
   # Process polarities
   result <- .metabolomicsInstantiatePolarities(result, polarities)
@@ -108,37 +108,22 @@ qconfigLipidomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften) {
   .metabolomicsQueueVial(x, howOften = howOften, polarities = c("pos", "neg"), standard = "EquiSPLASH")
 }
 
-
-#' One blank sample
-#'
-#' @param x \code{data.frame} contains sample information, e.g., "Sample Name", "Sample ID", "Tube ID", "File Name", "Path", "Position"
-#' @param plateId plate of the sample.
-#'
-#' @author Christian Panse <cp@fgcz.ethz.ch>, 2025-08-13
-#' @returns \code{data.frame}
-#' @export
-#'
-#' @examples
-.blankMetabolomics <- function(x) {
-  .createMetabolomicsSample(x, "blank")
-}
-
-
-# .metabolomicsSampleConfig is loaded from inst/extdata/metabolomics_sample_config.tsv
-# at package load time via .onLoad() in R/zzz.R
-
 #' Generic builder to create metabolomics sample rows from config
 #' @param x input data frame with column structure
 #' @param sample_types vector of sample type names to create
 .createMetabolomicsSample <- function(x, sample_types) {
   # Look up configs for requested sample types
   configs <- .metabolomicsSampleConfig[
-    .metabolomicsSampleConfig$sample_type %in% sample_types, ,
+    .metabolomicsSampleConfig$sample_type %in% sample_types,
+    ,
     drop = FALSE
   ]
 
   if (nrow(configs) == 0) {
-    stop("No configurations found for sample types: ", paste(sample_types, collapse = ", "))
+    stop(
+      "No configurations found for sample types: ",
+      paste(sample_types, collapse = ", ")
+    )
   }
 
   # Create output data frame with correct number of rows
@@ -148,15 +133,21 @@ qconfigLipidomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften) {
   # Fill in values from config for each sample
   for (i in 1:n_samples) {
     result$`File Name`[i] <- configs$file_name_template[i]
-    result$Position[i] <- sprintf("%s:%s%d",
-                                  configs$plate_id[i],
-                                  configs$row[i],
-                                  configs$col[i])
+    result$Position[i] <- sprintf(
+      "%s:%s%d",
+      configs$plate_id[i],
+      configs$row[i],
+      configs$col[i]
+    )
     result$`Sample Name`[i] <- configs$sample_name[i]
     result$`Inj Vol`[i] <- x[['Inj Vol']][1]
   }
 
   result
+}
+
+.blankMetabolomics <- function(x) {
+  .createMetabolomicsSample(x, "blank")
 }
 
 .standardMetabolomics <- function(x, standard = "EquiSPLASH") {
