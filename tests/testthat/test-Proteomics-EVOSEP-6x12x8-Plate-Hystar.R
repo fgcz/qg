@@ -24,7 +24,6 @@ test_that("test Proteomics TimsTOFFlex EVOSEP 6x12x8 Plate Hystar", {
                                      user = "cpanse",
                                      injVol = 1,
                                      area = "Proteomics",
-                                     mode = "",
                                      plateCounter = plateCounter,
                                      randomization = FALSE) -> p
       plateCounter <<- plateCounter + 1
@@ -82,7 +81,6 @@ test_that("test Proteomics TimsTOFFlex EVOSEP 6x12x8 Plate Hystar p38884", {
                                      user = "cpanse",
                                      injVol = 1,
                                      area = "Proteomics",
-                                     mode = "",
                                      plateCounter = plateCounter,
                                      randomization = FALSE) -> p
       plateCounter <<- plateCounter + 1
