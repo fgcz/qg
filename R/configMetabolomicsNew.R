@@ -115,35 +115,74 @@ qconfigLipidomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften) {
 
 #' One blank sample
 #'
-#' @param x \code{data.frame} contains sample information, e.g., "Sample Name", "Sample ID", "Tube ID", "File Name", "Path", "Position" 
+#' @param x \code{data.frame} contains sample information, e.g., "Sample Name", "Sample ID", "Tube ID", "File Name", "Path", "Position"
 #' @param plateId plate of the sample.
-#' 
+#'
 #' @author Christian Panse <cp@fgcz.ethz.ch>, 2025-08-13
 #' @returns \code{data.frame}
 #' @export
 #'
 #' @examples
 .blankMetabolomics <- function(x) {
-  plateId <- "Y"
-  QCrow <- "F"
-  pool <- data.frame(matrix(NA, ncol = ncol(x), nrow = 1))
-  colnames(pool) <- colnames(x)
-
-  pool$`File Name` <- "{date}_{run}_C{container}_blank"
-  pool$Position <- sprintf("%s:%s%d", plateId, QCrow, 1)
-  pool$`Sample Name` <- "blank"
-  pool$`Inj Vol` <- x[['Inj Vol']][1]
-
-  pool
+  .createMetabolomicsSample(x, "blank")
 }
 
 
-.standardsMetabolomicsConfig <- data.frame(
-  standard = c("EquiSPLASH", "108mix_AA", "108mix_OAP"),
-  plateId = c("Y", "Y", "Y"),
-  row = c("F", "F", "E"),
-  col = c(9, 9, 9)
+.metabolomicsSampleConfig <- data.frame(
+  sample_type = c("blank", "EquiSPLASH", "108mix_AA", "108mix_OAP", "pooledQC",
+                  "pooledQCDil1", "pooledQCDil2", "pooledQCDil3",
+                  "pooledQCDil4", "pooledQCDil5", "pooledQCDil6"),
+  plateId = c("Y", "Y", "Y", "Y", "Y", "Y", "Y", "Y", "Y", "Y", "Y"),
+  row = c("F", "F", "F", "E", "F", "H", "H", "H", "H", "H", "H"),
+  col = c(1, 9, 9, 9, 8, 2, 3, 4, 5, 6, 7),
+  file_name_template = c("{date}_{run}_C{container}_blank",
+                         "{date}_{run}_C{container}_EquiSPLASH",
+                         "{date}_{run}_C{container}_108mix_AA",
+                         "{date}_{run}_C{container}_108mix_OAP",
+                         "{date}_{run}_C{container}_pooledQC",
+                         "{date}_{run}_C{container}_pooledQCDil1",
+                         "{date}_{run}_C{container}_pooledQCDil2",
+                         "{date}_{run}_C{container}_pooledQCDil3",
+                         "{date}_{run}_C{container}_pooledQCDil4",
+                         "{date}_{run}_C{container}_pooledQCDil5",
+                         "{date}_{run}_C{container}_pooledQCDil6"),
+  sample_name = c("blank", "EquiSPLASH", "108mix_AA", "108mix_OAP", "blank",
+                  "QC dil1", "QC dil2", "QC dil3", "QC dil4", "QC dil5", "QC dil6"),
+  stringsAsFactors = FALSE
 )
+
+#' Generic builder to create metabolomics sample rows from config
+#' @param x input data frame with column structure
+#' @param sample_types vector of sample type names to create
+.createMetabolomicsSample <- function(x, sample_types) {
+  # Look up configs for requested sample types
+  configs <- .metabolomicsSampleConfig[
+    .metabolomicsSampleConfig$sample_type %in% sample_types, ,
+    drop = FALSE
+  ]
+
+  if (nrow(configs) == 0) {
+    stop("No configurations found for sample types: ", paste(sample_types, collapse = ", "))
+  }
+
+  # Create output data frame with correct number of rows
+  n_samples <- nrow(configs)
+  result <- data.frame(matrix(NA, ncol = ncol(x), nrow = n_samples))
+  colnames(result) <- colnames(x)
+
+  # Fill in values from config for each sample
+  for (i in 1:n_samples) {
+    result$`File Name`[i] <- configs$file_name_template[i]
+    result$Position[i] <- sprintf("%s:%s%d",
+                                  configs$plateId[i],
+                                  configs$row[i],
+                                  configs$col[i])
+    result$`Sample Name`[i] <- configs$sample_name[i]
+    result$`Inj Vol`[i] <- x[['Inj Vol']][1]
+  }
+
+  result
+}
 
 
 .standardMetabolomics <- function(x, plateId = "Y", QCrow = "F", standard = "EquiSPLASH") {
@@ -154,51 +193,16 @@ qconfigLipidomicsVanquishVialXCaliburSII_pos_neg <- function(x, howOften) {
     standards_to_use <- standard
   }
 
-  # Look up config for each standard
-  configs <- .standardsMetabolomicsConfig[.standardsMetabolomicsConfig$standard %in% standards_to_use, , drop = FALSE]
-
-  # Reset row names to avoid indexing issues
-  rownames(configs) <- NULL
-
-  # Create output data frame with correct number of rows
-  n_standards <- nrow(configs)
-  pool <- data.frame(matrix(NA, ncol = ncol(x), nrow = n_standards))
-  colnames(pool) <- colnames(x)
-
-  # Fill in values from config for each standard
-  for (i in 1:n_standards) {
-    pool$`File Name`[i] <- sprintf("{date}_{run}_C{container}_%s", configs$standard[i])
-    pool$Position[i] <- sprintf("%s:%s%d", configs$plateId[i], configs$row[i], configs$col[i])
-    pool$`Sample Name`[i] <- configs$standard[i]
-    pool$`Inj Vol`[i] <- x[['Inj Vol']][1]
-  }
-
-  pool
+  .createMetabolomicsSample(x, standards_to_use)
 }
 
-.pooledQCMetabolomics <- function(x, plateId = "Y", QCrow = "F"){
-  pool <- data.frame(matrix(NA, ncol = ncol(x), nrow = 1))
-  colnames(pool) <- colnames(x)
-
-  pool$`File Name` <- "{date}_{run}_C{container}_pooledQC"
-  pool$Position <- sprintf("%s:%s%d", plateId, QCrow, 8)
-  pool$`Sample Name` <- "blank"
-  pool$`Inj Vol` <- x[['Inj Vol']][1]
-
-  pool
+.pooledQCMetabolomics <- function(x, plateId = "Y", QCrow = "F") {
+  .createMetabolomicsSample(x, "pooledQC")
 }
 
-.metabolomicsBlockPooledQCDilution <- function(x, plateId = "Y", QCrow = "H"){
-  pool <- x[0, ][rep(1, 6), ]
-
-  for (i in 1:6) {
-    pool[i, "File Name"] <- sprintf("{date}_{run}_C{container}_pooledQCDil%d", i)
-    pool$Position[i] <- sprintf("%s:%s%d", plateId, QCrow, i + 1)
-    pool$`Sample Name`[i] <- sprintf("QC dil%d", i)
-  }
-
-  pool$`Inj Vol` <- x[['Inj Vol']][1]
-  pool
+.metabolomicsBlockPooledQCDilution <- function(x, plateId = "Y", QCrow = "H") {
+  dilution_types <- paste0("pooledQCDil", 1:6)
+  .createMetabolomicsSample(x, dilution_types)
 }
 
 .metabolomicsBlockStandardPoolQC <- function(x, standard, plateId = "Y") {
