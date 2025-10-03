@@ -142,7 +142,7 @@
   
   data.frame('Sample Name' = sapply(res, function(x)x$name),
              `Sample ID`= sapply(res, function(x)x$id),
-             "Tube ID" = sapply(res, function(x)x$tubeid),
+             "Tube ID" = sapply(res, function(x){if ('tubeid' %in% names(x)){x$tubeid}else{""}}),
              stringsAsFactors = FALSE) -> df
   
   colnames(df) <- c("Sample Name", "Sample ID", "Tube ID")
