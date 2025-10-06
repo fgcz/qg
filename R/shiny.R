@@ -186,13 +186,13 @@
   output$orderID <- renderUI({
     shiny::req(user())
     
-    if (user()$login == 'cpanse'){
+    if (user()$login == 'cpanseXXX'){
       return( selectInput(
         "orderID",
         "Order ID:",
         c("28073", "31741",  "35464", "34843", "34777", "34778",
           "35117", "35270", "35394", "38884", "37530", "39408", "39061",
-          "39473", "39330", "39555") |> sort() |> unique(),
+          "39473", "39330", "39555", "30646") |> sort() |> unique(),
         selected = "31741",
         multiple = TRUE,
         selectize = FALSE
@@ -305,7 +305,7 @@
       rv$selectedSampleinput <- sampleOfContainer()$"Sample Name"
     }
   })
-  
+
   # input extratext (not used)  ------------
   output$extratext <- renderUI({
     shiny::req(input$orderID)
@@ -466,62 +466,62 @@
     #shiny::req(input$plateID)
     shiny::req(input$qFUN)
     SAVERDATA <- TRUE
-  
-    if (length(input$plateID) == 0){
-      ## --------vial block (no plateid)------------ 
-      ## we fetch all samples of a container
-      QCrow <- "F"
-      randomization <- FALSE
-      if (input$randomization == 'plate'){
-        randomization <- TRUE
-      }
-      
-      filteredSampleOfContainer() |> 
-        qg::.composeVialSampleTable(orderID = input$orderID,
-                                instrument = input$instrument,
-                                user = bf$login(),
-                                injVol = input$injvol,
-                                area = input$area,
-                                lc = input$lc,
-                                randomization = randomization) -> df
-      
-     
-    }else{
+    QCrow <- "F"
+
+    if ( length(input$plateID) > 0 & bf$empdegree() ){
       ## --------plate block ------------ 
       ## we iterate over the given plates
       QCrow <- "H"
       plateCounter <- 1
       shiny::withProgress(message = 'Reading sample of plate(s)',
                           value = 0, session = session, {
-        input$plateID |>
-          lapply(FUN = function(pid){
-            shiny::incProgress(1 / length(input$plateID))
-            readPlate(pid, login = bf$login(),
-                      webservicepassword = bf$webservicepassword(),
-                      posturl = posturl()) |>
-              qg::.composePlateSampleTable(orderID = input$orderID,
-                                           instrument = input$instrument,
-                                           system = input$system,
-                                           lc = input$lc,
-                                           user = bf$login(),
-                                           injVol = input$injvol,
-                                           area = input$area,
-                                           plateCounter = plateCounter,
-                                           randomization = input$randomization) -> p
-            
-           
-            # global counter
-            plateCounter <<- plateCounter + 1
-            ## TODO(cp): check if this is necessary
-            #p[, columnOrder]
-            p
-          }) |> Reduce(f = rbind) -> df
-      }) 
+                            input$plateID |>
+                              lapply(FUN = function(pid){
+                                shiny::incProgress(1 / length(input$plateID))
+                                readPlate(pid, login = bf$login(),
+                                          webservicepassword = bf$webservicepassword(),
+                                          posturl = posturl()) |>
+                                  qg::.composePlateSampleTable(orderID = input$orderID,
+                                                               instrument = input$instrument,
+                                                               system = input$system,
+                                                               lc = input$lc,
+                                                               user = bf$login(),
+                                                               injVol = input$injvol,
+                                                               area = input$area,
+                                                               plateCounter = plateCounter,
+                                                               randomization = input$randomization) -> p
+
+
+                                # global counter
+                                plateCounter <<- plateCounter + 1
+                                ## TODO(cp): check if this is necessary
+                                #p[, columnOrder]
+                                p
+                              }) |> Reduce(f = rbind) -> df
+                          })
       
       if (input$randomization == "all"){
         set.seed(872436)
         df[sample(nrow(df)), ] -> df
       }
+    } else {
+      ## if (length(input$plateID) == 0){
+      ## --------vial block (no plateid)------------
+      ## we fetch all samples of a container
+      QCrow <- "F"
+      randomization <- FALSE
+      if (input$randomization == 'plate'){
+        randomization <- TRUE
+      }
+
+      filteredSampleOfContainer() |>
+        qg::.composeVialSampleTable(orderID = input$orderID,
+                                    instrument = input$instrument,
+                                    user = bf$login(),
+                                    injVol = input$injvol,
+                                    area = input$area,
+                                    lc = input$lc,
+                                    randomization = randomization) -> df
     }
     if (FALSE){
       tempfile(pattern = "fgcz_queue_generator_", fileext = ".RData") -> tf
