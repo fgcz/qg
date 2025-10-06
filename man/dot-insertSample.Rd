@@ -4,7 +4,8 @@
 \alias{.insertSample}
 \alias{Christian.Panse}
 \alias{<cp@fgcz.ethz.ch>}
-\alias{2023}
+\alias{2023,}
+\alias{2025-10-02}
 \title{Generic function to place a sample into a queue configuration
 \code{...} is used to pass the parameters to \code{sampleFUN} method.}
 \usage{
