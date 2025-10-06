@@ -37,6 +37,8 @@ Collate:
     shiny.R
     validatePattern.R
     zzz.R
+Remotes:
+    fgcz/bfabricShiny
 URL: https://github.com/fgcz/qg.git
 BugReports: https://github.com/fgcz/qg/issues
 Encoding: UTF-8
