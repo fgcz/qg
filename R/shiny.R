@@ -305,20 +305,7 @@
       rv$selectedSampleinput <- sampleOfContainer()$"Sample Name"
     }
   })
-  
-  
-  output$instrumentMode <- renderUI({
-    shiny::req(input$instrument)
-    
-    if (input$area == "Metabolomics"){
-      shiny::radioButtons("mode", "Mode:",
-                          c("neg" = "_neg",
-                            "pos" = "_pos",
-                            "pos_neg" = ""), 
-                          inline = TRUE)
-    }else{NULL}
-  })
-  
+
   # input extratext (not used)  ------------
   output$extratext <- renderUI({
     shiny::req(input$orderID)
@@ -480,14 +467,7 @@
     shiny::req(input$qFUN)
     SAVERDATA <- TRUE
     QCrow <- "F"
-    instrumentMode <- ""
-    if (input$area == "Metabolomics"){
-      instrumentMode <- input$mode
-    }else{
-      instrumentMode <- ""
-    }
-    
-     
+
     if ( length(input$plateID) > 0 & bf$empdegree() ){
       ## --------plate block ------------ 
       ## we iterate over the given plates
@@ -508,44 +488,41 @@
                                                                user = bf$login(),
                                                                injVol = input$injvol,
                                                                area = input$area,
-                                                               mode = instrumentMode,
                                                                plateCounter = plateCounter,
                                                                randomization = input$randomization) -> p
-                                
-                                
+
+
                                 # global counter
                                 plateCounter <<- plateCounter + 1
                                 ## TODO(cp): check if this is necessary
                                 #p[, columnOrder]
                                 p
                               }) |> Reduce(f = rbind) -> df
-                          }) 
+                          })
       
       if (input$randomization == "all"){
         set.seed(872436)
         df[sample(nrow(df)), ] -> df
       }
-    } else { 
+    } else {
       ## if (length(input$plateID) == 0){
-      ## --------vial block (no plateid)------------ 
+      ## --------vial block (no plateid)------------
       ## we fetch all samples of a container
       QCrow <- "F"
       randomization <- FALSE
       if (input$randomization == 'plate'){
         randomization <- TRUE
       }
-      
-      filteredSampleOfContainer() |> 
+
+      filteredSampleOfContainer() |>
         qg::.composeVialSampleTable(orderID = input$orderID,
                                     instrument = input$instrument,
                                     user = bf$login(),
                                     injVol = input$injvol,
                                     area = input$area,
                                     lc = input$lc,
-                                    mode = instrumentMode,
                                     randomization = randomization) -> df
     }
-    
     if (FALSE){
       tempfile(pattern = "fgcz_queue_generator_", fileext = ".RData") -> tf
       base::save(df, file = tf)
@@ -566,29 +543,30 @@
     }
     
     ## ------injectSamples------
-    ## here we inject the clean|blank|qc runs and finally replace @@@ with run#
-    #df$`Sample Name` <- paste0(df$`Sample Name`, mode)
-    if (input$area == "Metabolomics"){
-      
-     
-      
-      do.call(what = input$qFUN, args = list(x = df,
-                                             containerid = input$orderID[1],
-                                             QCrow = QCrow,
-                                             mode = instrumentMode,
-                                             howOften = as.integer(input$frequency))) |>
-        qg::.replaceRunIds()
-    }else{
+    ## here we evaluate the queue configuration function, and afterwards,
+    ## replace placeholders like {run}, {date}, {container} in the filenames
+    if (input$area == "Metabolomics") {
+      do.call(
+        what = input$qFUN,
+        args = list(x = df, howOften = as.integer(input$frequency))
+      ) |>
+        qg::.interpolateFinalRows(container = input$orderID[1])
+    } else {
       if (SAVERDATA) {
-       # filenameRData <- file.path("/tmp/", paste0(input$area,"_c", input$orderID[1], ".RData"))
-       # base::save(df, file = filenameRData)
+        # filenameRData <- file.path("/tmp/", paste0(input$area,"_c", input$orderID[1], ".RData"))
+        # base::save(df, file = filenameRData)
       }
       #browser()
-      do.call(what = input$qFUN, args = list(x = df,
-                                             lc = input$lc,
-                                             containerid = input$orderID[1],
-                                             howOften = as.integer(input$frequency))) |>
-        qg::.replaceRunIds()
+      do.call(
+        what = input$qFUN,
+        args = list(
+          x = df,
+          lc = input$lc,
+          containerid = input$orderID[1],
+          howOften = as.integer(input$frequency)
+        )
+      ) |>
+        qg::.interpolateFinalRows(container = input$orderID[1])
     }
     
   })
@@ -745,7 +723,6 @@
         uiOutput(("lc")),
         uiOutput(("selectqFUN")),
         uiOutput(("plateID")),
-        uiOutput(("instrumentMode")),
         uiOutput(("checkSampleSelection")),
         uiOutput(("selectSampleSelection")),
         uiOutput(("injvol")),

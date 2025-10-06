@@ -24,7 +24,6 @@ test_that("test Proteomics Exploris EVOSEP 6x12x8 Plate Chronos", {
                                      user = "cpanse",
                                      injVol = 1,
                                      area = "Proteomics",
-                                     mode = "",
                                      plateCounter = plateCounter,
                                      randomization = FALSE) -> p
       plateCounter <<- plateCounter + 1

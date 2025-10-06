@@ -8,7 +8,6 @@
   x,
   orderID = 34843,
   area = "Metabolomics",
-  mode = "",
   instrument = "ASTRAL_1",
   user = "cpanse",
   injVol = 3.5,
@@ -20,8 +19,6 @@
 \item{orderID}{}
 
 \item{area}{}
-
-\item{mode}{}
 
 \item{instrument}{}
 

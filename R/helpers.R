@@ -23,14 +23,21 @@
   x
 }
 
-.readConfigInstrument <- function(f = file.path(system.file(package = "qg"), "extdata", 
+.readConfigInstrument <- function(f = file.path(system.file(package = "qg"), "extdata",
                                              "instrument.csv") ){
   stopifnot(file.exists(f))
-  
+
   message("Reading instrument configuration from file", f, "...")
-  
+
   read.table(f, header = TRUE, sep = "\t") |>
     .validateReadConfigInstrument()
+}
+
+.readMetabolomicsSampleConfig <- function(f = file.path(system.file(package = "qg"), "extdata",
+                                                         "metabolomics_sample_config.tsv")) {
+  stopifnot(file.exists(f))
+
+  read.table(f, header = TRUE, sep = "\t", stringsAsFactors = FALSE)
 }
 
 #' export
