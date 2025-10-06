@@ -106,7 +106,7 @@
   pn <- substr(x, 1, 1) 
   if (pn %in% (1:4 |> as.character())) return(L[as.integer(pn)])
   else if (pn %in% L) return(pn)
-  else stop("Invalid plate number", x)
+  else stop("More samples than available positions on the plates!", x)
 }
 
 .parseVanquishPlateNumber <- function(x){

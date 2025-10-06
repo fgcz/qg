@@ -487,8 +487,46 @@
       instrumentMode <- ""
     }
     
-  
-    if (length(input$plateID) == 0){
+     
+    if ( length(input$plateID) > 0 & bf$empdegree() ){
+      ## --------plate block ------------ 
+      ## we iterate over the given plates
+      QCrow <- "H"
+      plateCounter <- 1
+      shiny::withProgress(message = 'Reading sample of plate(s)',
+                          value = 0, session = session, {
+                            input$plateID |>
+                              lapply(FUN = function(pid){
+                                shiny::incProgress(1 / length(input$plateID))
+                                readPlate(pid, login = bf$login(),
+                                          webservicepassword = bf$webservicepassword(),
+                                          posturl = posturl()) |>
+                                  qg::.composePlateSampleTable(orderID = input$orderID,
+                                                               instrument = input$instrument,
+                                                               system = input$system,
+                                                               lc = input$lc,
+                                                               user = bf$login(),
+                                                               injVol = input$injvol,
+                                                               area = input$area,
+                                                               mode = instrumentMode,
+                                                               plateCounter = plateCounter,
+                                                               randomization = input$randomization) -> p
+                                
+                                
+                                # global counter
+                                plateCounter <<- plateCounter + 1
+                                ## TODO(cp): check if this is necessary
+                                #p[, columnOrder]
+                                p
+                              }) |> Reduce(f = rbind) -> df
+                          }) 
+      
+      if (input$randomization == "all"){
+        set.seed(872436)
+        df[sample(nrow(df)), ] -> df
+      }
+    } else { 
+      ## if (length(input$plateID) == 0){
       ## --------vial block (no plateid)------------ 
       ## we fetch all samples of a container
       QCrow <- "F"
@@ -499,53 +537,15 @@
       
       filteredSampleOfContainer() |> 
         qg::.composeVialSampleTable(orderID = input$orderID,
-                                instrument = input$instrument,
-                                user = bf$login(),
-                                injVol = input$injvol,
-                                area = input$area,
-                                lc = input$lc,
-                                mode = instrumentMode,
-                                randomization = randomization) -> df
-      
-     
-    }else{
-      ## --------plate block ------------ 
-      ## we iterate over the given plates
-      QCrow <- "H"
-      plateCounter <- 1
-      shiny::withProgress(message = 'Reading sample of plate(s)',
-                          value = 0, session = session, {
-        input$plateID |>
-          lapply(FUN = function(pid){
-            shiny::incProgress(1 / length(input$plateID))
-            readPlate(pid, login = bf$login(),
-                      webservicepassword = bf$webservicepassword(),
-                      posturl = posturl()) |>
-              qg::.composePlateSampleTable(orderID = input$orderID,
-                                           instrument = input$instrument,
-                                           system = input$system,
-                                           lc = input$lc,
-                                           user = bf$login(),
-                                           injVol = input$injvol,
-                                           area = input$area,
-                                           mode = instrumentMode,
-                                           plateCounter = plateCounter,
-                                           randomization = input$randomization) -> p
-            
-           
-            # global counter
-            plateCounter <<- plateCounter + 1
-            ## TODO(cp): check if this is necessary
-            #p[, columnOrder]
-            p
-          }) |> Reduce(f = rbind) -> df
-      }) 
-      
-      if (input$randomization == "all"){
-        set.seed(872436)
-        df[sample(nrow(df)), ] -> df
-      }
+                                    instrument = input$instrument,
+                                    user = bf$login(),
+                                    injVol = input$injvol,
+                                    area = input$area,
+                                    lc = input$lc,
+                                    mode = instrumentMode,
+                                    randomization = randomization) -> df
     }
+    
     if (FALSE){
       tempfile(pattern = "fgcz_queue_generator_", fileext = ".RData") -> tf
       base::save(df, file = tf)
