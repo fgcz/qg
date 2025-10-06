@@ -2,19 +2,19 @@ File Name	Path	Position	Inj Vol	L3 Laboratory	Sample ID	Sample Name	Instrument M
 {date}_{run}_C{container}_blank_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:F1	3.5	FGCZ		blank	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
 {date}_{run}_C{container}_blank_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:F1	3.5	FGCZ		blank	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
 {date}_{run}_C{container}_EquiSPLASH_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:F9	3.5	FGCZ		EquiSPLASH	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
-{date}_{run}_C{container}_pooledQC_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:F8	3.5	FGCZ		QC pool	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
+{date}_{run}_C{container}_pooledQC_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:F8	3.5	FGCZ		pooledQC	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
 {date}_{run}_C{container}_blank_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:F1	3.5	FGCZ		blank	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
-{date}_{run}_C{container}_pooledQCDil1_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:F2	3.5	FGCZ		QC dil1	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
-{date}_{run}_C{container}_pooledQCDil2_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:F3	3.5	FGCZ		QC dil2	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
-{date}_{run}_C{container}_pooledQCDil3_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:F4	3.5	FGCZ		QC dil3	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
-{date}_{run}_C{container}_pooledQCDil4_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:F5	3.5	FGCZ		QC dil4	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
-{date}_{run}_C{container}_pooledQCDil5_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:F6	3.5	FGCZ		QC dil5	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
-{date}_{run}_C{container}_pooledQCDil6_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:F7	3.5	FGCZ		QC dil6	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
+{date}_{run}_C{container}_pooledQCDil1_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:F2	3.5	FGCZ		pooledQCDil1	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
+{date}_{run}_C{container}_pooledQCDil2_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:F3	3.5	FGCZ		pooledQCDil2	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
+{date}_{run}_C{container}_pooledQCDil3_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:F4	3.5	FGCZ		pooledQCDil3	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
+{date}_{run}_C{container}_pooledQCDil4_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:F5	3.5	FGCZ		pooledQCDil4	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
+{date}_{run}_C{container}_pooledQCDil5_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:F6	3.5	FGCZ		pooledQCDil5	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
+{date}_{run}_C{container}_pooledQCDil6_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:F7	3.5	FGCZ		pooledQCDil6	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
 {date}_{run}_C{container}_blank_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:F1	3.5	FGCZ		blank	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
 {date}_{run}_C{container}_S990001_Sample_A_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:A1	3.5	FGCZ	990001	Sample_A	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
 {date}_{run}_C{container}_S990002_Sample_B_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:A2	3.5	FGCZ	990002	Sample_B	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
 {date}_{run}_C{container}_S990003_Sample_C_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:A3	3.5	FGCZ	990003	Sample_C	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
 {date}_{run}_C{container}_blank_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:F1	3.5	FGCZ		blank	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
 {date}_{run}_C{container}_EquiSPLASH_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:F9	3.5	FGCZ		EquiSPLASH	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
-{date}_{run}_C{container}_pooledQC_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:F8	3.5	FGCZ		QC pool	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
+{date}_{run}_C{container}_pooledQC_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:F8	3.5	FGCZ		pooledQC	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
 {date}_{run}_C{container}_blank_pos	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}	Y:F1	3.5	FGCZ		blank	D:\Data2San\p{container}\Metabolomics\TEST\user_{date}\methods\
