@@ -669,7 +669,7 @@
                          file = csvFilename(),
                          row.names = FALSE,
                          append = TRUE,
-                         quote = FALSE,
+                         quote = TRUE,
                          eol = '\r\n')
       filename <- csvFilename()
       workunitname <- sprintf("XCalibur-MS-configuration_orderID-%s", input$orderID[1])
