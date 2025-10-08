@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, test ]
+  pull_request:
+    branches: [ main, test ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up R
+      uses: r-lib/actions/setup-r@v2
+      with:
+        r-version: '4.5.0'
+        use-public-rspm: true
+
+    - name: Install R system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libcurl4-openssl-dev libxml2-dev libssl-dev
+
+    - name: Install R dependencies
+      uses: r-lib/actions/setup-r-dependencies@v2
+      with:
+        extra-packages: |
+          any::remotes
+          any::roxygen2
+          any::testthat
+          any::devtools
+
+    - name: Install qg package
+      run: |
+        R CMD INSTALL .
+      shell: bash
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+
+    - name: Install nox
+      run: |
+        uv tool install nox
+
+    - name: Run tests with nox
+      run: |
+        cd config_tests
+        uvx nox -s tests

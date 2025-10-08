@@ -5,6 +5,7 @@ import rpy2.robjects
 import rpy2.robjects.pandas2ri
 from contextlib import contextmanager
 from inline_snapshot import snapshot
+from pathlib import Path
 from rpy2.rinterface_lib.embedded import RRuntimeError
 from rpy2.robjects.packages import importr
 
@@ -64,8 +65,9 @@ def qg_mod():
     # Load devtools if needed
     devtools = importr("devtools")
 
-    # Load the development version from the specified path
-    devtools.load_all("/Users/leo/code/qg")
+    # Load the development version from the qg root
+    qg_root = Path(__file__).parents[2]
+    devtools.load_all(str(qg_root))
 
     # Return the loaded module
     return importr("qg")
