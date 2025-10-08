@@ -65,8 +65,8 @@ def qg_mod():
     # Load devtools if needed
     devtools = importr("devtools")
 
-    # Load the development version from the qg root (two levels up from this file)
-    qg_root = Path(__file__).parent.parent.parent
+    # Load the development version from the qg root
+    qg_root = Path(__file__).parents[2]
     devtools.load_all(str(qg_root))
 
     # Return the loaded module
