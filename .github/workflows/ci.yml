@@ -27,10 +27,12 @@ jobs:
     - name: Install R dependencies
       uses: r-lib/actions/setup-r-dependencies@v2
       with:
+        use-public-rspm: true
         extra-packages: |
           any::remotes
           any::roxygen2
           any::testthat
+          any::devtools
 
     - name: Install qg package
       run: |
