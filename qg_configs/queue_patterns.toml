@@ -1,0 +1,122 @@
+# Queue Patterns
+# Named patterns that define QC sample injection sequences
+# Instruments select a pattern by name (e.g., queue_pattern = "proteomics_standard")
+# Sample IDs in arrays must be defined in samples.toml
+
+# =============================================================================
+# PROTEOMICS PATTERNS
+# =============================================================================
+
+[patterns.proteomics_standard]
+description = "Standard proteomics: clean-qc pairs, clean-qc-qc ending"
+# Based on Notes.md analysis: clean-qc order (97%), clean-qc-qc ending dominant
+run_QC_after_n_samples = 16
+start = ["QC03dia", "QC01"]
+middle = ["clean", "QC01"]
+end = ["clean", "QC01", "QC03dia", "clean"]
+
+[patterns.proteomics_frequent]
+description = "Frequent QC (every 8 samples) for sensitive experiments"
+run_QC_after_n_samples = 8
+start = ["QC03dia", "QC01"]
+middle = ["clean", "QC01"]
+end = ["clean", "QC01", "QC03dia", "clean"]
+
+[patterns.proteomics_simple]
+description = "Simple: QC only, no column cleaning in middle"
+run_QC_after_n_samples = 16
+start = ["QC01"]
+middle = ["QC01"]
+end = ["clean", "QC01", "QC03dda"]
+
+[patterns.proteomics_dda]
+description = "DDA-focused pattern using QC03dda benchmark"
+run_QC_after_n_samples = 16
+start = ["QC03dda", "QC01"]
+middle = ["clean", "QC01"]
+end = ["clean", "QC01", "QC03dda", "clean"]
+
+[patterns.proteomics_minimal]
+description = "Minimal QC for high-throughput runs"
+run_QC_after_n_samples = 32
+start = ["QC01"]
+middle = ["QC01"]
+end = ["clean", "QC01"]
+
+# =============================================================================
+# METABOLOMICS PATTERNS
+# =============================================================================
+
+[patterns.metabolomics_standard]
+description = "Standard metabolomics with dilution series for linearity"
+run_QC_after_n_samples = 10
+
+# Complex start: blank -> standard+pooledQC -> blank -> dilutions -> blank
+start = [
+    "blank",
+    "standard", "pooledQC",
+    "blank",
+    "pooledQCDil1", "pooledQCDil2", "pooledQCDil3",
+    "pooledQCDil4", "pooledQCDil5", "pooledQCDil6",
+    "blank"
+]
+
+# Regular middle pattern
+middle = ["blank", "standard", "pooledQC"]
+
+# Extended middle pattern (every 2x frequency) for dilution series
+middle_extended = [
+    "pooledQCDil1", "pooledQCDil2", "pooledQCDil3",
+    "pooledQCDil4", "pooledQCDil5", "pooledQCDil6"
+]
+middle_extended_frequency_multiplier = 2
+
+end = ["standard", "pooledQC", "blank"]
+
+# Note: "standard" is a placeholder - resolved to actual standard based on workflow:
+#   metabolomics -> 108mix_AA (or 108mix_OAP)
+#   lipidomics -> EquiSPLASH
+
+[patterns.metabolomics_simple]
+description = "Simple metabolomics without dilution series"
+run_QC_after_n_samples = 10
+start = ["blank", "standard", "pooledQC", "blank"]
+middle = ["blank", "pooledQC"]
+end = ["standard", "pooledQC", "blank"]
+
+[patterns.lipidomics_standard]
+description = "Lipidomics with EquiSPLASH standard"
+run_QC_after_n_samples = 10
+start = [
+    "blank",
+    "EquiSPLASH", "pooledQC",
+    "blank",
+    "pooledQCDil1", "pooledQCDil2", "pooledQCDil3",
+    "pooledQCDil4", "pooledQCDil5", "pooledQCDil6",
+    "blank"
+]
+middle = ["blank", "EquiSPLASH", "pooledQC"]
+middle_extended = [
+    "pooledQCDil1", "pooledQCDil2", "pooledQCDil3",
+    "pooledQCDil4", "pooledQCDil5", "pooledQCDil6"
+]
+middle_extended_frequency_multiplier = 2
+end = ["EquiSPLASH", "pooledQC", "blank"]
+
+# =============================================================================
+# SPECIAL PATTERNS
+# =============================================================================
+
+[patterns.qc_only]
+description = "QC only - no samples, just system check"
+run_QC_after_n_samples = 1
+start = ["clean", "QC01", "QC03dia"]
+middle = []
+end = ["QC01", "QC03dia", "clean"]
+
+[patterns.conditioning]
+description = "Column conditioning - multiple cleans"
+run_QC_after_n_samples = 1
+start = ["clean", "clean", "clean", "QC01"]
+middle = []
+end = ["clean"]

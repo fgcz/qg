@@ -5,10 +5,16 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "altair>=6.0.0",
     "bfabric>=1.16.1",
+    "ipython>=9.9.0",
     "marimo>=0.18.4",
+    "pandas>=2.3.3",
     "polars>=1.36.1",
+    "pyarrow>=22.0.0",
     "pydantic>=2.12.5",
+    "vegafusion>=2.0.3",
+    "vl-convert-python>=1.9.0",
 ]
 
 [tool.uv.sources]

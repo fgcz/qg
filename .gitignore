@@ -8,3 +8,6 @@ wheels/
 
 # Virtual environments
 .venv
+__marimo__/
+.claude/
+queue_files/

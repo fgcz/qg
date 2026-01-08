@@ -1,0 +1,10 @@
+method_id,method_type,method_name,method_path,acquisition_mode,spd,gradient_min,notes
+autoQC01,qc,autoQC01,C:\Xcalibur\methods\__Service\Evosep\autoQC01,dda,,,Standard QC
+autoQC03dia,qc,autoQC03dia,C:\Xcalibur\methods\__Service\Evosep\autoQC03dia,dia,,,DIA benchmark
+clean,clean,general_clean,C:\Xcalibur\methods\__Service\Evosep\general_clean,,,,Column cleaning
+dda_40spd,sample,DDA_evosep_40SPD_31min,C:\Xcalibur\methods\__Service\Evosep\DDA_evosep_40SPD_31min,dda,40,31,Standard DDA 40 SPD
+dda_20spd,sample,DDA_evosep_20SPD_58min,C:\Xcalibur\methods\__Service\Evosep\DDA_evosep_20SPD_58min,dda,20,58,DDA 20 SPD longer gradient
+dia_40spd,sample,evosep_dia_30k_w8_396_960_40SPD_31min,C:\Xcalibur\methods\__Service\Evosep\evosep_dia_30k_w8_396_960_40SPD_31min,dia,40,31,DIA 40 SPD 8Da windows
+dia_20spd,sample,evosep_dia_30k_w8_396_960_20SPD_58min,C:\Xcalibur\methods\__Service\Evosep\evosep_dia_30k_w8_396_960_20SPD_58min,dia,20,58,DIA 20 SPD longer gradient
+tmt_40spd,sample,DDA_evosep_40SPD_31min_TMTpro_turboTMT,C:\Xcalibur\methods\__Service\Evosep\TMT\DDA_evosep_40SPD_31min_TMTpro_turboTMT,dda,40,31,TMTpro turboTMT
+phospho_tmt,sample,DDA_evosep_40SPD_31min_phospho_TMTpro,C:\Xcalibur\methods\__Service\Evosep\Phospho\DDA_evosep_40SPD_31min_phospho_TMTpro,dda,40,31,Phospho TMTpro

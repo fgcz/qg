@@ -12,6 +12,7 @@ with app.setup:
     import functools
     import json
     import operator
+    from pathlib import Path
 
 
 @app.cell
@@ -55,7 +56,9 @@ def _():
                 "Status": _p.get("status", ""),
                 "Area": _p.get("technology", [""])[0] if _p.get("technology") else "",
             })
-    projects_df = pl.DataFrame(_orders).sort("Container ID", descending=True)
+    projects_df = pl.DataFrame(_orders).filter(
+        (pl.col("Samples") > 0) & ~pl.col("Area").str.to_lowercase().is_in(["genomics", "administration"])
+    ).sort("Container ID", descending=True)
     return (projects_df,)
 
 
@@ -340,7 +343,26 @@ def _(user_parameters, user_parameters_err):
 
 
 @app.cell
-def _():
+def _(user_parameters):
+    save_button = mo.ui.run_button(label="Save Config")
+    save_button if user_parameters is not None else None
+    return (save_button,)
+
+
+@app.cell
+def _(container_id, sample_df, save_button, user_parameters):
+    mo.stop(not save_button.value or user_parameters is None)
+    _config = {
+        "parameters": user_parameters.model_dump(mode="json"),
+        "samples": sample_df.to_dicts(),
+    }
+    _config_dir = Path("qg_configs")
+    _config_dir.mkdir(exist_ok=True)
+    _n_samples = len(sample_df)
+    _qc_freq = user_parameters.qc_frequency
+    _filepath = _config_dir / f"config_{container_id}_n{_n_samples}_qc{_qc_freq}.json"
+    _filepath.write_text(json.dumps(_config, indent=2))
+    mo.md(f"**Saved configuration to `{_filepath}`**")
     return
 
 

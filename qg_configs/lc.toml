@@ -1,0 +1,59 @@
+# LC System Configurations
+# Position formats, plates, and QC sample positions
+
+# =============================================================================
+# Vanquish (Thermo VanquishNeo)
+# Position format: plate:row+col (e.g., "Y:F9", "B:A1")
+# =============================================================================
+
+[Vanquish]
+position_format = "{plate}:{row}{col}"
+plates = ["Y", "R", "B", "G"]
+qc_plate = "B"
+rows = ["A", "B", "C", "D", "E", "F"]
+cols = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+[Vanquish.qc_positions]
+QC01  = "B:F9"
+QC03  = "B:F8"
+clean = "B:F7"
+
+# =============================================================================
+# M_CLASS48_48 (Waters M-class)
+# Position format: plate:row,col (e.g., "1:F,8") - note comma separator
+# =============================================================================
+
+[M_CLASS48_48]
+position_format = "{plate}:{row},{col}"
+plates = ["1", "2"]
+qc_plate = "1"
+rows = ["A", "B", "C", "D", "E", "F"]
+cols = [1, 2, 3, 4, 5, 6, 7, 8]
+
+[M_CLASS48_48.qc_positions]
+QC01  = "1:F,8"
+QC03  = "1:F,7"
+clean = "1:F,6"
+
+# =============================================================================
+# Evosep (Evosep One)
+# Position format: EvoSlot slot:tip (e.g., "EvoSlot 1:2")
+# =============================================================================
+
+[Evosep]
+position_format = "EvoSlot {slot}:{tip}"
+slots = [1, 2, 3, 4, 5, 6]
+tips_per_slot = 96
+qc_slot = "5"
+clean_slot = "6"
+
+# =============================================================================
+# EVOSEP6x12x8 (alias for Evosep in instrument.csv)
+# =============================================================================
+
+[EVOSEP6x12x8]
+position_format = "EvoSlot {slot}:{tip}"
+slots = [1, 2, 3, 4, 5, 6]
+tips_per_slot = 96
+qc_slot = "5"
+clean_slot = "6"
