@@ -11,3 +11,5 @@ wheels/
 __marimo__/
 .claude/
 queue_files/
+*.pdf
+*.svg

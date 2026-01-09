@@ -1,0 +1,44 @@
+# Output Format Definitions
+# Maps internal fields to output column names
+# See ALGORITHM.md for field documentation
+
+[xcalibur]
+description = "Thermo XCalibur sequence format"
+file_extension = ".csv"
+
+[xcalibur.columns]
+"File Name" = "file_name"
+"Path" = "data_path"
+"Instrument Method" = "method"
+"Position" = "position"
+"Inj Vol" = "inj_vol"
+"Sample Type" = "sample_type"
+"Sample Name" = "sample_name"
+
+[chronos]
+description = "Chronos autosampler format (Evosep)"
+file_extension = ".csv"
+
+[chronos.columns]
+"Sample Name" = "sample_name"
+"Source Vial" = "position"
+"Source Tray" = "tray"
+"Method" = "method"
+"Data File" = "file_name"
+"Xcalibur Method" = "xcalibur_method"
+"Xcalibur Filename" = "file_name"
+"Xcalibur Post Acquisition Program" = "post_acquisition"
+"Xcalibur Output Dir" = "data_path"
+"Comment" = "comment"
+"Analysis Method" = "analysis_method"
+
+[hystar]
+description = "Bruker Hystar sequence format"
+file_extension = ".csv"
+
+[hystar.columns]
+"Sample Name" = "sample_name"
+"Sample Position" = "position"
+"Method" = "method"
+"Data Path" = "data_path"
+"Injection Volume" = "inj_vol"

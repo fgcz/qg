@@ -1,8 +1,0 @@
-instrument,area,system,lc,config_file,methods_file,workflow
-ASTRAL_1,Proteomics,VialXCaliburSII,Vanquish,instruments/ASTRAL_1.toml,methods/ASTRAL_1_methods.csv,standard
-ASTRAL_1,Proteomics,PlateChronos,EVOSEP6x12x8,instruments/ASTRAL_1.toml,methods/ASTRAL_1_methods.csv,evosep
-ASCEND_1,Proteomics,VialXCaliburSII,M_CLASS48_48,instruments/ASCEND_1.toml,methods/ASCEND_1_methods.csv,standard
-EXPLORIS_2,Proteomics,PlateChronos,EVOSEP6x12x8,instruments/EXPLORIS_2.toml,methods/EXPLORIS_2_methods.csv,evosep
-EXPLORIS_2,Proteomics,VialChronos,EVOSEP6x12x8,instruments/EXPLORIS_2.toml,methods/EXPLORIS_2_methods.csv,evosep
-LUMOS_2,Proteomics,VialXCaliburSII,M_CLASS48_48,instruments/LUMOS_2.toml,methods/LUMOS_2_methods.csv,standard
-LUMOS_2,Proteomics,VialXCaliburLCDevices,M_CLASS48_48,instruments/LUMOS_2.toml,methods/LUMOS_2_methods.csv,standard

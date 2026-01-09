@@ -1,0 +1,58 @@
+@startuml config_dependencies
+
+title Queue Generation Configuration Dependencies
+
+skinparam component {
+    BackgroundColor<<toml>> LightBlue
+    BackgroundColor<<csv>> LightGreen
+}
+
+package "Configuration Files" {
+    [instruments.toml] <<toml>> as INST
+    [combinations.csv] <<csv>> as COMB
+    [sampler.toml] <<toml>> as SAMP
+    [qc_layouts.toml] <<toml>> as QCLAYOUT
+    [output_formats.toml] <<toml>> as FMT
+    [queue_patterns.toml] <<toml>> as PATTERNS
+    [samples.toml] <<toml>> as SAMPLES
+
+    folder "methods/" {
+        [*.csv] <<csv>> as METHODS
+    }
+}
+
+' Dependencies
+COMB --> INST : instrument
+COMB --> SAMP : sampler
+SAMP --> FMT : output_format
+SAMP --> QCLAYOUT : sampler_base
+INST --> QCLAYOUT : area
+INST --> PATTERNS : queue_pattern
+INST --> METHODS : methods_file
+PATTERNS --> SAMPLES : sample IDs
+QCLAYOUT --> SAMPLES : QC positions
+
+note right of COMB
+  Valid combinations:
+  instrument + sampler
+end note
+
+note right of SAMP
+  Physical layout:
+  - sampler_base (links to qc_layouts)
+  - position_format, plates, rows, cols
+  - software, output_format
+end note
+
+note right of QCLAYOUT
+  QC positions per:
+  sampler_base + area
+  e.g., Vanquish_Vial.Proteomics
+end note
+
+note right of INST
+  area, default_inj_vol,
+  queue_pattern, methods_file
+end note
+
+@enduml

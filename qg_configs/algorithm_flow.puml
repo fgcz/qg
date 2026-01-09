@@ -1,0 +1,73 @@
+@startuml algorithm_flow
+
+title Queue Generation Flow
+
+|User|
+start
+:Select instrument, sampler;
+:Provide samples from B-Fabric;
+:Set qc_frequency, inj_vol (optional);
+
+|System|
+:Validate combination\n(combinations.csv);
+
+:Load instrument config\n(instruments.toml);
+note right: area, queue_pattern, methods_file, default_inj_vol
+
+:Load sampler config\n(sampler.toml);
+note right: sampler_base, position_format, output_format
+
+:Load QC layout\n(qc_layouts.toml[sampler_base.area]);
+note right: QC positions for this workflow
+
+:Load pattern\n(queue_patterns.toml);
+note right: start[], middle[], end[], run_QC_after_n_samples
+
+:Build position grid;
+note right
+  position_source = "generated":
+    Fill grid sequentially (row_major)
+  position_source = "input":
+    Use B-Fabric GridPosition
+end note
+
+if (randomization?) then (yes)
+    :Randomize samples;
+    note right: none | full | block | stratified
+endif
+
+:Build queue sequence;
+
+partition "Queue Building" {
+    :Add START QC samples;
+
+    while (more samples?) is (yes)
+        :Add batch of N samples\nat next positions;
+        if (more samples remain?) then (yes)
+            :Add MIDDLE QC samples;
+        endif
+    endwhile (no)
+
+    :Add END QC samples;
+}
+
+:Load output format\n(output_formats.toml);
+note right: columns dict (output_name -> internal_field)
+
+:Generate output rows;
+note right
+  Map internal fields to columns:
+  - file_name, sample_name, sample_type
+  - position (+ tray for Evosep)
+  - inj_vol, method, data_path
+end note
+
+:Write queue CSV;
+
+|User|
+:Download queue file;
+:Import to instrument software;
+
+stop
+
+@enduml

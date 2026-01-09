@@ -1,0 +1,71 @@
+# Instrument Definitions
+# Static properties per instrument (no duplication)
+
+[ASTRAL_1]
+area = "Proteomics"
+methods_file = "methods/ASTRAL_1_methods.csv"
+default_inj_vol = 2.0
+queue_pattern = "proteomics_standard"
+
+[ASCEND_1]
+area = "Proteomics"
+methods_file = "methods/ASCEND_1_methods.csv"
+default_inj_vol = 1.0
+queue_pattern = "proteomics_standard"
+
+[EXPLORIS_1]
+area = "Proteomics"
+default_inj_vol = 1.0
+queue_pattern = "proteomics_standard"
+
+[EXPLORIS_2]
+area = "Proteomics"
+methods_file = "methods/EXPLORIS_2_methods.csv"
+default_inj_vol = 1.0
+queue_pattern = "proteomics_standard"
+
+[EXPLORIS_3]
+area = "Metabolomics"
+default_inj_vol = 3.5
+queue_pattern = "metabolomics_standard"
+
+[EXPLORIS_4]
+area = "Metabolomics"
+default_inj_vol = 3.5
+queue_pattern = "lipidomics_standard"
+
+[EXPLORIS_5]
+area = "Proteomics"
+default_inj_vol = 2.0
+queue_pattern = "proteomics_standard"
+
+[LUMOS_2]
+area = "Proteomics"
+methods_file = "methods/LUMOS_2_methods.csv"
+default_inj_vol = 1.0
+queue_pattern = "proteomics_standard"
+
+[QEXACTIVE_1]
+area = "Proteomics"
+default_inj_vol = 1.0
+queue_pattern = "proteomics_standard"
+
+[QEXACTIVEHF_2]
+area = "Metabolomics"
+default_inj_vol = 3.5
+queue_pattern = "metabolomics_standard"
+
+[TIMSTOFFLEX_1]
+area = "Proteomics"
+default_inj_vol = 2.0
+queue_pattern = "proteomics_standard"
+
+[TIMSTOF_1]
+area = "Proteomics"
+default_inj_vol = 2.0
+queue_pattern = "proteomics_standard"
+
+[QUANTIVA_1]
+area = "Metabolomics"
+default_inj_vol = 3.5
+queue_pattern = "metabolomics_simple"
