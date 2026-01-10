@@ -25,8 +25,7 @@ package "Configuration Files" {
 COMB --> INST : instrument
 COMB --> SAMP : sampler
 SAMP --> FMT : output_format
-SAMP --> QCLAYOUT : sampler_base
-INST --> QCLAYOUT : area
+SAMP --> QCLAYOUT : sampler_base (via technology)
 INST --> PATTERNS : queue_pattern
 INST --> METHODS : methods_file
 PATTERNS --> SAMPLES : sample IDs
@@ -46,13 +45,13 @@ end note
 
 note right of QCLAYOUT
   QC positions per:
-  sampler_base + area
-  e.g., Vanquish_Vial.Proteomics
+  technology.sampler_base
+  e.g., proteomics.Vanquish.vial
 end note
 
 note right of INST
-  area, default_inj_vol,
-  queue_pattern, methods_file
+  [technology.instrument]:
+  queue_patterns, methods_file
 end note
 
 @enduml

@@ -1,71 +1,73 @@
 # Instrument Definitions
-# Static properties per instrument (no duplication)
+# Structure: <technology>.<instrument_name>
+# Each instrument can appear under multiple technologies with different configs
+# queue_patterns: available patterns (first is default)
+#   Use full path: "technology.pattern" (e.g., "proteomics.standard")
 
-[ASTRAL_1]
-area = "Proteomics"
-methods_file = "methods/ASTRAL_1_methods.csv"
-default_inj_vol = 2.0
-queue_pattern = "proteomics_standard"
+# =============================================================================
+# PROTEOMICS
+# =============================================================================
 
-[ASCEND_1]
-area = "Proteomics"
-methods_file = "methods/ASCEND_1_methods.csv"
-default_inj_vol = 1.0
-queue_pattern = "proteomics_standard"
+[proteomics.ASTRAL_1]
+methods_file = "methods/proteomics/ASTRAL_1_methods.csv"
+queue_patterns = ["proteomics.standard", "proteomics.frequent", "proteomics.minimal"]
 
-[EXPLORIS_1]
-area = "Proteomics"
-default_inj_vol = 1.0
-queue_pattern = "proteomics_standard"
+[proteomics.ASCEND_1]
+methods_file = "methods/proteomics/ASCEND_1_methods.csv"
+queue_patterns = ["proteomics.standard", "proteomics.frequent", "proteomics.dda"]
 
-[EXPLORIS_2]
-area = "Proteomics"
-methods_file = "methods/EXPLORIS_2_methods.csv"
-default_inj_vol = 1.0
-queue_pattern = "proteomics_standard"
+[proteomics.EXPLORIS_1]
+methods_file = "methods/proteomics/EXPLORIS_1_methods.csv"
+queue_patterns = ["proteomics.standard", "proteomics.frequent", "proteomics.dda"]
 
-[EXPLORIS_3]
-area = "Metabolomics"
-default_inj_vol = 3.5
-queue_pattern = "metabolomics_standard"
+[proteomics.EXPLORIS_2]
+methods_file = "methods/proteomics/EXPLORIS_2_methods.csv"
+queue_patterns = ["proteomics.standard", "proteomics.frequent", "proteomics.dda"]
 
-[EXPLORIS_4]
-area = "Metabolomics"
-default_inj_vol = 3.5
-queue_pattern = "lipidomics_standard"
+[proteomics.EXPLORIS_5]
+methods_file = "methods/proteomics/EXPLORIS_5_methods.csv"
+queue_patterns = ["proteomics.standard", "proteomics.frequent", "proteomics.dda"]
 
-[EXPLORIS_5]
-area = "Proteomics"
-default_inj_vol = 2.0
-queue_pattern = "proteomics_standard"
+[proteomics.LUMOS_2]
+methods_file = "methods/proteomics/LUMOS_2_methods.csv"
+queue_patterns = ["proteomics.standard", "proteomics.frequent", "proteomics.dda"]
 
-[LUMOS_2]
-area = "Proteomics"
-methods_file = "methods/LUMOS_2_methods.csv"
-default_inj_vol = 1.0
-queue_pattern = "proteomics_standard"
+[proteomics.QEXACTIVE_1]
+methods_file = "methods/proteomics/QEXACTIVE_1_methods.csv"
+queue_patterns = ["proteomics.standard", "proteomics.simple", "proteomics.minimal"]
 
-[QEXACTIVE_1]
-area = "Proteomics"
-default_inj_vol = 1.0
-queue_pattern = "proteomics_standard"
+[proteomics.TIMSTOFFLEX_1]
+methods_file = "methods/proteomics/TIMSTOFFLEX_1_methods.csv"
+queue_patterns = ["proteomics.standard", "proteomics.frequent"]
 
-[QEXACTIVEHF_2]
-area = "Metabolomics"
-default_inj_vol = 3.5
-queue_pattern = "metabolomics_standard"
+[proteomics.TIMSTOF_1]
+methods_file = "methods/proteomics/TIMSTOF_1_methods.csv"
+queue_patterns = ["proteomics.standard", "proteomics.frequent"]
 
-[TIMSTOFFLEX_1]
-area = "Proteomics"
-default_inj_vol = 2.0
-queue_pattern = "proteomics_standard"
+# =============================================================================
+# METABOLOMICS
+# =============================================================================
 
-[TIMSTOF_1]
-area = "Proteomics"
-default_inj_vol = 2.0
-queue_pattern = "proteomics_standard"
+[metabolomics.EXPLORIS_3]
+methods_file = "methods/metabolomics/EXPLORIS_3_methods.csv"
+queue_patterns = ["metabolomics.standard", "metabolomics.simple"]
 
-[QUANTIVA_1]
-area = "Metabolomics"
-default_inj_vol = 3.5
-queue_pattern = "metabolomics_simple"
+[metabolomics.QEXACTIVEHF_2]
+methods_file = "methods/metabolomics/QEXACTIVEHF_2_methods.csv"
+queue_patterns = ["metabolomics.standard", "metabolomics.simple"]
+
+[metabolomics.QUANTIVA_1]
+methods_file = "methods/metabolomics/QUANTIVA_1_methods.csv"
+queue_patterns = ["metabolomics.simple", "metabolomics.standard"]
+
+# =============================================================================
+# LIPIDOMICS
+# =============================================================================
+
+[lipidomics.EXPLORIS_3]
+methods_file = "methods/lipidomics/EXPLORIS_3_methods.csv"
+queue_patterns = ["lipidomics.standard"]
+
+[lipidomics.EXPLORIS_4]
+methods_file = "methods/lipidomics/EXPLORIS_4_methods.csv"
+queue_patterns = ["lipidomics.standard"]

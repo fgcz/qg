@@ -1,139 +1,147 @@
 # QC Layouts
-# QC sample positions per physical sampler + area/workflow
+# Structure: <technology>.<sampler_base>
+# QC sample positions per technology + physical sampler
 #
-# Key format: [sampler_base.area]
-#   sampler_base = physical sampler without software suffix (e.g., "Vanquish_Vial")
-#   area = workflow type from instruments.toml (e.g., "Proteomics", "Metabolomics")
-#
-# Grid samplers: qc_positions = { sample_id = "position_string" }
-# Evosep samplers: qc_trays = { sample_id = { tray, position_start, position_end } }
+# Grid samplers: sample_id = "position_string"
+# Evosep samplers: sample_id = { tray, position_start, position_end }
 
 # =============================================================================
-# Vanquish Vial Layouts
+# PROTEOMICS
+# =============================================================================
+
+[proteomics.Vanquish.vial]
 # QC row: F, QC plate: B
-# =============================================================================
-
-[Vanquish_Vial.Proteomics]
 QC01 = "B:F9"
 QC03dia = "B:F8"
 QC03dda = "B:F8"
 clean = "B:F7"
 
-[Vanquish_Vial.Metabolomics]
+[proteomics.Vanquish.plate]
+# QC row: H, QC plate: B
+QC01 = "B:H9"
+QC03dia = "B:H10"
+QC03dda = "B:H10"
+clean = "B:H1"
+
+[proteomics.MClass48]
+# QC row: F, QC plate: 1 (same for Vial and Plate)
+QC01 = "1:F,8"
+QC03dia = "1:F,7"
+QC03dda = "1:F,7"
+clean = "1:F,6"
+
+[proteomics.Evosep]
+# Position ranges within dedicated trays
+# Tray 5: QC samples, Tray 6: Clean/wash
+QC01 = { tray = 5, position_start = 1, position_end = 48 }
+QC03dia = { tray = 5, position_start = 49, position_end = 96 }
+QC03dda = { tray = 5, position_start = 49, position_end = 96 }
+clean = { tray = 6, position_start = 1, position_end = 96 }
+
+# =============================================================================
+# METABOLOMICS
+# =============================================================================
+
+[metabolomics.Vanquish.vial]
+# QC row: F, QC plate: B
 blank = "B:F9"
 pooledQC = "B:F8"
-standard = "B:F7"
+108mix_AA = "B:F7"
+108mix_OAP = "B:F7"
 pooledQCDil1 = "B:F6"
 pooledQCDil2 = "B:F5"
 pooledQCDil3 = "B:F4"
 pooledQCDil4 = "B:F3"
 pooledQCDil5 = "B:F2"
 pooledQCDil6 = "B:F1"
-EquiSPLASH = "B:F7"
-108mix_AA = "B:F7"
-108mix_OAP = "B:F7"
 
-# =============================================================================
-# Vanquish Plate Layouts
+[metabolomics.Vanquish.plate]
 # QC row: H, QC plate: B
-# =============================================================================
-
-[Vanquish_Plate.Proteomics]
-QC01 = "B:H9"
-QC03dia = "B:H10"
-QC03dda = "B:H10"
-clean = "B:H1"
-
-[Vanquish_Plate.Metabolomics]
 blank = "B:H1"
 pooledQC = "B:H9"
-standard = "B:H12"
-NIST = "B:H11"
+108mix_AA = "B:H12"
+108mix_OAP = "B:H12"
 pooledQCDil1 = "B:H2"
 pooledQCDil2 = "B:H3"
 pooledQCDil3 = "B:H4"
 pooledQCDil4 = "B:H5"
 pooledQCDil5 = "B:H6"
 pooledQCDil6 = "B:H7"
-EquiSPLASH = "B:H12"
-108mix_AA = "B:H12"
-108mix_OAP = "B:H12"
 
-# =============================================================================
-# MClass48 Vial Layouts
-# QC row: F, QC plate: 1
-# =============================================================================
-
-[MClass48_Vial.Proteomics]
-QC01 = "1:F,8"
-QC03dia = "1:F,7"
-QC03dda = "1:F,7"
-clean = "1:F,6"
-
-[MClass48_Vial.Metabolomics]
+[metabolomics.MClass48]
+# QC row: F, QC plate: 1 (same for Vial and Plate)
 blank = "1:F,8"
 pooledQC = "1:F,7"
-standard = "1:F,6"
+108mix_AA = "1:F,6"
+108mix_OAP = "1:F,6"
 pooledQCDil1 = "1:F,5"
 pooledQCDil2 = "1:F,4"
 pooledQCDil3 = "1:F,3"
 pooledQCDil4 = "1:F,2"
 pooledQCDil5 = "1:F,1"
 pooledQCDil6 = "2:F,8"
-EquiSPLASH = "1:F,6"
-108mix_AA = "1:F,6"
-108mix_OAP = "1:F,6"
 
-# =============================================================================
-# MClass48 Plate Layouts
-# QC row: F, QC plate: 1
-# =============================================================================
-
-[MClass48_Plate.Proteomics]
-QC01 = "1:F,8"
-QC03dia = "1:F,7"
-QC03dda = "1:F,7"
-clean = "1:F,6"
-
-[MClass48_Plate.Metabolomics]
-blank = "1:F,8"
-pooledQC = "1:F,7"
-standard = "1:F,6"
-NIST = "1:F,5"
-pooledQCDil1 = "1:F,4"
-pooledQCDil2 = "1:F,3"
-pooledQCDil3 = "1:F,2"
-pooledQCDil4 = "1:F,1"
-pooledQCDil5 = "2:F,8"
-pooledQCDil6 = "2:F,7"
-EquiSPLASH = "1:F,6"
-108mix_AA = "1:F,6"
-108mix_OAP = "1:F,6"
-
-# =============================================================================
-# Evosep Layouts (Vial and Plate share same tray structure)
-# QC samples use dedicated trays with position counters
-# Tray 5: QC samples, Tray 6: Clean/wash
-# =============================================================================
-
-[Evosep.Proteomics]
-# Position ranges within dedicated trays
-autoQC01 = { tray = 5, position_start = 1, position_end = 48 }
-autoQC03dia = { tray = 5, position_start = 49, position_end = 96 }
-autoQC03dda = { tray = 5, position_start = 49, position_end = 96 }
-clean = { tray = 6, position_start = 1, position_end = 96 }
-
-[Evosep.Metabolomics]
-# Metabolomics uses different tray allocation
+[metabolomics.Evosep]
+# Tray 5: QC samples, Tray 6: blanks
 blank = { tray = 6, position_start = 1, position_end = 48 }
 pooledQC = { tray = 5, position_start = 1, position_end = 48 }
-standard = { tray = 5, position_start = 49, position_end = 72 }
+108mix_AA = { tray = 5, position_start = 49, position_end = 72 }
+108mix_OAP = { tray = 5, position_start = 49, position_end = 72 }
 pooledQCDil1 = { tray = 5, position_start = 73, position_end = 76 }
 pooledQCDil2 = { tray = 5, position_start = 77, position_end = 80 }
 pooledQCDil3 = { tray = 5, position_start = 81, position_end = 84 }
 pooledQCDil4 = { tray = 5, position_start = 85, position_end = 88 }
 pooledQCDil5 = { tray = 5, position_start = 89, position_end = 92 }
 pooledQCDil6 = { tray = 5, position_start = 93, position_end = 96 }
+
+# =============================================================================
+# LIPIDOMICS
+# =============================================================================
+
+[lipidomics.Vanquish.vial]
+# QC row: F, QC plate: B
+blank = "B:F9"
+pooledQC = "B:F8"
+EquiSPLASH = "B:F7"
+pooledQCDil1 = "B:F6"
+pooledQCDil2 = "B:F5"
+pooledQCDil3 = "B:F4"
+pooledQCDil4 = "B:F3"
+pooledQCDil5 = "B:F2"
+pooledQCDil6 = "B:F1"
+
+[lipidomics.Vanquish.plate]
+# QC row: H, QC plate: B
+blank = "B:H1"
+pooledQC = "B:H9"
+EquiSPLASH = "B:H12"
+pooledQCDil1 = "B:H2"
+pooledQCDil2 = "B:H3"
+pooledQCDil3 = "B:H4"
+pooledQCDil4 = "B:H5"
+pooledQCDil5 = "B:H6"
+pooledQCDil6 = "B:H7"
+
+[lipidomics.MClass48]
+# QC row: F, QC plate: 1 (same for Vial and Plate)
+blank = "1:F,8"
+pooledQC = "1:F,7"
+EquiSPLASH = "1:F,6"
+pooledQCDil1 = "1:F,5"
+pooledQCDil2 = "1:F,4"
+pooledQCDil3 = "1:F,3"
+pooledQCDil4 = "1:F,2"
+pooledQCDil5 = "1:F,1"
+pooledQCDil6 = "2:F,8"
+
+[lipidomics.Evosep]
+# Tray 5: QC samples, Tray 6: blanks
+blank = { tray = 6, position_start = 1, position_end = 48 }
+pooledQC = { tray = 5, position_start = 1, position_end = 48 }
 EquiSPLASH = { tray = 5, position_start = 49, position_end = 72 }
-108mix_AA = { tray = 5, position_start = 49, position_end = 72 }
-108mix_OAP = { tray = 5, position_start = 49, position_end = 72 }
+pooledQCDil1 = { tray = 5, position_start = 73, position_end = 76 }
+pooledQCDil2 = { tray = 5, position_start = 77, position_end = 80 }
+pooledQCDil3 = { tray = 5, position_start = 81, position_end = 84 }
+pooledQCDil4 = { tray = 5, position_start = 85, position_end = 88 }
+pooledQCDil5 = { tray = 5, position_start = 89, position_end = 92 }
+pooledQCDil6 = { tray = 5, position_start = 93, position_end = 96 }

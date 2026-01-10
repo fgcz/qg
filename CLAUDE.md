@@ -16,22 +16,34 @@ Queue generation system for mass spectrometry instruments. Generates sample queu
 ```
 qg_dump/
 ├── main.py              # Marimo app (GUI for queue generation)
-├── instrument.csv       # Master instrument registry (used by marimo app)
 ├── qg_configs/          # Configuration files
-│   ├── lc.toml          # LC systems: positions, grids
-│   ├── samples.toml     # QC sample definitions
-│   ├── queue_patterns.toml  # Named injection patterns
-│   ├── instrument.csv   # Instrument → pattern mapping
-│   └── methods/         # Per-instrument method CSVs
+│   ├── sampler.toml     # Physical sampler layouts
+│   ├── samples.toml     # QC sample definitions: <technology>.<sample_id>
+│   ├── queue_patterns.toml  # Injection patterns: <technology>.<pattern>
+│   ├── qc_layouts.toml  # QC positions: <technology>.<sampler>
+│   ├── instruments.toml # Instruments: <technology>.<instrument>
+│   ├── output_formats.toml  # Queue file formats
+│   ├── combinations.csv # Valid instrument+sampler pairs
+│   └── methods/         # Per-technology/instrument method CSVs
+│       ├── proteomics/
+│       ├── metabolomics/
+│       └── lipidomics/
 ├── queue_files/         # Generated queue files (output)
 └── NOTES.md             # Analysis notes
 ```
 
-## Configuration Principles
+## Configuration Structure
 
-1. **Minimal** - 4 config files + method CSVs
-2. **DRY** - No duplication; LC defines positions, patterns reference samples
-3. **Flexible** - Add new instruments/patterns without code changes
+All config files use consistent `<technology>.<item>` hierarchical keys:
+
+| File | Key Pattern | Example |
+|------|-------------|---------|
+| samples.toml | `[proteomics.QC01]` | QC sample definitions |
+| queue_patterns.toml | `[proteomics.standard]` | Injection patterns |
+| qc_layouts.toml | `[proteomics.Vanquish_Vial]` | QC positions |
+| instruments.toml | `[proteomics.ASTRAL_1]` | Instrument configs |
+
+Technologies: `proteomics`, `metabolomics`, `lipidomics`
 
 See `qg_configs/CONFIG.md` for configuration details.
 
