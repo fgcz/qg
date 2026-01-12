@@ -1,6 +1,7 @@
 # QC Layouts
-# Structure: <technology>.<sampler_base>
+# Structure: <technology>.<sampler_key>
 # QC sample positions per technology + physical sampler
+# Key is derived from sampler path (e.g., "Vanquish.vial" or "MClass48")
 #
 # Grid samplers: sample_id = "position_string"
 # Evosep samplers: sample_id = { tray, position_start, position_end }

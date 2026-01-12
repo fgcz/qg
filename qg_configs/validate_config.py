@@ -70,9 +70,12 @@ class ConfigValidator:
         self.samples: dict[str, Any] = {}
         self.patterns: dict[str, Any] = {}
         self.qc_layouts: dict[str, Any] = {}
-        self.instruments: dict[str, Any] = {}
         self.output_formats: dict[str, Any] = {}
-        self.combinations: list[tuple[str, str]] = []
+        self.combinations: list[tuple[str, str, str]] = []  # (instrument, sampler, output_format)
+
+        # CSV-based data
+        self.instruments: list[dict[str, str]] = []  # rows from instruments.csv
+        self.instrument_patterns: list[dict[str, str]] = []  # rows from instrument_patterns.csv
 
     def _error(self, msg: str) -> None:
         self.errors.append(msg)
@@ -90,7 +93,6 @@ class ConfigValidator:
             ("samples.toml", "samples"),
             ("queue_patterns.toml", "patterns"),
             ("qc_layouts.toml", "qc_layouts"),
-            ("instruments.toml", "instruments"),
             ("output_formats.toml", "output_formats"),
         ]
 
@@ -123,14 +125,54 @@ class ConfigValidator:
                 with open(csv_path, newline="") as f:
                     reader = csv.DictReader(f)
                     for row in reader:
-                        if "instrument" in row and "sampler" in row:
-                            self.combinations.append((row["instrument"], row["sampler"]))
+                        if "instrument" in row and "sampler" in row and "output_format" in row:
+                            self.combinations.append(
+                                (row["instrument"], row["sampler"], row["output_format"])
+                            )
                         else:
-                            self._error("combinations.csv missing required columns")
+                            self._error("combinations.csv missing required columns (instrument, sampler, output_format)")
                             success = False
                             break
             except csv.Error as e:
                 self._error(f"CSV error in combinations.csv: {e}")
+                success = False
+
+        # Load instruments.csv
+        instr_path = self.config_dir / "instruments.csv"
+        if not instr_path.exists():
+            self._error("Missing file: instruments.csv")
+            success = False
+        else:
+            try:
+                with open(instr_path, newline="") as f:
+                    reader = csv.DictReader(f)
+                    required_cols = {"technology", "instrument", "methods_file"}
+                    if reader.fieldnames and required_cols <= set(reader.fieldnames):
+                        self.instruments = list(reader)
+                    else:
+                        self._error("instruments.csv missing required columns (technology, instrument, methods_file)")
+                        success = False
+            except csv.Error as e:
+                self._error(f"CSV error in instruments.csv: {e}")
+                success = False
+
+        # Load instrument_patterns.csv
+        patterns_path = self.config_dir / "instrument_patterns.csv"
+        if not patterns_path.exists():
+            self._error("Missing file: instrument_patterns.csv")
+            success = False
+        else:
+            try:
+                with open(patterns_path, newline="") as f:
+                    reader = csv.DictReader(f)
+                    required_cols = {"technology", "instrument", "pattern", "is_default"}
+                    if reader.fieldnames and required_cols <= set(reader.fieldnames):
+                        self.instrument_patterns = list(reader)
+                    else:
+                        self._error("instrument_patterns.csv missing required columns (technology, instrument, pattern, is_default)")
+                        success = False
+            except csv.Error as e:
+                self._error(f"CSV error in instrument_patterns.csv: {e}")
                 success = False
 
         return success
@@ -197,37 +239,59 @@ class ConfigValidator:
                     self._error(f"queue_patterns.toml: [{key}].{arr_field} must be array")
 
     def _validate_instruments_schema(self) -> None:
-        """Validate instruments.toml schema."""
-        for key, value in self.instruments.items():
-            parts = key.split(".")
-            if len(parts) < 2:
-                continue
+        """Validate instruments.csv schema."""
+        seen_instruments = set()
+        for row in self.instruments:
+            tech = row.get("technology", "")
+            instr = row.get("instrument", "")
+            key = f"{tech}.{instr}"
 
-            tech = parts[0]
             if tech not in VALID_TECHNOLOGIES:
-                self._error(f"instruments.toml: Unknown technology '{tech}' in [{key}]")
+                self._error(f"instruments.csv: Unknown technology '{tech}' for {instr}")
 
-            if not isinstance(value, dict):
-                continue
+            if key in seen_instruments:
+                self._error(f"instruments.csv: Duplicate entry {key}")
+            seen_instruments.add(key)
 
-            if "methods_file" not in value:
-                self._error(f"instruments.toml: [{key}] missing methods_file")
-            if "queue_patterns" not in value:
-                self._error(f"instruments.toml: [{key}] missing queue_patterns")
-            elif not isinstance(value["queue_patterns"], list):
-                self._error(f"instruments.toml: [{key}].queue_patterns must be array")
+            if not row.get("methods_file"):
+                self._error(f"instruments.csv: {key} missing methods_file")
+
+        # Validate instrument_patterns.csv
+        seen_defaults = {}  # (tech, instr) -> count of defaults
+        for row in self.instrument_patterns:
+            tech = row.get("technology", "")
+            instr = row.get("instrument", "")
+            pattern = row.get("pattern", "")
+            is_default = row.get("is_default", "").lower() == "true"
+
+            key = f"{tech}.{instr}"
+            if key not in seen_instruments:
+                self._error(f"instrument_patterns.csv: Unknown instrument {key}")
+
+            if tech not in VALID_TECHNOLOGIES:
+                self._error(f"instrument_patterns.csv: Unknown technology '{tech}'")
+
+            # Track defaults
+            if is_default:
+                seen_defaults[key] = seen_defaults.get(key, 0) + 1
+
+        # Check each instrument has exactly one default
+        for key in seen_instruments:
+            count = seen_defaults.get(key, 0)
+            if count == 0:
+                self._warn(f"instrument_patterns.csv: {key} has no default pattern")
+            elif count > 1:
+                self._error(f"instrument_patterns.csv: {key} has {count} default patterns (should be 1)")
 
     def _validate_samplers_schema(self) -> None:
         """Validate sampler.toml schema."""
-        # Check top-level samplers have output_format
+        # Samplers are now hardware-only, output_format is in combinations.csv
         for sampler_name, sampler_config in self.samplers_raw.items():
             if not isinstance(sampler_config, dict):
                 continue
-
-            if "output_format" in sampler_config:
-                fmt = sampler_config["output_format"]
-                if fmt not in self.output_formats:
-                    self._error(f"sampler.toml: [{sampler_name}].output_format '{fmt}' not in output_formats.toml")
+            # Check required fields for each sampler type
+            if "description" not in sampler_config:
+                self._warn(f"sampler.toml: [{sampler_name}] missing description")
 
     def _validate_output_formats_schema(self) -> None:
         """Validate output_formats.toml schema."""
@@ -257,19 +321,18 @@ class ConfigValidator:
         self._validate_methods_files()
 
     def _validate_combinations_references(self) -> None:
-        """Validate instrument/sampler references in combinations.csv."""
+        """Validate instrument/sampler/output_format references in combinations.csv."""
         # Get all instrument names (without technology prefix)
-        instrument_names = set()
-        for key in self.instruments:
-            parts = key.split(".")
-            if len(parts) >= 2:
-                instrument_names.add(parts[1])
+        instrument_names = {row["instrument"] for row in self.instruments}
 
         # Get all sampler names (top-level keys)
         sampler_names = set(self.samplers_raw.keys())
 
+        # Get all output format names
+        output_format_names = set(self.output_formats.keys())
+
         seen = set()
-        for instrument, sampler in self.combinations:
+        for instrument, sampler, output_format in self.combinations:
             # Check for duplicates
             pair = (instrument, sampler)
             if pair in seen:
@@ -292,6 +355,10 @@ class ConfigValidator:
                     sampler_config = self.samplers_raw[sampler_base]
                     if isinstance(sampler_config, dict) and container not in sampler_config:
                         self._error(f"combinations.csv: Missing sub-table [{sampler_base}.{container}]")
+
+            # Validate output_format exists
+            if output_format not in output_format_names:
+                self._error(f"combinations.csv: Unknown output_format '{output_format}'")
 
     def _validate_pattern_references(self) -> None:
         """Validate sample references in queue patterns."""
@@ -326,17 +393,18 @@ class ConfigValidator:
                             f"references unknown sample '{sample_id}'"
                         )
 
-        # Check instrument pattern references
-        for instr_key, instr in self.instruments.items():
-            if not isinstance(instr, dict) or "queue_patterns" not in instr:
-                continue
+        # Check instrument pattern references from instrument_patterns.csv
+        for row in self.instrument_patterns:
+            tech = row.get("technology", "")
+            pattern = row.get("pattern", "")
+            instr = row.get("instrument", "")
+            pattern_ref = f"{tech}.{pattern}"
 
-            for pattern_ref in instr["queue_patterns"]:
-                if pattern_ref not in self.patterns:
-                    self._error(
-                        f"instruments.toml: [{instr_key}].queue_patterns "
-                        f"references unknown pattern '{pattern_ref}'"
-                    )
+            if pattern_ref not in self.patterns:
+                self._error(
+                    f"instrument_patterns.csv: {tech}.{instr} "
+                    f"references unknown pattern '{pattern_ref}'"
+                )
 
     def _validate_qc_layout_references(self) -> None:
         """Validate QC layout references to samples."""
@@ -393,17 +461,67 @@ class ConfigValidator:
                             )
 
     def _validate_methods_files(self) -> None:
-        """Validate methods file paths exist."""
-        for instr_key, instr in self.instruments.items():
-            if not isinstance(instr, dict) or "methods_file" not in instr:
+        """Validate methods file paths exist and content is valid."""
+        for row in self.instruments:
+            tech = row.get("technology", "")
+            instr = row.get("instrument", "")
+            methods_file = row.get("methods_file", "")
+            instr_key = f"{tech}.{instr}"
+
+            if not methods_file:
                 continue
 
-            methods_path = self.config_dir / instr["methods_file"]
+            methods_path = self.config_dir / methods_file
             if not methods_path.exists():
                 self._warn(
-                    f"instruments.toml: [{instr_key}].methods_file "
-                    f"'{instr['methods_file']}' does not exist"
+                    f"instruments.csv: {instr_key}.methods_file "
+                    f"'{methods_file}' does not exist"
                 )
+                continue
+
+            # Validate methods file content
+            self._validate_methods_file_content(methods_path, instr_key, tech)
+
+    def _validate_methods_file_content(
+        self, methods_path: Path, instr_key: str, tech: str | None
+    ) -> None:
+        """Validate content of a methods CSV file."""
+        # Build sample lookup for this technology
+        valid_samples = {"default"}  # "default" is always valid
+        if tech:
+            for key in self.samples:
+                parts = key.split(".")
+                if len(parts) >= 2 and parts[0] == tech:
+                    valid_samples.add(parts[1])
+
+        try:
+            with open(methods_path, newline="") as f:
+                reader = csv.DictReader(f)
+
+                # Check required columns
+                if reader.fieldnames is None:
+                    self._error(f"{methods_path.name}: Empty or invalid CSV")
+                    return
+
+                required_cols = {"sample_type", "method_name", "method_path"}
+                missing = required_cols - set(reader.fieldnames)
+                if missing:
+                    self._error(
+                        f"{methods_path.name}: Missing columns {missing}"
+                    )
+                    return
+
+                # Validate each row
+                for row_num, row in enumerate(reader, start=2):
+                    sample_type = row.get("sample_type", "").strip()
+                    if sample_type and sample_type not in valid_samples:
+                        self._error(
+                            f"{methods_path.name}:{row_num}: Unknown sample_type "
+                            f"'{sample_type}' (valid: {sorted(valid_samples)})"
+                        )
+
+        except csv.Error as e:
+            self._error(f"{methods_path.name}: CSV error: {e}")
 
     def validate_business_rules(self) -> None:
         """Validate business logic rules."""
@@ -476,13 +594,13 @@ class ConfigValidator:
         sample_count = sum(1 for k in self.samples if len(k.split(".")) >= 2)
         pattern_count = sum(1 for k in self.patterns if len(k.split(".")) >= 2)
         layout_count = sum(1 for k in self.qc_layouts if len(k.split(".")) >= 2)
-        instr_count = sum(1 for k in self.instruments if len(k.split(".")) >= 2)
 
         print(f"  Loaded {len(self.samplers_raw)} samplers")
         print(f"  Loaded {sample_count} samples")
         print(f"  Loaded {pattern_count} patterns")
         print(f"  Loaded {layout_count} QC layouts")
-        print(f"  Loaded {instr_count} instruments")
+        print(f"  Loaded {len(self.instruments)} instruments")
+        print(f"  Loaded {len(self.instrument_patterns)} instrument-pattern mappings")
         print(f"  Loaded {len(self.output_formats)} output formats")
         print(f"  Loaded {len(self.combinations)} combinations\n")
 

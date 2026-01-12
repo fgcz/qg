@@ -1,3 +1,5 @@
-method_name,method_path
-DIA_60min,C:\Methods\Proteomics\EXPLORIS_1\DIA_60min.meth
-DDA_60min,C:\Methods\Proteomics\EXPLORIS_1\DDA_60min.meth
+sample_type,method_name,method_path
+QC03dda,DDA_60min,C:\Methods\Proteomics\EXPLORIS_1\DDA_60min.meth
+QC03dia,DIA_60min,C:\Methods\Proteomics\EXPLORIS_1\DIA_60min.meth
+default,DIA_60min,C:\Methods\Proteomics\EXPLORIS_1\DIA_60min.meth
+default,DDA_60min,C:\Methods\Proteomics\EXPLORIS_1\DDA_60min.meth

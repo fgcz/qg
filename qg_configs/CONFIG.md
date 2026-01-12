@@ -6,7 +6,7 @@
 |------|---------|
 | **Data** | |
 | `sampler.toml` | Physical sampler layout: positions, grids, output format |
-| `qc_layouts.toml` | QC positions: `<technology>.<sampler_base>` |
+| `qc_layouts.toml` | QC positions: `<technology>.<sampler_key>` |
 | `output_formats.toml` | Queue file formats: column mappings |
 | `samples.toml` | QC sample definitions: `<technology>.<sample_id>` |
 | `queue_patterns.toml` | Injection patterns: `<technology>.<pattern>` |
@@ -35,8 +35,8 @@ Technologies: `proteomics`, `metabolomics`, `lipidomics`
 1. User selects: Technology → Instrument → Sampler
 2. `combinations.csv` validates the selection (e.g., `MClass48_XCaliburSII.vial`)
 3. `instruments.toml[technology.instrument]` → `queue_patterns`, `methods_file`
-4. `sampler.toml[sampler]` or `sampler.toml[sampler_base.container]` → physical layout, `sampler_base`, `output_format`
-5. `qc_layouts.toml[technology.sampler_base]` → QC positions
+4. `sampler.toml[sampler]` → physical layout, `output_format`
+5. `qc_layouts.toml[technology.sampler_key]` → QC positions (tries `Parent.child`, falls back to `Parent`)
 6. `queue_patterns.toml[technology.pattern]` → start/middle/end sequences
 7. `samples.toml[technology.*]` → QC sample definitions (name, inj_vol)
 8. Build queue: START → [samples + MIDDLE every N] → END
@@ -58,7 +58,6 @@ plates = ["Y", "R", "B", "G"]
 qc_plate = "B"
 
 [Vanquish_XCaliburSII.vial]
-sampler_base = "Vanquish.vial"    # links to qc_layouts.toml
 container_type = "Vial"
 position_source = "generated"
 fill_order = "row_major"
@@ -69,7 +68,6 @@ cols = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 samples_per_plate = 45
 
 [Vanquish_XCaliburSII.plate]
-sampler_base = "Vanquish.plate"
 container_type = "Plate"
 position_source = "input"
 position_format = "{plate}:{grid_position}"
@@ -78,10 +76,9 @@ qc_row = "H"
 cols = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 samples_per_plate = 84
 
-# MClass48: Vial and Plate share same layout (sampler_base at top level)
+# MClass48: Vial and Plate share same QC layout
 [MClass48_XCaliburSII]
 description = "Waters M-class 48-well, XCalibur SII control"
-sampler_base = "MClass48"
 software = "XCaliburSII"
 output_format = "xcalibur"
 plates = ["1", "2"]
@@ -104,11 +101,12 @@ position_format = "{plate}:{grid_position}"
 ```
 
 **Key fields:**
-- `sampler_base` - links to `qc_layouts.toml[technology.sampler_base]`
-  - At top level if same for Vial/Plate (MClass48, Evosep)
-  - In `.vial`/`.plate` if different (Vanquish)
 - `position_source` - "generated" (Vial) or "input" (Plate)
 - `fill_order` - "row_major" (grid) or "sequential" (Evosep)
+
+**QC layout lookup:** Code derives the key from the sampler path:
+- Tries `qc_layouts[tech]["Parent.child"]` first (e.g., `"Vanquish.vial"`)
+- Falls back to `qc_layouts[tech]["Parent"]` (e.g., `"MClass48"`)
 
 ## qc_layouts.toml
 

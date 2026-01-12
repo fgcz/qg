@@ -1,7 +1,8 @@
 # Sampler Configurations
 # Physical sampler layout only - QC positions are in qc_layouts.toml
 #
-# sampler_base: links to qc_layouts.toml[technology.sampler_base]
+# QC layout lookup: code tries qc_layouts[tech]["Parent.child"] first,
+# falls back to qc_layouts[tech]["Parent"] if not found.
 #
 # position_source:
 #   "generated" = Vial mode: samples arrive WITHOUT positions.
@@ -13,23 +14,22 @@
 #   "sequential" = 1, 2, 3... up to positions_per_slot (Evosep)
 #
 # Structure: Base config + .vial/.plate sub-tables for container-specific settings
+#
+# NOTE: output_format is determined by combinations.csv (instrument+sampler → format)
 
 # =============================================================================
-# Vanquish Samplers (Thermo)
+# Vanquish Sampler (Thermo)
 # Grid: 4 plates (Y, R, B, G)
 # Vial: 6 rows (A-F) x 9 cols, QC row F
 # Plate: 8 rows (A-H) x 12 cols, QC row H
 # =============================================================================
 
-[Vanquish_XCaliburSII]
-description = "Thermo Vanquish autosampler, XCalibur SII control"
-software = "XCaliburSII"
-output_format = "xcalibur"
+[Vanquish]
+description = "Thermo Vanquish autosampler"
 plates = ["Y", "R", "B", "G"]
 qc_plate = "B"
 
-[Vanquish_XCaliburSII.vial]
-sampler_base = "Vanquish.vial"
+[Vanquish.vial]
 container_type = "Vial"
 position_source = "generated"
 fill_order = "row_major"
@@ -39,8 +39,7 @@ qc_row = "F"
 cols = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 samples_per_plate = 45
 
-[Vanquish_XCaliburSII.plate]
-sampler_base = "Vanquish.plate"
+[Vanquish.plate]
 container_type = "Plate"
 position_source = "input"
 position_format = "{plate}:{grid_position}"
@@ -50,16 +49,13 @@ cols = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 samples_per_plate = 84
 
 # =============================================================================
-# MClass48 Samplers (Waters M-class with 48-well trays)
+# MClass48 Sampler (Waters M-class with 48-well trays)
 # Grid: 6 rows (A-F) x 8 cols, 2 plates
 # Position format: plate:row,col (e.g., "1:A,1", "1:F,8")
 # =============================================================================
 
-[MClass48_XCaliburSII]
-description = "Waters M-class 48-well, XCalibur SII control"
-sampler_base = "MClass48"
-software = "XCaliburSII"
-output_format = "xcalibur"
+[MClass48]
+description = "Waters M-class 48-well autosampler"
 plates = ["1", "2"]
 sample_rows = ["A", "B", "C", "D", "E"]
 qc_row = "F"
@@ -67,78 +63,34 @@ cols = [1, 2, 3, 4, 5, 6, 7, 8]
 samples_per_plate = 40
 qc_plate = "1"
 
-[MClass48_XCaliburSII.vial]
+[MClass48.vial]
 container_type = "Vial"
 position_source = "generated"
 fill_order = "row_major"
 position_format = "{plate}:{row},{col}"
 
-[MClass48_XCaliburSII.plate]
-container_type = "Plate"
-position_source = "input"
-position_format = "{plate}:{grid_position}"
-
-[MClass48_XCaliburLCDevices]
-description = "Waters M-class 48-well, XCalibur LC Devices control"
-sampler_base = "MClass48"
-software = "XCaliburLCDevices"
-output_format = "xcalibur"
-plates = ["1", "2"]
-sample_rows = ["A", "B", "C", "D", "E"]
-qc_row = "F"
-cols = [1, 2, 3, 4, 5, 6, 7, 8]
-samples_per_plate = 40
-qc_plate = "1"
-
-[MClass48_XCaliburLCDevices.vial]
-container_type = "Vial"
-position_source = "generated"
-fill_order = "row_major"
-position_format = "{plate}:{row},{col}"
-
-[MClass48_XCaliburLCDevices.plate]
+[MClass48.plate]
 container_type = "Plate"
 position_source = "input"
 position_format = "{plate}:{grid_position}"
 
 # =============================================================================
-# Evosep Samplers
+# Evosep Sampler
 # Position (1-96) + tray (slot number) as separate fields
 # Grid per tray: 8 rows (A-H) x 12 cols = 96 positions
 # =============================================================================
 
-[Evosep_Chronos]
-description = "Evosep One, Chronos control"
-sampler_base = "Evosep"
-software = "Chronos"
-output_format = "chronos"
+[Evosep]
+description = "Evosep One autosampler"
 position_type = "tray_position"
 slots = [1, 2, 3, 4]
 positions_per_slot = 96
 
-[Evosep_Chronos.vial]
+[Evosep.vial]
 container_type = "Vial"
 position_source = "generated"
 fill_order = "sequential"
 
-[Evosep_Chronos.plate]
-container_type = "Plate"
-position_source = "input"
-
-[Evosep_Hystar]
-description = "Evosep One, Hystar control"
-sampler_base = "Evosep"
-software = "Hystar"
-output_format = "hystar"
-position_type = "tray_position"
-slots = [1, 2, 3, 4]
-positions_per_slot = 96
-
-[Evosep_Hystar.vial]
-container_type = "Vial"
-position_source = "generated"
-fill_order = "sequential"
-
-[Evosep_Hystar.plate]
+[Evosep.plate]
 container_type = "Plate"
 position_source = "input"

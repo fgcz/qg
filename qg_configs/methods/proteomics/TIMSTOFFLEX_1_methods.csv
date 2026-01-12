@@ -1,3 +1,5 @@
-method_name,method_path
-DIA_60min,D:\Methods\Proteomics\TIMSTOFFLEX_1\DIA_60min.m
-DDA_60min,D:\Methods\Proteomics\TIMSTOFFLEX_1\DDA_60min.m
+sample_type,method_name,method_path
+QC03dda,DDA_60min,D:\Methods\Proteomics\TIMSTOFFLEX_1\DDA_60min.m
+QC03dia,DIA_60min,D:\Methods\Proteomics\TIMSTOFFLEX_1\DIA_60min.m
+default,DIA_60min,D:\Methods\Proteomics\TIMSTOFFLEX_1\DIA_60min.m
+default,DDA_60min,D:\Methods\Proteomics\TIMSTOFFLEX_1\DDA_60min.m

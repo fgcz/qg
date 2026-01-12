@@ -1,0 +1,15 @@
+technology,instrument,methods_file
+proteomics,ASTRAL_1,methods/proteomics/ASTRAL_1_methods.csv
+proteomics,ASCEND_1,methods/proteomics/ASCEND_1_methods.csv
+proteomics,EXPLORIS_1,methods/proteomics/EXPLORIS_1_methods.csv
+proteomics,EXPLORIS_2,methods/proteomics/EXPLORIS_2_methods.csv
+proteomics,EXPLORIS_5,methods/proteomics/EXPLORIS_5_methods.csv
+proteomics,LUMOS_2,methods/proteomics/LUMOS_2_methods.csv
+proteomics,QEXACTIVE_1,methods/proteomics/QEXACTIVE_1_methods.csv
+proteomics,TIMSTOFFLEX_1,methods/proteomics/TIMSTOFFLEX_1_methods.csv
+proteomics,TIMSTOF_1,methods/proteomics/TIMSTOF_1_methods.csv
+metabolomics,EXPLORIS_3,methods/metabolomics/EXPLORIS_3_methods.csv
+metabolomics,QEXACTIVEHF_2,methods/metabolomics/QEXACTIVEHF_2_methods.csv
+metabolomics,QUANTIVA_1,methods/metabolomics/QUANTIVA_1_methods.csv
+lipidomics,EXPLORIS_3,methods/lipidomics/EXPLORIS_3_methods.csv
+lipidomics,EXPLORIS_4,methods/lipidomics/EXPLORIS_4_methods.csv
