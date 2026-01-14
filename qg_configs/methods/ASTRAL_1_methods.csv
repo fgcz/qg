@@ -1,9 +1,0 @@
-method_id,method_type,method_name,method_path,acquisition_mode,spd,gradient_min,column,notes
-autoQC01,qc,autoQC01,C:\Xcalibur\methods\___SERVICE\VanquishNeo\autoQC\AuroraElite_autoQC01,dda,20,45,AuroraElite,Standard QC
-autoQC03dia,qc,autoQC03dia,C:\Xcalibur\methods\___SERVICE\VanquishNeo\autoQC\AuroraElite_autoQC03dia,dia,20,45,AuroraElite,DIA benchmark
-autoQC03dda,qc,autoQC03dda,C:\Xcalibur\methods\___SERVICE\VanquishNeo\autoQC\AuroraElite_autoQC03dda,dda,20,45,AuroraElite,DDA benchmark
-clean,clean,general_clean,C:\Xcalibur\methods\___SERVICE\VanquishNeo\clean\general_clean,,,AuroraElite,Column cleaning
-lfq_20spd_dia,sample,LFQ_20SPD_IW2mzDIA,C:\Xcalibur\methods\___SERVICE\VanquishNeo\LFQ\AuroraElite_20SPD_IW2mzDIA,dia,20,45,AuroraElite,Standard DIA 20 SPD
-lfq_40spd_dia,sample,LFQ_40SPD_IW2mzDIA,C:\Xcalibur\methods\___SERVICE\VanquishNeo\LFQ\AuroraElite_40SPD_IW2mzDIA,dia,40,31,AuroraElite,Fast DIA 40 SPD
-pepmap_20spd_dia,sample,PepMapNeo_20SPD_IW2mzDIA,C:\Xcalibur\methods\___SERVICE\VanquishNeo\LFQ\PepMapNeo_20SPD_IW2mzDIA,dia,20,45,PepMapNeo,PepMapNeo column
-upac_20spd_dia,sample,uPAC_20SPD_IW2mzDIA,C:\Xcalibur\methods\___SERVICE\VanquishNeo\LFQ\uPAC_20SPD_IW2mzDIA,dia,20,45,uPAC,uPAC column

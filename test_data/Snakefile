@@ -1,0 +1,238 @@
+"""Combined Snakemake workflow for test data management and queue generator testing.
+
+This workflow handles:
+1. SLD → CSV conversion (Phase 1: sld_to_csv)
+2. CSV → Param JSON generation (Phase 2: params)
+3. Queue generator testing (Phase 3: test)
+
+Usage:
+    snakemake help           Show available targets
+    snakemake -j4 sld_to_csv Convert SLD files to CSV
+    snakemake -j4 params     Generate test param JSONs from reference CSVs
+    snakemake -j4 test       Run queue generator tests
+    snakemake -j4 all        Run complete pipeline
+    snakemake clean          Remove generated files
+"""
+
+import json
+from pathlib import Path
+
+# Directories
+REFERENCE_DIR = Path("reference")
+PARAMS_DIR = Path("params_json")
+GENERATED_DIR = Path("generated")
+RESULTS_DIR = Path("results")
+TOOLS_DIR = Path("tools")
+
+INSTRUMENTS = ["astral", "ascend", "lumos2", "exploris2"]
+
+# Get all SLD files for each instrument
+def get_sld_files(instrument):
+    sld_dir = REFERENCE_DIR / "sld" / instrument
+    if sld_dir.exists():
+        return [str(f) for f in sld_dir.glob("*.sld")]
+    return []
+
+def get_csv_outputs(instrument):
+    sld_dir = REFERENCE_DIR / "sld" / instrument
+    if sld_dir.exists():
+        return [str(REFERENCE_DIR / "csv" / instrument / (f.stem + ".csv")) for f in sld_dir.glob("*.sld")]
+    return []
+
+# Collect all expected CSV files
+ALL_CSVS = []
+for inst in INSTRUMENTS:
+    ALL_CSVS.extend(get_csv_outputs(inst))
+
+# Get param files for testing (currently only astral is implemented)
+ASTRAL_PARAMS = glob_wildcards("params_json/astral/{name}.json")
+
+def get_original_csv(name):
+    """Get path to original CSV from param name."""
+    config_path = Path(f"params_json/astral/{name}.json")
+    if config_path.exists():
+        with open(config_path) as f:
+            config = json.load(f)
+            source_file = config.get("_source_file", f"{name}.csv")
+            return str(REFERENCE_DIR / "csv" / "astral" / source_file)
+    return str(REFERENCE_DIR / "csv" / "astral" / f"{name}.csv")
+
+
+# =============================================================================
+# Help and Top-level Targets
+# =============================================================================
+
+rule help:
+    """Show available targets and usage information."""
+    run:
+        print("""
+Test Data Management - Snakemake Workflow
+
+Targets:
+  all         Run complete pipeline (sld_to_csv → params → test)
+  sld_to_csv  Phase 1: Convert SLD files to CSV
+  params      Phase 2: Generate test param JSONs from reference CSVs
+  test        Phase 3: Run queue generator tests (generate → compare → summary)
+  analysis    Launch queue analysis marimo app
+  clean       Remove all generated files
+
+Usage:
+  snakemake help           # Show this help
+  snakemake -j4 sld_to_csv # Convert SLD files (parallel)
+  snakemake -j4 params     # Generate test params
+  snakemake -j4 test       # Run tests
+  snakemake -j4 all        # Full pipeline
+  snakemake analysis       # Launch interactive analysis app
+  snakemake clean          # Clean generated files
+
+Directory Structure:
+  reference/sld/{instrument}/     Raw SLD files (input)
+  reference/csv/{instrument}/     Parsed CSVs (reference data)
+  params_json/{instrument}/       Test parameter JSONs
+  generated/{instrument}/         Queue generator output
+  results/{instrument}/           Comparison results
+  tools/                          Processing scripts
+
+Currently Implemented:
+  - Astral (Vanquish sampler): Full test pipeline working
+  - Ascend, Lumos2, Exploris2 (MClass48): Params generated, sampler pending
+""")
+
+
+rule all:
+    """Run complete pipeline."""
+    input:
+        "results/summary.csv"
+
+
+# =============================================================================
+# Phase 1: SLD → CSV Conversion
+# =============================================================================
+
+rule sld_to_csv:
+    """Convert all SLD files to CSV."""
+    input:
+        ALL_CSVS,
+        "reference/merged.csv"
+
+
+rule convert_sld:
+    """Parse a single SLD file to CSV."""
+    input:
+        sld="reference/sld/{instrument}/{sample}.sld",
+        parser="tools/sld_to_csv.py"
+    output:
+        csv="reference/csv/{instrument}/{sample}.csv"
+    shell:
+        "python3 tools/sld_to_csv.py '{input.sld}' --csv '{output.csv}'"
+
+
+rule merge_csvs:
+    """Merge all CSVs into single file (for queue_analysis_marimo.py)."""
+    input:
+        csvs=ALL_CSVS,
+        script="tools/queue_analysis_merge.py"
+    output:
+        "reference/merged.csv"
+    shell:
+        "uv run python tools/queue_analysis_merge.py"
+
+
+# =============================================================================
+# Phase 2: CSV → Param JSON Generation
+# =============================================================================
+
+rule params:
+    """Generate param JSONs from reference CSVs."""
+    shell:
+        """
+        mkdir -p params_json/astral params_json/ascend params_json/lumos2 params_json/exploris2
+        uv run python tools/csv_to_params.py reference/csv/astral/ -o params_json/astral/
+        uv run python tools/csv_to_params.py reference/csv/ascend/ -o params_json/ascend/
+        uv run python tools/csv_to_params.py reference/csv/lumos2/ -o params_json/lumos2/
+        uv run python tools/csv_to_params.py reference/csv/exploris2/ -o params_json/exploris2/
+        """
+
+
+# =============================================================================
+# Phase 3: Queue Generator Testing
+# =============================================================================
+
+rule test:
+    """Run test pipeline (generate, compare, summarize)."""
+    input:
+        "results/summary.csv"
+
+
+rule generate_queue:
+    """Run qg CLI on a param file to produce a queue CSV."""
+    input:
+        params="params_json/astral/{name}.json"
+    output:
+        csv="generated/astral/{name}.csv"
+    shell:
+        """
+        cd .. && uv run qg test_data/{input.params} -o test_data/{output.csv} -q 2>/dev/null || touch test_data/{output.csv}
+        """
+
+
+rule compare:
+    """Compare generated queue CSV with original reference CSV."""
+    input:
+        generated="generated/astral/{name}.csv",
+        config="params_json/astral/{name}.json"
+    output:
+        result="results/astral/{name}.json"
+    params:
+        original=lambda wildcards: get_original_csv(wildcards.name)
+    shell:
+        """
+        uv run python tools/compare_queues.py {input.generated} {params.original} {input.config} {output.result}
+        """
+
+
+rule summary:
+    """Aggregate comparison results into summary CSV."""
+    input:
+        expand("results/astral/{name}.json", name=ASTRAL_PARAMS.name)
+    output:
+        "results/summary.csv"
+    shell:
+        """
+        uv run python tools/summarize.py {output} {input}
+        """
+
+
+# =============================================================================
+# Analysis
+# =============================================================================
+
+rule analysis:
+    """Launch interactive queue analysis marimo app."""
+    input:
+        "reference/merged.csv"
+    shell:
+        "uv run marimo run tools/queue_analysis_marimo.py"
+
+
+# =============================================================================
+# Cleanup
+# =============================================================================
+
+rule clean:
+    """Remove all generated files (keeps reference data)."""
+    shell:
+        """
+        rm -rf generated/ results/
+        echo "Cleaned generated/ and results/ directories"
+        echo "Note: reference/ and params_json/ preserved"
+        """
+
+
+rule clean_all:
+    """Remove all generated files including params."""
+    shell:
+        """
+        rm -rf generated/ results/ params_json/
+        echo "Cleaned generated/, results/, and params_json/ directories"
+        """
