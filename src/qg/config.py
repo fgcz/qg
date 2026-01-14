@@ -324,15 +324,6 @@ def validate_all_configs(config_dir: Path | str) -> bool:
         return True
 
 
-def validate_cli() -> None:
-    """CLI entry point for config validation."""
-    import sys
-
-    config_dir = Path("qg_configs")
-    success = validate_all_configs(config_dir)
-    sys.exit(0 if success else 1)
-
-
 def load_all_configs(config_dir: Path | str) -> ConfigBundle:
     """Load all configuration files from a directory.
 

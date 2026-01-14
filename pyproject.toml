@@ -31,5 +31,6 @@ build-backend = "hatchling.build"
 packages = ["src/qg"]
 
 [project.scripts]
-qg = "qg.generator:cli_main"
-qg-validate = "qg.config:validate_cli"
+qg = "qg.cli.generate_queues:cli_main"
+qg-validate = "qg.cli.validate_config:cli_main"
+qg-find-projects = "qg.cli.find_projects:main"

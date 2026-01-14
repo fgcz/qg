@@ -32,6 +32,13 @@ def _():
 
 
 @app.cell
+def _():
+    # B-Fabric cache directory for cached project data
+    BFABRIC_CACHE_DIR = Path(__file__).parent.parent.parent.parent / "bfabric_cache"
+    return (BFABRIC_CACHE_DIR,)
+
+
+@app.cell
 def _(CONFIG_DIR):
     # Load all configs using the qg package
     configs = load_all_configs(CONFIG_DIR)
@@ -56,8 +63,8 @@ def _():
 
 
 @app.cell
-def _():
-    with open("proteomics_projects.json") as f:
+def _(BFABRIC_CACHE_DIR):
+    with open(BFABRIC_CACHE_DIR / "proteomics_projects.json") as f:
         _projects_data = json.load(f)
     # Extract orders from projects - order ID is the actual container ID
     _orders = []
