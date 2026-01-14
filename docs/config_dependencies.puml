@@ -15,7 +15,7 @@ package "Configuration Files" {
     [qc_layouts.toml] <<toml>> as QCLAYOUT
     [output_formats.toml] <<toml>> as FMT
     [queue_patterns.toml] <<toml>> as PATTERNS
-    [samples.toml] <<toml>> as SAMPLES
+    [samples.csv] <<csv>> as SAMPLES
 
     folder "methods/" {
         [*.csv] <<csv>> as METHODS

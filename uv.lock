@@ -895,7 +895,7 @@ requires-dist = [
     { name = "ipython", specifier = ">=9.9.0" },
     { name = "marimo", specifier = ">=0.18.4" },
     { name = "pandas", specifier = ">=2.3.3" },
-    { name = "polars", specifier = ">=1.36.1" },
+    { name = "polars" },
     { name = "pyarrow", specifier = ">=22.0.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "rich", specifier = ">=14.2.0" },

@@ -64,17 +64,20 @@ def compare_queues(generated_path: str, original_path: str, config_path: str) ->
     # Check files exist
     if not Path(generated_path).exists():
         result["status"] = "error"
+        result["comparison_result"] = 0
         result["errors"].append("Generated file does not exist")
         return result
 
     if not Path(original_path).exists():
         result["status"] = "error"
+        result["comparison_result"] = 0
         result["errors"].append(f"Original file does not exist: {original_path}")
         return result
 
     # Check generated file is not empty
     if Path(generated_path).stat().st_size == 0:
         result["status"] = "error"
+        result["comparison_result"] = 0
         result["errors"].append("Generated file is empty (generation failed)")
         return result
 
@@ -85,6 +88,7 @@ def compare_queues(generated_path: str, original_path: str, config_path: str) ->
         orig_df = pl.read_csv(original_path)
     except Exception as e:
         result["status"] = "error"
+        result["comparison_result"] = 0
         result["errors"].append(f"Failed to read CSVs: {e}")
         return result
 
@@ -118,21 +122,27 @@ def compare_queues(generated_path: str, original_path: str, config_path: str) ->
         "extra_in_generated": sorted(gen_sample_ids - orig_sample_ids),
     }
 
-    # Determine status
+    # Determine status and comparison_result score
+    # 10 = perfect, 5 = samples+paths OK but QC mismatch, 0 = fail
+    qc_mismatch = abs(gen_qc_count - orig_qc_count) > 2
+
     if gen_sample_ids == orig_sample_ids:
         result["status"] = "pass"
+        if qc_mismatch:
+            result["comparison_result"] = 5
+            result["warnings"].append(
+                f"QC count differs significantly: {gen_qc_count} vs {orig_qc_count}"
+            )
+        else:
+            result["comparison_result"] = 10
     elif gen_sample_ids.issubset(orig_sample_ids) or orig_sample_ids.issubset(gen_sample_ids):
         result["status"] = "partial"
+        result["comparison_result"] = 0
         result["warnings"].append("Sample ID sets overlap but don't match exactly")
     else:
         result["status"] = "fail"
+        result["comparison_result"] = 0
         result["errors"].append("Sample ID sets don't match")
-
-    # Add warnings for QC differences
-    if abs(gen_qc_count - orig_qc_count) > 2:
-        result["warnings"].append(
-            f"QC count differs significantly: {gen_qc_count} vs {orig_qc_count}"
-        )
 
     return result
 

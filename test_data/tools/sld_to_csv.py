@@ -3,7 +3,6 @@
 
 import json
 import re
-import sys
 from pathlib import Path
 
 
@@ -210,17 +209,23 @@ def export_csv(samples: list[dict], output_path: str):
         )
         writer.writeheader()
         writer.writerows(samples)
-    print(f"Exported to: {output_path}")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python parse_sld.py <file.sld> [--csv output.csv]")
-        sys.exit(1)
+    import argparse
 
-    sld_file = sys.argv[1]
-    samples = parse_sld_file(sld_file)
-    print_queue_table(samples, Path(sld_file).name)
+    parser = argparse.ArgumentParser(description="Parse Thermo Xcalibur .sld files")
+    parser.add_argument("sld_file", help="Input .sld file")
+    parser.add_argument("--csv", dest="csv_output", help="Output CSV file")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Print table to stdout")
+    args = parser.parse_args()
 
-    if len(sys.argv) >= 4 and sys.argv[2] == "--csv":
-        export_csv(samples, sys.argv[3])
+    samples = parse_sld_file(args.sld_file)
+
+    if args.verbose:
+        print_queue_table(samples, Path(args.sld_file).name)
+
+    if args.csv_output:
+        export_csv(samples, args.csv_output)
+        if args.verbose:
+            print(f"Exported to: {args.csv_output}")

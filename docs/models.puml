@@ -1,0 +1,209 @@
+@startuml models
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+left to right direction
+
+title Queue Generation Configuration Models
+
+' ============ Constants ============
+
+note as Constants
+  **TECHNOLOGIES** = "proteomics" | "metabolomics" | "lipidomics"
+  **OUTPUT_FORMATS** = "xcalibur" | "chronos" | "hystar"
+  **VALID_PLACEHOLDERS** = {date, run, container, sample_id, sample_name, polarity}
+  **VALID_SAMPLERS** = {Vanquish.vial, Vanquish.plate, MClass48.vial, MClass48.plate, Evosep.vial, Evosep.plate}
+end note
+
+' ============ CSV-based Config Models ============
+
+package "CSV Config Models" #LightBlue {
+    class Sample {
+        technology: TECHNOLOGIES
+        sample_id: str
+        sample_name: str = ""
+        description: str = ""
+        inj_vol: float
+        file_name_template: str
+    }
+
+    class SamplesConfig {
+        samples: list[Sample]
+        --
+        get_by_technology(tech): list[Sample]
+        get_sample(tech, sample_id): Sample | None
+    }
+
+    class Instrument {
+        technology: TECHNOLOGIES
+        instrument: str
+        methods_file: str
+    }
+
+    class InstrumentsConfig {
+        instruments: list[Instrument]
+        --
+        get_by_technology(tech): list[Instrument]
+        get_instrument(tech, instrument): Instrument | None
+    }
+
+    class InstrumentPattern {
+        technology: TECHNOLOGIES
+        instrument: str
+        pattern: str
+        is_default: bool
+    }
+
+    class InstrumentPatternsConfig {
+        patterns: list[InstrumentPattern]
+        --
+        get_patterns_for_instrument(tech, instrument): list[InstrumentPattern]
+        get_default_pattern(tech, instrument): InstrumentPattern | None
+    }
+
+    class Combination {
+        instrument: str
+        sampler: str
+        output_format: OUTPUT_FORMATS
+    }
+
+    class CombinationsConfig {
+        combinations: list[Combination]
+        --
+        get_samplers_for_instrument(instrument): list[str]
+        get_combination(instrument, sampler): Combination | None
+    }
+
+    SamplesConfig "1" *-- "*" Sample
+    InstrumentsConfig "1" *-- "*" Instrument
+    InstrumentPatternsConfig "1" *-- "*" InstrumentPattern
+    CombinationsConfig "1" *-- "*" Combination
+}
+
+' ============ Sampler Models (TOML) ============
+
+package "Sampler Models (TOML)" #LightGreen {
+    class GridContainer {
+        container_type: "Vial" | "Plate"
+        position_source: "generated" | "input"
+        fill_order: "row_major" | None = None
+        position_format: str | None = None
+        sample_rows: list[str] | None = None
+        qc_row: str | None = None
+        cols: list[int] | None = None
+        samples_per_plate: int | None = None
+    }
+
+    class EvosepContainer {
+        container_type: "Vial" | "Plate"
+        position_source: "generated" | "input"
+        fill_order: "sequential" | None = None
+    }
+
+    class GridSampler {
+        description: str
+        plates: list[str]
+        qc_plate: str
+        sample_rows: list[str] | None = None
+        qc_row: str | None = None
+        cols: list[int] | None = None
+        samples_per_plate: int | None = None
+        vial: GridContainer | None = None
+        plate: GridContainer | None = None
+    }
+
+    class EvosepSampler {
+        description: str
+        position_type: "tray_position" = "tray_position"
+        slots: list[int]
+        positions_per_slot: int
+        vial: EvosepContainer | None = None
+        plate: EvosepContainer | None = None
+    }
+
+    class SamplersConfig {
+        Vanquish: GridSampler | None = None
+        MClass48: GridSampler | None = None
+        Evosep: EvosepSampler | None = None
+        --
+        get_sampler_names(): list[str]
+    }
+
+    GridSampler "1" *-- "0..1" GridContainer : vial
+    GridSampler "1" *-- "0..1" GridContainer : plate
+    EvosepSampler "1" *-- "0..1" EvosepContainer : vial
+    EvosepSampler "1" *-- "0..1" EvosepContainer : plate
+    SamplersConfig "1" *-- "0..1" GridSampler : Vanquish
+    SamplersConfig "1" *-- "0..1" GridSampler : MClass48
+    SamplersConfig "1" *-- "0..1" EvosepSampler : Evosep
+}
+
+' ============ Queue Pattern Models (TOML) ============
+
+package "Queue Pattern Models (TOML)" #LightYellow {
+    class QueuePattern {
+        description: str
+        run_QC_after_n_samples: int
+        start: list[str] = []
+        middle: list[str] = []
+        end: list[str] = []
+        middle_extended: list[str] | None = None
+        middle_extended_frequency_multiplier: int | None = None
+    }
+
+    class QueuePatternsConfig {
+        proteomics: dict[str, QueuePattern] = {}
+        metabolomics: dict[str, QueuePattern] = {}
+        lipidomics: dict[str, QueuePattern] = {}
+        --
+        get_pattern(tech, pattern_name): QueuePattern | None
+        get_all_sample_refs(tech): set[str]
+    }
+
+    QueuePatternsConfig "1" *-- "*" QueuePattern
+}
+
+' ============ QC Layout Models (TOML) ============
+
+package "QC Layout Models (TOML)" #LightPink {
+    class EvosepPosition {
+        tray: int
+        position_start: int
+        position_end: int
+    }
+
+    class QCLayoutsConfig {
+        proteomics: dict[str, dict[str, QCPosition]] = {}
+        metabolomics: dict[str, dict[str, QCPosition]] = {}
+        lipidomics: dict[str, dict[str, QCPosition]] = {}
+        --
+        get_layout(tech, sampler_key): dict[str, QCPosition] | None
+    }
+
+    note "**QCPosition** = str | EvosepPosition\n\nStructure: sampler_key → sample_id → QCPosition\nFallback: 'Vanquish.vial' → 'Vanquish'" as N1
+    QCLayoutsConfig .. N1
+    EvosepPosition .. N1
+}
+
+' ============ Output Format Models (TOML) ============
+
+package "Output Format Models (TOML)" #LightGray {
+    class OutputFormat {
+        description: str
+        file_extension: str
+        columns: dict[str, str]
+    }
+
+    class OutputFormatsConfig {
+        xcalibur: OutputFormat | None
+        chronos: OutputFormat | None
+        hystar: OutputFormat | None
+        --
+        get_format(format_id)
+    }
+
+    OutputFormatsConfig "1" *-- "0..1" OutputFormat : xcalibur
+    OutputFormatsConfig "1" *-- "0..1" OutputFormat : chronos
+    OutputFormatsConfig "1" *-- "0..1" OutputFormat : hystar
+}
+
+@enduml

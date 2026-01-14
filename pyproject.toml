@@ -11,7 +11,7 @@ dependencies = [
     "ipython>=9.9.0",
     "marimo>=0.18.4",
     "pandas>=2.3.3",
-    "polars>=1.36.1",
+    "polars",
     "pyarrow>=22.0.0",
     "pydantic>=2.12.5",
     "rich>=14.2.0",
@@ -34,3 +34,4 @@ packages = ["src/qg"]
 qg = "qg.cli.generate_queues:cli_main"
 qg-validate = "qg.cli.validate_config:cli_main"
 qg-find-projects = "qg.cli.find_projects:main"
+qg-params = "qg.cli.generate_params:cli_main"
