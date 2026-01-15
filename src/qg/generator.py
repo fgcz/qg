@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Literal
 
 import polars as pl
-from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from qg.config import (
     load_samples,
@@ -19,57 +18,10 @@ from qg.config import (
     load_output_formats,
     load_combinations,
 )
-from qg.models import QCPosition, requires_polarity
+from qg.config_models import QCPosition, requires_polarity
+from qg.params_models import InputSample, QueueParameters, QueueInput
 from qg.positions import get_sampler
-from qg.structure import build_queue_structure
-
-
-# =============================================================================
-# Input Models (from JSON)
-# =============================================================================
-
-
-class InputSample(BaseModel):
-    """A sample from B-Fabric input JSON."""
-
-    model_config = ConfigDict(populate_by_name=True)
-
-    sample_name: str = Field(..., alias="Sample Name")
-    sample_id: int = Field(..., alias="Sample ID")
-    tube_id: str | None = Field(default=None, alias="Tube ID")
-    position: str | None = Field(default=None, alias="Position")
-    grid_position: str | None = Field(default=None, alias="GridPosition")
-
-
-class QueueParameters(BaseModel):
-    """Queue generation parameters from input JSON."""
-
-    container_id: int
-    technology: str = Field(..., min_length=1, description="Technology identifier")
-    instrument: str
-    sampler: str  # e.g., "Vanquish.vial"
-    software: str = Field(..., min_length=1, description="Output format identifier (software)")
-    pattern: str  # e.g., "standard"
-    polarity: list[Literal["pos", "neg"]] = Field(default_factory=list)
-    date: str  # YYYYMMDD
-    user: str = ""  # Username for output path (e.g., "cpanse")
-    method: str = ""  # Method name for user samples (e.g., "DIA_60min")
-    randomization: bool = False
-    inj_vol_override: float | None = None
-
-    @model_validator(mode="after")
-    def set_default_polarity(self) -> "QueueParameters":
-        """Set default polarity for technologies requiring it."""
-        if not self.polarity and requires_polarity(self.technology):
-            self.polarity = ["pos", "neg"]
-        return self
-
-
-class QueueInput(BaseModel):
-    """Complete input for queue generation."""
-
-    parameters: QueueParameters
-    samples: list[InputSample]
+from qg.queue_structure import build_queue_structure
 
 
 # =============================================================================
@@ -139,7 +91,7 @@ class GenerationSummary:
     technology: str
     instrument: str
     sampler: str
-    pattern: str
+    queue_pattern: str
     container_id: int
     input_samples: int
     output_rows: int
@@ -156,7 +108,7 @@ class GenerationSummary:
         print(f"Technology:  {self.technology}", file=sys.stderr)
         print(f"Instrument:  {self.instrument}", file=sys.stderr)
         print(f"Sampler:     {self.sampler}", file=sys.stderr)
-        print(f"Pattern:     {self.pattern}", file=sys.stderr)
+        print(f"Pattern:     {self.queue_pattern}", file=sys.stderr)
         print(f"Container:   {self.container_id}", file=sys.stderr)
         print(f"Input samples: {self.input_samples}", file=sys.stderr)
         print(f"Output rows:   {self.output_rows} (QC: {self.qc_rows}, Samples: {self.sample_rows})", file=sys.stderr)
@@ -295,9 +247,9 @@ class QueueGenerator:
         samples = queue_input.samples
 
         # Get pattern config
-        pattern = self.patterns_config.get_pattern(params.technology, params.pattern)
+        pattern = self.patterns_config.get_pattern(params.technology, params.queue_pattern)
         if not pattern:
-            raise ValueError(f"Pattern '{params.pattern}' not found for {params.technology}")
+            raise ValueError(f"Pattern '{params.queue_pattern}' not found for {params.technology}")
 
         # Get sampler config
         sampler_parts = params.sampler.split(".")
@@ -429,13 +381,13 @@ class QueueGenerator:
 
         return rows
 
-    def to_csv(self, rows: list[QueueRow], software: str) -> str:
-        """Format queue rows as CSV for the specified software."""
-        output_format = self.output_formats_config.get_format(software)
-        if not output_format:
-            raise ValueError(f"Unknown output format: {software}")
+    def to_csv(self, rows: list[QueueRow], output_format: str) -> str:
+        """Format queue rows as CSV for the specified output format."""
+        fmt = self.output_formats_config.get_format(output_format)
+        if not fmt:
+            raise ValueError(f"Unknown output format: {output_format}")
 
-        columns = output_format.columns
+        columns = fmt.columns
 
         # Build CSV output
         output_lines = []

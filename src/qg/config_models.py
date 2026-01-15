@@ -6,19 +6,10 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 # =============================================================================
-# Constants
+# Constants and Dynamic Derivation
 # =============================================================================
 
-# Technologies requiring polarity expansion (business logic)
-POLARITY_TECHNOLOGIES: set[str] = {"metabolomics", "lipidomics"}
-
-
-def requires_polarity(technology: str) -> bool:
-    """Check if a technology requires polarity expansion."""
-    return technology in POLARITY_TECHNOLOGIES
-
-
-# Valid placeholders in file_name_template
+# Valid placeholders in file_name_template (code-defined: what the generator can fill)
 VALID_PLACEHOLDERS = {
     "date",
     "run",
@@ -28,15 +19,52 @@ VALID_PLACEHOLDERS = {
     "polarity",
 }
 
-# Valid sampler.container values
-VALID_SAMPLERS = {
-    "Vanquish.vial",
-    "Vanquish.plate",
-    "MClass48.vial",
-    "MClass48.plate",
-    "Evosep.vial",
-    "Evosep.plate",
-}
+# Runtime caches for dynamically derived values (populated by ConfigBundle)
+_polarity_technologies: set[str] | None = None
+_valid_samplers: set[str] | None = None
+
+
+def set_polarity_technologies(technologies: set[str]) -> None:
+    """Set polarity technologies (called by ConfigBundle after loading samples)."""
+    global _polarity_technologies
+    _polarity_technologies = technologies
+
+
+def set_valid_samplers(samplers: set[str]) -> None:
+    """Set valid samplers (called by ConfigBundle after loading sampler.toml)."""
+    global _valid_samplers
+    _valid_samplers = samplers
+
+
+def get_polarity_technologies() -> set[str]:
+    """Get technologies requiring polarity expansion.
+
+    Derived from samples.csv: technologies whose file_name_template contains {polarity}.
+    Requires load_all_configs() to be called first.
+    """
+    if _polarity_technologies is None:
+        raise RuntimeError(
+            "polarity_technologies not initialized. Call load_all_configs() first."
+        )
+    return _polarity_technologies
+
+
+def get_valid_samplers() -> set[str]:
+    """Get valid sampler identifiers.
+
+    Derived from sampler.toml: {Parent}.{child} for each sampler with vial/plate containers.
+    Requires load_all_configs() to be called first.
+    """
+    if _valid_samplers is None:
+        raise RuntimeError(
+            "valid_samplers not initialized. Call load_all_configs() first."
+        )
+    return _valid_samplers
+
+
+def requires_polarity(technology: str) -> bool:
+    """Check if a technology requires polarity expansion."""
+    return technology in get_polarity_technologies()
 
 
 # =============================================================================
@@ -186,7 +214,7 @@ class InstrumentPattern(BaseModel):
 
     technology: str = Field(..., min_length=1, description="Technology identifier")
     instrument: str = Field(..., min_length=1)
-    pattern: str = Field(..., min_length=1, description="Pattern name (e.g., standard, frequent)")
+    queue_pattern: str = Field(..., min_length=1, description="Pattern name (e.g., standard, frequent)")
     is_default: bool = Field(..., description="Whether this is the default pattern for the instrument")
 
 
@@ -197,11 +225,11 @@ class InstrumentPatternsConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_unique_keys(self) -> "InstrumentPatternsConfig":
-        """Check that (technology, instrument, pattern) triples are unique."""
-        keys = [(p.technology, p.instrument, p.pattern) for p in self.patterns]
+        """Check that (technology, instrument, queue_pattern) triples are unique."""
+        keys = [(p.technology, p.instrument, p.queue_pattern) for p in self.patterns]
         if len(keys) != len(set(keys)):
             duplicates = [k for k in keys if keys.count(k) > 1]
-            raise ValueError(f"Duplicate (technology, instrument, pattern) triples: {set(duplicates)}")
+            raise ValueError(f"Duplicate (technology, instrument, queue_pattern) triples: {set(duplicates)}")
         return self
 
     @model_validator(mode="after")
@@ -255,8 +283,9 @@ class Combination(BaseModel):
     @classmethod
     def validate_sampler_format(cls, v: str) -> str:
         """Check that sampler is a valid Sampler.container key."""
-        if v not in VALID_SAMPLERS:
-            raise ValueError(f"Invalid sampler: {v}. Valid: {VALID_SAMPLERS}")
+        valid = get_valid_samplers()
+        if v not in valid:
+            raise ValueError(f"Invalid sampler: {v}. Valid: {valid}")
         return v
 
 

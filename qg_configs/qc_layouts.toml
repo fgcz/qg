@@ -10,28 +10,28 @@
 # PROTEOMICS
 # =============================================================================
 
-[proteomics.Vanquish.vial]
+[Proteomics.Vanquish.vial]
 # QC row: F, QC plate: B
 QC01 = "B:F9"
 QC03dia = "B:F8"
 QC03dda = "B:F8"
 clean = "B:F7"
 
-[proteomics.Vanquish.plate]
+[Proteomics.Vanquish.plate]
 # QC row: H, QC plate: B
 QC01 = "B:H9"
 QC03dia = "B:H10"
 QC03dda = "B:H10"
 clean = "B:H1"
 
-[proteomics.MClass48]
+[Proteomics.MClass48]
 # QC row: F, QC plate: 1 (same for Vial and Plate)
 QC01 = "1:F,8"
 QC03dia = "1:F,7"
 QC03dda = "1:F,7"
 clean = "1:F,6"
 
-[proteomics.Evosep]
+[Proteomics.Evosep]
 # Position ranges within dedicated trays
 # Tray 5: QC samples, Tray 6: Clean/wash
 QC01 = { tray = 5, position_start = 1, position_end = 48 }
@@ -43,7 +43,7 @@ clean = { tray = 6, position_start = 1, position_end = 96 }
 # METABOLOMICS
 # =============================================================================
 
-[metabolomics.Vanquish.vial]
+[Metabolomics.Vanquish.vial]
 # QC row: F, QC plate: B
 blank = "B:F9"
 pooledQC = "B:F8"
@@ -56,7 +56,7 @@ pooledQCDil4 = "B:F3"
 pooledQCDil5 = "B:F2"
 pooledQCDil6 = "B:F1"
 
-[metabolomics.Vanquish.plate]
+[Metabolomics.Vanquish.plate]
 # QC row: H, QC plate: B
 blank = "B:H1"
 pooledQC = "B:H9"
@@ -69,7 +69,7 @@ pooledQCDil4 = "B:H5"
 pooledQCDil5 = "B:H6"
 pooledQCDil6 = "B:H7"
 
-[metabolomics.MClass48]
+[Metabolomics.MClass48]
 # QC row: F, QC plate: 1 (same for Vial and Plate)
 blank = "1:F,8"
 pooledQC = "1:F,7"
@@ -82,7 +82,7 @@ pooledQCDil4 = "1:F,2"
 pooledQCDil5 = "1:F,1"
 pooledQCDil6 = "2:F,8"
 
-[metabolomics.Evosep]
+[Metabolomics.Evosep]
 # Tray 5: QC samples, Tray 6: blanks
 blank = { tray = 6, position_start = 1, position_end = 48 }
 pooledQC = { tray = 5, position_start = 1, position_end = 48 }
@@ -99,7 +99,7 @@ pooledQCDil6 = { tray = 5, position_start = 93, position_end = 96 }
 # LIPIDOMICS
 # =============================================================================
 
-[lipidomics.Vanquish.vial]
+[Lipidomics.Vanquish.vial]
 # QC row: F, QC plate: B
 blank = "B:F9"
 pooledQC = "B:F8"
@@ -111,7 +111,7 @@ pooledQCDil4 = "B:F3"
 pooledQCDil5 = "B:F2"
 pooledQCDil6 = "B:F1"
 
-[lipidomics.Vanquish.plate]
+[Lipidomics.Vanquish.plate]
 # QC row: H, QC plate: B
 blank = "B:H1"
 pooledQC = "B:H9"
@@ -123,7 +123,7 @@ pooledQCDil4 = "B:H5"
 pooledQCDil5 = "B:H6"
 pooledQCDil6 = "B:H7"
 
-[lipidomics.MClass48]
+[Lipidomics.MClass48]
 # QC row: F, QC plate: 1 (same for Vial and Plate)
 blank = "1:F,8"
 pooledQC = "1:F,7"
@@ -135,7 +135,7 @@ pooledQCDil4 = "1:F,2"
 pooledQCDil5 = "1:F,1"
 pooledQCDil6 = "2:F,8"
 
-[lipidomics.Evosep]
+[Lipidomics.Evosep]
 # Tray 5: QC samples, Tray 6: blanks
 blank = { tray = 6, position_start = 1, position_end = 48 }
 pooledQC = { tray = 5, position_start = 1, position_end = 48 }

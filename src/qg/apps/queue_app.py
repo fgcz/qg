@@ -16,7 +16,7 @@ with app.setup:
     from datetime import date
 
     from qg.config import load_all_configs
-    from qg.models import requires_polarity
+    from qg.config_models import requires_polarity
 
 
 @app.cell
@@ -142,17 +142,10 @@ def _():
 
 @app.cell
 def _(instruments_df, selected_area):
-    # Map B-Fabric area to technology
-    _area_to_tech = {
-        "Proteomics": "proteomics",
-        "Metabolomics": "metabolomics",
-        "Lipidomics": "lipidomics",
-    }
-    _default_tech = _area_to_tech.get(selected_area, "proteomics")
     _options = sorted(instruments_df["technology"].unique().to_list())
     technology_field = mo.ui.dropdown(
         options=_options,
-        value=_default_tech if _default_tech in _options else _options[0],
+        value=selected_area if selected_area in _options else _options[0],
         label="Technology"
     )
     return (technology_field,)
@@ -217,8 +210,8 @@ def _(combinations_df, instrument_field, sampler_field):
         (pl.col("instrument") == instrument_field.value) &
         (pl.col("sampler") == sampler_field.value)
     )
-    software_value = _row["output_format"][0] if len(_row) > 0 else "xcalibur"
-    return (software_value,)
+    output_format_value = _row["output_format"][0] if len(_row) > 0 else "xcalibur"
+    return (output_format_value,)
 
 
 @app.cell
@@ -233,7 +226,7 @@ def _(instrument_field, instrument_patterns_df, technology_field):
         )
         .sort("is_default", descending=True)
     )
-    _options = _patterns_df["pattern"].to_list()
+    _options = _patterns_df["queue_pattern"].to_list()
     pattern_field = mo.ui.dropdown(
         options=_options,
         value=_options[0] if _options else None,
@@ -267,11 +260,11 @@ def _(CONFIG_DIR, instrument_field, technology_field):
 
 
 @app.cell
-def _(method_field, pattern_field, software_value):
+def _(method_field, pattern_field, output_format_value):
     mo.hstack([
         pattern_field,
         method_field if method_field else None,
-        mo.md(f"**Software:** {software_value}"),
+        mo.md(f"**Output Format:** {output_format_value}"),
     ], justify="start")
     return
 
@@ -444,8 +437,8 @@ class QueueParameters(BaseModel):
     technology: str
     instrument: str
     sampler: str
-    software: str
-    pattern: str
+    output_format: str
+    queue_pattern: str
     polarity: list[str] = []
     date: str
     user: str = ""
@@ -465,7 +458,7 @@ def _(
     polarity_field,
     randomization_field,
     sampler_field,
-    software_value,
+    output_format_value,
     technology_field,
     user_field,
 ):
@@ -481,8 +474,8 @@ def _(
                 "technology": technology_field.value,
                 "instrument": instrument_field.value,
                 "sampler": sampler_field.value,
-                "software": software_value,
-                "pattern": pattern_field.value,
+                "output_format": output_format_value,
+                "queue_pattern": pattern_field.value,
                 "polarity": _polarity,
                 "date": date_field.value.strftime("%Y%m%d"),
                 "user": user_field.value.strip(),

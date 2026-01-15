@@ -5,13 +5,13 @@ from pathlib import Path
 import pytest
 
 from qg.config import load_queue_patterns
-from qg.structure import (
+from qg.queue_structure import (
     build_queue_structure,
     compute_extended_positions,
     compute_middle_block_positions,
     compute_queue_counts,
 )
-from qg.models import QueuePattern
+from qg.config_models import QueuePattern
 
 
 # =============================================================================
@@ -33,28 +33,27 @@ def all_patterns(config_dir: Path) -> dict[str, dict[str, QueuePattern]]:
 
 
 # =============================================================================
-# Test Data
+# Test Data - Generated from configs
 # =============================================================================
 
 SAMPLE_COUNTS = [8, 16, 32, 56, 106, 212]
 
+# Generate pattern keys from config file
+_config_dir = Path(__file__).parent.parent / "qg_configs"
+_patterns_config = load_queue_patterns(_config_dir / "queue_patterns.toml")
+
 ALL_PATTERN_KEYS = [
-    ("proteomics", "standard"),
-    ("proteomics", "frequent"),
-    ("proteomics", "simple"),
-    ("proteomics", "dda"),
-    ("proteomics", "minimal"),
-    ("proteomics", "qc_only"),
-    ("proteomics", "conditioning"),
-    ("metabolomics", "standard"),
-    ("metabolomics", "simple"),
-    ("lipidomics", "standard"),
+    (tech, pattern_name)
+    for tech, patterns in _patterns_config.patterns.items()
+    for pattern_name in patterns.keys()
 ]
 
 # Patterns with middle_extended
 EXTENDED_PATTERN_KEYS = [
-    ("metabolomics", "standard"),
-    ("lipidomics", "standard"),
+    (tech, pattern_name)
+    for tech, patterns in _patterns_config.patterns.items()
+    for pattern_name, pattern in patterns.items()
+    if pattern.middle_extended is not None
 ]
 
 
@@ -212,7 +211,7 @@ class TestComputeQueueCountsExtended:
         pattern_name: str,
         num_samples: int,
     ) -> None:
-        """Verify extended blocks are correctly computed for metabolomics/lipidomics."""
+        """Verify extended blocks are correctly computed for Metabolomics/Lipidomics."""
         pattern = all_patterns[tech][pattern_name]
         result = compute_queue_counts(num_samples, pattern)
 
@@ -412,7 +411,7 @@ class TestBuildQueueStructure:
         all_patterns: dict[str, dict[str, QueuePattern]],
     ) -> None:
         """Verify structure with 0 samples is just start + end."""
-        pattern = all_patterns["proteomics"]["standard"]
+        pattern = all_patterns["Proteomics"]["standard"]
         structure = build_queue_structure(0, pattern)
 
         expected = pattern.start + pattern.end

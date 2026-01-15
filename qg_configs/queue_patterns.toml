@@ -7,7 +7,7 @@
 # PROTEOMICS
 # =============================================================================
 
-[proteomics.standard]
+[Proteomics.standard]
 description = "Standard proteomics: clean-qc pairs, clean-qc-qc ending"
 # Based on Notes.md analysis: clean-qc order (97%), clean-qc-qc ending dominant
 run_QC_after_n_samples = 16
@@ -15,42 +15,42 @@ start = ["QC03dia", "QC01"]
 middle = ["clean", "QC01"]
 end = ["clean", "QC01", "QC03dia", "clean"]
 
-[proteomics.frequent]
+[Proteomics.frequent]
 description = "Frequent QC (every 8 samples) for sensitive experiments"
 run_QC_after_n_samples = 8
 start = ["QC03dia", "QC01"]
 middle = ["clean", "QC01"]
 end = ["clean", "QC01", "QC03dia", "clean"]
 
-[proteomics.simple]
+[Proteomics.simple]
 description = "Simple: QC only, no column cleaning in middle"
 run_QC_after_n_samples = 16
 start = ["QC01"]
 middle = ["QC01"]
 end = ["clean", "QC01", "QC03dda"]
 
-[proteomics.dda]
+[Proteomics.dda]
 description = "DDA-focused pattern using QC03dda benchmark"
 run_QC_after_n_samples = 16
 start = ["QC03dda", "QC01"]
 middle = ["clean", "QC01"]
 end = ["clean", "QC01", "QC03dda", "clean"]
 
-[proteomics.minimal]
+[Proteomics.minimal]
 description = "Minimal QC for high-throughput runs"
 run_QC_after_n_samples = 32
 start = ["QC01"]
 middle = ["QC01"]
 end = ["clean", "QC01"]
 
-[proteomics.qc_only]
+[Proteomics.qc_only]
 description = "QC only - no samples, just system check"
 run_QC_after_n_samples = 1
 start = ["clean", "QC01", "QC03dia"]
 middle = []
 end = ["QC01", "QC03dia", "clean"]
 
-[proteomics.conditioning]
+[Proteomics.conditioning]
 description = "Column conditioning - multiple cleans"
 run_QC_after_n_samples = 1
 start = ["clean", "clean", "clean", "QC01"]
@@ -61,7 +61,7 @@ end = ["clean"]
 # METABOLOMICS
 # =============================================================================
 
-[metabolomics.standard]
+[Metabolomics.standard]
 description = "Standard metabolomics with dilution series for linearity"
 run_QC_after_n_samples = 10
 
@@ -87,7 +87,7 @@ middle_extended_frequency_multiplier = 2
 
 end = ["108mix_AA", "pooledQC", "blank"]
 
-[metabolomics.simple]
+[Metabolomics.simple]
 description = "Simple metabolomics without dilution series"
 run_QC_after_n_samples = 10
 start = ["blank", "108mix_AA", "pooledQC", "blank"]
@@ -98,7 +98,7 @@ end = ["108mix_AA", "pooledQC", "blank"]
 # LIPIDOMICS
 # =============================================================================
 
-[lipidomics.standard]
+[Lipidomics.standard]
 description = "Lipidomics with EquiSPLASH standard"
 run_QC_after_n_samples = 10
 start = [

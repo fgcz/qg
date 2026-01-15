@@ -4,7 +4,9 @@ Pure functions for building the queue structure (slot sequence) without
 any sample data or position assignment.
 """
 
-from qg.models import QueuePattern
+from loguru import logger
+
+from qg.config_models import QueuePattern
 
 
 def compute_queue_counts(num_samples: int, pattern: QueuePattern) -> dict[str, int]:
@@ -35,7 +37,7 @@ def compute_queue_counts(num_samples: int, pattern: QueuePattern) -> dict[str, i
 
     total_qcs = start_qcs + middle_qcs + extended_qcs + end_qcs
 
-    return {
+    counts = {
         "start_qcs": start_qcs,
         "user_samples": num_samples,
         "middle_blocks": num_middle_blocks,
@@ -47,6 +49,8 @@ def compute_queue_counts(num_samples: int, pattern: QueuePattern) -> dict[str, i
         "total_qcs": total_qcs,
         "total": total_qcs + num_samples,
     }
+    logger.debug("Queue counts: {}", counts)
+    return counts
 
 
 def compute_middle_block_positions(num_samples: int, qc_frequency: int) -> list[int]:
@@ -63,7 +67,9 @@ def compute_middle_block_positions(num_samples: int, qc_frequency: int) -> list[
         return []
     # Middle QC after indices: F-1, 2F-1, 3F-1, ... but not after last sample
     num_blocks = (num_samples - 1) // qc_frequency
-    return [qc_frequency * (i + 1) - 1 for i in range(num_blocks)]
+    positions = [qc_frequency * (i + 1) - 1 for i in range(num_blocks)]
+    logger.trace("Middle blocks after sample indices: {}", positions)
+    return positions
 
 
 def compute_extended_positions(num_middle_blocks: int, multiplier: int) -> set[int]:
@@ -83,7 +89,9 @@ def compute_extended_positions(num_middle_blocks: int, multiplier: int) -> set[i
         return set()
     # Block N (1-indexed) is extended when N % multiplier == 0
     # In 0-indexed: index i is extended when (i+1) % multiplier == 0
-    return {i for i in range(num_middle_blocks) if (i + 1) % multiplier == 0}
+    positions = {i for i in range(num_middle_blocks) if (i + 1) % multiplier == 0}
+    logger.trace("Extended block indices (0-based): {}", positions)
+    return positions
 
 
 def build_queue_structure(num_samples: int, pattern: QueuePattern) -> list[str]:
@@ -98,6 +106,13 @@ def build_queue_structure(num_samples: int, pattern: QueuePattern) -> list[str]:
         - QC slots: actual sample_id (e.g., "QC01", "blank", "pooledQC")
         - User slots: "default"
     """
+    logger.debug(
+        "Building queue structure: {} samples, pattern '{}' (QC every {} samples)",
+        num_samples,
+        pattern.description,
+        pattern.run_QC_after_n_samples,
+    )
+
     structure: list[str] = []
 
     # Start
@@ -124,5 +139,14 @@ def build_queue_structure(num_samples: int, pattern: QueuePattern) -> list[str]:
 
     # End
     structure.extend(pattern.end)
+
+    qc_count = len(structure) - num_samples
+    logger.debug(
+        "Queue structure built: {} total slots ({} QC, {} user)",
+        len(structure),
+        qc_count,
+        num_samples,
+    )
+    logger.trace("Structure: {}", structure)
 
     return structure

@@ -17,43 +17,41 @@ from __future__ import annotations
 import json
 from datetime import date
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
 import cyclopts
 from bfabric import Bfabric
 from rich.console import Console
 
 from qg.config import ConfigBundle, load_all_configs
-from qg.models import requires_polarity
+from qg.config_models import requires_polarity
 
 console = Console()
-
-Sampler = Literal["Vanquish", "MClass48", "Evosep"]
-
-AREA_TO_TECH = {
-    "Proteomics": "proteomics",
-    "Metabolomics": "metabolomics",
-    "Lipidomics": "lipidomics",
-}
 
 
 def load_orders(
     projects_file: Path,
+    valid_technologies: set[str],
     technology_filter: str | None = None,
 ) -> list[dict]:
-    """Load orders from projects JSON file."""
+    """Load orders from projects JSON file.
+
+    Args:
+        projects_file: Path to projects JSON file.
+        valid_technologies: Set of valid technology names from configs.
+        technology_filter: Optional filter to only include this technology.
+    """
     with open(projects_file) as f:
         projects_data = json.load(f)
 
     orders = []
     for project in projects_data:
-        area = project.get("technology", [""])[0] if project.get("technology") else ""
-        tech = AREA_TO_TECH.get(area)
+        tech = project.get("technology", [""])[0] if project.get("technology") else ""
 
-        if technology_filter and tech != technology_filter:
+        if tech not in valid_technologies:
             continue
 
-        if tech is None:
+        if technology_filter and tech != technology_filter:
             continue
 
         for order in project.get("order", []):
@@ -78,32 +76,27 @@ def load_orders(
 
 def fetch_samples(client: Bfabric, container_id: int) -> list[dict]:
     """Fetch samples from B-Fabric for a container."""
-    try:
-        result = client.read("sample", {"containerid": container_id}, max_results=None)
-        samples_df = result.to_polars()
+    result = client.read("sample", {"containerid": container_id}, max_results=None)
+    samples_df = result.to_polars()
 
-        if samples_df.is_empty():
-            return []
-
-        samples = []
-        for row in samples_df.iter_rows(named=True):
-            sample = {
-                "Sample Name": row.get("name", ""),
-                "Sample ID": row.get("id"),
-            }
-            if "tubeid" in row and row["tubeid"]:
-                sample["Tube ID"] = row["tubeid"]
-            if "_position" in row and row["_position"]:
-                sample["Position"] = row["_position"]
-            if "_gridposition" in row and row["_gridposition"]:
-                sample["GridPosition"] = row["_gridposition"]
-            samples.append(sample)
-
-        return sorted(samples, key=lambda x: x["Sample ID"])
-
-    except Exception as e:
-        console.print(f"  [red]Error fetching samples for container {container_id}: {e}[/red]")
+    if samples_df.is_empty():
         return []
+
+    samples = []
+    for row in samples_df.iter_rows(named=True):
+        sample = {
+            "Sample Name": row.get("name", ""),
+            "Sample ID": row.get("id"),
+        }
+        if "tubeid" in row and row["tubeid"]:
+            sample["Tube ID"] = row["tubeid"]
+        if "_position" in row and row["_position"]:
+            sample["Position"] = row["_position"]
+        if "_gridposition" in row and row["_gridposition"]:
+            sample["GridPosition"] = row["_gridposition"]
+        samples.append(sample)
+
+    return sorted(samples, key=lambda x: x["Sample ID"])
 
 
 def get_valid_combinations(
@@ -133,7 +126,7 @@ def get_valid_combinations(
             combo = configs.combinations.get_combination(instrument, sampler)
             if not combo:
                 continue
-            software = combo.output_format
+            output_format = combo.output_format
 
             patterns = configs.instrument_patterns.get_patterns_for_instrument(technology, instrument)
 
@@ -141,8 +134,8 @@ def get_valid_combinations(
                 combinations.append({
                     "instrument": instrument,
                     "sampler": sampler,
-                    "software": software,
-                    "pattern": pattern.pattern,
+                    "output_format": output_format,
+                    "queue_pattern": pattern.queue_pattern,
                 })
 
     return combinations
@@ -165,8 +158,8 @@ def generate_queue_params(
             "technology": technology,
             "instrument": combination["instrument"],
             "sampler": combination["sampler"],
-            "software": combination["software"],
-            "pattern": combination["pattern"],
+            "output_format": combination["output_format"],
+            "queue_pattern": combination["queue_pattern"],
             "polarity": polarity,
             "date": run_date,
             "user": user,
@@ -182,7 +175,7 @@ def params_filename(order: dict, combination: dict) -> str:
     """Generate a unique filename for the queue params."""
     tech = order["technology"]
     sampler = combination["sampler"].replace(".", "_")
-    pattern = combination["pattern"]
+    pattern = combination["queue_pattern"]
     container_id = order["container_id"]
     sample_count = order["sample_count"]
     instrument = combination["instrument"]
@@ -224,8 +217,8 @@ def cli_main() -> None:
             cyclopts.Parameter(help="Generate params only for this technology"),
         ] = None,
         sampler: Annotated[
-            Sampler | None,
-            cyclopts.Parameter(help="Generate params only for this sampler"),
+            str | None,
+            cyclopts.Parameter(help="Generate params only for this sampler (e.g., Vanquish, MClass48, Evosep)"),
         ] = None,
         user: Annotated[
             str,
@@ -248,8 +241,18 @@ def cli_main() -> None:
         console.print("Loading configuration files...")
         configs = load_all_configs(config_dir)
 
+        # Validate sampler parameter against configs
+        if sampler is not None:
+            valid_samplers = configs.samplers.get_sampler_names()
+            if sampler not in valid_samplers:
+                console.print(f"[red]Invalid sampler: {sampler}. Valid: {valid_samplers}[/red]")
+                return
+
+        # Get valid technologies from configs
+        valid_technologies = {i.technology for i in configs.instruments.instruments}
+
         console.print(f"Loading orders from {projects_file}...")
-        orders = load_orders(projects_file, technology_filter=technology)
+        orders = load_orders(projects_file, valid_technologies, technology_filter=technology)
         console.print(f"Found [cyan]{len(orders)}[/cyan] orders with samples")
 
         if limit:

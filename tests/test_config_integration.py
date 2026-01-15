@@ -17,7 +17,7 @@ from qg.config import (
     load_samplers,
     validate_all_configs,
 )
-from qg.models import (
+from qg.config_models import (
     CombinationsConfig,
     InstrumentPatternsConfig,
     InstrumentsConfig,
@@ -55,16 +55,21 @@ def config_bundle(config_dir: Path) -> ConfigBundle:
 class TestRequiresPolarity:
     """Tests for the requires_polarity function."""
 
-    def test_proteomics_no_polarity(self) -> None:
-        assert requires_polarity("proteomics") is False
+    def test_polarity_technologies_from_config(self, config_bundle: ConfigBundle) -> None:
+        """Technologies with {polarity} in file_name_template should require polarity."""
+        polarity_techs = config_bundle.polarity_technologies
+        for tech in polarity_techs:
+            assert requires_polarity(tech) is True, f"{tech} should require polarity"
 
-    def test_metabolomics_requires_polarity(self) -> None:
-        assert requires_polarity("metabolomics") is True
+    def test_non_polarity_technologies_from_config(self, config_bundle: ConfigBundle) -> None:
+        """Technologies without {polarity} should not require polarity."""
+        all_techs = {s.technology for s in config_bundle.samples.samples}
+        polarity_techs = config_bundle.polarity_technologies
+        non_polarity_techs = all_techs - polarity_techs
+        for tech in non_polarity_techs:
+            assert requires_polarity(tech) is False, f"{tech} should not require polarity"
 
-    def test_lipidomics_requires_polarity(self) -> None:
-        assert requires_polarity("lipidomics") is True
-
-    def test_unknown_technology_no_polarity(self) -> None:
+    def test_unknown_technology_no_polarity(self, config_bundle: ConfigBundle) -> None:
         assert requires_polarity("unknown") is False
         assert requires_polarity("") is False
 
@@ -77,21 +82,22 @@ class TestRequiresPolarity:
 class TestLoadSamples:
     """Tests for loading samples.csv."""
 
-    def test_load_samples_success(self, config_dir: Path) -> None:
-        samples = load_samples(config_dir / "samples.csv")
+    def test_load_samples_success(self, config_bundle: ConfigBundle) -> None:
+        # Use config_bundle.samples since loading requires polarity_technologies
+        samples = config_bundle.samples
         assert isinstance(samples, SamplesConfig)
         assert len(samples.samples) > 0
 
-    def test_samples_have_required_fields(self, config_dir: Path) -> None:
-        samples = load_samples(config_dir / "samples.csv")
+    def test_samples_have_required_fields(self, config_bundle: ConfigBundle) -> None:
+        samples = config_bundle.samples
         for sample in samples.samples:
             assert sample.technology
             assert sample.sample_id
             assert sample.inj_vol > 0
             assert sample.file_name_template
 
-    def test_each_technology_has_default(self, config_dir: Path) -> None:
-        samples = load_samples(config_dir / "samples.csv")
+    def test_each_technology_has_default(self, config_bundle: ConfigBundle) -> None:
+        samples = config_bundle.samples
         technologies = {s.technology for s in samples.samples}
         for tech in technologies:
             default = samples.get_sample(tech, "default")
@@ -124,18 +130,21 @@ class TestLoadQueuePatterns:
         patterns = load_queue_patterns(config_dir / "queue_patterns.toml")
         technologies = patterns.get_technologies()
         assert len(technologies) > 0
-        assert "proteomics" in technologies
 
     def test_get_pattern_returns_pattern(self, config_dir: Path) -> None:
         patterns = load_queue_patterns(config_dir / "queue_patterns.toml")
-        pattern = patterns.get_pattern("proteomics", "standard")
+        # Get first technology and its first pattern dynamically
+        tech = patterns.get_technologies()[0]
+        pattern_name = list(patterns.get_patterns_for_technology(tech).keys())[0]
+        pattern = patterns.get_pattern(tech, pattern_name)
         assert pattern is not None
         assert pattern.run_QC_after_n_samples > 0
 
     def test_get_pattern_returns_none_for_unknown(self, config_dir: Path) -> None:
         patterns = load_queue_patterns(config_dir / "queue_patterns.toml")
+        tech = patterns.get_technologies()[0]
         assert patterns.get_pattern("unknown_tech", "standard") is None
-        assert patterns.get_pattern("proteomics", "nonexistent") is None
+        assert patterns.get_pattern(tech, "nonexistent") is None
 
 
 class TestLoadQCLayouts:
@@ -149,21 +158,25 @@ class TestLoadQCLayouts:
         layouts = load_qc_layouts(config_dir / "qc_layouts.toml")
         technologies = layouts.get_technologies()
         assert len(technologies) > 0
-        assert "proteomics" in technologies
 
     def test_get_layout_exact_match(self, config_dir: Path) -> None:
         layouts = load_qc_layouts(config_dir / "qc_layouts.toml")
-        layout = layouts.get_layout("proteomics", "Vanquish.vial")
+        # Get first technology and its first sampler dynamically
+        tech = layouts.get_technologies()[0]
+        sampler = layouts.get_samplers_for_technology(tech)[0]
+        layout = layouts.get_layout(tech, sampler)
         assert layout is not None
         assert len(layout) > 0
 
     def test_get_layout_fallback_to_parent(self, config_dir: Path) -> None:
         layouts = load_qc_layouts(config_dir / "qc_layouts.toml")
-        # If Vanquish.vial exists but Vanquish.unknown doesn't, should fallback
-        samplers = layouts.get_samplers_for_technology("proteomics")
-        if "Vanquish" in samplers and "Vanquish.vial" in samplers:
-            # Both exist, test that exact match is preferred
-            layout_exact = layouts.get_layout("proteomics", "Vanquish.vial")
+        # Get first technology dynamically
+        tech = layouts.get_technologies()[0]
+        samplers = layouts.get_samplers_for_technology(tech)
+        # Find a sampler with dot notation (e.g., Vanquish.vial)
+        dot_samplers = [s for s in samplers if "." in s]
+        if dot_samplers:
+            layout_exact = layouts.get_layout(tech, dot_samplers[0])
             assert layout_exact is not None
 
 
@@ -195,13 +208,14 @@ class TestLoadOutputFormats:
 class TestLoadCombinations:
     """Tests for loading combinations.csv."""
 
-    def test_load_combinations_success(self, config_dir: Path) -> None:
-        combos = load_combinations(config_dir / "combinations.csv")
+    def test_load_combinations_success(self, config_bundle: ConfigBundle) -> None:
+        # Use config_bundle.combinations since loading requires valid_samplers
+        combos = config_bundle.combinations
         assert isinstance(combos, CombinationsConfig)
         assert len(combos.combinations) > 0
 
-    def test_combinations_have_valid_samplers(self, config_dir: Path) -> None:
-        combos = load_combinations(config_dir / "combinations.csv")
+    def test_combinations_have_valid_samplers(self, config_bundle: ConfigBundle) -> None:
+        combos = config_bundle.combinations
         for combo in combos.combinations:
             assert "." in combo.sampler  # Should be Sampler.container format
 

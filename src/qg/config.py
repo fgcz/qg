@@ -7,7 +7,7 @@ from typing import Any
 
 import polars as pl
 
-from qg.models import (
+from qg.config_models import (
     Combination,
     CombinationsConfig,
     EvosepPosition,
@@ -24,7 +24,41 @@ from qg.models import (
     Sample,
     SamplesConfig,
     SamplersConfig,
+    set_polarity_technologies,
+    set_valid_samplers,
 )
+
+
+# =============================================================================
+# Dynamic Config Derivation
+# =============================================================================
+
+
+def derive_polarity_technologies(samples_df: pl.DataFrame) -> set[str]:
+    """Derive technologies requiring polarity from samples config.
+
+    A technology requires polarity if ANY of its samples has {polarity} in file_name_template.
+    """
+    return set(
+        samples_df.filter(pl.col("file_name_template").str.contains(r"\{polarity\}"))
+        .get_column("technology")
+        .unique()
+        .to_list()
+    )
+
+
+def derive_valid_samplers(sampler_config: dict[str, Any]) -> set[str]:
+    """Derive valid sampler identifiers from sampler config.
+
+    Returns set of {Parent}.{child} for each sampler with vial/plate containers.
+    """
+    samplers: set[str] = set()
+    for parent, value in sampler_config.items():
+        if isinstance(value, dict):
+            for child in ("vial", "plate"):
+                if child in value and isinstance(value[child], dict):
+                    samplers.add(f"{parent}.{child}")
+    return samplers
 
 
 def load_samples(path: Path | str) -> SamplesConfig:
@@ -166,6 +200,9 @@ class ConfigBundle:
     qc_layouts: QCLayoutsConfig
     output_formats: OutputFormatsConfig
     instruments_df: pl.DataFrame  # Raw DataFrame for path templates
+    # Derived values (computed from configs, not hardcoded)
+    polarity_technologies: set[str] = None  # type: ignore[assignment]
+    valid_samplers: set[str] = None  # type: ignore[assignment]
 
 
 # =============================================================================
@@ -392,6 +429,14 @@ def validate_all_configs(config_dir: Path | str) -> bool:
     config_dir = Path(config_dir)
     errors: list[tuple[str, Exception]] = []
 
+    # Derive dynamic values BEFORE validation (required for Pydantic validators)
+    with open(config_dir / "sampler.toml", "rb") as f:
+        sampler_raw = tomllib.load(f)
+    set_valid_samplers(derive_valid_samplers(sampler_raw))
+
+    samples_df = pl.read_csv(config_dir / "samples.csv")
+    set_polarity_technologies(derive_polarity_technologies(samples_df))
+
     # Validate CSV configs
     samples, errs = _validate_samples(config_dir)
     errors.extend(errs)
@@ -446,6 +491,21 @@ def load_all_configs(config_dir: Path | str) -> ConfigBundle:
     """
     config_dir = Path(config_dir)
 
+    # Step 1: Derive dynamic values from raw data BEFORE Pydantic validation
+    # This ensures validators have correct values to check against
+
+    # Derive valid samplers from sampler.toml
+    with open(config_dir / "sampler.toml", "rb") as f:
+        sampler_raw = tomllib.load(f)
+    valid_samplers = derive_valid_samplers(sampler_raw)
+    set_valid_samplers(valid_samplers)
+
+    # Derive polarity technologies from samples.csv
+    samples_df = pl.read_csv(config_dir / "samples.csv")
+    polarity_techs = derive_polarity_technologies(samples_df)
+    set_polarity_technologies(polarity_techs)
+
+    # Step 2: Load and validate all configs with dynamic values in place
     return ConfigBundle(
         samples=load_samples(config_dir / "samples.csv"),
         instruments=load_instruments(config_dir / "instruments.csv"),
@@ -456,4 +516,6 @@ def load_all_configs(config_dir: Path | str) -> ConfigBundle:
         qc_layouts=load_qc_layouts(config_dir / "qc_layouts.toml"),
         output_formats=load_output_formats(config_dir / "output_formats.toml"),
         instruments_df=pl.read_csv(config_dir / "instruments.csv"),
+        polarity_technologies=polarity_techs,
+        valid_samplers=valid_samplers,
     )

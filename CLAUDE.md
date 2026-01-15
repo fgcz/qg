@@ -220,7 +220,7 @@ CSV Output
 
 ### Key Files
 
-- `src/qg/structure.py` - Queue structure building: `build_queue_structure()`, `compute_queue_counts()`
+- `src/qg/queue_structure.py` - Queue structure building: `build_queue_structure()`, `compute_queue_counts()`
 - `src/qg/positions.py` - Sampler classes with `generate_positions(n)` method
 - `src/qg/generator.py` - Pipeline orchestration: `assign_positions()`, `QueueGenerator`
 
