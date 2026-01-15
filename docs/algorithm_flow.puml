@@ -1,73 +1,116 @@
 @startuml algorithm_flow
 
-title Queue Generation Flow
+title Queue Generation Pipeline (Stateless Functions)
 
-|User|
+skinparam backgroundColor #FEFEFE
+skinparam BoxPadding 10
+
+|Input|
 start
-:Select instrument, sampler;
-:Provide samples from B-Fabric;
-:Set qc_frequency, inj_vol (optional);
-
-|System|
-:Validate combination\n(combinations.csv);
-
-:Load instrument config\n(instruments.toml);
-note right: area, queue_pattern, methods_file, default_inj_vol
-
-:Load sampler config\n(sampler.toml);
-note right: sampler_base, position_format, output_format
-
-:Load QC layout\n(qc_layouts.toml[sampler_base.area]);
-note right: QC positions for this workflow
-
-:Load pattern\n(queue_patterns.toml);
-note right: start[], middle[], end[], run_QC_after_n_samples
-
-:Build position grid;
+:QueueInput JSON;
 note right
-  position_source = "generated":
-    Fill grid sequentially (row_major)
-  position_source = "input":
-    Use B-Fabric GridPosition
+  parameters:
+    technology, instrument
+    sampler, pattern
+    date, user, polarity
+  samples:
+    [Sample Name, Sample ID, ...]
 end note
 
-if (randomization?) then (yes)
-    :Randomize samples;
-    note right: none | full | block | stratified
+|Pipeline|
+
+:1. validate_input();
+note right
+  **Input:** QueueInput, ConfigBundle
+  **Output:** ValidatedInput
+  ----
+  • Check (instrument, sampler) combo
+  • Resolve pattern config
+  • Resolve QC layout
+  • Resolve output format
+end note
+
+:2. build_queue_structure();
+note right
+  **Input:** num_samples, QueuePattern
+  **Output:** list[str]
+  ----
+  Pure slot interleaving:
+  ["QC03dia", "QC01", "default",
+   "default", "clean", "QC01", ...]
+end note
+
+:3. generate_positions();
+note right
+  **Input:** num_samples, sampler_config
+  **Output:** list[str]
+  ----
+  Vanquish: ["Y:A1", "Y:A2", ...]
+  QC positions from qc_layouts.toml
+end note
+
+if (requires polarity?) then (metabolomics/lipidomics)
+  :4. expand_polarities();
+  note right
+    **Input:** structure, ["pos", "neg"]
+    **Output:** [(slot, polarity), ...]
+    ----
+    Duplicate each slot per polarity
+  end note
+else (proteomics)
+  :4. no expansion;
+  note right
+    [(slot, None), ...]
+  end note
 endif
 
-:Build queue sequence;
-
-partition "Queue Building" {
-    :Add START QC samples;
-
-    while (more samples?) is (yes)
-        :Add batch of N samples\nat next positions;
-        if (more samples remain?) then (yes)
-            :Add MIDDLE QC samples;
-        endif
-    endwhile (no)
-
-    :Add END QC samples;
-}
-
-:Load output format\n(output_formats.toml);
-note right: columns dict (output_name -> internal_field)
-
-:Generate output rows;
+:5. populate_rows();
 note right
-  Map internal fields to columns:
-  - file_name, sample_name, sample_type
-  - position (+ tray for Evosep)
-  - inj_vol, method, data_path
+  **Input:**
+    expanded_structure
+    user_samples (B-Fabric)
+    positions
+    qc_layout
+    samples_config
+    params, methods_df
+  **Output:** list[QueueRow]
+  ----
+  For each (sample_id, polarity):
+  • Get sample definition
+  • Assign position
+  • Format file_name
+  • Lookup method path
+  • Format data_path
 end note
 
-:Write queue CSV;
+:6. format_output();
+note right
+  **Input:** rows, OutputFormat
+  **Output:** CSV string
+  ----
+  Map internal fields to
+  output columns via
+  output_formats.toml
+end note
 
-|User|
-:Download queue file;
-:Import to instrument software;
+|Output|
+:Queue CSV file;
+note right
+  xcalibur: .csv
+  chronos: .csv
+  hystar: .csv
+end note
 
 stop
+
+legend right
+  |= Symbol |= Meaning |
+  | validate_input | Config validation + resolution |
+  | build_queue_structure | Pure QC interleaving |
+  | generate_positions | Stateless position generation |
+  | expand_polarities | Polarity duplication |
+  | populate_rows | Fill all row data |
+  | format_output | Column mapping to CSV |
+endlegend
 
 @enduml

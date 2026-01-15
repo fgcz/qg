@@ -46,10 +46,27 @@ from qg.generator import (
     QueueRow,
     QueueGenerator,
     GenerationSummary,
+    assign_positions,
+)
+
+from qg.structure import (
+    build_queue_structure,
+    compute_queue_counts,
+    compute_middle_block_positions,
+    compute_extended_positions,
 )
 
 from qg.positions import (
-    VanquishPositionGenerator,
+    SamplerPositionGenerator,
+    VanquishSampler,
+    MClass48Sampler,
+    EvosepSampler as EvosepSamplerPosition,
+    get_sampler,
+)
+
+from qg.generator import (
+    build_queue_structure,
+    assign_positions,
 )
 
 __all__ = [
@@ -89,6 +106,16 @@ __all__ = [
     "QueueRow",
     "QueueGenerator",
     "GenerationSummary",
+    "assign_positions",
+    # Structure building
+    "build_queue_structure",
+    "compute_queue_counts",
+    "compute_middle_block_positions",
+    "compute_extended_positions",
     # Position generators
-    "VanquishPositionGenerator",
+    "SamplerPositionGenerator",
+    "VanquishSampler",
+    "MClass48Sampler",
+    "EvosepSamplerPosition",
+    "get_sampler",
 ]

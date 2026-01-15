@@ -27,6 +27,12 @@ bfabric = { git = "https://github.com/fgcz/bfabricPy", subdirectory = "bfabric",
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-mock>=3.15.1",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/qg"]
 
@@ -35,3 +41,8 @@ qg = "qg.cli.generate_queues:cli_main"
 qg-validate = "qg.cli.validate_config:cli_main"
 qg-find-projects = "qg.cli.find_projects:main"
 qg-params = "qg.cli.generate_params:cli_main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+filterwarnings = ["ignore::DeprecationWarning"]

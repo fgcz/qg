@@ -8,17 +8,18 @@ title Queue Generation Configuration Models
 ' ============ Constants ============
 
 note as Constants
-  **TECHNOLOGIES** = "proteomics" | "metabolomics" | "lipidomics"
-  **OUTPUT_FORMATS** = "xcalibur" | "chronos" | "hystar"
+  **POLARITY_TECHNOLOGIES** = {"metabolomics", "lipidomics"}
   **VALID_PLACEHOLDERS** = {date, run, container, sample_id, sample_name, polarity}
   **VALID_SAMPLERS** = {Vanquish.vial, Vanquish.plate, MClass48.vial, MClass48.plate, Evosep.vial, Evosep.plate}
+  --
+  requires_polarity(technology: str) → bool
 end note
 
 ' ============ CSV-based Config Models ============
 
 package "CSV Config Models" #LightBlue {
     class Sample {
-        technology: TECHNOLOGIES
+        technology: str
         sample_id: str
         sample_name: str = ""
         description: str = ""
@@ -34,7 +35,7 @@ package "CSV Config Models" #LightBlue {
     }
 
     class Instrument {
-        technology: TECHNOLOGIES
+        technology: str
         instrument: str
         methods_file: str
     }
@@ -47,7 +48,7 @@ package "CSV Config Models" #LightBlue {
     }
 
     class InstrumentPattern {
-        technology: TECHNOLOGIES
+        technology: str
         instrument: str
         pattern: str
         is_default: bool
@@ -63,7 +64,7 @@ package "CSV Config Models" #LightBlue {
     class Combination {
         instrument: str
         sampler: str
-        output_format: OUTPUT_FORMATS
+        output_format: str
     }
 
     class CombinationsConfig {
@@ -151,11 +152,11 @@ package "Queue Pattern Models (TOML)" #LightYellow {
     }
 
     class QueuePatternsConfig {
-        proteomics: dict[str, QueuePattern] = {}
-        metabolomics: dict[str, QueuePattern] = {}
-        lipidomics: dict[str, QueuePattern] = {}
+        patterns: dict[str, dict[str, QueuePattern]]
         --
+        get_technologies(): list[str]
         get_pattern(tech, pattern_name): QueuePattern | None
+        get_patterns_for_technology(tech): dict[str, QueuePattern]
         get_all_sample_refs(tech): set[str]
     }
 
@@ -172,14 +173,14 @@ package "QC Layout Models (TOML)" #LightPink {
     }
 
     class QCLayoutsConfig {
-        proteomics: dict[str, dict[str, QCPosition]] = {}
-        metabolomics: dict[str, dict[str, QCPosition]] = {}
-        lipidomics: dict[str, dict[str, QCPosition]] = {}
+        layouts: dict[str, dict[str, dict[str, QCPosition]]]
         --
+        get_technologies(): list[str]
         get_layout(tech, sampler_key): dict[str, QCPosition] | None
+        get_samplers_for_technology(tech): list[str]
     }
 
-    note "**QCPosition** = str | EvosepPosition\n\nStructure: sampler_key → sample_id → QCPosition\nFallback: 'Vanquish.vial' → 'Vanquish'" as N1
+    note "**QCPosition** = str | EvosepPosition\n\nStructure: tech → sampler_key → sample_id → QCPosition\nFallback: 'Vanquish.vial' → 'Vanquish'" as N1
     QCLayoutsConfig .. N1
     EvosepPosition .. N1
 }
@@ -194,16 +195,13 @@ package "Output Format Models (TOML)" #LightGray {
     }
 
     class OutputFormatsConfig {
-        xcalibur: OutputFormat | None
-        chronos: OutputFormat | None
-        hystar: OutputFormat | None
+        formats: dict[str, OutputFormat]
         --
-        get_format(format_id)
+        get_format_names(): list[str]
+        get_format(format_id): OutputFormat | None
     }
 
-    OutputFormatsConfig "1" *-- "0..1" OutputFormat : xcalibur
-    OutputFormatsConfig "1" *-- "0..1" OutputFormat : chronos
-    OutputFormatsConfig "1" *-- "0..1" OutputFormat : hystar
+    OutputFormatsConfig "1" *-- "*" OutputFormat
 }
 
 @enduml

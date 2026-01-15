@@ -149,6 +149,88 @@ Input format for queue generation (produced by GUI or batch generator):
 - `metabolomics` - Polarity expansion (pos/neg)
 - `lipidomics` - Polarity expansion (pos/neg)
 
+## Architectural Goal: Stateless Functional Pipeline
+
+The queue generator should be refactored into a pipeline of **stateless pure functions**. Each function:
+
+1. **Receives all required inputs as arguments** - no hidden dependencies or global state
+2. **Returns a result** - no side effects, no mutation of inputs
+3. **Does exactly one thing** - clear, single responsibility
+4. **Takes only what it needs** - minimal interface, no excess data
+
+### Target Pipeline Steps
+
+```
+QueueInput (JSON)
+    |
+    v
++-----------------------------------------------------------------+
+| 1. validate_input(input, configs) -> ValidatedInput             |
+|    - Validate parameters against configs                        |
+|    - Resolve sampler/pattern/layout references                  |
++-----------------------------------------------------------------+
+    |
+    v
++-----------------------------------------------------------------+
+| 2. build_queue_structure(num_samples, pattern) -> list[SlotType]|
+|    - Pure logic: interleave QC slots with user slots            |
+|    - No sample data, just structure                             |
++-----------------------------------------------------------------+
+    |
+    v
++-----------------------------------------------------------------+
+| 3. assign_positions(structure, qc_layout, sampler) -> list[Pos] |
+|    - Map each slot to a physical position                       |
+|    - Stateless position generation                              |
++-----------------------------------------------------------------+
+    |
+    v
++-----------------------------------------------------------------+
+| 4. expand_polarities(structure, polarities) -> list[SlotType]   |
+|    - For metabolomics/lipidomics: duplicate rows per polarity   |
++-----------------------------------------------------------------+
+    |
+    v
++-----------------------------------------------------------------+
+| 5. populate_rows(structure, samples, positions, params, ...)    |
+|    -> list[QueueRow]                                            |
+|    - Fill in sample names, methods, file names, etc.            |
++-----------------------------------------------------------------+
+    |
+    v
++-----------------------------------------------------------------+
+| 6. format_output(rows, output_format) -> str                    |
+|    - Convert to CSV with correct column mapping                 |
++-----------------------------------------------------------------+
+    |
+    v
+CSV Output
+```
+
+### Implementation Status
+
+| Aspect | Status | Implementation |
+|--------|--------|----------------|
+| Queue structure | Done | `build_queue_structure(n, pattern) -> list[str]` |
+| Position generation | Done | `VanquishSampler.generate_positions(n) -> list[str]` (stateless) |
+| Position assignment | Done | `assign_positions(structure, user_positions, qc_layout) -> list[str]` |
+| Row population | Done | `_populate_queue()` - no position logic, just assembly |
+| Config loading | TODO | Still in `QueueGenerator.__init__`, should be `ConfigBundle` |
+| Method lookup | TODO | Still uses internal cache, should be pure function |
+
+### Key Files
+
+- `src/qg/structure.py` - Queue structure building: `build_queue_structure()`, `compute_queue_counts()`
+- `src/qg/positions.py` - Sampler classes with `generate_positions(n)` method
+- `src/qg/generator.py` - Pipeline orchestration: `assign_positions()`, `QueueGenerator`
+
+### Design Principles
+
+- **Configs as data**: Load once, pass explicitly to functions that need them
+- **No hidden state**: Position counters, caches, etc. become explicit inputs
+- **Composable steps**: Each step can be tested and reasoned about independently
+- **Explicit dependencies**: Function signatures document what data flows where
+
 ## Related Projects
 
 - `/Users/wolski/projects/queue/qg/` - Legacy R implementation (reference only)

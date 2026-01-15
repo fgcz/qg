@@ -24,10 +24,10 @@ from bfabric import Bfabric
 from rich.console import Console
 
 from qg.config import ConfigBundle, load_all_configs
+from qg.models import requires_polarity
 
 console = Console()
 
-Technology = Literal["proteomics", "metabolomics", "lipidomics"]
 Sampler = Literal["Vanquish", "MClass48", "Evosep"]
 
 AREA_TO_TECH = {
@@ -157,7 +157,7 @@ def generate_queue_params(
 ) -> dict:
     """Generate a queue parameters dictionary."""
     technology = order["technology"]
-    polarity = ["pos", "neg"] if technology in ("metabolomics", "lipidomics") else []
+    polarity = ["pos", "neg"] if requires_polarity(technology) else []
 
     return {
         "parameters": {
@@ -220,7 +220,7 @@ def cli_main() -> None:
             ),
         ] = Path("qg_configs"),
         technology: Annotated[
-            Technology | None,
+            str | None,
             cyclopts.Parameter(help="Generate params only for this technology"),
         ] = None,
         sampler: Annotated[

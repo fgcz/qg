@@ -16,6 +16,7 @@ with app.setup:
     from datetime import date
 
     from qg.config import load_all_configs
+    from qg.models import requires_polarity
 
 
 @app.cell
@@ -277,8 +278,8 @@ def _(method_field, pattern_field, software_value):
 
 @app.cell
 def _(technology_field):
-    # Polarity selection (only for metabolomics/lipidomics)
-    _show_polarity = technology_field.value in ("metabolomics", "lipidomics")
+    # Polarity selection (only for technologies requiring it)
+    _show_polarity = requires_polarity(technology_field.value)
     polarity_field = mo.ui.multiselect(
         options=["pos", "neg"],
         value=["pos", "neg"],

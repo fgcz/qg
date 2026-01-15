@@ -546,8 +546,6 @@ def _(tabs):
 
 @app.cell
 def _():
-    VALID_TECHNOLOGIES = {"proteomics", "metabolomics", "lipidomics"}
-
     def validate_toml(content: str, name: str) -> list[str]:
         """Validate TOML syntax."""
         errors = []
@@ -602,11 +600,14 @@ def _():
                 samples[tech] = {}
             samples[tech][row["sample_id"]] = row
 
+        # Derive valid technologies from samples.csv (source of truth)
+        valid_technologies = set(samples.keys())
+
         # Validate instruments.csv
         for row in instruments_df.iter_rows(named=True):
             tech = row.get("technology", "")
-            if tech not in VALID_TECHNOLOGIES:
-                errors.append(f"instruments.csv: Unknown technology '{tech}'")
+            if tech not in valid_technologies:
+                errors.append(f"instruments.csv: Unknown technology '{tech}' (not in samples.csv)")
 
         # Validate instrument_patterns.csv references
         instrument_keys = set(

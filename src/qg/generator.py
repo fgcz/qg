@@ -19,7 +19,9 @@ from qg.config import (
     load_output_formats,
     load_combinations,
 )
-from qg.positions import VanquishPositionGenerator
+from qg.models import QCPosition, requires_polarity
+from qg.positions import get_sampler
+from qg.structure import build_queue_structure
 
 
 # =============================================================================
@@ -43,10 +45,10 @@ class QueueParameters(BaseModel):
     """Queue generation parameters from input JSON."""
 
     container_id: int
-    technology: Literal["proteomics", "metabolomics", "lipidomics"]
+    technology: str = Field(..., min_length=1, description="Technology identifier")
     instrument: str
     sampler: str  # e.g., "Vanquish.vial"
-    software: Literal["xcalibur", "chronos", "hystar"]
+    software: str = Field(..., min_length=1, description="Output format identifier (software)")
     pattern: str  # e.g., "standard"
     polarity: list[Literal["pos", "neg"]] = Field(default_factory=list)
     date: str  # YYYYMMDD
@@ -57,8 +59,8 @@ class QueueParameters(BaseModel):
 
     @model_validator(mode="after")
     def set_default_polarity(self) -> "QueueParameters":
-        """Set default polarity for metabolomics/lipidomics."""
-        if not self.polarity and self.technology in ("metabolomics", "lipidomics"):
+        """Set default polarity for technologies requiring it."""
+        if not self.polarity and requires_polarity(self.technology):
             self.polarity = ["pos", "neg"]
         return self
 
@@ -75,7 +77,7 @@ class QueueInput(BaseModel):
 # =============================================================================
 
 
-@dataclass
+@dataclass(slots=True)
 class QueueRow:
     """Internal representation of a queue row."""
 
@@ -93,7 +95,42 @@ class QueueRow:
     container_id: int = 0
 
 
-@dataclass
+def assign_positions(
+    structure: list[str],
+    user_positions: list[str],
+    qc_layout: dict[str, QCPosition],
+) -> list[str]:
+    """Assign positions to all slots in the queue structure.
+
+    Pure function that maps the queue structure to physical positions.
+
+    Args:
+        structure: Queue structure from build_queue_structure()
+        user_positions: Pre-generated positions for user samples
+        qc_layout: QC sample_id -> position mapping from qc_layouts.toml
+
+    Returns:
+        List of positions parallel to structure
+    """
+    positions = []
+    user_idx = 0
+
+    for sample_id in structure:
+        if sample_id == "default":
+            positions.append(user_positions[user_idx])
+            user_idx += 1
+        else:
+            pos = qc_layout.get(sample_id, "")
+            # Handle Evosep dict positions
+            if isinstance(pos, dict):
+                positions.append(f"tray{pos.get('tray', 0)}:{pos.get('position_start', 0)}")
+            else:
+                positions.append(str(pos))
+
+    return positions
+
+
+@dataclass(slots=True)
 class GenerationSummary:
     """Summary of queue generation."""
 
@@ -216,8 +253,8 @@ class QueueGenerator:
         if matches.is_empty():
             return ""
 
-        # For metabolomics/lipidomics, filter by polarity in method_name
-        if polarity and technology in ("metabolomics", "lipidomics"):
+        # For technologies requiring polarity, filter by polarity in method_name
+        if polarity and requires_polarity(technology):
             polarity_suffix = "_Pos" if polarity == "pos" else "_Neg"
             polarity_matches = matches.filter(
                 pl.col("method_name").str.contains(polarity_suffix, literal=True)
@@ -278,7 +315,7 @@ class QueueGenerator:
         if not qc_layout:
             raise ValueError(f"QC layout not found for {params.technology}.{params.sampler}")
 
-        # Get default sample definition for inj_vol and file_name_template
+        # Validate default sample definition exists
         default_sample = self.samples_config.get_sample(params.technology, "default")
         if not default_sample:
             raise ValueError(f"No 'default' sample definition for {params.technology}")
@@ -287,185 +324,110 @@ class QueueGenerator:
         path_template = self._get_path_template(params.technology, params.instrument)
         data_path = self._expand_path(path_template, params.container_id, params.user, params.date)
 
-        # Initialize position generator
-        position_source = sampler_config.get("position_source", "generated")
-        if position_source == "generated" and sampler_base == "Vanquish":
-            pos_gen = VanquishPositionGenerator(sampler_config)
-        else:
-            pos_gen = None
+        # Step 1: Build queue structure
+        structure = build_queue_structure(len(samples), pattern)
 
-        # Build queue with QC interleaving
-        rows = self._interleave_qc(
+        # Step 2: Count user samples in structure
+        num_user_samples = structure.count("default")
+
+        # Step 3: Generate user positions (stateless)
+        position_source = sampler_config.get("position_source", "generated")
+        if position_source == "generated":
+            sampler = get_sampler(params.sampler, sampler_config)
+            user_positions = sampler.generate_positions(num_user_samples)
+        else:
+            # Positions come from input (plate mode)
+            user_positions = [s.grid_position or "" for s in samples]
+
+        # Step 4: Assign all positions (user + QC)
+        positions = assign_positions(structure, user_positions, qc_layout)
+
+        # Step 5: Populate rows (no position logic)
+        rows = self._populate_queue(
+            structure=structure,
+            positions=positions,
+            input_samples=samples,
             params=params,
-            samples=samples,
-            pattern=pattern,
-            qc_layout=qc_layout,
-            default_sample=default_sample,
-            position_generator=pos_gen,
             data_path=data_path,
         )
 
         return rows
 
-    def _interleave_qc(
+    def _populate_queue(
         self,
+        structure: list[str],
+        positions: list[str],
+        input_samples: list[InputSample],
         params: QueueParameters,
-        samples: list[InputSample],
-        pattern,
-        qc_layout: dict,
-        default_sample,
-        position_generator: VanquishPositionGenerator | None,
         data_path: str,
     ) -> list[QueueRow]:
-        """Interleave user samples with QC injections."""
-        rows: list[QueueRow] = []
-        run_number = 1
+        """Populate queue structure with sample data.
 
-        # Helper to add QC samples
-        def add_qc_sequence(sequence: list[str], polarities: list[str]) -> None:
-            nonlocal run_number
-            for qc_id in sequence:
-                qc_sample = self.samples_config.get_sample(params.technology, qc_id)
-                if not qc_sample:
+        Position assignment is already done - this only assembles rows.
+
+        Args:
+            structure: List of sample_ids from build_queue_structure()
+            positions: Pre-computed positions parallel to structure
+            input_samples: User samples from input
+            params: Queue parameters
+            data_path: Data path for output files
+
+        Returns:
+            List of populated QueueRow objects
+        """
+        rows: list[QueueRow] = []
+        user_iter = iter(input_samples)
+        run = 1
+        polarities = params.polarity or [None]
+
+        for idx, sample_id in enumerate(structure):
+            sample_config = self.samples_config.get_sample(params.technology, sample_id)
+            if not sample_config:
+                continue
+
+            # Get user sample if this is a user slot
+            user: InputSample | None = None
+            if sample_id == "default":
+                user = next(user_iter, None)
+                if not user:
                     continue
 
-                position = qc_layout.get(qc_id, "")
-                if isinstance(position, dict):
-                    # Evosep position - not supported yet
-                    position = f"tray{position.get('tray', 0)}:{position.get('position_start', 0)}"
+            # Position is pre-computed
+            position = positions[idx]
 
-                # For metabolomics/lipidomics, expand by polarity
-                for pol in (polarities if polarities else [None]):
-                    file_name = self._expand_file_name(
-                        template=qc_sample.file_name_template,
-                        date=params.date,
-                        run=run_number,
-                        container=params.container_id,
-                        sample_id=qc_id,
-                        sample_name=qc_sample.sample_name,
-                        polarity=pol,
-                    )
-                    # Get method path for this QC sample
-                    method_path = self._get_method_path(
-                        technology=params.technology,
-                        instrument=params.instrument,
-                        sample_type=qc_id,
-                        polarity=pol,
-                    )
-                    rows.append(QueueRow(
-                        run_number=run_number,
-                        sample_type="qc",
-                        sample_id=qc_id,
-                        sample_name=qc_sample.sample_name,
-                        position=str(position),
-                        inj_vol=params.inj_vol_override or qc_sample.inj_vol,
-                        file_name=file_name,
-                        polarity=pol,
-                        container_id=params.container_id,
-                        data_path=data_path,
-                        method=method_path,
-                    ))
-                    run_number += 1
-
-        # Helper to add a user sample
-        def add_user_sample(sample: InputSample, polarities: list[str]) -> None:
-            nonlocal run_number
-
-            # Get position
-            if position_generator:
-                position = position_generator.next_position()
-            elif sample.grid_position:
-                # Plate mode - use grid_position from input
-                sampler_parts = params.sampler.split(".")
-                sampler_raw = self.samplers_raw.get(sampler_parts[0], {})
-                container_config = sampler_raw.get(sampler_parts[1] if len(sampler_parts) > 1 else "plate", {})
-                pos_format = container_config.get("position_format", "{grid_position}")
-                # Get first plate for user samples
-                plates = sampler_raw.get("plates", ["Y"])
-                qc_plate = sampler_raw.get("qc_plate", "B")
-                user_plate = next((p for p in plates if p != qc_plate), plates[0])
-                position = pos_format.format(plate=user_plate, grid_position=sample.grid_position)
-            else:
-                position = ""
-
-            # For metabolomics/lipidomics, expand by polarity
-            for pol in (polarities if polarities else [None]):
-                file_name = self._expand_file_name(
-                    template=default_sample.file_name_template,
+            # Expand for each polarity
+            for polarity in polarities:
+                file_name = sample_config.file_name_template.format(
                     date=params.date,
-                    run=run_number,
+                    run=f"{run:03d}",
                     container=params.container_id,
-                    sample_id=str(sample.sample_id),
-                    sample_name=sample.sample_name,
-                    polarity=pol,
+                    sample_id=str(user.sample_id) if user else "",
+                    sample_name=user.sample_name if user else "",
+                    polarity=polarity or "",
                 )
-                # Get method path for user sample
-                method_path = self._get_method_path(
-                    technology=params.technology,
-                    instrument=params.instrument,
-                    sample_type="default",
-                    polarity=pol,
-                    method_name=params.method,
-                )
+
                 rows.append(QueueRow(
-                    run_number=run_number,
-                    sample_type="user",
-                    sample_id=str(sample.sample_id),
-                    sample_name=sample.sample_name,
+                    run_number=run,
+                    sample_type="user" if sample_id == "default" else "qc",
+                    sample_id=str(user.sample_id) if user else sample_id,
+                    sample_name=user.sample_name if user else sample_config.sample_name,
                     position=position,
-                    inj_vol=params.inj_vol_override or default_sample.inj_vol,
+                    inj_vol=params.inj_vol_override or sample_config.inj_vol,
                     file_name=file_name,
-                    polarity=pol,
-                    container_id=params.container_id,
+                    polarity=polarity,
                     data_path=data_path,
-                    method=method_path,
+                    method=self._get_method_path(
+                        params.technology,
+                        params.instrument,
+                        sample_id,
+                        polarity,
+                        params.method if sample_id == "default" else "",
+                    ),
+                    container_id=params.container_id,
                 ))
-                run_number += 1
-
-        # Polarities to use
-        polarities = params.polarity
-
-        # Start sequence
-        add_qc_sequence(pattern.start, polarities)
-
-        # User samples with middle QC
-        qc_frequency = pattern.run_QC_after_n_samples
-        samples_since_qc = 0
-
-        for i, sample in enumerate(samples):
-            add_user_sample(sample, polarities)
-            samples_since_qc += 1
-
-            # Add middle QC after every qc_frequency samples
-            if samples_since_qc >= qc_frequency and i < len(samples) - 1:
-                add_qc_sequence(pattern.middle, polarities)
-                samples_since_qc = 0
-
-        # End sequence
-        add_qc_sequence(pattern.end, polarities)
+                run += 1
 
         return rows
-
-    def _expand_file_name(
-        self,
-        template: str,
-        date: str,
-        run: int,
-        container: int,
-        sample_id: str,
-        sample_name: str,
-        polarity: str | None,
-    ) -> str:
-        """Expand file name template with values."""
-        result = template.format(
-            date=date,
-            run=f"{run:03d}",
-            container=container,
-            sample_id=sample_id,
-            sample_name=sample_name,
-            polarity=polarity or "",
-        )
-        return result
 
     def to_csv(self, rows: list[QueueRow], software: str) -> str:
         """Format queue rows as CSV for the specified software."""

@@ -9,8 +9,14 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 # Constants
 # =============================================================================
 
-TECHNOLOGIES = Literal["proteomics", "metabolomics", "lipidomics"]
-OUTPUT_FORMATS = Literal["xcalibur", "chronos", "hystar"]
+# Technologies requiring polarity expansion (business logic)
+POLARITY_TECHNOLOGIES: set[str] = {"metabolomics", "lipidomics"}
+
+
+def requires_polarity(technology: str) -> bool:
+    """Check if a technology requires polarity expansion."""
+    return technology in POLARITY_TECHNOLOGIES
+
 
 # Valid placeholders in file_name_template
 VALID_PLACEHOLDERS = {
@@ -41,7 +47,7 @@ VALID_SAMPLERS = {
 class Sample(BaseModel):
     """A QC or default sample definition."""
 
-    technology: TECHNOLOGIES
+    technology: str = Field(..., min_length=1, description="Technology identifier")
     sample_id: str = Field(..., min_length=1, description="Unique sample ID within technology")
     sample_name: str = Field(default="", description="Display name (empty for 'default')")
     description: str = Field(default="", description="Human-readable description")
@@ -68,8 +74,8 @@ class Sample(BaseModel):
 
     @model_validator(mode="after")
     def validate_polarity_for_technology(self) -> "Sample":
-        """Metabolomics and lipidomics should have {polarity} in template."""
-        if self.technology in ("metabolomics", "lipidomics"):
+        """Technologies requiring polarity should have {polarity} in template."""
+        if requires_polarity(self.technology):
             if "{polarity}" not in self.file_name_template:
                 raise ValueError(
                     f"{self.technology} samples should have {{polarity}} in file_name_template"
@@ -129,7 +135,7 @@ class SamplesConfig(BaseModel):
 class Instrument(BaseModel):
     """An instrument definition."""
 
-    technology: TECHNOLOGIES
+    technology: str = Field(..., min_length=1, description="Technology identifier")
     instrument: str = Field(..., min_length=1, description="Instrument identifier")
     methods_file: str = Field(..., min_length=1, description="Path to methods CSV file")
 
@@ -178,7 +184,7 @@ class InstrumentsConfig(BaseModel):
 class InstrumentPattern(BaseModel):
     """Mapping of instrument to available queue patterns."""
 
-    technology: TECHNOLOGIES
+    technology: str = Field(..., min_length=1, description="Technology identifier")
     instrument: str = Field(..., min_length=1)
     pattern: str = Field(..., min_length=1, description="Pattern name (e.g., standard, frequent)")
     is_default: bool = Field(..., description="Whether this is the default pattern for the instrument")
@@ -243,7 +249,7 @@ class Combination(BaseModel):
 
     instrument: str = Field(..., min_length=1)
     sampler: str = Field(..., min_length=1, description="Sampler.container key")
-    output_format: OUTPUT_FORMATS
+    output_format: str = Field(..., min_length=1, description="Output format identifier (software)")
 
     @field_validator("sampler")
     @classmethod
@@ -387,21 +393,30 @@ class QueuePattern(BaseModel):
 
 
 class QueuePatternsConfig(BaseModel):
-    """All queue patterns by technology."""
+    """All queue patterns by technology.
 
-    proteomics: dict[str, QueuePattern] = Field(default_factory=dict)
-    metabolomics: dict[str, QueuePattern] = Field(default_factory=dict)
-    lipidomics: dict[str, QueuePattern] = Field(default_factory=dict)
+    Structure: technology -> pattern_name -> QueuePattern
+    """
+
+    patterns: dict[str, dict[str, QueuePattern]] = Field(default_factory=dict)
+
+    def get_technologies(self) -> list[str]:
+        """Get list of all technologies with patterns defined."""
+        return list(self.patterns.keys())
 
     def get_pattern(self, tech: str, pattern_name: str) -> QueuePattern | None:
         """Get a specific pattern by technology and name."""
-        tech_patterns = getattr(self, tech, {})
+        tech_patterns = self.patterns.get(tech, {})
         return tech_patterns.get(pattern_name)
+
+    def get_patterns_for_technology(self, tech: str) -> dict[str, QueuePattern]:
+        """Get all patterns for a technology."""
+        return self.patterns.get(tech, {})
 
     def get_all_sample_refs(self, tech: str) -> set[str]:
         """Get all sample IDs referenced by patterns for a technology."""
         refs: set[str] = set()
-        tech_patterns = getattr(self, tech, {})
+        tech_patterns = self.patterns.get(tech, {})
         for pattern in tech_patterns.values():
             refs.update(pattern.start)
             refs.update(pattern.middle)
@@ -436,26 +451,34 @@ QCPosition = str | EvosepPosition
 
 
 class QCLayoutsConfig(BaseModel):
-    """All QC layouts by technology and sampler."""
+    """All QC layouts by technology and sampler.
 
-    # Structure: tech -> sampler_key -> sample_id -> position
-    # sampler_key examples: "Vanquish.vial", "Vanquish.plate", "MClass48", "Evosep"
-    proteomics: dict[str, dict[str, QCPosition]] = Field(default_factory=dict)
-    metabolomics: dict[str, dict[str, QCPosition]] = Field(default_factory=dict)
-    lipidomics: dict[str, dict[str, QCPosition]] = Field(default_factory=dict)
+    Structure: technology -> sampler_key -> sample_id -> QCPosition
+    sampler_key examples: "Vanquish.vial", "Vanquish.plate", "MClass48", "Evosep"
+    """
+
+    layouts: dict[str, dict[str, dict[str, QCPosition]]] = Field(default_factory=dict)
+
+    def get_technologies(self) -> list[str]:
+        """Get list of all technologies with layouts defined."""
+        return list(self.layouts.keys())
 
     def get_layout(self, tech: str, sampler_key: str) -> dict[str, QCPosition] | None:
         """Get QC layout for technology and sampler.
 
         Tries exact key first (e.g., 'Vanquish.vial'), falls back to parent (e.g., 'Vanquish').
         """
-        tech_layouts = getattr(self, tech, {})
+        tech_layouts = self.layouts.get(tech, {})
         # Try exact match first
         if sampler_key in tech_layouts:
             return tech_layouts[sampler_key]
         # Try parent sampler (e.g., "Vanquish.vial" -> "Vanquish")
         parent = sampler_key.split(".")[0]
         return tech_layouts.get(parent)
+
+    def get_samplers_for_technology(self, tech: str) -> list[str]:
+        """Get all sampler keys for a technology."""
+        return list(self.layouts.get(tech, {}).keys())
 
 
 # =============================================================================
@@ -472,12 +495,17 @@ class OutputFormat(BaseModel):
 
 
 class OutputFormatsConfig(BaseModel):
-    """All output format definitions."""
+    """All output format definitions.
 
-    xcalibur: OutputFormat | None = None
-    chronos: OutputFormat | None = None
-    hystar: OutputFormat | None = None
+    Structure: format_name (software) -> OutputFormat
+    """
+
+    formats: dict[str, OutputFormat] = Field(default_factory=dict)
+
+    def get_format_names(self) -> list[str]:
+        """Get list of all defined output format names."""
+        return list(self.formats.keys())
 
     def get_format(self, format_id: str) -> OutputFormat | None:
         """Get an output format by ID."""
-        return getattr(self, format_id, None)
+        return self.formats.get(format_id)

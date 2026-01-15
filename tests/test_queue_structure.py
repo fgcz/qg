@@ -1,0 +1,419 @@
+"""Tests for queue structure computation functions."""
+
+from pathlib import Path
+
+import pytest
+
+from qg.config import load_queue_patterns
+from qg.structure import (
+    build_queue_structure,
+    compute_extended_positions,
+    compute_middle_block_positions,
+    compute_queue_counts,
+)
+from qg.models import QueuePattern
+
+
+# =============================================================================
+# Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def config_dir() -> Path:
+    """Return path to the qg_configs directory."""
+    return Path(__file__).parent.parent / "qg_configs"
+
+
+@pytest.fixture
+def all_patterns(config_dir: Path) -> dict[str, dict[str, QueuePattern]]:
+    """Load all queue patterns from config."""
+    patterns_config = load_queue_patterns(config_dir / "queue_patterns.toml")
+    return patterns_config.patterns
+
+
+# =============================================================================
+# Test Data
+# =============================================================================
+
+SAMPLE_COUNTS = [8, 16, 32, 56, 106, 212]
+
+ALL_PATTERN_KEYS = [
+    ("proteomics", "standard"),
+    ("proteomics", "frequent"),
+    ("proteomics", "simple"),
+    ("proteomics", "dda"),
+    ("proteomics", "minimal"),
+    ("proteomics", "qc_only"),
+    ("proteomics", "conditioning"),
+    ("metabolomics", "standard"),
+    ("metabolomics", "simple"),
+    ("lipidomics", "standard"),
+]
+
+# Patterns with middle_extended
+EXTENDED_PATTERN_KEYS = [
+    ("metabolomics", "standard"),
+    ("lipidomics", "standard"),
+]
+
+
+# =============================================================================
+# Test compute_middle_block_positions
+# =============================================================================
+
+
+class TestComputeMiddleBlockPositions:
+    """Tests for compute_middle_block_positions function."""
+
+    @pytest.mark.parametrize(
+        "num_samples,frequency,expected",
+        [
+            (0, 10, []),
+            (1, 10, []),
+            (5, 10, []),
+            (10, 10, []),  # exactly at frequency, no middle
+            (11, 10, [9]),  # one over
+            (20, 10, [9]),  # exactly 2x, still one block
+            (21, 10, [9, 19]),  # two blocks
+            (16, 16, []),
+            (17, 16, [15]),
+            (32, 16, [15]),
+            (33, 16, [15, 31]),
+            (8, 8, []),
+            (9, 8, [7]),
+            (16, 8, [7]),
+            (17, 8, [7, 15]),
+        ],
+    )
+    def test_positions(self, num_samples: int, frequency: int, expected: list[int]) -> None:
+        assert compute_middle_block_positions(num_samples, frequency) == expected
+
+
+# =============================================================================
+# Test compute_extended_positions
+# =============================================================================
+
+
+class TestComputeExtendedPositions:
+    """Tests for compute_extended_positions function."""
+
+    @pytest.mark.parametrize(
+        "num_blocks,multiplier,expected",
+        [
+            # No multiplier or zero
+            (5, 0, set()),
+            (5, -1, set()),
+            # Multiplier 2: blocks 2,4,6... (1-indexed) -> indices 1,3,5... (0-indexed)
+            (1, 2, set()),  # only 1 block, no extended
+            (2, 2, {1}),  # blocks 1,2 -> block 2 extended -> index 1
+            (3, 2, {1}),  # blocks 1,2,3 -> block 2 extended -> index 1
+            (4, 2, {1, 3}),  # blocks 1,2,3,4 -> blocks 2,4 extended -> indices 1,3
+            (6, 2, {1, 3, 5}),  # blocks 2,4,6 extended
+            # Multiplier 3: blocks 3,6,9... (1-indexed) -> indices 2,5,8... (0-indexed)
+            (2, 3, set()),
+            (3, 3, {2}),
+            (6, 3, {2, 5}),
+            (9, 3, {2, 5, 8}),
+            # Multiplier 1: every block is extended
+            (5, 1, {0, 1, 2, 3, 4}),
+        ],
+    )
+    def test_extended_positions(
+        self, num_blocks: int, multiplier: int, expected: set[int]
+    ) -> None:
+        assert compute_extended_positions(num_blocks, multiplier) == expected
+
+
+# =============================================================================
+# Test compute_queue_counts - All Patterns
+# =============================================================================
+
+
+class TestComputeQueueCounts:
+    """Tests for compute_queue_counts with all patterns and sample counts."""
+
+    @pytest.mark.parametrize("tech,pattern_name", ALL_PATTERN_KEYS)
+    @pytest.mark.parametrize("num_samples", SAMPLE_COUNTS)
+    def test_queue_counts(
+        self,
+        all_patterns: dict[str, dict[str, QueuePattern]],
+        tech: str,
+        pattern_name: str,
+        num_samples: int,
+    ) -> None:
+        """Test queue counts for all pattern/sample combinations."""
+        pattern = all_patterns[tech][pattern_name]
+        result = compute_queue_counts(num_samples, pattern)
+
+        # Compute expected values
+        freq = pattern.run_QC_after_n_samples
+        num_middle_blocks = (num_samples - 1) // freq if num_samples > 0 else 0
+
+        # Extended blocks calculation
+        multiplier = pattern.middle_extended_frequency_multiplier or 0
+        if multiplier > 0 and pattern.middle_extended:
+            num_extended = num_middle_blocks // multiplier
+            num_regular = num_middle_blocks - num_extended
+        else:
+            num_extended = 0
+            num_regular = num_middle_blocks
+
+        start_len = len(pattern.start)
+        middle_len = len(pattern.middle)
+        extended_len = len(pattern.middle_extended or [])
+        end_len = len(pattern.end)
+
+        expected_middle_qcs = num_regular * middle_len
+        expected_extended_qcs = num_extended * extended_len
+        expected_total_qcs = start_len + expected_middle_qcs + expected_extended_qcs + end_len
+
+        # Assertions
+        assert result["start_qcs"] == start_len
+        assert result["middle_blocks"] == num_middle_blocks
+        assert result["regular_middle_blocks"] == num_regular
+        assert result["middle_qcs"] == expected_middle_qcs
+        assert result["extended_blocks"] == num_extended
+        assert result["extended_qcs"] == expected_extended_qcs
+        assert result["end_qcs"] == end_len
+        assert result["user_samples"] == num_samples
+        assert result["total_qcs"] == expected_total_qcs
+        assert result["total"] == expected_total_qcs + num_samples
+
+
+# =============================================================================
+# Test Extended Patterns Specifically
+# =============================================================================
+
+
+class TestComputeQueueCountsExtended:
+    """Tests specifically for patterns with middle_extended."""
+
+    @pytest.mark.parametrize("tech,pattern_name", EXTENDED_PATTERN_KEYS)
+    def test_has_extended_config(
+        self,
+        all_patterns: dict[str, dict[str, QueuePattern]],
+        tech: str,
+        pattern_name: str,
+    ) -> None:
+        """Verify extended patterns have the required config."""
+        pattern = all_patterns[tech][pattern_name]
+        assert pattern.middle_extended is not None
+        assert len(pattern.middle_extended) > 0
+        assert pattern.middle_extended_frequency_multiplier is not None
+        assert pattern.middle_extended_frequency_multiplier > 0
+
+    @pytest.mark.parametrize("tech,pattern_name", EXTENDED_PATTERN_KEYS)
+    @pytest.mark.parametrize("num_samples", SAMPLE_COUNTS)
+    def test_extended_blocks_computed(
+        self,
+        all_patterns: dict[str, dict[str, QueuePattern]],
+        tech: str,
+        pattern_name: str,
+        num_samples: int,
+    ) -> None:
+        """Verify extended blocks are correctly computed for metabolomics/lipidomics."""
+        pattern = all_patterns[tech][pattern_name]
+        result = compute_queue_counts(num_samples, pattern)
+
+        freq = pattern.run_QC_after_n_samples
+        num_middle_blocks = (num_samples - 1) // freq if num_samples > 0 else 0
+        multiplier = pattern.middle_extended_frequency_multiplier
+
+        expected_extended = num_middle_blocks // multiplier if multiplier else 0
+
+        assert result["extended_blocks"] == expected_extended
+        assert result["regular_middle_blocks"] == num_middle_blocks - expected_extended
+        assert result["middle_blocks"] == num_middle_blocks
+
+
+# =============================================================================
+# Test Edge Cases
+# =============================================================================
+
+
+class TestComputeQueueCountsEdgeCases:
+    """Test edge cases for compute_queue_counts."""
+
+    @pytest.mark.parametrize("tech,pattern_name", ALL_PATTERN_KEYS)
+    @pytest.mark.parametrize("num_samples", [0, 1])
+    def test_zero_and_one_sample(
+        self,
+        all_patterns: dict[str, dict[str, QueuePattern]],
+        tech: str,
+        pattern_name: str,
+        num_samples: int,
+    ) -> None:
+        """Test with zero or one sample - should have no middle blocks."""
+        pattern = all_patterns[tech][pattern_name]
+        result = compute_queue_counts(num_samples, pattern)
+
+        assert result["user_samples"] == num_samples
+        assert result["middle_blocks"] == 0
+        assert result["middle_qcs"] == 0
+        assert result["extended_blocks"] == 0
+        assert result["extended_qcs"] == 0
+
+    @pytest.mark.parametrize("tech,pattern_name", ALL_PATTERN_KEYS)
+    def test_exactly_at_frequency(
+        self,
+        all_patterns: dict[str, dict[str, QueuePattern]],
+        tech: str,
+        pattern_name: str,
+    ) -> None:
+        """Test when num_samples equals frequency (no middle block)."""
+        pattern = all_patterns[tech][pattern_name]
+        freq = pattern.run_QC_after_n_samples
+        result = compute_queue_counts(freq, pattern)
+
+        # (freq-1)//freq = 0
+        assert result["middle_blocks"] == 0
+        assert result["extended_blocks"] == 0
+
+    @pytest.mark.parametrize("tech,pattern_name", ALL_PATTERN_KEYS)
+    def test_one_over_frequency(
+        self,
+        all_patterns: dict[str, dict[str, QueuePattern]],
+        tech: str,
+        pattern_name: str,
+    ) -> None:
+        """Test when num_samples is frequency + 1 (one middle block)."""
+        pattern = all_patterns[tech][pattern_name]
+        freq = pattern.run_QC_after_n_samples
+        result = compute_queue_counts(freq + 1, pattern)
+
+        # (freq+1-1)//freq = 1
+        assert result["middle_blocks"] == 1
+
+        # With 1 block: extended only if multiplier is 1
+        multiplier = pattern.middle_extended_frequency_multiplier or 0
+        if multiplier == 1 and pattern.middle_extended:
+            assert result["extended_blocks"] == 1
+            assert result["regular_middle_blocks"] == 0
+        else:
+            assert result["extended_blocks"] == 0
+            assert result["regular_middle_blocks"] == 1
+
+
+# =============================================================================
+# Test Consistency
+# =============================================================================
+
+
+class TestComputeQueueCountsConsistency:
+    """Test internal consistency of compute_queue_counts results."""
+
+    @pytest.mark.parametrize("tech,pattern_name", ALL_PATTERN_KEYS)
+    @pytest.mark.parametrize("num_samples", SAMPLE_COUNTS)
+    def test_totals_are_consistent(
+        self,
+        all_patterns: dict[str, dict[str, QueuePattern]],
+        tech: str,
+        pattern_name: str,
+        num_samples: int,
+    ) -> None:
+        """Verify totals equal sum of components."""
+        pattern = all_patterns[tech][pattern_name]
+        result = compute_queue_counts(num_samples, pattern)
+
+        # total = start + user + middle + extended + end
+        assert result["total"] == (
+            result["start_qcs"]
+            + result["user_samples"]
+            + result["middle_qcs"]
+            + result["extended_qcs"]
+            + result["end_qcs"]
+        )
+
+        # total_qcs = start + middle + extended + end
+        assert result["total_qcs"] == (
+            result["start_qcs"]
+            + result["middle_qcs"]
+            + result["extended_qcs"]
+            + result["end_qcs"]
+        )
+
+        # middle_blocks = regular + extended
+        assert result["middle_blocks"] == (
+            result["regular_middle_blocks"] + result["extended_blocks"]
+        )
+
+
+# =============================================================================
+# Test build_queue_structure
+# =============================================================================
+
+
+class TestBuildQueueStructure:
+    """Tests for build_queue_structure function."""
+
+    @pytest.mark.parametrize("tech,pattern_name", ALL_PATTERN_KEYS)
+    @pytest.mark.parametrize("num_samples", SAMPLE_COUNTS)
+    def test_structure_length_matches_counts(
+        self,
+        all_patterns: dict[str, dict[str, QueuePattern]],
+        tech: str,
+        pattern_name: str,
+        num_samples: int,
+    ) -> None:
+        """Verify structure length matches computed total."""
+        pattern = all_patterns[tech][pattern_name]
+        structure = build_queue_structure(num_samples, pattern)
+        counts = compute_queue_counts(num_samples, pattern)
+
+        assert len(structure) == counts["total"]
+
+    @pytest.mark.parametrize("tech,pattern_name", ALL_PATTERN_KEYS)
+    @pytest.mark.parametrize("num_samples", SAMPLE_COUNTS)
+    def test_structure_user_count_matches(
+        self,
+        all_patterns: dict[str, dict[str, QueuePattern]],
+        tech: str,
+        pattern_name: str,
+        num_samples: int,
+    ) -> None:
+        """Verify structure has correct number of user slots."""
+        pattern = all_patterns[tech][pattern_name]
+        structure = build_queue_structure(num_samples, pattern)
+
+        user_count = sum(1 for s in structure if s == "default")
+        assert user_count == num_samples
+
+    @pytest.mark.parametrize("tech,pattern_name", ALL_PATTERN_KEYS)
+    def test_structure_starts_with_pattern_start(
+        self,
+        all_patterns: dict[str, dict[str, QueuePattern]],
+        tech: str,
+        pattern_name: str,
+    ) -> None:
+        """Verify structure starts with pattern.start."""
+        pattern = all_patterns[tech][pattern_name]
+        structure = build_queue_structure(10, pattern)
+
+        start_len = len(pattern.start)
+        assert structure[:start_len] == pattern.start
+
+    @pytest.mark.parametrize("tech,pattern_name", ALL_PATTERN_KEYS)
+    def test_structure_ends_with_pattern_end(
+        self,
+        all_patterns: dict[str, dict[str, QueuePattern]],
+        tech: str,
+        pattern_name: str,
+    ) -> None:
+        """Verify structure ends with pattern.end."""
+        pattern = all_patterns[tech][pattern_name]
+        structure = build_queue_structure(10, pattern)
+
+        end_len = len(pattern.end)
+        assert structure[-end_len:] == pattern.end
+
+    def test_structure_with_zero_samples(
+        self,
+        all_patterns: dict[str, dict[str, QueuePattern]],
+    ) -> None:
+        """Verify structure with 0 samples is just start + end."""
+        pattern = all_patterns["proteomics"]["standard"]
+        structure = build_queue_structure(0, pattern)
+
+        expected = pattern.start + pattern.end
+        assert structure == expected
