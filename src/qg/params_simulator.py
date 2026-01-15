@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date
+from pathlib import Path
 
 from qg.config import ConfigBundle
 from qg.params_models import InputSample, QueueInput, QueueParameters
@@ -99,3 +101,51 @@ def simulate_params(
     samples = simulate_samples(num_samples, container_id, sampler)
 
     return QueueInput(parameters=params, samples=samples)
+
+
+def write_params(queue_input: QueueInput, output_path: str | Path) -> Path:
+    """Write queue parameters to JSON file.
+
+    Serializes QueueInput using the expected file format with aliased field names.
+
+    Args:
+        queue_input: The QueueInput object to serialize.
+        output_path: Path to write the JSON file.
+
+    Returns:
+        Path to the written file.
+    """
+    output_path = Path(output_path)
+
+    # Build parameters dict with file-format field names
+    params = queue_input.parameters
+    params_dict = {
+        "container_id": params.container_id,
+        "technology": params.technology,
+        "instrument": params.instrument,
+        "sampler": params.sampler,
+        "software": params.output_format,  # File uses "software"
+        "pattern": params.queue_pattern,  # File uses "pattern"
+        "polarity": params.polarity,
+        "date": params.date,
+        "user": params.user,
+        "method": params.method,
+        "randomization": params.randomization,
+        "inj_vol_override": params.inj_vol_override,
+    }
+
+    # Serialize samples with aliases ("Sample Name", "Sample ID", etc.)
+    samples_list = [
+        sample.model_dump(by_alias=True, exclude_none=True)
+        for sample in queue_input.samples
+    ]
+
+    output_dict = {
+        "parameters": params_dict,
+        "samples": samples_list,
+    }
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(output_dict, indent=2))
+
+    return output_path

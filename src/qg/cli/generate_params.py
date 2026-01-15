@@ -24,7 +24,8 @@ from bfabric import Bfabric
 from rich.console import Console
 
 from qg.config import ConfigBundle, load_all_configs
-from qg.config_models import requires_polarity
+from qg.params_models import InputSample, QueueInput, QueueParameters
+from qg.params_simulator import write_params
 
 console = Console()
 
@@ -74,7 +75,7 @@ def load_orders(
     return orders
 
 
-def fetch_samples(client: Bfabric, container_id: int) -> list[dict]:
+def fetch_samples(client: Bfabric, container_id: int) -> list[InputSample]:
     """Fetch samples from B-Fabric for a container."""
     result = client.read("sample", {"containerid": container_id}, max_results=None)
     samples_df = result.to_polars()
@@ -84,19 +85,16 @@ def fetch_samples(client: Bfabric, container_id: int) -> list[dict]:
 
     samples = []
     for row in samples_df.iter_rows(named=True):
-        sample = {
-            "Sample Name": row.get("name", ""),
-            "Sample ID": row.get("id"),
-        }
-        if "tubeid" in row and row["tubeid"]:
-            sample["Tube ID"] = row["tubeid"]
-        if "_position" in row and row["_position"]:
-            sample["Position"] = row["_position"]
-        if "_gridposition" in row and row["_gridposition"]:
-            sample["GridPosition"] = row["_gridposition"]
+        sample = InputSample(
+            sample_name=row.get("name", ""),
+            sample_id=row.get("id"),
+            tube_id=row.get("tubeid"),
+            position=row.get("_position"),
+            grid_position=row.get("_gridposition"),
+        )
         samples.append(sample)
 
-    return sorted(samples, key=lambda x: x["Sample ID"])
+    return sorted(samples, key=lambda x: x.sample_id)
 
 
 def get_valid_combinations(
@@ -144,31 +142,27 @@ def get_valid_combinations(
 def generate_queue_params(
     order: dict,
     combination: dict,
-    samples: list[dict],
+    samples: list[InputSample],
     run_date: str,
     user: str = "",
-) -> dict:
-    """Generate a queue parameters dictionary."""
-    technology = order["technology"]
-    polarity = ["pos", "neg"] if requires_polarity(technology) else []
+) -> QueueInput:
+    """Generate a QueueInput from order and combination data."""
+    params = QueueParameters(
+        container_id=order["container_id"],
+        technology=order["technology"],
+        instrument=combination["instrument"],
+        sampler=combination["sampler"],
+        output_format=combination["output_format"],
+        queue_pattern=combination["queue_pattern"],
+        polarity=[],  # Model validator sets default for metabolomics/lipidomics
+        date=run_date,
+        user=user,
+        method="",
+        randomization=False,
+        inj_vol_override=None,
+    )
 
-    return {
-        "parameters": {
-            "container_id": order["container_id"],
-            "technology": technology,
-            "instrument": combination["instrument"],
-            "sampler": combination["sampler"],
-            "output_format": combination["output_format"],
-            "queue_pattern": combination["queue_pattern"],
-            "polarity": polarity,
-            "date": run_date,
-            "user": user,
-            "method": "",
-            "randomization": False,
-            "inj_vol_override": None,
-        },
-        "samples": samples,
-    }
+    return QueueInput(parameters=params, samples=samples)
 
 
 def params_filename(order: dict, combination: dict) -> str:
@@ -310,11 +304,11 @@ def cli_main() -> None:
             console.print(f"  Fetched [cyan]{len(samples)}[/cyan] samples")
 
             for combo in combos:
-                params = generate_queue_params(order, combo, samples, run_date, user)
+                queue_input = generate_queue_params(order, combo, samples, run_date, user)
                 filename = params_filename(order, combo)
                 filepath = output_dir / filename
 
-                filepath.write_text(json.dumps(params, indent=2))
+                write_params(queue_input, filepath)
                 console.print(f"    Created: [green]{filename}[/green]")
                 total_params += 1
 

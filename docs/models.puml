@@ -8,11 +8,17 @@ title Queue Generation Configuration Models
 ' ============ Constants ============
 
 note as Constants
-  **POLARITY_TECHNOLOGIES** = {"metabolomics", "lipidomics"}
   **VALID_PLACEHOLDERS** = {date, run, container, sample_id, sample_name, polarity}
-  **VALID_SAMPLERS** = {Vanquish.vial, Vanquish.plate, MClass48.vial, MClass48.plate, Evosep.vial, Evosep.plate}
   --
-  requires_polarity(technology: str) → bool
+  **Runtime caches (set by ConfigBundle):**
+  _polarity_technologies: set[str]
+  _valid_samplers: set[str]
+  --
+  set_polarity_technologies(technologies: set[str])
+  set_valid_samplers(samplers: set[str])
+  get_polarity_technologies() -> set[str]
+  get_valid_samplers() -> set[str]
+  requires_polarity(technology: str) -> bool
 end note
 
 ' ============ CSV-based Config Models ============
@@ -50,7 +56,7 @@ package "CSV Config Models" #LightBlue {
     class InstrumentPattern {
         technology: str
         instrument: str
-        pattern: str
+        queue_pattern: str
         is_default: bool
     }
 
@@ -180,7 +186,7 @@ package "QC Layout Models (TOML)" #LightPink {
         get_samplers_for_technology(tech): list[str]
     }
 
-    note "**QCPosition** = str | EvosepPosition\n\nStructure: tech → sampler_key → sample_id → QCPosition\nFallback: 'Vanquish.vial' → 'Vanquish'" as N1
+    note "**QCPosition** = str | EvosepPosition\n\nStructure: tech -> sampler_key -> sample_id -> QCPosition\nFallback: 'Vanquish.vial' -> 'Vanquish'" as N1
     QCLayoutsConfig .. N1
     EvosepPosition .. N1
 }

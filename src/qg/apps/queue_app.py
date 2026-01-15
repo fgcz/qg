@@ -8,7 +8,6 @@ with app.setup:
     import polars as pl
     import pydantic
     from bfabric import Bfabric
-    from pydantic import BaseModel
     import functools
     import json
     import operator
@@ -17,6 +16,8 @@ with app.setup:
 
     from qg.config import load_all_configs
     from qg.config_models import requires_polarity
+    from qg.params_models import InputSample, QueueInput, QueueParameters
+    from qg.params_simulator import write_params
 
 
 @app.cell
@@ -430,23 +431,6 @@ def _(selected_samples_df):
     return (sample_df,)
 
 
-@app.class_definition
-class QueueParameters(BaseModel):
-    """New queue parameters matching queue_generator.py input format."""
-    container_id: int
-    technology: str
-    instrument: str
-    sampler: str
-    output_format: str
-    queue_pattern: str
-    polarity: list[str] = []
-    date: str
-    user: str = ""
-    method: str = ""
-    randomization: bool = False
-    inj_vol_override: float | None = None
-
-
 @app.cell
 def _(
     container_id,
@@ -522,17 +506,25 @@ def _(queue_parameters):
 @app.cell
 def _(CONFIG_DIR, container_id, queue_parameters, sample_df, save_button):
     mo.stop(not save_button.value or queue_parameters is None)
-    _queue_input = {
-        "parameters": queue_parameters.model_dump(mode="json"),
-        "samples": sample_df.to_dicts(),
-    }
+    # Build InputSample objects from sample_df
+    _samples = [
+        InputSample(
+            sample_name=row["Sample Name"],
+            sample_id=row["Sample ID"],
+            tube_id=row.get("Tube ID"),
+            position=row.get("Position"),
+            grid_position=row.get("GridPosition"),
+        )
+        for row in sample_df.to_dicts()
+    ]
+    _queue_input = QueueInput(parameters=queue_parameters, samples=_samples)
     _examples_dir = CONFIG_DIR / "examples"
     _examples_dir.mkdir(exist_ok=True)
     _n_samples = len(sample_df)
     _tech = queue_parameters.technology
     _sampler = queue_parameters.sampler.replace(".", "_")
     _filepath = _examples_dir / f"{_tech}_{_sampler}_c{container_id}_n{_n_samples}.json"
-    _filepath.write_text(json.dumps(_queue_input, indent=2))
+    write_params(_queue_input, _filepath)
     mo.md(f"**Saved configuration to `{_filepath}`**")
     return
 
