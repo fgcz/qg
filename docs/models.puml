@@ -86,9 +86,9 @@ package "CSV Config Models" #LightBlue {
     CombinationsConfig "1" *-- "*" Combination
 }
 
-' ============ Sampler Models (TOML) ============
+' ============ Sampler Models (config_models_samplers.py) ============
 
-package "Sampler Models (TOML)" #LightGreen {
+package "Sampler Models (config_models_samplers.py)" #LightGreen {
     class GridContainer {
         container_type: "Vial" | "Plate"
         position_source: "generated" | "input"

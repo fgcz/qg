@@ -191,6 +191,7 @@ def load_output_formats(path: Path | str) -> OutputFormatsConfig:
 class ConfigBundle:
     """Consolidated container for all configuration files."""
 
+    config_dir: Path  # Directory where configs are loaded from
     samples: SamplesConfig
     instruments: InstrumentsConfig
     instrument_patterns: InstrumentPatternsConfig
@@ -507,6 +508,7 @@ def load_all_configs(config_dir: Path | str) -> ConfigBundle:
 
     # Step 2: Load and validate all configs with dynamic values in place
     return ConfigBundle(
+        config_dir=config_dir,
         samples=load_samples(config_dir / "samples.csv"),
         instruments=load_instruments(config_dir / "instruments.csv"),
         instrument_patterns=load_instrument_patterns(config_dir / "instrument_patterns.csv"),

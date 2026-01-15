@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Annotated
 
 import cyclopts
 
+from qg.builder import QueueGeneratorBuilder
 from qg.config import load_all_configs
-from qg.generator import QueueGenerator, QueueInput
+from qg.generator import format_csv
+from qg.params_models import QueueInput
 
 
 def cli_main() -> None:
@@ -33,20 +36,37 @@ def cli_main() -> None:
             Path,
             cyclopts.Parameter(name=["--config-dir", "-c"], help="Config directory"),
         ] = Path("qg_configs"),
+        verbose: Annotated[
+            bool,
+            cyclopts.Parameter(name=["--verbose", "-v"], help="Enable verbose logging"),
+        ] = False,
     ) -> None:
         """Generate queue CSV from input JSON."""
-        # Load configs (required for Pydantic validation)
-        load_all_configs(config_dir)
+        # Configure logging
+        if verbose:
+            logging.basicConfig(
+                level=logging.INFO,
+                format="%(name)s: %(message)s",
+            )
+
+        # Load configs
+        configs = load_all_configs(config_dir)
 
         # Load and parse input
         with open(input_json) as f:
             input_data = json.load(f)
         queue_input = QueueInput(**input_data)
 
-        # Generate queue
-        generator = QueueGenerator(config_dir)
-        rows = generator.generate(queue_input)
-        csv_output = generator.to_csv(rows, queue_input.parameters.output_format)
+        # Build generator and generate
+        builder = QueueGeneratorBuilder(configs)
+        generator = builder.build(queue_input.parameters)
+        rows = generator.generate(queue_input.samples)
+
+        # Format output
+        output_format = configs.output_formats.get_format(
+            queue_input.parameters.output_format
+        )
+        csv_output = format_csv(rows, output_format)
 
         # Output
         if output:
