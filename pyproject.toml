@@ -9,6 +9,7 @@ dependencies = [
     "bfabric>=1.16.1",
     "cyclopts>=4.4.4",
     "ipython>=9.9.0",
+    "loguru>=0.7.0",
     "marimo>=0.18.4",
     "pandas>=2.3.3",
     "polars",
@@ -41,6 +42,7 @@ qg = "qg.cli.generate_queues:cli_main"
 qg-validate = "qg.cli.validate_config:cli_main"
 qg-find-projects = "qg.cli.find_projects:main"
 qg-params = "qg.cli.generate_params:cli_main"
+qg-tools = "qg.tools.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

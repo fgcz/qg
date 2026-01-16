@@ -8,8 +8,10 @@ Clean separation of concerns:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Callable, Literal
+
+import polars as pl
 
 from qg.config_models import Sample, QueuePattern, OutputFormat
 from qg.params_models import InputSample
@@ -249,17 +251,14 @@ class QueueGenerator:
 
 def format_csv(rows: list[QueueRow], output_format: OutputFormat) -> str:
     """Format queue rows as CSV for the given output format."""
-    columns = output_format.columns
-    lines = [",".join(columns.keys())]
+    df = pl.DataFrame([asdict(row) for row in rows])
 
-    for row in rows:
-        values = []
-        for internal_field in columns.values():
-            value = getattr(row, internal_field, "") or ""
-            value = str(value)
-            if "," in value:
-                value = f'"{value}"'
-            values.append(value)
-        lines.append(",".join(values))
+    # Select and rename columns per output format
+    # columns maps: {"Output Name": "internal_field", ...}
+    df = df.select([
+        pl.col(internal).alias(output_name)
+        for output_name, internal in output_format.columns.items()
+        if internal in df.columns
+    ])
 
-    return "\n".join(lines)
+    return df.write_csv()

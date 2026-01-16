@@ -152,25 +152,25 @@ rule sld_to_csv:
 
 
 rule convert_sld:
-    """Parse a single SLD file to CSV."""
+    """Parse a single SLD file to CSV with sanity check and sanitization."""
     input:
-        sld="reference/sld/{instrument}/{sample}.sld",
-        parser="tools/sld_to_csv.py"
+        sld="reference/sld/{instrument}/{sample}.sld"
     output:
         csv="reference/csv/{instrument}/{sample}.csv"
+    log:
+        "reference/csv/{instrument}/{sample}.log"
     shell:
-        "python tools/sld_to_csv.py '{input.sld}' --csv '{output.csv}'"
+        "qg-tools sld-to-csv '{input.sld}' --check --sanitize --log-file '{log}' --csv '{output.csv}'"
 
 
 rule merge_csvs:
     """Merge all CSVs into single file for analysis."""
     input:
-        csvs=ALL_CSVS,
-        script="tools/queue_analysis_merge.py"
+        csvs=ALL_CSVS
     output:
         "reference/merged.csv"
     shell:
-        "python tools/queue_analysis_merge.py"
+        "qg-tools merge reference/csv --output {output}"
 
 
 # =============================================================================
@@ -186,10 +186,10 @@ checkpoint params:
     shell:
         """
         mkdir -p params_json/astral params_json/ascend params_json/lumos2 params_json/exploris2
-        python tools/csv_to_params.py reference/csv/astral/ -o params_json/astral/
-        python tools/csv_to_params.py reference/csv/ascend/ -o params_json/ascend/
-        python tools/csv_to_params.py reference/csv/lumos2/ -o params_json/lumos2/
-        python tools/csv_to_params.py reference/csv/exploris2/ -o params_json/exploris2/
+        qg-tools csv-to-params reference/csv/astral/ -o params_json/astral/
+        qg-tools csv-to-params reference/csv/ascend/ -o params_json/ascend/
+        qg-tools csv-to-params reference/csv/lumos2/ -o params_json/lumos2/
+        qg-tools csv-to-params reference/csv/exploris2/ -o params_json/exploris2/
         """
 
 
@@ -211,7 +211,7 @@ rule generate_queue:
         csv="generated/astral/{name}.csv"
     shell:
         """
-        cd .. && qg test_data/{input.params} -o test_data/{output.csv} -q 2>/dev/null || touch test_data/{output.csv}
+        cd .. && qg test_data/{input.params} -o test_data/{output.csv} 2>/dev/null || touch test_data/{output.csv}
         """
 
 
@@ -226,7 +226,7 @@ rule compare:
         original=lambda wildcards: get_original_csv(wildcards.name)
     shell:
         """
-        python tools/compare_queues.py {input.generated} {params.original} {input.config} {output.result}
+        qg-tools compare {input.generated} {params.original} {input.config} {output.result}
         """
 
 
@@ -237,7 +237,7 @@ rule summary:
     output:
         "results/test_results.csv"
     shell:
-        "python tools/summarize_results.py {output} {input}"
+        "qg-tools summarize {output} {input}"
 
 
 # =============================================================================
@@ -249,7 +249,7 @@ rule marimo_orig_qgen:
     input:
         "results/test_results.csv"
     shell:
-        "marimo run tools/test_results_app.py"
+        "marimo run ../src/qg/tools_apps/compare_existing_generated.py"
 
 
 rule marimo_queue_analysis:
@@ -257,7 +257,7 @@ rule marimo_queue_analysis:
     input:
         "reference/merged.csv"
     shell:
-        "marimo run tools/queue_analysis_marimo.py"
+        "marimo run ../src/qg/tools_apps/queue_analysis_marimo.py"
 
 
 # =============================================================================

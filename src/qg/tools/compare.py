@@ -1,19 +1,26 @@
-"""Compare generated queue CSV with original.
+"""Compare generated queue CSV with original reference.
 
-Snakemake script that compares:
+Compares:
 - Sample counts
 - Sample IDs present
 - QC injection counts
 - Position plate usage
 """
 
+from __future__ import annotations
+
 import json
 import re
 from pathlib import Path
+from typing import Annotated
 
+import cyclopts
 import polars as pl
 
-# Snakemake provides: snakemake.input, snakemake.output, snakemake.params
+app = cyclopts.App(
+    name="compare",
+    help="Compare generated queue CSV with original reference.",
+)
 
 SAMPLE_ID_PATTERN = re.compile(r"_S(\d+)_")
 QC_PATTERNS = re.compile(r"(autoQC|clean|blank)", re.IGNORECASE)
@@ -49,33 +56,36 @@ def get_plates_used(df: pl.DataFrame, position_col: str) -> set[str]:
     return plates
 
 
-def compare_queues(generated_path: str, original_path: str, config_path: str) -> dict:
+def compare_queues(generated_path: str | Path, original_path: str | Path, config_path: str | Path) -> dict:
     """Compare generated and original queue CSVs."""
     result = {
-        "generated_file": generated_path,
-        "original_file": original_path,
-        "config_file": config_path,
+        "generated_file": str(generated_path),
+        "original_file": str(original_path),
+        "config_file": str(config_path),
         "status": "unknown",
         "errors": [],
         "warnings": [],
         "metrics": {},
     }
 
+    generated_path = Path(generated_path)
+    original_path = Path(original_path)
+
     # Check files exist
-    if not Path(generated_path).exists():
+    if not generated_path.exists():
         result["status"] = "error"
         result["comparison_result"] = 0
         result["errors"].append("Generated file does not exist")
         return result
 
-    if not Path(original_path).exists():
+    if not original_path.exists():
         result["status"] = "error"
         result["comparison_result"] = 0
         result["errors"].append(f"Original file does not exist: {original_path}")
         return result
 
     # Check generated file is not empty
-    if Path(generated_path).stat().st_size == 0:
+    if generated_path.stat().st_size == 0:
         result["status"] = "error"
         result["comparison_result"] = 0
         result["errors"].append("Generated file is empty (generation failed)")
@@ -147,19 +157,31 @@ def compare_queues(generated_path: str, original_path: str, config_path: str) ->
     return result
 
 
-if __name__ == "__main__":
-    import sys
+@app.default
+def main(
+    generated: Annotated[
+        Path,
+        cyclopts.Parameter(help="Path to generated queue CSV"),
+    ],
+    original: Annotated[
+        Path,
+        cyclopts.Parameter(help="Path to original reference CSV"),
+    ],
+    config: Annotated[
+        Path,
+        cyclopts.Parameter(help="Path to queue params JSON config"),
+    ],
+    output: Annotated[
+        Path,
+        cyclopts.Parameter(help="Output JSON file for comparison result"),
+    ],
+) -> None:
+    """Compare generated queue CSV with original reference CSV."""
+    result = compare_queues(generated, original, config, )
 
-    if len(sys.argv) != 5:
-        print("Usage: compare_queues.py <generated> <original> <config> <output>")
-        sys.exit(1)
-
-    generated_path = sys.argv[1]
-    original_path = sys.argv[2]
-    config_path = sys.argv[3]
-    output_path = sys.argv[4]
-
-    result = compare_queues(generated_path, original_path, config_path)
-
-    with open(output_path, "w") as f:
+    with open(output, "w") as f:
         json.dump(result, f, indent=2)
+
+
+if __name__ == "__main__":
+    app()

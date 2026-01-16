@@ -13,3 +13,4 @@ __marimo__/
 queue_files/
 *.pdf
 *.svg
+.snakemake/

@@ -1,24 +1,27 @@
-#!/usr/bin/env python3
 """Merge all instrument CSV files into a single file with source metadata.
 
-This script creates reference/merged.csv which is used by queue_analysis_marimo.py.
-
-Usage (from test_data/):
-    uv run python tools/queue_analysis_merge.py
-
-Output:
-    reference/merged.csv - Combined data from all instruments
+Creates reference/merged.csv which is used for queue analysis.
 """
 
-import polars as pl
+from __future__ import annotations
+
 from pathlib import Path
+from typing import Annotated
+
+import cyclopts
+import polars as pl
+
+app = cyclopts.App(
+    name="merge",
+    help="Merge all instrument CSV files into a single file.",
+)
 
 
-def merge_all_csvs(base_path: Path = Path("reference/csv")) -> pl.DataFrame:
+def merge_all_csvs(base_path: Path) -> pl.DataFrame:
     """Merge all CSV files from all instruments into a single DataFrame.
 
     Args:
-        base_path: Path to reference/csv/ directory containing instrument subdirs
+        base_path: Path to directory containing instrument subdirs (e.g., reference/csv/)
     """
     all_dfs = []
 
@@ -75,8 +78,24 @@ def classify_sample(filename: str) -> str:
         return "sample"
 
 
-if __name__ == "__main__":
-    merged = merge_all_csvs()
+@app.default
+def main(
+    input_dir: Annotated[
+        Path,
+        cyclopts.Parameter(help="Input directory containing instrument subdirs with CSVs"),
+    ] = Path("reference/csv"),
+    *,
+    output: Annotated[
+        Path,
+        cyclopts.Parameter(name=["--output", "-o"], help="Output merged CSV file"),
+    ] = Path("reference/merged.csv"),
+) -> None:
+    """Merge all CSVs from instrument subdirectories into a single file."""
+    merged = merge_all_csvs(input_dir)
+
+    if merged.height == 0:
+        print("No data to merge")
+        return
 
     # Add sample_type classification
     merged = merged.with_columns([
@@ -84,10 +103,14 @@ if __name__ == "__main__":
     ])
 
     # Save to CSV
-    output_path = Path("reference/merged.csv")
-    merged.write_csv(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    merged.write_csv(output)
 
     print(f"Merged {merged.height} rows from {merged['source_file'].n_unique()} files")
     print(f"Instruments: {merged['instrument'].unique().to_list()}")
     print(f"Sample types: {merged.group_by('sample_type').len().sort('len', descending=True)}")
-    print(f"Saved to: {output_path}")
+    print(f"Saved to: {output}")
+
+
+if __name__ == "__main__":
+    app()
