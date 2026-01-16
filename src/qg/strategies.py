@@ -19,6 +19,31 @@ from qg.positions import SamplerPositionGenerator, get_sampler
 # =============================================================================
 
 
+def _merge_positions(
+    structure: list[str],
+    user_positions: list[str],
+    qc_layout: dict[str, QCPosition],
+) -> list[str]:
+    """Merge user positions with QC positions based on structure."""
+    positions = []
+    user_idx = 0
+
+    for sample_id in structure:
+        if sample_id == "default":
+            positions.append(user_positions[user_idx])
+            user_idx += 1
+        else:
+            pos = qc_layout.get(sample_id, "")
+            if isinstance(pos, dict):
+                positions.append(
+                    f"tray{pos.get('tray', 0)}:{pos.get('position_start', 0)}"
+                )
+            else:
+                positions.append(str(pos))
+
+    return positions
+
+
 class PositionAssigner(Protocol):
     """Protocol for assigning positions to all slots in a queue structure.
 
@@ -59,36 +84,9 @@ class GeneratedPositionAssigner:
         samples: Sequence[InputSample],
     ) -> list[str]:
         """Generate user positions, merge with QC positions."""
-        # Count user slots
         num_user = structure.count("default")
-
-        # Generate user positions
         user_positions = self.sampler.generate_positions(num_user)
-
-        # Merge into full position list
-        return self._merge_positions(structure, user_positions)
-
-    def _merge_positions(
-        self, structure: list[str], user_positions: list[str]
-    ) -> list[str]:
-        """Merge user positions with QC positions based on structure."""
-        positions = []
-        user_idx = 0
-
-        for sample_id in structure:
-            if sample_id == "default":
-                positions.append(user_positions[user_idx])
-                user_idx += 1
-            else:
-                pos = self.qc_layout.get(sample_id, "")
-                if isinstance(pos, dict):
-                    positions.append(
-                        f"tray{pos.get('tray', 0)}:{pos.get('position_start', 0)}"
-                    )
-                else:
-                    positions.append(str(pos))
-
-        return positions
+        return _merge_positions(structure, user_positions, self.qc_layout)
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,7 +105,6 @@ class InputPositionAssigner:
         samples: Sequence[InputSample],
     ) -> list[str]:
         """Extract user positions from samples, merge with QC positions."""
-        # Count user slots
         num_user = structure.count("default")
 
         if len(samples) < num_user:
@@ -115,38 +112,13 @@ class InputPositionAssigner:
                 f"Not enough input samples ({len(samples)}) for {num_user} positions"
             )
 
-        # Extract user positions from samples
         user_positions = [s.grid_position or "" for s in samples[:num_user]]
-
-        # Merge into full position list
-        return self._merge_positions(structure, user_positions)
-
-    def _merge_positions(
-        self, structure: list[str], user_positions: list[str]
-    ) -> list[str]:
-        """Merge user positions with QC positions based on structure."""
-        positions = []
-        user_idx = 0
-
-        for sample_id in structure:
-            if sample_id == "default":
-                positions.append(user_positions[user_idx])
-                user_idx += 1
-            else:
-                pos = self.qc_layout.get(sample_id, "")
-                if isinstance(pos, dict):
-                    positions.append(
-                        f"tray{pos.get('tray', 0)}:{pos.get('position_start', 0)}"
-                    )
-                else:
-                    positions.append(str(pos))
-
-        return positions
+        return _merge_positions(structure, user_positions, self.qc_layout)
 
 
 def create_position_assigner(
     sampler_name: str,
-    sampler_config: dict,
+    sampler_config: dict[str, Any],
     qc_layout: dict[str, QCPosition],
 ) -> PositionAssigner:
     """Factory function to create the appropriate position assigner.
@@ -240,7 +212,7 @@ class InputPositionStrategy:
 
 def create_position_strategy(
     sampler_name: str,
-    sampler_config: dict,
+    sampler_config: dict[str, Any],
 ) -> PositionStrategy:
     """Factory function to create the appropriate position strategy.
 
