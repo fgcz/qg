@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 import polars as pl
 
 from qg.config import ConfigBundle, load_all_configs
-from qg.config_models import Sample, QueuePattern, OutputFormat, requires_polarity
+from qg.config_models import Sample, QueuePattern, requires_polarity
 from qg.generator import MethodResolver
 from qg.params_models import QueueParameters
 from qg.strategies import create_position_assigner
@@ -95,7 +95,7 @@ class QueueGeneratorBuilder:
         polarities: list[str | None] = list(params.polarity) if params.polarity else [None]
 
         # Log resolved configuration
-        logger.info(
+        logger.debug(
             "Building QueueGenerator:\n"
             "  technology=%s, instrument=%s, sampler=%s\n"
             "  pattern=%s (start=%s, middle=%s, end=%s)\n"

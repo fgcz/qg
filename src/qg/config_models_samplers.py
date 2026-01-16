@@ -78,14 +78,8 @@ class SamplersConfig(BaseModel):
 
     def get_sampler_names(self) -> list[str]:
         """Get names of all defined samplers."""
-        names = []
-        if self.Vanquish:
-            names.append("Vanquish")
-        if self.MClass48:
-            names.append("MClass48")
-        if self.Evosep:
-            names.append("Evosep")
-        return names
+        sampler_attrs = ["Vanquish", "MClass48", "Evosep"]
+        return [name for name in sampler_attrs if getattr(self, name) is not None]
 
     def get_sampler_config(self, sampler_name: str) -> dict:
         """Get merged sampler config dict for use with position generators.
