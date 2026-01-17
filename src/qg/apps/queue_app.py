@@ -300,8 +300,7 @@ def _(
     if method_field:
         _queue_items.append(method_field)
     if polarity_pos:
-        _queue_items.append(mo.md("**Polarity:**"))
-        _queue_items.append(mo.hstack([polarity_pos, polarity_neg], justify="start"))
+        _queue_items.append(mo.hstack([mo.md("**Polarity:**"), polarity_pos, polarity_neg], justify="start"))
 
     mo.sidebar(
         mo.vstack([
