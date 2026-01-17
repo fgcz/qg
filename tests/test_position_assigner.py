@@ -9,11 +9,7 @@ from qg.config_models_samplers import (
     GridSampler,
 )
 from qg.params_models import InputSample
-from qg.positions import (
-    EvosepPositionGenerator,
-    MClass48PositionGenerator,
-    VanquishPositionGenerator,
-)
+from qg.positions import EvosepPositionGenerator, GridPositionGenerator
 from qg.strategies import (
     GeneratedPositionAssigner,
     InputPositionAssigner,
@@ -40,7 +36,7 @@ class TestGeneratedPositionAssigner:
                 cols=[1, 2, 3, 4, 5, 6, 7, 8, 9],
             ),
         )
-        generator = VanquishPositionGenerator(config, "vial")
+        generator = GridPositionGenerator(config, "vial", sampler_name="Vanquish")
 
         # Proteomics QC layout (from qc_layouts.toml)
         qc_layout = {
@@ -89,7 +85,7 @@ class TestGeneratedPositionAssigner:
                 cols=[1, 2, 3, 4, 5, 6, 7, 8],
             ),
         )
-        generator = MClass48PositionGenerator(config, "vial")
+        generator = GridPositionGenerator(config, "vial", sampler_name="MClass48")
 
         # Proteomics QC layout for MClass48
         qc_layout = {

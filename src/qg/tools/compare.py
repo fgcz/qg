@@ -189,7 +189,7 @@ def main(
     ],
 ) -> None:
     """Compare generated queue CSV with original reference CSV."""
-    result = compare_queues(generated, original, config, )
+    result = compare_queues(generated, original, config)
 
     with open(output, "w") as f:
         json.dump(result, f, indent=2)

@@ -17,108 +17,28 @@ class SamplerPositionGenerator(Protocol):
         ...
 
 
-class VanquishPositionGenerator:
-    """Vanquish sampler position generator (grid-based).
+class GridPositionGenerator:
+    """Grid-based sampler position generator (Vanquish, MClass48).
 
     Generates positions in row-major order across plates, skipping the QC plate.
     """
 
     def __init__(
-        self, config: GridSampler, container: Literal["vial", "plate"] = "vial"
+        self,
+        config: GridSampler,
+        container: Literal["vial", "plate"] = "vial",
+        sampler_name: str = "sampler",
     ):
         """Initialize from typed GridSampler config.
 
         Args:
             config: Typed GridSampler model
             container: Container type ("vial" or "plate")
+            sampler_name: Name for error messages (e.g., "Vanquish", "MClass48")
         """
         container_config = getattr(config, container)
         if container_config is None:
-            raise ValueError(f"Container '{container}' not defined for Vanquish")
-
-        # Parent-level fields (always from config)
-        self.plates = config.plates
-        self.qc_plate = config.qc_plate
-
-        # Container-level overrides (use container if set, else parent)
-        self.sample_rows = container_config.sample_rows or config.sample_rows
-        self.cols = container_config.cols or config.cols
-        self.position_format = container_config.position_format
-
-        # Validate required fields are set
-        if self.sample_rows is None:
-            raise ValueError("sample_rows must be set at sampler or container level")
-        if self.cols is None:
-            raise ValueError("cols must be set at sampler or container level")
-        if self.position_format is None:
-            raise ValueError("position_format must be set at container level")
-
-    def generate_positions(self, n: int) -> list[str]:
-        """Generate n user sample positions.
-
-        Pure function - no internal state modified.
-
-        Args:
-            n: Number of positions to generate
-
-        Returns:
-            List of position strings like ["Y:A1", "Y:A2", ...]
-        """
-        positions = []
-        plate_idx, row_idx, col_idx = 0, 0, 0
-
-        # Skip QC plate initially
-        while plate_idx < len(self.plates) and self.plates[plate_idx] == self.qc_plate:
-            plate_idx += 1
-
-        for _ in range(n):
-            if plate_idx >= len(self.plates):
-                raise ValueError(f"No more positions available (requested {n})")
-
-            pos = self.position_format.format(
-                plate=self.plates[plate_idx],
-                row=self.sample_rows[row_idx],
-                col=self.cols[col_idx],
-            )
-            positions.append(pos)
-
-            # Advance (row-major order)
-            col_idx += 1
-            if col_idx >= len(self.cols):
-                col_idx = 0
-                row_idx += 1
-                if row_idx >= len(self.sample_rows):
-                    row_idx = 0
-                    plate_idx += 1
-                    # Skip QC plate
-                    while (
-                        plate_idx < len(self.plates)
-                        and self.plates[plate_idx] == self.qc_plate
-                    ):
-                        plate_idx += 1
-
-        return positions
-
-
-class MClass48PositionGenerator:
-    """MClass48 sampler position generator (grid-based).
-
-    Generates positions in row-major order across plates, skipping the QC plate.
-    Same logic as VanquishPositionGenerator but with different default config.
-    """
-
-    def __init__(
-        self, config: GridSampler, container: Literal["vial", "plate"] = "vial"
-    ):
-        """Initialize from typed GridSampler config.
-
-        Args:
-            config: Typed GridSampler model
-            container: Container type ("vial" or "plate")
-        """
-        container_config = getattr(config, container)
-        if container_config is None:
-            raise ValueError(f"Container '{container}' not defined for MClass48")
+            raise ValueError(f"Container '{container}' not defined for {sampler_name}")
 
         # Parent-level fields (always from config)
         self.plates = config.plates
@@ -144,7 +64,7 @@ class MClass48PositionGenerator:
             n: Number of positions to generate
 
         Returns:
-            List of position strings like ["1:A,1", "1:A,2", ...]
+            List of position strings like ["Y:A1", "Y:A2", ...]
         """
         positions = []
         plate_idx, row_idx, col_idx = 0, 0, 0
@@ -246,17 +166,13 @@ def get_position_generator(
     Returns:
         Position generator implementing SamplerPositionGenerator protocol
     """
-    generators: dict[str, type] = {
-        "Vanquish": VanquishPositionGenerator,
-        "MClass48": MClass48PositionGenerator,
-        "Evosep": EvosepPositionGenerator,
-    }
-
     parts = sampler_name.split(".")
     sampler_base = parts[0]
     container = parts[1] if len(parts) > 1 else "vial"
 
-    if sampler_base not in generators:
+    if sampler_base in ("Vanquish", "MClass48"):
+        return GridPositionGenerator(config, container, sampler_name=sampler_base)
+    elif sampler_base == "Evosep":
+        return EvosepPositionGenerator(config, container)
+    else:
         raise ValueError(f"Unknown sampler: {sampler_base}")
-
-    return generators[sampler_base](config, container)
