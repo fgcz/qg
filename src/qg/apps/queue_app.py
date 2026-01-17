@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.18.4"
-app = marimo.App(width="medium", sql_output="polars")
+app = marimo.App(width="full", sql_output="polars")
 
 with app.setup:
     import marimo as mo
@@ -56,12 +56,9 @@ def _(CONFIG_DIR):
     return combinations_df, instrument_patterns_df, instruments_df
 
 
-@app.cell
-def _():
-    mo.md(r"""
-    ## Project Selection
-    """)
-    return
+# =============================================================================
+# Project Data Loading
+# =============================================================================
 
 
 @app.cell
@@ -103,12 +100,6 @@ def _(projects_df):
 
 @app.cell
 def _(project_table):
-    project_table
-    return
-
-
-@app.cell
-def _(project_table):
     mo.stop(
         project_table.value.is_empty(),
         mo.md("**Select a project from the table above**"),
@@ -119,26 +110,9 @@ def _(project_table):
     return container_id, container_type, selected_area
 
 
-@app.cell
-def _(client, container_id):
-    container = client.reader.read_id("container", container_id)
-    return
-
-
-@app.cell
-def _(container_id, container_type):
-    mo.md(f"""
-    **Selected Container ID:** {container_id} ({container_type})
-    """)
-    return
-
-
-@app.cell
-def _():
-    mo.md(r"""
-    ## Instrument Configuration
-    """)
-    return
+# =============================================================================
+# Sidebar: Instrument Configuration Fields
+# =============================================================================
 
 
 @app.cell
@@ -237,12 +211,6 @@ def _(instrument_field, instrument_patterns_df, technology_field):
 
 
 @app.cell
-def _(instrument_field, sampler_field, technology_field):
-    mo.hstack([technology_field, instrument_field, sampler_field], justify="start")
-    return
-
-
-@app.cell
 def _(CONFIG_DIR, instrument_field, technology_field):
     # Method dropdown - load available methods from methods CSV
     mo.stop(not technology_field.value or not instrument_field.value)
@@ -255,31 +223,22 @@ def _(CONFIG_DIR, instrument_field, technology_field):
     method_field = mo.ui.dropdown(
         options=[""] + sorted(_default_methods),
         value="",
-        label="Method (for user samples)",
+        label="Method (user samples)",
     ) if _default_methods else None
     return (method_field,)
-
-
-@app.cell
-def _(method_field, pattern_field, output_format_value):
-    mo.hstack([
-        pattern_field,
-        method_field if method_field else None,
-        mo.md(f"**Output Format:** {output_format_value}"),
-    ], justify="start")
-    return
 
 
 @app.cell
 def _(technology_field):
     # Polarity selection (only for technologies requiring it)
     _show_polarity = requires_polarity(technology_field.value)
-    polarity_field = mo.ui.multiselect(
-        options=["pos", "neg"],
-        value=["pos", "neg"],
-        label="Polarity",
-    ) if _show_polarity else None
-    return (polarity_field,)
+    if _show_polarity:
+        polarity_pos = mo.ui.checkbox(value=True, label="pos")
+        polarity_neg = mo.ui.checkbox(value=True, label="neg")
+    else:
+        polarity_pos = None
+        polarity_neg = None
+    return polarity_neg, polarity_pos
 
 
 @app.cell
@@ -294,13 +253,13 @@ def _():
 
 @app.cell
 def _():
-    inj_vol_field = mo.ui.text(value="", label="Injection Volume Override (optional)")
+    inj_vol_field = mo.ui.text(value="", label="Inj Vol Override")
     return (inj_vol_field,)
 
 
 @app.cell
 def _():
-    user_field = mo.ui.text(value="", label="User (e.g., cpanse)")
+    user_field = mo.ui.text(value="", label="User")
     return (user_field,)
 
 
@@ -310,25 +269,53 @@ def _():
     return (date_field,)
 
 
-@app.cell
-def _(date_field, inj_vol_field, randomization_field, user_field):
-    mo.hstack([randomization_field, date_field, user_field, inj_vol_field], justify="start")
-    return
+# =============================================================================
+# Sidebar Layout
+# =============================================================================
 
 
 @app.cell
-def _(polarity_field):
-    # Show polarity field separately (only exists for metabolomics/lipidomics)
-    polarity_field if polarity_field is not None else None
+def _(
+    date_field,
+    inj_vol_field,
+    instrument_field,
+    method_field,
+    output_format_value,
+    pattern_field,
+    polarity_neg,
+    polarity_pos,
+    randomization_field,
+    sampler_field,
+    technology_field,
+    user_field,
+):
+    _polarity_ui = mo.hstack([polarity_pos, polarity_neg], justify="start") if polarity_pos else mo.md("_No polarity_")
+    mo.sidebar(
+        mo.vstack([
+            mo.md("## Configuration"),
+            mo.md("### Instrument"),
+            technology_field,
+            instrument_field,
+            sampler_field,
+            mo.md(f"**Output:** {output_format_value}"),
+            mo.md("### Queue"),
+            pattern_field,
+            method_field if method_field else mo.md("_No methods_"),
+            mo.md("**Polarity:**"),
+            _polarity_ui,
+            mo.md("### Options"),
+            randomization_field,
+            date_field,
+            user_field,
+            inj_vol_field,
+        ])
+    )
     return
 
 
-@app.cell
-def _():
-    mo.md(r"""
-    ## Sample Selection
-    """)
-    return
+# =============================================================================
+# Sample Loading
+# =============================================================================
 
 
 @app.cell
@@ -342,12 +329,6 @@ def _(plates):
     _plate_ids = sorted(_plate.id for _plate in plates.values())
     plates_select = mo.ui.multiselect(_plate_ids, label="Plates")
     return (plates_select,)
-
-
-@app.cell
-def _(plates, plates_select):
-    plates_select if plates else None
-    return
 
 
 @app.cell
@@ -371,14 +352,8 @@ def _(client, container_id, plates, plates_select):
 
 @app.cell
 def _():
-    subset_samples_toggle = mo.ui.checkbox(False, label="Subsetting samples")
+    subset_samples_toggle = mo.ui.checkbox(False, label="Subset samples")
     return (subset_samples_toggle,)
-
-
-@app.cell
-def _(subset_samples_toggle):
-    subset_samples_toggle
-    return
 
 
 @app.cell
@@ -391,26 +366,12 @@ def _(full_samples_df, subset_samples_toggle):
 
 
 @app.cell
-def _(subset_samples_select):
-    subset_samples_select
-    return
-
-
-@app.cell
 def _(full_samples_df, subset_samples_select):
     if subset_samples_select is None:
         selected_samples_df = full_samples_df
     else:
         selected_samples_df = subset_samples_select.value
     return (selected_samples_df,)
-
-
-@app.cell
-def _():
-    mo.md(r"""
-    ## Queue Parameters
-    """)
-    return
 
 
 @app.cell
@@ -431,15 +392,20 @@ def _(selected_samples_df):
     return (sample_df,)
 
 
+# =============================================================================
+# Queue Parameters
+# =============================================================================
+
+
 @app.cell
 def _(
-    container_id,
     date_field,
     inj_vol_field,
     instrument_field,
     method_field,
     pattern_field,
-    polarity_field,
+    polarity_neg,
+    polarity_pos,
     randomization_field,
     sampler_field,
     output_format_value,
@@ -449,7 +415,12 @@ def _(
     queue_parameters_err = None
     try:
         _inj_vol = float(inj_vol_field.value) if inj_vol_field.value.strip() else None
-        _polarity = list(polarity_field.value) if polarity_field is not None else []
+        # Build polarity list from checkboxes
+        _polarity = []
+        if polarity_pos is not None and polarity_pos.value:
+            _polarity.append("pos")
+        if polarity_neg is not None and polarity_neg.value:
+            _polarity.append("neg")
         _randomization = randomization_field.value == "yes"
         _method = method_field.value if method_field is not None else ""
         queue_parameters = QueueParameters.model_validate(
@@ -471,28 +442,6 @@ def _(
         queue_parameters_err = e
         queue_parameters = None
     return queue_parameters, queue_parameters_err
-
-
-@app.cell
-def _(sample_df):
-    mo.md(f"""
-    **{len(sample_df)} samples selected**
-    """)
-    return
-
-
-@app.cell
-def _(sample_df):
-    sample_df
-    return
-
-
-@app.cell
-def _(queue_parameters, queue_parameters_err):
-    if queue_parameters is not None:
-        mo.md("**Parameters:**")
-    queue_parameters.model_dump(mode="json") if queue_parameters is not None else queue_parameters_err
-    return
 
 
 @app.cell
@@ -526,6 +475,48 @@ def _(CONFIG_DIR, container_id, queue_parameters, sample_df, save_button):
     _filepath = _examples_dir / f"{_tech}_{_sampler}_c{container_id}_n{_n_samples}.json"
     write_params(_queue_input, _filepath)
     mo.md(f"**Saved configuration to `{_filepath}`**")
+    return
+
+
+# =============================================================================
+# Main Content Layout
+# =============================================================================
+
+
+@app.cell
+def _(project_table):
+    mo.vstack([
+        mo.md("# Queue Generator"),
+        mo.md("## Project Selection"),
+        project_table,
+    ])
+    return
+
+
+@app.cell
+def _(container_id, container_type):
+    mo.md(f"**Selected:** Container {container_id} ({container_type})")
+    return
+
+
+@app.cell
+def _(plates, plates_select, sample_df, subset_samples_select, subset_samples_toggle):
+    mo.vstack([
+        mo.md("## Samples"),
+        plates_select if plates else None,
+        mo.hstack([subset_samples_toggle, mo.md(f"**{len(sample_df)} samples**")], justify="start"),
+        subset_samples_select if subset_samples_select else sample_df,
+    ])
+    return
+
+
+@app.cell
+def _(queue_parameters, queue_parameters_err, save_button):
+    mo.vstack([
+        mo.md("## Output"),
+        mo.callout(queue_parameters.model_dump(mode="json"), kind="info") if queue_parameters else mo.callout(str(queue_parameters_err), kind="danger"),
+        save_button if queue_parameters else None,
+    ])
     return
 
 
