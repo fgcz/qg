@@ -3,10 +3,22 @@
 # See ALGORITHM.md for field documentation
 
 [xcalibur]
-description = "Thermo XCalibur sequence format"
+description = "Thermo XCalibur sequence format (SLD-compatible)"
 file_extension = ".csv"
 
 [xcalibur.columns]
+"row" = "run_number"
+"run" = "run_number"
+"vial" = "position"
+"filename" = "file_name"
+"method" = "method"
+"output_path" = "data_path"
+
+[xcalibur_qg]
+description = "Legacy queue generation format"
+file_extension = ".csv"
+
+[xcalibur_qg.columns]
 "File Name" = "file_name"
 "Path" = "data_path"
 "Instrument Method" = "method"

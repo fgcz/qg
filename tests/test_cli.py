@@ -100,7 +100,13 @@ def test_generate_queues_cli(configs, tmp_path):
     assert result.returncode == 0, f"CLI failed: {result.stderr}"
     assert output_file.exists()
     content = output_file.read_text()
-    assert "File Name" in content
+
+    # Check that output contains expected columns from config
+    output_format = configs.output_formats.get_format(queue_input.parameters.output_format)
+    expected_columns = list(output_format.columns.keys())
+    header_line = content.split("\n")[0]
+    for col in expected_columns:
+        assert col in header_line, f"Missing column '{col}' in output"
 
 
 def test_generate_queues_cli_stdout(configs, tmp_path):
@@ -123,4 +129,10 @@ def test_generate_queues_cli_stdout(configs, tmp_path):
     )
 
     assert result.returncode == 0, f"CLI failed: {result.stderr}"
-    assert "File Name" in result.stdout
+
+    # Check that output contains expected columns from config
+    output_format = configs.output_formats.get_format(queue_input.parameters.output_format)
+    expected_columns = list(output_format.columns.keys())
+    header_line = result.stdout.split("\n")[0]
+    for col in expected_columns:
+        assert col in header_line, f"Missing column '{col}' in output"

@@ -7,6 +7,14 @@
 # PROTEOMICS
 # =============================================================================
 
+[Proteomics.noqc]
+description = "No QC - no QC samples"
+run_QC_after_n_samples = 1
+start = []
+middle = []
+end = []
+
+
 [Proteomics.standard]
 description = "Standard proteomics: clean-qc pairs, clean-qc-qc ending"
 # Based on Notes.md analysis: clean-qc order (97%), clean-qc-qc ending dominant
@@ -61,6 +69,13 @@ end = ["clean"]
 # METABOLOMICS
 # =============================================================================
 
+[Metabolomics.noqc]
+description = "No QC - no QC samples"
+run_QC_after_n_samples = 1
+start = []
+middle = []
+end = []
+
 [Metabolomics.standard]
 description = "Standard metabolomics with dilution series for linearity"
 run_QC_after_n_samples = 10
@@ -94,9 +109,24 @@ start = ["blank", "108mix_AA", "pooledQC", "blank"]
 middle = ["blank", "pooledQC"]
 end = ["108mix_AA", "pooledQC", "blank"]
 
+
+[Metabolomics.blank]
+description = "Simple metabolomics without dilution series"
+run_QC_after_n_samples = 10
+start = ["blank", "blank", "blank"]
+middle = []
+end = ["blank", "blank", "blank"]
+
 # =============================================================================
 # LIPIDOMICS
 # =============================================================================
+
+[Lipidomics.noqc]
+description = "No QC - no QC samples"
+run_QC_after_n_samples = 1
+start = []
+middle = []
+end = []
 
 [Lipidomics.standard]
 description = "Lipidomics with EquiSPLASH standard"

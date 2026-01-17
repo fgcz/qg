@@ -7,11 +7,12 @@ The generator can be parameterized with different strategy implementations.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Protocol, Sequence
+from typing import Protocol, Sequence
 
 from qg.config_models import QCPosition
+from qg.config_models_samplers import EvosepSampler, GridSampler
 from qg.params_models import InputSample
-from qg.positions import SamplerPositionGenerator, get_sampler
+from qg.positions import SamplerPositionGenerator, get_position_generator
 
 
 # =============================================================================
@@ -118,24 +119,32 @@ class InputPositionAssigner:
 
 def create_position_assigner(
     sampler_name: str,
-    sampler_config: dict[str, Any],
+    sampler_config: GridSampler | EvosepSampler,
     qc_layout: dict[str, QCPosition],
 ) -> PositionAssigner:
     """Factory function to create the appropriate position assigner.
 
     Args:
         sampler_name: Full sampler name like "Vanquish.vial"
-        sampler_config: Merged sampler configuration dict
+        sampler_config: Typed sampler configuration model
         qc_layout: QC positions for this technology/sampler
 
     Returns:
         Position assigner callable
     """
-    position_source = sampler_config.get("position_source", "generated")
+    # Extract container name to check position_source
+    parts = sampler_name.split(".")
+    container = parts[1] if len(parts) > 1 else "vial"
+    container_config = getattr(sampler_config, container)
+
+    if container_config is None:
+        raise ValueError(f"Container '{container}' not defined for {parts[0]}")
+
+    position_source = container_config.position_source
 
     if position_source == "generated":
-        sampler = get_sampler(sampler_name, sampler_config)
-        return GeneratedPositionAssigner(sampler=sampler, qc_layout=qc_layout)
+        generator = get_position_generator(sampler_name, sampler_config)
+        return GeneratedPositionAssigner(sampler=generator, qc_layout=qc_layout)
     else:
         return InputPositionAssigner(qc_layout=qc_layout)
 

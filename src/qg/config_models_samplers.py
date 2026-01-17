@@ -19,10 +19,13 @@ class GridContainer(BaseModel):
     samples_per_plate: int | None = None
 
     @model_validator(mode="after")
-    def validate_generated_has_fill_order(self) -> "GridContainer":
-        """Generated positions need fill_order."""
-        if self.position_source == "generated" and self.fill_order is None:
-            raise ValueError("position_source='generated' requires fill_order")
+    def validate_generated_requirements(self) -> "GridContainer":
+        """Generated positions need fill_order and position_format."""
+        if self.position_source == "generated":
+            if self.fill_order is None:
+                raise ValueError("position_source='generated' requires fill_order")
+            if self.position_format is None:
+                raise ValueError("position_source='generated' requires position_format")
         return self
 
 
@@ -81,30 +84,23 @@ class SamplersConfig(BaseModel):
         sampler_attrs = ["Vanquish", "MClass48", "Evosep"]
         return [name for name in sampler_attrs if getattr(self, name) is not None]
 
-    def get_sampler_config(self, sampler_name: str) -> dict:
-        """Get merged sampler config dict for use with position generators.
+    def get_sampler(self, sampler_name: str) -> GridSampler | EvosepSampler:
+        """Get typed sampler config model for position generators.
 
         Args:
             sampler_name: Sampler name like "Vanquish.vial" or "MClass48.plate"
 
         Returns:
-            Merged dict with base sampler + container config
+            Typed sampler model (GridSampler or EvosepSampler)
+
+        Raises:
+            ValueError: If sampler not found
         """
         parts = sampler_name.split(".")
         sampler_base = parts[0]
-        container = parts[1] if len(parts) > 1 else "vial"
 
         sampler = getattr(self, sampler_base, None)
         if sampler is None:
-            return {}
+            raise ValueError(f"Sampler '{sampler_base}' not found")
 
-        # Get base config (non-container fields)
-        base_dict = sampler.model_dump(exclude={"vial", "plate"}, exclude_none=True)
-
-        # Get container config
-        container_obj = getattr(sampler, container, None)
-        if container_obj:
-            container_dict = container_obj.model_dump(exclude_none=True)
-            base_dict.update(container_dict)
-
-        return base_dict
+        return sampler

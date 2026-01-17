@@ -404,6 +404,9 @@ class TestBuildQueueStructure:
         structure = build_queue_structure(10, pattern)
 
         end_len = len(pattern.end)
+        if end_len == 0:
+            # No end pattern to check
+            return
         assert structure[-end_len:] == pattern.end
 
     def test_structure_with_zero_samples(

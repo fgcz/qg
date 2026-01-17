@@ -11,7 +11,6 @@ import cyclopts
 
 from qg.builder import QueueGeneratorBuilder
 from qg.config import load_all_configs
-from qg.generator import format_csv
 from qg.params_models import QueueInput
 
 
@@ -57,22 +56,16 @@ def cli_main() -> None:
             input_data = json.load(f)
         queue_input = QueueInput(**input_data)
 
-        # Build generator and generate
+        # Build generator and generate queue
         builder = QueueGeneratorBuilder(configs)
         generator = builder.build(queue_input.parameters)
-        rows = generator.generate(queue_input.samples)
-
-        # Format output
-        output_format = configs.output_formats.get_format(
-            queue_input.parameters.output_format
-        )
-        csv_output = format_csv(rows, output_format)
+        df = generator.generate(queue_input.samples)
 
         # Output
         if output:
-            output.write_text(csv_output)
+            df.write_csv(output)
         else:
-            print(csv_output)
+            print(df.write_csv())
 
     app()
 

@@ -33,7 +33,8 @@ OUTPUT_PATH_PATTERN = re.compile(rf"(D:\\Data2San\\[^\x00-\x1f]+?){FIELD_TERMINA
 FILENAME_PATTERN = re.compile(rf"(20\d{{6}}_[^\x00-\x1f]+?){FIELD_TERMINATOR.replace('|$', '|D:\\\\|$')}")
 
 # Vial patterns: Y:A1 (vials), 1:F, 1:F8, 2:A1 (plates), EvoSlot 2:1
-VIAL_PATTERN = re.compile(r"(?:EvoSlot\s+)?(\d+:[A-Z]?\d*|[A-Z]:[A-Z]?\d+)")
+# Also handles comma-separated formats: 1:A,1, 1:F,8
+VIAL_PATTERN = re.compile(r"(?:EvoSlot\s+)?(\d+:[A-Z],?\d*|[A-Z]:[A-Z]?,?\d+)")
 
 
 def _find_all_with_positions(pattern: re.Pattern, text: str) -> list[tuple[int, str]]:
@@ -208,10 +209,13 @@ def parse_sld_file_new_format(text: str) -> list[dict]:
             samples[i]["output_path"] = path_match.group(1)
 
         # Remove nulls for vial extraction (vials may have nulls around them)
+        # Use findall to get the LAST match - the actual well position (e.g., 1:A1)
+        # appears right before the JSON block, while display format (e.g., 1:A)
+        # appears earlier in the chunk
         chunk_clean = chunk.replace("\x00", "")
-        vial_match = VIAL_PATTERN.search(chunk_clean)
-        if vial_match:
-            samples[i]["vial"] = vial_match.group(1)
+        vial_matches = list(VIAL_PATTERN.finditer(chunk_clean))
+        if vial_matches:
+            samples[i]["vial"] = vial_matches[-1].group(1)
 
     return samples
 
@@ -322,6 +326,44 @@ def export_csv(samples: list[dict], output_path: str | Path) -> None:
         writer.writerows(samples)
 
 
+def process_single_sld(
+    sld_file: Path,
+    csv_output: Path | None,
+    log_file: Path,
+    *,
+    check: bool,
+    sanitize: bool,
+    min_length: int,
+    verbose: bool,
+) -> bool:
+    """Process a single SLD file. Returns True if CSV was created, False if skipped."""
+    samples = parse_sld_file(sld_file)
+    source_name = sld_file.name
+
+    # Check minimum queue length
+    if len(samples) < min_length:
+        logger.warning(f"{source_name}: Skipped (only {len(samples)} samples, min={min_length})")
+        return False
+
+    # Run sanity check if requested
+    if check:
+        check_run_numbering(samples, source_name)
+
+    # Sanitize if requested
+    if sanitize:
+        samples = sanitize_samples(samples)
+        logger.info(f"{source_name}: Sanitized, runs renumbered 1-{len(samples)}")
+
+    if verbose:
+        print_queue_table(samples, source_name)
+
+    if csv_output:
+        export_csv(samples, csv_output)
+        logger.info(f"{source_name}: Exported {len(samples)} samples to {csv_output}")
+
+    return True
+
+
 app = cyclopts.App(
     name="sld-to-csv",
     help="Parse Thermo Xcalibur .sld files and extract queue information.",
@@ -330,14 +372,18 @@ app = cyclopts.App(
 
 @app.default
 def main(
-    sld_file: Annotated[
+    input_path: Annotated[
         Path,
-        cyclopts.Parameter(help="Input .sld file"),
+        cyclopts.Parameter(help="Input .sld file or directory containing .sld files"),
     ],
     *,
     csv_output: Annotated[
         Path | None,
-        cyclopts.Parameter(name=["--csv"], help="Output CSV file"),
+        cyclopts.Parameter(name=["--csv"], help="Output CSV file (single file mode)"),
+    ] = None,
+    output_dir: Annotated[
+        Path | None,
+        cyclopts.Parameter(name=["--output-dir", "-o"], help="Output directory (directory mode)"),
     ] = None,
     verbose: Annotated[
         bool,
@@ -352,41 +398,116 @@ def main(
         cyclopts.Parameter(help="Renumber runs sequentially starting at 1 (also updates filenames)"),
     ] = False,
     log_file: Annotated[
-        Path,
-        cyclopts.Parameter(help="Log file path"),
-    ] = Path("sld_parser.log"),
+        Path | None,
+        cyclopts.Parameter(help="Log file path (default: next to output)"),
+    ] = None,
+    min_length: Annotated[
+        int,
+        cyclopts.Parameter(help="Minimum queue length to process (skip shorter queues)"),
+    ] = 5,
 ) -> None:
-    """Parse a Thermo .sld file and optionally export to CSV."""
-    # Configure loguru to log to file
-    logger.remove()  # Remove default stderr handler
+    """Parse Thermo .sld files and export to CSV.
+
+    Single file mode:
+        qg-tools sld-to-csv file.sld --csv output.csv
+
+    Directory mode:
+        qg-tools sld-to-csv input_dir/ --output-dir output_dir/
+    """
+    # Validate arguments
+    if input_path.is_dir():
+        if output_dir is None:
+            raise ValueError("--output-dir is required when input is a directory")
+        if csv_output is not None:
+            raise ValueError("--csv cannot be used with directory input, use --output-dir")
+        _process_directory(
+            input_path, output_dir, log_file,
+            check=check, sanitize=sanitize, min_length=min_length, verbose=verbose,
+        )
+    else:
+        if output_dir is not None:
+            raise ValueError("--output-dir cannot be used with single file input, use --csv")
+        _process_single_file(
+            input_path, csv_output, log_file,
+            check=check, sanitize=sanitize, min_length=min_length, verbose=verbose,
+        )
+
+
+def _process_single_file(
+    sld_file: Path,
+    csv_output: Path | None,
+    log_file: Path | None,
+    *,
+    check: bool,
+    sanitize: bool,
+    min_length: int,
+    verbose: bool,
+) -> None:
+    """Process a single SLD file."""
+    # Determine log file path: explicit > next to CSV > default
+    if log_file is None:
+        if csv_output is not None:
+            log_file = csv_output.with_suffix(".log")
+        else:
+            log_file = Path("sld_parser.log")
+
+    # Configure loguru
+    logger.remove()
     logger.add(log_file, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}")
     if verbose:
         logger.add(sys.stderr, format="{level} | {message}")
 
-    samples = parse_sld_file(sld_file)
-    source_name = Path(sld_file).name
+    process_single_sld(
+        sld_file, csv_output, log_file,
+        check=check, sanitize=sanitize, min_length=min_length, verbose=verbose,
+    )
 
-    # Run sanity check if requested
-    if check:
-        issues = check_run_numbering(samples, source_name)
-        if issues and verbose:
-            print(f"\nWarnings for {source_name}:")
-            for issue in issues:
-                print(f"  - {issue}")
 
-    # Sanitize if requested
-    if sanitize:
-        samples = sanitize_samples(samples)
-        if verbose:
-            print(f"\nSanitized: runs renumbered 1-{len(samples)}")
+def _process_directory(
+    input_dir: Path,
+    output_dir: Path,
+    log_file: Path | None,
+    *,
+    check: bool,
+    sanitize: bool,
+    min_length: int,
+    verbose: bool,
+) -> None:
+    """Process all SLD files in a directory."""
+    # Create output directory
+    output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Determine log file path
+    if log_file is None:
+        log_file = output_dir / "sld_conversion.log"
+
+    # Configure loguru once for all files
+    logger.remove()
+    logger.add(log_file, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}")
     if verbose:
-        print_queue_table(samples, source_name)
+        logger.add(sys.stderr, format="{level} | {message}")
 
-    if csv_output:
-        export_csv(samples, csv_output)
-        if verbose:
-            print(f"Exported to: {csv_output}")
+    # Find all SLD files
+    sld_files = sorted(input_dir.glob("*.sld"))
+    if not sld_files:
+        logger.warning(f"No .sld files found in {input_dir}")
+        return
+
+    logger.info(f"Processing {len(sld_files)} SLD files from {input_dir}")
+
+    processed = 0
+    skipped = 0
+    for sld_file in sld_files:
+        csv_output = output_dir / sld_file.with_suffix(".csv").name
+        if process_single_sld(
+            sld_file, csv_output, log_file,
+            check=check, sanitize=sanitize, min_length=min_length, verbose=verbose,
+        ):
+            processed += 1
+        else:
+            skipped += 1
+
+    logger.info(f"Done: {processed} converted, {skipped} skipped (min_length={min_length})")
 
 
 if __name__ == "__main__":

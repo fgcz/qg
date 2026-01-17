@@ -102,11 +102,23 @@ def compare_queues(generated_path: str | Path, original_path: str | Path, config
         result["errors"].append(f"Failed to read CSVs: {e}")
         return result
 
-    # Determine column names
-    gen_filename_col = "File Name" if "File Name" in gen_df.columns else "filename"
-    gen_position_col = "Position" if "Position" in gen_df.columns else "vial"
-    orig_filename_col = "filename" if "filename" in orig_df.columns else "File Name"
-    orig_position_col = "vial" if "vial" in orig_df.columns else "Position"
+    # Determine column names - support multiple naming conventions
+    def find_column(df: pl.DataFrame, candidates: list[str]) -> str | None:
+        for col in candidates:
+            if col in df.columns:
+                return col
+        return None
+
+    gen_filename_col = find_column(gen_df, ["File Name", "filename", "Xcalibur Filename", "Data File"])
+    gen_position_col = find_column(gen_df, ["Position", "vial", "Source Vial"])
+    orig_filename_col = find_column(orig_df, ["filename", "File Name", "Xcalibur Filename"])
+    orig_position_col = find_column(orig_df, ["vial", "Position", "Source Vial"])
+
+    if not gen_filename_col or not orig_filename_col:
+        result["status"] = "error"
+        result["comparison_result"] = 0
+        result["errors"].append(f"Missing filename column. Generated: {gen_df.columns}, Original: {orig_df.columns}")
+        return result
 
     # Extract metrics
     gen_sample_ids = extract_sample_ids(gen_df, gen_filename_col)
@@ -115,8 +127,8 @@ def compare_queues(generated_path: str | Path, original_path: str | Path, config
     gen_qc_count = count_qc(gen_df, gen_filename_col)
     orig_qc_count = count_qc(orig_df, orig_filename_col)
 
-    gen_plates = get_plates_used(gen_df, gen_position_col)
-    orig_plates = get_plates_used(orig_df, orig_position_col)
+    gen_plates = get_plates_used(gen_df, gen_position_col) if gen_position_col else set()
+    orig_plates = get_plates_used(orig_df, orig_position_col) if orig_position_col else set()
 
     result["metrics"] = {
         "generated_total_rows": len(gen_df),

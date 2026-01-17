@@ -15,20 +15,38 @@ app = cyclopts.App(
 )
 
 
+def extract_instrument_sampler(config_path: str) -> tuple[str, str]:
+    """Extract instrument and sampler from config JSON file."""
+    try:
+        config_file = Path(config_path)
+        if config_file.exists():
+            with open(config_file) as f:
+                config = json.load(f)
+            params = config.get("parameters", {})
+            return params.get("instrument", ""), params.get("sampler", "")
+    except Exception:
+        pass
+    return "", ""
+
+
 def aggregate_results(input_files: list[Path]) -> pl.DataFrame:
     """Aggregate comparison result JSON files into a DataFrame."""
     rows = []
     for filepath in input_files:
         with open(filepath) as f:
             result = json.load(f)
+        config_file = result.get("config_file", "")
+        instrument, sampler = extract_instrument_sampler(config_file)
         rows.append({
+            "instrument": instrument,
+            "sampler": sampler,
             "queue_orig": result.get("original_file", ""),
             "queue_generated": result.get("generated_file", ""),
-            "qg_parameters": result.get("config_file", ""),
+            "qg_parameters": config_file,
             "comparison_result": result.get("comparison_result", 0),
         })
 
-    return pl.DataFrame(rows).sort("comparison_result", descending=True)
+    return pl.DataFrame(rows).sort(["instrument", "comparison_result"], descending=[False, True])
 
 
 @app.default

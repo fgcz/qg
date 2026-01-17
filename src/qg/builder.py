@@ -75,7 +75,7 @@ class QueueGeneratorBuilder:
             )
 
         # Resolve sampler config and create position assigner
-        sampler_config = self.configs.samplers.get_sampler_config(params.sampler)
+        sampler_config = self.configs.samplers.get_sampler(params.sampler)
         position_assigner = create_position_assigner(
             params.sampler, sampler_config, qc_layout
         )
@@ -93,6 +93,11 @@ class QueueGeneratorBuilder:
 
         # Resolve polarities
         polarities: list[str | None] = list(params.polarity) if params.polarity else [None]
+
+        # Resolve output format
+        output_format = self.configs.output_formats.get_format(params.output_format)
+        if not output_format:
+            raise ValueError(f"Output format '{params.output_format}' not found")
 
         # Log resolved configuration
         logger.debug(
@@ -132,6 +137,7 @@ class QueueGeneratorBuilder:
             data_path=data_path,
             method=params.method,
             inj_vol_override=params.inj_vol_override,
+            output_format=output_format,
         )
 
     def _resolve_samples_config(

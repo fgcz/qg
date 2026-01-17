@@ -2,8 +2,18 @@
 
 import pytest
 
+from qg.config_models_samplers import (
+    EvosepContainer,
+    EvosepSampler,
+    GridContainer,
+    GridSampler,
+)
 from qg.params_models import InputSample
-from qg.positions import VanquishSampler, MClass48Sampler, EvosepSampler
+from qg.positions import (
+    EvosepPositionGenerator,
+    MClass48PositionGenerator,
+    VanquishPositionGenerator,
+)
 from qg.strategies import (
     GeneratedPositionAssigner,
     InputPositionAssigner,
@@ -16,15 +26,21 @@ class TestGeneratedPositionAssigner:
 
     def test_vanquish_vial_proteomics(self):
         """Vanquish vial mode with proteomics QC layout."""
-        # Minimal Vanquish config
-        config = {
-            "plates": ["Y", "R", "B", "G"],
-            "sample_rows": ["A", "B", "C", "D", "E"],
-            "cols": [1, 2, 3, 4, 5, 6, 7, 8, 9],
-            "qc_plate": "B",
-            "position_format": "{plate}:{row}{col}",
-        }
-        sampler = VanquishSampler(config)
+        # Typed Vanquish config
+        config = GridSampler(
+            description="Vanquish test",
+            plates=["Y", "R", "B", "G"],
+            qc_plate="B",
+            vial=GridContainer(
+                container_type="Vial",
+                position_source="generated",
+                fill_order="row_major",
+                position_format="{plate}:{row}{col}",
+                sample_rows=["A", "B", "C", "D", "E"],
+                cols=[1, 2, 3, 4, 5, 6, 7, 8, 9],
+            ),
+        )
+        generator = VanquishPositionGenerator(config, "vial")
 
         # Proteomics QC layout (from qc_layouts.toml)
         qc_layout = {
@@ -33,7 +49,7 @@ class TestGeneratedPositionAssigner:
             "clean": "B:F7",
         }
 
-        assigner = GeneratedPositionAssigner(sampler=sampler, qc_layout=qc_layout)
+        assigner = GeneratedPositionAssigner(sampler=generator, qc_layout=qc_layout)
 
         # Queue structure: start QCs, 3 user samples, end QCs
         structure = ["QC03dia", "QC01", "default", "default", "default", "clean", "QC01"]
@@ -59,15 +75,21 @@ class TestGeneratedPositionAssigner:
 
     def test_mclass48_vial_proteomics(self):
         """MClass48 vial mode with proteomics QC layout."""
-        # MClass48 config (from sampler.toml)
-        config = {
-            "plates": ["1", "2"],
-            "sample_rows": ["A", "B", "C", "D", "E"],
-            "cols": [1, 2, 3, 4, 5, 6, 7, 8],
-            "qc_plate": "1",
-            "position_format": "{plate}:{row},{col}",
-        }
-        sampler = MClass48Sampler(config)
+        # Typed MClass48 config
+        config = GridSampler(
+            description="MClass48 test",
+            plates=["1", "2"],
+            qc_plate="1",
+            vial=GridContainer(
+                container_type="Vial",
+                position_source="generated",
+                fill_order="row_major",
+                position_format="{plate}:{row},{col}",
+                sample_rows=["A", "B", "C", "D", "E"],
+                cols=[1, 2, 3, 4, 5, 6, 7, 8],
+            ),
+        )
+        generator = MClass48PositionGenerator(config, "vial")
 
         # Proteomics QC layout for MClass48
         qc_layout = {
@@ -76,7 +98,7 @@ class TestGeneratedPositionAssigner:
             "clean": "1:F,6",
         }
 
-        assigner = GeneratedPositionAssigner(sampler=sampler, qc_layout=qc_layout)
+        assigner = GeneratedPositionAssigner(sampler=generator, qc_layout=qc_layout)
 
         # Queue structure: start QCs, 3 user samples, end QCs
         structure = ["QC03dia", "QC01", "default", "default", "default", "clean", "QC01"]
@@ -102,12 +124,18 @@ class TestGeneratedPositionAssigner:
 
     def test_evosep_vial_proteomics(self):
         """Evosep vial mode with proteomics QC layout."""
-        # Evosep config (from sampler.toml)
-        config = {
-            "slots": [1, 2, 3, 4],
-            "positions_per_slot": 96,
-        }
-        sampler = EvosepSampler(config)
+        # Typed Evosep config
+        config = EvosepSampler(
+            description="Evosep test",
+            slots=[1, 2, 3, 4],
+            positions_per_slot=96,
+            vial=EvosepContainer(
+                container_type="Vial",
+                position_source="generated",
+                fill_order="sequential",
+            ),
+        )
+        generator = EvosepPositionGenerator(config, "vial")
 
         # Proteomics QC layout for Evosep (dict format)
         qc_layout = {
@@ -116,7 +144,7 @@ class TestGeneratedPositionAssigner:
             "clean": {"tray": 6, "position_start": 1, "position_end": 96},
         }
 
-        assigner = GeneratedPositionAssigner(sampler=sampler, qc_layout=qc_layout)
+        assigner = GeneratedPositionAssigner(sampler=generator, qc_layout=qc_layout)
 
         # Queue structure: start QCs, 3 user samples, end QCs
         structure = ["QC03dia", "QC01", "default", "default", "default", "clean", "QC01"]
@@ -242,14 +270,19 @@ class TestCreatePositionAssigner:
 
     def test_creates_generated_assigner_for_vanquish_vial(self):
         """Vanquish.vial should create GeneratedPositionAssigner."""
-        config = {
-            "position_source": "generated",
-            "plates": ["Y", "R", "B", "G"],
-            "sample_rows": ["A", "B", "C", "D", "E"],
-            "cols": [1, 2, 3, 4, 5, 6, 7, 8, 9],
-            "qc_plate": "B",
-            "position_format": "{plate}:{row}{col}",
-        }
+        config = GridSampler(
+            description="Vanquish test",
+            plates=["Y", "R", "B", "G"],
+            qc_plate="B",
+            vial=GridContainer(
+                container_type="Vial",
+                position_source="generated",
+                fill_order="row_major",
+                position_format="{plate}:{row}{col}",
+                sample_rows=["A", "B", "C", "D", "E"],
+                cols=[1, 2, 3, 4, 5, 6, 7, 8, 9],
+            ),
+        )
         qc_layout = {"QC01": "B:F9"}
 
         assigner = create_position_assigner("Vanquish.vial", config, qc_layout)
@@ -258,7 +291,15 @@ class TestCreatePositionAssigner:
 
     def test_creates_input_assigner_for_vanquish_plate(self):
         """Vanquish.plate should create InputPositionAssigner."""
-        config = {"position_source": "input"}
+        config = GridSampler(
+            description="Vanquish test",
+            plates=["Y", "R", "B", "G"],
+            qc_plate="B",
+            plate=GridContainer(
+                container_type="Plate",
+                position_source="input",
+            ),
+        )
         qc_layout = {"QC01": "B:H9"}
 
         assigner = create_position_assigner("Vanquish.plate", config, qc_layout)
@@ -267,7 +308,15 @@ class TestCreatePositionAssigner:
 
     def test_creates_input_assigner_for_mclass48_plate(self):
         """MClass48.plate should create InputPositionAssigner."""
-        config = {"position_source": "input"}
+        config = GridSampler(
+            description="MClass48 test",
+            plates=["1", "2"],
+            qc_plate="1",
+            plate=GridContainer(
+                container_type="Plate",
+                position_source="input",
+            ),
+        )
         qc_layout = {"QC01": "1:F,8"}
 
         assigner = create_position_assigner("MClass48.plate", config, qc_layout)
@@ -276,7 +325,15 @@ class TestCreatePositionAssigner:
 
     def test_creates_input_assigner_for_evosep_plate(self):
         """Evosep.plate should create InputPositionAssigner."""
-        config = {"position_source": "input"}
+        config = EvosepSampler(
+            description="Evosep test",
+            slots=[1, 2, 3, 4],
+            positions_per_slot=96,
+            plate=EvosepContainer(
+                container_type="Plate",
+                position_source="input",
+            ),
+        )
         qc_layout = {"QC01": {"tray": 5, "position_start": 1}}
 
         assigner = create_position_assigner("Evosep.plate", config, qc_layout)
@@ -285,14 +342,19 @@ class TestCreatePositionAssigner:
 
     def test_creates_generated_assigner_for_mclass48_vial(self):
         """MClass48.vial should create GeneratedPositionAssigner."""
-        config = {
-            "position_source": "generated",
-            "plates": ["1", "2"],
-            "sample_rows": ["A", "B", "C", "D", "E"],
-            "cols": [1, 2, 3, 4, 5, 6, 7, 8],
-            "qc_plate": "1",
-            "position_format": "{plate}:{row},{col}",
-        }
+        config = GridSampler(
+            description="MClass48 test",
+            plates=["1", "2"],
+            qc_plate="1",
+            vial=GridContainer(
+                container_type="Vial",
+                position_source="generated",
+                fill_order="row_major",
+                position_format="{plate}:{row},{col}",
+                sample_rows=["A", "B", "C", "D", "E"],
+                cols=[1, 2, 3, 4, 5, 6, 7, 8],
+            ),
+        )
         qc_layout = {"QC01": "1:F,8"}
 
         assigner = create_position_assigner("MClass48.vial", config, qc_layout)
@@ -301,11 +363,16 @@ class TestCreatePositionAssigner:
 
     def test_creates_generated_assigner_for_evosep_vial(self):
         """Evosep.vial should create GeneratedPositionAssigner."""
-        config = {
-            "position_source": "generated",
-            "slots": [1, 2, 3, 4],
-            "positions_per_slot": 96,
-        }
+        config = EvosepSampler(
+            description="Evosep test",
+            slots=[1, 2, 3, 4],
+            positions_per_slot=96,
+            vial=EvosepContainer(
+                container_type="Vial",
+                position_source="generated",
+                fill_order="sequential",
+            ),
+        )
         qc_layout = {"QC01": {"tray": 5, "position_start": 1}}
 
         assigner = create_position_assigner("Evosep.vial", config, qc_layout)

@@ -3,7 +3,7 @@
 Clean separation of concerns:
 - QueueGeneratorBuilder: resolves configs, creates Generator
 - QueueGenerator: executes pipeline, returns rows
-- format_csv: separate function for output formatting
+- format_table: separate function for output formatting
 """
 
 from __future__ import annotations
@@ -197,6 +197,24 @@ def build_queue_rows(
 
     return rows
 
+# =============================================================================
+# Output Formatting (separate concern)
+# =============================================================================
+
+
+def format_table(rows: list[QueueRow], output_format: OutputFormat) -> pl.DataFrame:
+    """Format queue rows as DataFrame for the given output format."""
+    df = pl.DataFrame([asdict(row) for row in rows])
+
+    # Select and rename columns per output format
+    # columns maps: {"Output Name": "internal_field", ...}
+    df = df.select([
+        pl.col(internal).alias(output_name)
+        for output_name, internal in output_format.columns.items()
+        if internal in df.columns
+    ])
+
+    return df
 
 # =============================================================================
 # Queue Generator
@@ -205,7 +223,7 @@ def build_queue_rows(
 
 @dataclass(frozen=True)
 class QueueGenerator:
-    """Generates queue rows. Created by QueueGeneratorBuilder."""
+    """Generates queue CSV. Created by QueueGeneratorBuilder."""
 
     pattern: QueuePattern
     position_assigner: PositionAssigner
@@ -217,9 +235,15 @@ class QueueGenerator:
     data_path: str
     method: str
     inj_vol_override: float | None
+    output_format: OutputFormat
 
-    def generate(self, samples: list[InputSample]) -> list[QueueRow]:
-        """Execute the queue generation pipeline."""
+    def generate(self, samples: list[InputSample]) -> pl.DataFrame:
+        """Execute the queue generation pipeline and return formatted DataFrame."""
+        rows = self.build_rows(samples)
+        return format_table(rows, self.output_format)
+
+    def build_rows(self, samples: list[InputSample]) -> list[QueueRow]:
+        """Execute the queue generation pipeline to build rows."""
         # Step 1: Build structure
         structure = build_queue_structure(len(samples), self.pattern)
 
@@ -244,21 +268,3 @@ class QueueGenerator:
         )
 
 
-# =============================================================================
-# Output Formatting (separate concern)
-# =============================================================================
-
-
-def format_csv(rows: list[QueueRow], output_format: OutputFormat) -> str:
-    """Format queue rows as CSV for the given output format."""
-    df = pl.DataFrame([asdict(row) for row in rows])
-
-    # Select and rename columns per output format
-    # columns maps: {"Output Name": "internal_field", ...}
-    df = df.select([
-        pl.col(internal).alias(output_name)
-        for output_name, internal in output_format.columns.items()
-        if internal in df.columns
-    ])
-
-    return df.write_csv()

@@ -31,53 +31,37 @@ INSTRUMENTS = ["astral", "ascend", "lumos2", "exploris2"]
 # Helper Functions
 # =============================================================================
 
-def get_sld_files(instrument):
-    """Get all SLD files for an instrument."""
-    sld_dir = REFERENCE_DIR / "sld" / instrument
-    if sld_dir.exists():
-        return [str(f) for f in sld_dir.glob("*.sld")]
-    return []
-
-def get_csv_outputs(instrument):
-    """Get expected CSV output paths for an instrument."""
-    sld_dir = REFERENCE_DIR / "sld" / instrument
-    if sld_dir.exists():
-        return [str(REFERENCE_DIR / "csv" / instrument / (f.stem + ".csv")) for f in sld_dir.glob("*.sld")]
-    return []
-
-def get_original_csv(name):
+def get_original_csv(instrument, name):
     """Get path to original CSV from param name."""
-    config_path = Path(f"params_json/astral/{name}.json")
+    config_path = Path(f"params_json/{instrument}/{name}.json")
     if config_path.exists():
         with open(config_path) as f:
             config = json.load(f)
             source_file = config.get("_source_file", f"{name}.csv")
-            return str(REFERENCE_DIR / "csv" / "astral" / source_file)
-    return str(REFERENCE_DIR / "csv" / "astral" / f"{name}.csv")
+            return str(REFERENCE_DIR / "csv" / instrument / source_file)
+    return str(REFERENCE_DIR / "csv" / instrument / f"{name}.csv")
 
 
-# Collect all expected CSV files
-ALL_CSVS = []
-for inst in INSTRUMENTS:
-    ALL_CSVS.extend(get_csv_outputs(inst))
-
-
-def get_astral_params(_wildcards):
-    """Get astral param files after checkpoint completes."""
+def get_all_params(_wildcards):
+    """Get all param files from all instruments after checkpoint completes."""
     checkpoints.params.get()
-    params_dir = Path("params_json/astral")
-    if params_dir.exists():
-        return [str(f) for f in params_dir.glob("*.json")]
-    return []
+    all_params = []
+    for instrument in INSTRUMENTS:
+        params_dir = Path(f"params_json/{instrument}")
+        if params_dir.exists():
+            all_params.extend([str(f) for f in params_dir.glob("*.json")])
+    return all_params
 
 
 def get_comparison_results(_wildcards):
-    """Get comparison result files after params are generated."""
+    """Get comparison result files from all instruments after params are generated."""
     checkpoints.params.get()
-    params_dir = Path("params_json/astral")
-    if params_dir.exists():
-        return [f"results/astral/{f.stem}.json" for f in params_dir.glob("*.json")]
-    return []
+    results = []
+    for instrument in INSTRUMENTS:
+        params_dir = Path(f"params_json/{instrument}")
+        if params_dir.exists():
+            results.extend([f"results/{instrument}/{f.stem}.json" for f in params_dir.glob("*.json")])
+    return results
 
 
 # =============================================================================
@@ -147,26 +131,26 @@ rule extract:
 rule sld_to_csv:
     """Convert all SLD files to CSV."""
     input:
-        ALL_CSVS,
+        expand("reference/csv/{instrument}", instrument=INSTRUMENTS),
         "reference/merged.csv"
 
 
 rule convert_sld:
-    """Parse a single SLD file to CSV with sanity check and sanitization."""
+    """Parse all SLD files in an instrument directory to CSV."""
     input:
-        sld="reference/sld/{instrument}/{sample}.sld"
+        sld_dir="reference/sld/{instrument}"
     output:
-        csv="reference/csv/{instrument}/{sample}.csv"
+        csv_dir=directory("reference/csv/{instrument}")
     log:
-        "reference/csv/{instrument}/{sample}.log"
+        "reference/csv/{instrument}.log"
     shell:
-        "qg-tools sld-to-csv '{input.sld}' --check --sanitize --log-file '{log}' --csv '{output.csv}'"
+        "qg-tools sld-to-csv {input.sld_dir} --output-dir {output.csv_dir} --check --sanitize --log-file {log}"
 
 
 rule merge_csvs:
     """Merge all CSVs into single file for analysis."""
     input:
-        csvs=ALL_CSVS
+        csv_dirs=expand("reference/csv/{instrument}", instrument=INSTRUMENTS)
     output:
         "reference/merged.csv"
     shell:
@@ -180,7 +164,7 @@ rule merge_csvs:
 checkpoint params:
     """Generate param JSONs from reference CSVs."""
     input:
-        ALL_CSVS
+        csv_dirs=expand("reference/csv/{instrument}", instrument=INSTRUMENTS)
     output:
         directory("params_json")
     shell:
@@ -206,9 +190,9 @@ rule test:
 rule generate_queue:
     """Run queue generator on a param file."""
     input:
-        params="params_json/astral/{name}.json"
+        params="params_json/{instrument}/{name}.json"
     output:
-        csv="generated/astral/{name}.csv"
+        csv="generated/{instrument}/{name}.csv"
     shell:
         """
         cd .. && qg test_data/{input.params} -o test_data/{output.csv} 2>/dev/null || touch test_data/{output.csv}
@@ -218,12 +202,12 @@ rule generate_queue:
 rule compare:
     """Compare generated queue CSV with original reference CSV."""
     input:
-        generated="generated/astral/{name}.csv",
-        config="params_json/astral/{name}.json"
+        generated="generated/{instrument}/{name}.csv",
+        config="params_json/{instrument}/{name}.json"
     output:
-        result="results/astral/{name}.json"
+        result="results/{instrument}/{name}.json"
     params:
-        original=lambda wildcards: get_original_csv(wildcards.name)
+        original=lambda wildcards: get_original_csv(wildcards.instrument, wildcards.name)
     shell:
         """
         qg-tools compare {input.generated} {params.original} {input.config} {output.result}
