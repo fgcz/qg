@@ -212,19 +212,25 @@ def _(instrument_field, instrument_patterns_df, technology_field):
 
 @app.cell
 def _(CONFIG_DIR, instrument_field, technology_field):
-    # Method dropdown - load available methods from methods CSV
+    # Method dropdown - only for proteomics (no polarity)
+    # For metabolomics/lipidomics, method is determined by polarity selection
     mo.stop(not technology_field.value or not instrument_field.value)
-    _methods_file = CONFIG_DIR / "methods" / technology_field.value / f"{instrument_field.value}_methods.csv"
-    if _methods_file.exists():
-        _methods_df = pl.read_csv(_methods_file)
-        _default_methods = _methods_df.filter(pl.col("sample_type") == "default")["method_name"].unique().to_list()
+    _show_polarity = requires_polarity(technology_field.value)
+    if _show_polarity:
+        # Method determined by polarity, no dropdown needed
+        method_field = None
     else:
-        _default_methods = []
-    method_field = mo.ui.dropdown(
-        options=[""] + sorted(_default_methods),
-        value="",
-        label="Method (user samples)",
-    ) if _default_methods else None
+        _methods_file = CONFIG_DIR / "methods" / technology_field.value / f"{instrument_field.value}_methods.csv"
+        if _methods_file.exists():
+            _methods_df = pl.read_csv(_methods_file)
+            _default_methods = _methods_df.filter(pl.col("sample_type") == "default")["method_name"].unique().to_list()
+        else:
+            _default_methods = []
+        method_field = mo.ui.dropdown(
+            options=[""] + sorted(_default_methods),
+            value="",
+            label="Method (user samples)",
+        ) if _default_methods else None
     return (method_field,)
 
 
@@ -289,7 +295,14 @@ def _(
     technology_field,
     user_field,
 ):
-    _polarity_ui = mo.hstack([polarity_pos, polarity_neg], justify="start") if polarity_pos else mo.md("_No polarity_")
+    # Build queue section items conditionally
+    _queue_items = [pattern_field]
+    if method_field:
+        _queue_items.append(method_field)
+    if polarity_pos:
+        _queue_items.append(mo.md("**Polarity:**"))
+        _queue_items.append(mo.hstack([polarity_pos, polarity_neg], justify="start"))
+
     mo.sidebar(
         mo.vstack([
             mo.md("## Configuration"),
@@ -299,10 +312,7 @@ def _(
             sampler_field,
             mo.md(f"**Output:** {output_format_value}"),
             mo.md("### Queue"),
-            pattern_field,
-            method_field if method_field else mo.md("_No methods_"),
-            mo.md("**Polarity:**"),
-            _polarity_ui,
+            *_queue_items,
             mo.md("### Options"),
             randomization_field,
             date_field,
