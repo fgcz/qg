@@ -146,20 +146,11 @@ def _(results_table, mo, pl, Path):
 
         if _orig_path.exists():
             orig_df = pl.read_csv(_orig_path)
-            orig_df = orig_df.rename({
-                "row": "row_orig", "run": "run_orig", "vial": "vial_orig",
-                "filename": "filename_orig", "method": "method_orig", "output_path": "path_orig"
-            })
+            orig_df = orig_df.rename({c: f"{c}_orig" for c in orig_df.columns})
 
         if _gen_path.exists() and _gen_path.stat().st_size > 0:
             gen_df = pl.read_csv(_gen_path)
-            gen_df = gen_df.rename({
-                "File Name": "filename_gen", "Path": "path_gen",
-                "Instrument Method": "method_gen", "Position": "vial_gen",
-                "Inj Vol": "injvol_gen", "Sample Type": "type_gen", "Sample Name": "sample_gen"
-            })
-            # Add row number for join
-            gen_df = gen_df.with_row_index("row_gen", offset=1)
+            gen_df = gen_df.rename({c: f"{c}_gen" for c in gen_df.columns})
 
     return orig_df, gen_df, selected_info
 

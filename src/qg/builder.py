@@ -90,6 +90,11 @@ class QueueGeneratorBuilder:
         groups = extract_groups(queue_input)
         primary_container_id = queue_input.get_primary_container_id()
 
+        # Extract group methods: container_id -> {polarity: method_name}
+        group_methods = {
+            g.container_id: g.method for g in queue_input.sample_groups if g.method
+        }
+
         # Resolve data path (uses primary container)
         data_path = self._resolve_data_path(params, primary_container_id)
 
@@ -142,7 +147,8 @@ class QueueGeneratorBuilder:
             date=params.date,
             groups=groups,
             data_path=data_path,
-            method=params.method,
+            group_methods=group_methods,
+            fallback_method=params.method,  # Backward compat: use global method as fallback
             inj_vol_override=params.inj_vol_override,
             output_format=output_format,
         )
@@ -213,12 +219,9 @@ class QueueGeneratorBuilder:
             if matches.is_empty():
                 return ""
 
-            # Filter by polarity if needed
-            if polarity and requires_polarity(technology):
-                polarity_suffix = "_Pos" if polarity == "pos" else "_Neg"
-                polarity_matches = matches.filter(
-                    pl.col("method_name").str.contains(polarity_suffix, literal=True)
-                )
+            # Filter by polarity column (new approach)
+            if polarity and "polarity" in methods_df.columns:
+                polarity_matches = matches.filter(pl.col("polarity") == polarity)
                 if not polarity_matches.is_empty():
                     matches = polarity_matches
 

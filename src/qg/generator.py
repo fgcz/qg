@@ -138,16 +138,31 @@ def expand_polarities(
 def resolve_methods(
     slots: list[ExpandedSlot],
     method_resolver: MethodResolver,
-    method: str,
+    group_methods: dict[int, dict[str, str]],
+    fallback_method: str = "",
 ) -> list[ExpandedSlot]:
-    """Loop over slots, resolve method for each."""
+    """Loop over slots, resolve method for each.
+
+    Args:
+        slots: Expanded slots with polarity
+        method_resolver: Function to resolve method path from sample_type/polarity/method_name
+        group_methods: Dict mapping container_id -> {polarity: method_name}
+        fallback_method: Fallback method name if group has no method for polarity
+    """
     for slot in slots:
         sample_id = slot.slot.sample_id
-        slot.method = method_resolver(
-            sample_id,
-            slot.polarity,
-            method if sample_id == "default" else "",
-        )
+        container_id = slot.slot.container_id
+        polarity = slot.polarity or "pos"  # Default to pos if no polarity
+
+        # Get method name for user samples from group_methods
+        if sample_id == "default":
+            group_method_dict = group_methods.get(container_id, {})
+            method_name = group_method_dict.get(polarity, fallback_method)
+        else:
+            # QC samples: method determined by sample_type, not user selection
+            method_name = ""
+
+        slot.method = method_resolver(sample_id, slot.polarity, method_name)
     return slots
 
 
@@ -233,7 +248,8 @@ class QueueGenerator:
     date: str
     groups: list[tuple[int, int]]  # (container_id, num_samples) per group
     data_path: str
-    method: str
+    group_methods: dict[int, dict[str, str]]  # container_id -> {polarity: method_name}
+    fallback_method: str  # Fallback for backward compat (QueueParameters.method)
     inj_vol_override: float | None
     output_format: OutputFormat
 
@@ -258,7 +274,9 @@ class QueueGenerator:
         expanded = expand_polarities(slots, self.polarities)
 
         # Step 5: Resolve methods
-        expanded = resolve_methods(expanded, self.method_resolver, self.method)
+        expanded = resolve_methods(
+            expanded, self.method_resolver, self.group_methods, self.fallback_method
+        )
 
         # Step 6: Format file names (uses slot.container_id)
         expanded = format_file_names(expanded, self.date)

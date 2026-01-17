@@ -27,6 +27,11 @@ class SampleGroup(BaseModel):
 
     container_id: int
     group_name: str | None = Field(default=None)
+
+    # Method per polarity: {"pos": "DIA_60min", "neg": "DIA_60min"}
+    # Keys are polarities ("pos", "neg"), values are method names (not paths)
+    method: dict[str, str] = Field(default_factory=dict)
+
     samples: list[InputSample] = Field(default_factory=list)  # Can be empty for QC-only
 
     @property

@@ -1,5 +1,5 @@
-sample_type,method_name,method_path
-QC03dda,DDA_60min,C:\Methods\Proteomics\EXPLORIS_2\DDA_60min.meth
-QC03dia,DIA_60min,C:\Methods\Proteomics\EXPLORIS_2\DIA_60min.meth
-default,DIA_60min,C:\Methods\Proteomics\EXPLORIS_2\DIA_60min.meth
-default,DDA_60min,C:\Methods\Proteomics\EXPLORIS_2\DDA_60min.meth
+sample_type,polarity,method_name,method_path
+QC03dda,pos,DDA_60min,C:\Methods\Proteomics\EXPLORIS_2\DDA_60min.meth
+QC03dia,pos,DIA_60min,C:\Methods\Proteomics\EXPLORIS_2\DIA_60min.meth
+default,pos,DIA_60min,C:\Methods\Proteomics\EXPLORIS_2\DIA_60min.meth
+default,pos,DDA_60min,C:\Methods\Proteomics\EXPLORIS_2\DDA_60min.meth

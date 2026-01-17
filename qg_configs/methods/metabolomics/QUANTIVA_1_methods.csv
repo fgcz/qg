@@ -1,3 +1,3 @@
-sample_type,method_name,method_path
-default,Targeted_AA,C:\Methods\Metabolomics\QUANTIVA_1\Targeted_AA.meth
-default,Targeted_OAP,C:\Methods\Metabolomics\QUANTIVA_1\Targeted_OAP.meth
+sample_type,polarity,method_name,method_path
+default,pos,Targeted_AA,C:\Methods\Metabolomics\QUANTIVA_1\Targeted_AA.meth
+default,pos,Targeted_OAP,C:\Methods\Metabolomics\QUANTIVA_1\Targeted_OAP.meth

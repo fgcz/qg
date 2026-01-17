@@ -100,13 +100,15 @@ def _(projects_df):
 
 @app.cell
 def _(project_table):
-    mo.stop(
-        project_table.value.is_empty(),
-        mo.md("**Select a project from the table above**"),
-    )
-    container_id = int(project_table.value["Container ID"][0])
-    selected_area = project_table.value["Area"][0]
-    container_type = project_table.value["Type"][0]  # "Vials" or "Plates"
+    # Provide defaults so sidebar shows immediately, update when project selected
+    if project_table.value.is_empty():
+        container_id = None
+        selected_area = "Proteomics"  # Default technology
+        container_type = "Vials"  # Default container type
+    else:
+        container_id = int(project_table.value["Container ID"][0])
+        selected_area = project_table.value["Area"][0]
+        container_type = project_table.value["Type"][0]  # "Vials" or "Plates"
     return container_id, container_type, selected_area
 
 
@@ -212,39 +214,81 @@ def _(instrument_field, instrument_patterns_df, technology_field):
 
 @app.cell
 def _(CONFIG_DIR, instrument_field, technology_field):
-    # Method dropdown - only for proteomics (no polarity)
-    # For metabolomics/lipidomics, method is determined by polarity selection
+    # Load available methods from CSV
     mo.stop(not technology_field.value or not instrument_field.value)
-    _show_polarity = requires_polarity(technology_field.value)
-    if _show_polarity:
-        # Method determined by polarity, no dropdown needed
-        method_field = None
+    _methods_file = CONFIG_DIR / "methods" / technology_field.value / f"{instrument_field.value}_methods.csv"
+    if _methods_file.exists():
+        methods_df = pl.read_csv(_methods_file)
     else:
-        _methods_file = CONFIG_DIR / "methods" / technology_field.value / f"{instrument_field.value}_methods.csv"
-        if _methods_file.exists():
-            _methods_df = pl.read_csv(_methods_file)
-            _default_methods = _methods_df.filter(pl.col("sample_type") == "default")["method_name"].unique().to_list()
+        methods_df = pl.DataFrame()
+    return (methods_df,)
+
+
+@app.cell
+def _(methods_df):
+    # Get unique method names for each polarity from default sample_type
+    if methods_df.is_empty():
+        available_methods_pos = []
+        available_methods_neg = []
+    else:
+        _default = methods_df.filter(pl.col("sample_type") == "default")
+        # Check if polarity column exists
+        if "polarity" in _default.columns:
+            available_methods_pos = sorted(
+                _default.filter(pl.col("polarity") == "pos")["method_name"].unique().to_list()
+            )
+            available_methods_neg = sorted(
+                _default.filter(pl.col("polarity") == "neg")["method_name"].unique().to_list()
+            )
         else:
-            _default_methods = []
-        method_field = mo.ui.dropdown(
-            options=[""] + sorted(_default_methods),
-            value="",
-            label="Method (user samples)",
-        ) if _default_methods else None
-    return (method_field,)
+            # Backward compat: no polarity column, all methods available for both
+            available_methods_pos = sorted(_default["method_name"].unique().to_list())
+            available_methods_neg = available_methods_pos
+    return available_methods_neg, available_methods_pos
+
+
+@app.cell
+def _(available_methods_pos, polarity_group):
+    # Method dropdown for positive polarity (with None option)
+    _show_pos = polarity_group.value.get("pos", False)
+    if _show_pos:
+        _options = [""] + available_methods_pos  # Empty string = no method
+        method_field_pos = mo.ui.dropdown(
+            options=_options,
+            value=available_methods_pos[0] if available_methods_pos else "",
+            label="Method (pos)",
+        )
+    else:
+        method_field_pos = None
+    return (method_field_pos,)
+
+
+@app.cell
+def _(available_methods_neg, polarity_group):
+    # Method dropdown for negative polarity (with None option)
+    _show_neg = polarity_group.value.get("neg", False)
+    if _show_neg:
+        _options = [""] + available_methods_neg  # Empty string = no method
+        method_field_neg = mo.ui.dropdown(
+            options=_options,
+            value=available_methods_neg[0] if available_methods_neg else "",
+            label="Method (neg)",
+        )
+    else:
+        method_field_neg = None
+    return (method_field_neg,)
 
 
 @app.cell
 def _(technology_field):
-    # Polarity selection (only for technologies requiring it)
-    _show_polarity = requires_polarity(technology_field.value)
-    if _show_polarity:
-        polarity_pos = mo.ui.checkbox(value=True, label="pos")
-        polarity_neg = mo.ui.checkbox(value=True, label="neg")
-    else:
-        polarity_pos = None
-        polarity_neg = None
-    return polarity_neg, polarity_pos
+    # Polarity selection for all technologies
+    # Default: proteomics=pos only, metabolomics/lipidomics=pos+neg
+    _default_neg = requires_polarity(technology_field.value)  # True for metabolomics/lipidomics
+    polarity_group = mo.ui.batch(
+        mo.md("**Polarity:** {pos} pos {neg} neg"),
+        {"pos": mo.ui.checkbox(value=True), "neg": mo.ui.checkbox(value=_default_neg)},
+    )
+    return (polarity_group,)
 
 
 @app.cell
@@ -259,13 +303,13 @@ def _():
 
 @app.cell
 def _():
-    inj_vol_field = mo.ui.text(value="", label="Inj Vol Override")
+    inj_vol_field = mo.ui.text(value="1", label="Inj Vol (µl)")
     return (inj_vol_field,)
 
 
 @app.cell
 def _():
-    user_field = mo.ui.text(value="", label="User")
+    user_field = mo.ui.text(value="analytic", label="User")
     return (user_field,)
 
 
@@ -282,29 +326,32 @@ def _():
 
 @app.cell
 def _(
+    container_id,
     date_field,
     inj_vol_field,
     instrument_field,
-    method_field,
+    method_field_neg,
+    method_field_pos,
     output_format_value,
     pattern_field,
-    polarity_neg,
-    polarity_pos,
+    polarity_group,
     randomization_field,
     sampler_field,
     technology_field,
     user_field,
 ):
-    # Build queue section items conditionally
-    _queue_items = [pattern_field]
-    if method_field:
-        _queue_items.append(method_field)
-    if polarity_pos:
-        _queue_items.append(mo.hstack([mo.md("**Polarity:**"), polarity_pos, polarity_neg], justify="start"))
+    # Build sidebar content - show title always, inputs only after order selected
+    _sidebar_items = [mo.md("# Queue Generator")]
 
-    mo.sidebar(
-        mo.vstack([
-            mo.md("## Configuration"),
+    if container_id is not None:
+        # Build queue section items: pattern, polarity, then method per polarity
+        _queue_items = [pattern_field, polarity_group]
+        if method_field_pos:
+            _queue_items.append(method_field_pos)
+        if method_field_neg:
+            _queue_items.append(method_field_neg)
+
+        _sidebar_items.extend([
             mo.md("### Instrument"),
             technology_field,
             instrument_field,
@@ -318,7 +365,8 @@ def _(
             user_field,
             inj_vol_field,
         ])
-    )
+
+    mo.sidebar(mo.vstack(_sidebar_items))
     return
 
 
@@ -329,6 +377,7 @@ def _(
 
 @app.cell
 def _(client, container_id):
+    mo.stop(container_id is None)
     plates = client.reader.query("plate", {"containerid": container_id})
     return (plates,)
 
@@ -411,10 +460,10 @@ def _(
     date_field,
     inj_vol_field,
     instrument_field,
-    method_field,
+    method_field_neg,
+    method_field_pos,
     pattern_field,
-    polarity_neg,
-    polarity_pos,
+    polarity_group,
     randomization_field,
     sampler_field,
     output_format_value,
@@ -424,14 +473,21 @@ def _(
     queue_parameters_err = None
     try:
         _inj_vol = float(inj_vol_field.value) if inj_vol_field.value.strip() else None
-        # Build polarity list from checkboxes
+        # Build polarity list from checkbox group
         _polarity = []
-        if polarity_pos is not None and polarity_pos.value:
+        if polarity_group.value.get("pos"):
             _polarity.append("pos")
-        if polarity_neg is not None and polarity_neg.value:
+        if polarity_group.value.get("neg"):
             _polarity.append("neg")
         _randomization = randomization_field.value == "yes"
-        _method = method_field.value if method_field is not None else ""
+
+        # Build method dict from per-polarity selections
+        method_dict = {}
+        if method_field_pos is not None and method_field_pos.value:
+            method_dict["pos"] = method_field_pos.value
+        if method_field_neg is not None and method_field_neg.value:
+            method_dict["neg"] = method_field_neg.value
+
         queue_parameters = QueueParameters.model_validate(
             {
                 "technology": technology_field.value,
@@ -442,7 +498,7 @@ def _(
                 "polarity": _polarity,
                 "date": date_field.value.strftime("%Y%m%d"),
                 "user": user_field.value.strip(),
-                "method": _method,
+                "method": "",  # Deprecated, use SampleGroup.method
                 "randomization": _randomization,
                 "inj_vol_override": _inj_vol,
             }
@@ -450,7 +506,8 @@ def _(
     except pydantic.ValidationError as e:
         queue_parameters_err = e
         queue_parameters = None
-    return queue_parameters, queue_parameters_err
+        method_dict = {}
+    return method_dict, queue_parameters, queue_parameters_err
 
 
 @app.cell
@@ -461,7 +518,7 @@ def _(queue_parameters):
 
 
 @app.cell
-def _(CONFIG_DIR, container_id, queue_parameters, sample_df, save_button):
+def _(CONFIG_DIR, container_id, method_dict, queue_parameters, sample_df, save_button):
     mo.stop(not save_button.value or queue_parameters is None)
     # Build InputSample objects from sample_df
     _samples = [
@@ -474,7 +531,7 @@ def _(CONFIG_DIR, container_id, queue_parameters, sample_df, save_button):
         )
         for row in sample_df.to_dicts()
     ]
-    _sample_group = SampleGroup(container_id=container_id, samples=_samples)
+    _sample_group = SampleGroup(container_id=container_id, samples=_samples, method=method_dict)
     _queue_input = QueueInput(parameters=queue_parameters, sample_groups=[_sample_group])
     _examples_dir = CONFIG_DIR / "examples"
     _examples_dir.mkdir(exist_ok=True)
@@ -495,7 +552,6 @@ def _(CONFIG_DIR, container_id, queue_parameters, sample_df, save_button):
 @app.cell
 def _(project_table):
     mo.vstack([
-        mo.md("# Queue Generator"),
         mo.md("## Project Selection"),
         project_table,
     ])
@@ -504,7 +560,10 @@ def _(project_table):
 
 @app.cell
 def _(container_id, container_type):
-    mo.md(f"**Selected:** Container {container_id} ({container_type})")
+    if container_id is None:
+        mo.md("**Select a project from the table above**")
+    else:
+        mo.md(f"**Selected:** Container {container_id} ({container_type})")
     return
 
 
@@ -520,10 +579,28 @@ def _(plates, plates_select, sample_df, subset_samples_select, subset_samples_to
 
 
 @app.cell
-def _(queue_parameters, queue_parameters_err, save_button):
+def _(container_id, method_dict, queue_parameters, queue_parameters_err, sample_df, save_button):
+    # Build full QueueInput for display
+    if queue_parameters and container_id is not None and sample_df is not None:
+        _samples = [
+            InputSample(
+                sample_name=row["Sample Name"],
+                sample_id=row["Sample ID"],
+                tube_id=row.get("Tube ID"),
+                position=row.get("Position"),
+                grid_position=row.get("GridPosition"),
+            )
+            for row in sample_df.to_dicts()
+        ]
+        _sample_group = SampleGroup(container_id=container_id, samples=_samples, method=method_dict)
+        _queue_input = QueueInput(parameters=queue_parameters, sample_groups=[_sample_group])
+        _output = _queue_input.model_dump(mode="json")
+    else:
+        _output = None
+
     mo.vstack([
         mo.md("## Output"),
-        mo.callout(queue_parameters.model_dump(mode="json"), kind="info") if queue_parameters else mo.callout(str(queue_parameters_err), kind="danger"),
+        mo.callout(_output, kind="info") if _output else mo.callout(str(queue_parameters_err) if queue_parameters_err else "Select a project", kind="danger"),
         save_button if queue_parameters else None,
     ])
     return
