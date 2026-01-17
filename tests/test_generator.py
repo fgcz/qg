@@ -7,7 +7,7 @@ import pytest
 
 from qg.builder import QueueGeneratorBuilder
 from qg.config import ConfigBundle, load_all_configs
-from qg.params_models import InputSample, QueueParameters
+from qg.params_models import InputSample, QueueInput, QueueParameters, SampleGroup
 
 
 CONFIG_DIR = Path(__file__).parent.parent / "qg_configs"
@@ -31,6 +31,14 @@ def make_samples(n: int) -> list[InputSample]:
         InputSample(sample_name=f"sample_{i}", sample_id=10000 + i)
         for i in range(1, n + 1)
     ]
+
+
+def make_queue_input(params: QueueParameters, samples: list[InputSample], container_id: int = 99999) -> QueueInput:
+    """Create QueueInput from params and samples."""
+    return QueueInput(
+        parameters=params,
+        sample_groups=[SampleGroup(container_id=container_id, samples=samples)],
+    )
 
 
 def find_combination_for_format(
@@ -67,10 +75,10 @@ class TestOutputFormats:
         """Each output format produces a DataFrame with the configured columns."""
         technology, instrument, sampler = find_combination_for_format(configs, output_format)
         expected_columns = get_expected_columns(configs, output_format)
+        samples = make_samples(1)
 
         params = QueueParameters(
-            container_id=99999,
-            technology=technology,
+                        technology=technology,
             instrument=instrument,
             sampler=sampler,
             output_format=output_format,
@@ -78,9 +86,10 @@ class TestOutputFormats:
             date="20260116",
             user="test",
         )
+        queue_input = make_queue_input(params, samples)
 
-        generator = builder.build(params)
-        result = generator.generate(make_samples(1))
+        generator = builder.build(queue_input)
+        result = generator.generate(samples)
 
         assert isinstance(result, pl.DataFrame)
         missing = set(expected_columns) - set(result.columns)
@@ -90,10 +99,10 @@ class TestOutputFormats:
     def test_output_format_single_sample_row_count(self, configs, builder, output_format: str):
         """Single sample with noqc pattern produces exactly 1 row (proteomics, no polarity)."""
         technology, instrument, sampler = find_combination_for_format(configs, output_format)
+        samples = make_samples(1)
 
         params = QueueParameters(
-            container_id=99999,
-            technology=technology,
+                        technology=technology,
             instrument=instrument,
             sampler=sampler,
             output_format=output_format,
@@ -101,9 +110,10 @@ class TestOutputFormats:
             date="20260116",
             user="test",
         )
+        queue_input = make_queue_input(params, samples)
 
-        generator = builder.build(params)
-        result = generator.generate(make_samples(1))
+        generator = builder.build(queue_input)
+        result = generator.generate(samples)
 
         # All combinations found use Proteomics (no polarity), so expect 1 row
         assert len(result) == 1, f"{output_format}: expected 1 row, got {len(result)}"
@@ -131,9 +141,9 @@ class TestNoQCPattern:
         num_samples: int,
     ):
         """noqc pattern returns num_samples * polarity_multiplier rows."""
+        samples = make_samples(num_samples)
         params = QueueParameters(
-            container_id=99999,
-            technology=technology,
+                        technology=technology,
             instrument=instrument,
             sampler=sampler,
             output_format="xcalibur",
@@ -141,9 +151,10 @@ class TestNoQCPattern:
             date="20260116",
             user="test",
         )
+        queue_input = make_queue_input(params, samples)
 
-        generator = builder.build(params)
-        result = generator.generate(make_samples(num_samples))
+        generator = builder.build(queue_input)
+        result = generator.generate(samples)
 
         expected = num_samples * expected_multiplier
         assert len(result) == expected, (
@@ -157,9 +168,9 @@ class TestQCOnlyPattern:
     @pytest.mark.parametrize("num_samples", [0, 5, 10])
     def test_qc_only_row_count(self, builder, num_samples: int):
         """qc_only pattern returns N + 6 rows (3 start + N samples + 3 end)."""
+        samples = make_samples(num_samples)
         params = QueueParameters(
-            container_id=99999,
-            technology="Proteomics",
+                        technology="Proteomics",
             instrument="ASTRAL_1",
             sampler="Vanquish.vial",
             output_format="xcalibur",
@@ -167,9 +178,10 @@ class TestQCOnlyPattern:
             date="20260116",
             user="test",
         )
+        queue_input = make_queue_input(params, samples)
 
-        generator = builder.build(params)
-        result = generator.generate(make_samples(num_samples))
+        generator = builder.build(queue_input)
+        result = generator.generate(samples)
 
         expected = num_samples + 6
         assert len(result) == expected, (
@@ -183,9 +195,9 @@ class TestMetabolomicsBlankPattern:
     @pytest.mark.parametrize("num_samples", [0, 5, 10])
     def test_blank_row_count_with_polarity(self, builder, num_samples: int):
         """blank pattern returns (N + 6) * 2 rows (3 start + N samples + 3 end) * 2 polarities."""
+        samples = make_samples(num_samples)
         params = QueueParameters(
-            container_id=99999,
-            technology="Metabolomics",
+                        technology="Metabolomics",
             instrument="EXPLORIS_3",
             sampler="Vanquish.vial",
             output_format="xcalibur",
@@ -193,9 +205,10 @@ class TestMetabolomicsBlankPattern:
             date="20260116",
             user="test",
         )
+        queue_input = make_queue_input(params, samples)
 
-        generator = builder.build(params)
-        result = generator.generate(make_samples(num_samples))
+        generator = builder.build(queue_input)
+        result = generator.generate(samples)
 
         expected = (num_samples + 6) * 2  # pos + neg polarity
         assert len(result) == expected, (

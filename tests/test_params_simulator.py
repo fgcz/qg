@@ -36,5 +36,6 @@ def test_simulate_params(configs, technology, instrument, sampler, queue_pattern
     assert result.parameters.instrument == instrument
     assert result.parameters.sampler == sampler
     assert result.parameters.output_format == expected_format
-    assert len(result.samples) == 5
-    assert result.samples[0].sample_name == "Sample_1"
+    assert len(result.sample_groups) == 1
+    assert len(result.get_all_samples()) == 5
+    assert result.get_all_samples()[0].sample_name == "Sample_1"

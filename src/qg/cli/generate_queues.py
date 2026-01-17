@@ -58,8 +58,8 @@ def cli_main() -> None:
 
         # Build generator and generate queue
         builder = QueueGeneratorBuilder(configs)
-        generator = builder.build(queue_input.parameters)
-        df = generator.generate(queue_input.samples)
+        generator = builder.build(queue_input)
+        df = generator.generate(queue_input.get_all_samples())
 
         # Output
         if output:

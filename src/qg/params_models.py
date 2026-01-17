@@ -17,12 +17,27 @@ class InputSample(BaseModel):
     tube_id: str | None = Field(default=None, alias="Tube ID")
     position: str | None = Field(default=None, alias="Position")
     grid_position: str | None = Field(default=None, alias="GridPosition")
+    grouping_var: str | None = Field(default=None, alias="Grouping")
+
+
+class SampleGroup(BaseModel):
+    """A group of samples from a single project/container."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    container_id: int
+    group_name: str | None = Field(default=None)
+    samples: list[InputSample] = Field(default_factory=list)  # Can be empty for QC-only
+
+    @property
+    def effective_name(self) -> str:
+        """Get display name (group_name or container_id as string)."""
+        return self.group_name or str(self.container_id)
 
 
 class QueueParameters(BaseModel):
     """Queue generation parameters from input JSON."""
 
-    container_id: int
     technology: str = Field(..., min_length=1, description="Technology identifier")
     instrument: str
     sampler: str  # e.g., "Vanquish.vial"
@@ -47,4 +62,12 @@ class QueueInput(BaseModel):
     """Complete input for queue generation."""
 
     parameters: QueueParameters
-    samples: list[InputSample]
+    sample_groups: list[SampleGroup] = Field(..., min_length=1)
+
+    def get_all_samples(self) -> list[InputSample]:
+        """Get all samples flattened."""
+        return [s for group in self.sample_groups for s in group.samples]
+
+    def get_primary_container_id(self) -> int:
+        """Get the primary container ID (first group's container_id)."""
+        return self.sample_groups[0].container_id

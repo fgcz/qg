@@ -16,7 +16,7 @@ with app.setup:
 
     from qg.config import load_all_configs
     from qg.config_models import requires_polarity
-    from qg.params_models import InputSample, QueueInput, QueueParameters
+    from qg.params_models import InputSample, QueueInput, QueueParameters, SampleGroup
     from qg.params_simulator import write_params
 
 
@@ -454,7 +454,6 @@ def _(
         _method = method_field.value if method_field is not None else ""
         queue_parameters = QueueParameters.model_validate(
             {
-                "container_id": container_id,
                 "technology": technology_field.value,
                 "instrument": instrument_field.value,
                 "sampler": sampler_field.value,
@@ -517,7 +516,8 @@ def _(CONFIG_DIR, container_id, queue_parameters, sample_df, save_button):
         )
         for row in sample_df.to_dicts()
     ]
-    _queue_input = QueueInput(parameters=queue_parameters, samples=_samples)
+    _sample_group = SampleGroup(container_id=container_id, samples=_samples)
+    _queue_input = QueueInput(parameters=queue_parameters, sample_groups=[_sample_group])
     _examples_dir = CONFIG_DIR / "examples"
     _examples_dir.mkdir(exist_ok=True)
     _n_samples = len(sample_df)

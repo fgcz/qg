@@ -291,7 +291,7 @@ def _(technology_dropdown, instrument_dropdown, instrument_patterns_df):
             (pl.col("instrument") == instrument_dropdown.value)
         )
         .sort("is_default", descending=True)
-        ["pattern"]
+        ["queue_pattern"]
         .to_list()
     )
     pattern_dropdown = mo.ui.dropdown(
@@ -446,14 +446,8 @@ def _(
     # QC positions table
     _qc_df = _dict_to_df(selected_config["qc_layout"], "Sample", "Position")
 
-    # Pattern table
-    _p = selected_config["pattern_config"]
-    _pattern_df = _dict_to_df({
-        "QC frequency": f"every {_p.get('run_QC_after_n_samples', '—')} samples",
-        "Start": _p.get("start", []),
-        "Middle": _p.get("middle", []),
-        "End": _p.get("end", []),
-    }, "Phase", "Sequence") if _p else None
+    # Pattern table - just convert the whole dict
+    _pattern_df = _dict_to_df(selected_config["pattern_config"], "Property", "Value") if selected_config["pattern_config"] else None
 
     # Selected sample details
     _selected_sample = tech_samples.get(sample_dropdown.value, {}) if sample_dropdown.value else {}
@@ -617,7 +611,7 @@ def _():
         for row in instrument_patterns_df.iter_rows(named=True):
             tech = row.get("technology", "")
             instr = row.get("instrument", "")
-            pattern = row.get("pattern", "")
+            pattern = row.get("queue_pattern", "")
             key = f"{tech}.{instr}"
             if key not in instrument_keys:
                 errors.append(f"instrument_patterns.csv: Unknown instrument {key}")

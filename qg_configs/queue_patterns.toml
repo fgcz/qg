@@ -22,6 +22,9 @@ run_QC_after_n_samples = 16
 start = ["QC03dia", "QC01"]
 middle = ["clean", "QC01"]
 end = ["clean", "QC01", "QC03dia", "clean"]
+separation = ["clean", "QC01", "clean"]  # Between project groups
+
+
 
 [Proteomics.frequent]
 description = "Frequent QC (every 8 samples) for sensitive experiments"
@@ -92,6 +95,7 @@ start = [
 
 # Regular middle pattern
 middle = ["blank", "108mix_AA", "pooledQC"]
+separation = ["blank", "pooledQC"]  # Between project groups
 
 # Extended middle pattern (every 2x frequency) for dilution series
 middle_extended = [
@@ -140,6 +144,7 @@ start = [
     "blank"
 ]
 middle = ["blank", "EquiSPLASH", "pooledQC"]
+separation = ["blank", "pooledQC"]  # Between project groups
 middle_extended = [
     "pooledQCDil1", "pooledQCDil2", "pooledQCDil3",
     "pooledQCDil4", "pooledQCDil5", "pooledQCDil6"

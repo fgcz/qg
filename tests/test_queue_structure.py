@@ -6,7 +6,7 @@ import pytest
 
 from qg.config import load_queue_patterns
 from qg.queue_structure import (
-    build_queue_structure,
+    build_multi_container_queue_structure,
     compute_extended_positions,
     compute_middle_block_positions,
     compute_queue_counts,
@@ -339,12 +339,18 @@ class TestComputeQueueCountsConsistency:
 
 
 # =============================================================================
-# Test build_queue_structure
+# Test build_multi_container_queue_structure (single container)
 # =============================================================================
 
 
+def _build_structure(num_samples: int, pattern: QueuePattern) -> list[str]:
+    """Helper: build single-container structure and extract sample_ids."""
+    slot_entries = build_multi_container_queue_structure([(0, num_samples)], pattern)
+    return [s.sample_id for s in slot_entries]
+
+
 class TestBuildQueueStructure:
-    """Tests for build_queue_structure function."""
+    """Tests for build_multi_container_queue_structure with single container."""
 
     @pytest.mark.parametrize("tech,pattern_name", ALL_PATTERN_KEYS)
     @pytest.mark.parametrize("num_samples", SAMPLE_COUNTS)
@@ -357,7 +363,7 @@ class TestBuildQueueStructure:
     ) -> None:
         """Verify structure length matches computed total."""
         pattern = all_patterns[tech][pattern_name]
-        structure = build_queue_structure(num_samples, pattern)
+        structure = _build_structure(num_samples, pattern)
         counts = compute_queue_counts(num_samples, pattern)
 
         assert len(structure) == counts["total"]
@@ -373,7 +379,7 @@ class TestBuildQueueStructure:
     ) -> None:
         """Verify structure has correct number of user slots."""
         pattern = all_patterns[tech][pattern_name]
-        structure = build_queue_structure(num_samples, pattern)
+        structure = _build_structure(num_samples, pattern)
 
         user_count = sum(1 for s in structure if s == "default")
         assert user_count == num_samples
@@ -387,7 +393,7 @@ class TestBuildQueueStructure:
     ) -> None:
         """Verify structure starts with pattern.start."""
         pattern = all_patterns[tech][pattern_name]
-        structure = build_queue_structure(10, pattern)
+        structure = _build_structure(10, pattern)
 
         start_len = len(pattern.start)
         assert structure[:start_len] == pattern.start
@@ -401,7 +407,7 @@ class TestBuildQueueStructure:
     ) -> None:
         """Verify structure ends with pattern.end."""
         pattern = all_patterns[tech][pattern_name]
-        structure = build_queue_structure(10, pattern)
+        structure = _build_structure(10, pattern)
 
         end_len = len(pattern.end)
         if end_len == 0:
@@ -415,7 +421,7 @@ class TestBuildQueueStructure:
     ) -> None:
         """Verify structure with 0 samples is just start + end."""
         pattern = all_patterns["Proteomics"]["standard"]
-        structure = build_queue_structure(0, pattern)
+        structure = _build_structure(0, pattern)
 
         expected = pattern.start + pattern.end
         assert structure == expected

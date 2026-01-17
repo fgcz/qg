@@ -4,9 +4,42 @@ Pure functions for building the queue structure (slot sequence) without
 any sample data or position assignment.
 """
 
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
 from loguru import logger
 
 from qg.config_models import QueuePattern
+
+if TYPE_CHECKING:
+    from qg.params_models import QueueInput, SampleGroup
+
+
+@dataclass(frozen=True)
+class SlotEntry:
+    """A slot in the queue structure with container context."""
+
+    sample_id: str  # "default" for user samples, qc_id for QC
+    container_id: int  # Which container this slot belongs to (0 for QC)
+
+
+def extract_groups(
+    source: QueueInput | list[SampleGroup],
+) -> list[tuple[int, int]]:
+    """Extract (container_id, num_samples) tuples from QueueInput or SampleGroup list.
+
+    Args:
+        source: Either a QueueInput object or a list of SampleGroup objects
+
+    Returns:
+        List of (container_id, num_samples) tuples for build_multi_container_queue_structure
+    """
+    # If it's a QueueInput, get sample_groups
+    if hasattr(source, "sample_groups"):
+        source = source.sample_groups
+    return [(g.container_id, len(g.samples)) for g in source]
 
 
 def compute_queue_counts(num_samples: int, pattern: QueuePattern) -> dict[str, int]:
@@ -94,59 +127,81 @@ def compute_extended_positions(num_middle_blocks: int, multiplier: int) -> set[i
     return positions
 
 
-def build_queue_structure(num_samples: int, pattern: QueuePattern) -> list[str]:
-    """Build pure queue structure as list of sample_ids.
+def build_multi_container_queue_structure(
+    groups: list[tuple[int, int]],  # (container_id, num_samples)
+    pattern: QueuePattern,
+) -> list[SlotEntry]:
+    """Build queue structure for multiple groups with separation blocks.
+
+    The structure is:
+        start -> [group1 samples + middles] -> separation ->
+                 [group2 samples + middles] -> separation ->
+                 ... -> [groupN samples + middles] -> end
 
     Args:
-        num_samples: Number of user samples
+        groups: List of (container_id, num_samples) tuples
         pattern: Queue pattern configuration
 
     Returns:
-        List of sample_ids like: ["QC03dia", "QC01", "default", "default", "clean", ...]
-        - QC slots: actual sample_id (e.g., "QC01", "blank", "pooledQC")
-        - User slots: "default"
+        List of SlotEntry with container context
     """
+    if not groups:
+        return []
+
+    separation_block = pattern.effective_separation
+    structure: list[SlotEntry] = []
+
     logger.debug(
-        "Building queue structure: {} samples, pattern '{}' (QC every {} samples)",
-        num_samples,
+        "Building multi-group structure: {} groups, pattern '{}', separation={}",
+        len(groups),
         pattern.description,
-        pattern.run_QC_after_n_samples,
+        separation_block,
     )
 
-    structure: list[str] = []
+    # Start block (no container context - QC)
+    for sample_id in pattern.start:
+        structure.append(SlotEntry(sample_id=sample_id, container_id=0))
 
-    # Start
-    structure.extend(pattern.start)
+    # Process each group
+    for group_idx, (container_id, num_samples) in enumerate(groups):
+        # Insert separation block before each group (except first)
+        if group_idx > 0 and separation_block:
+            for sample_id in separation_block:
+                structure.append(SlotEntry(sample_id=sample_id, container_id=0))
 
-    # User samples with middle QCs
-    if num_samples > 0:
-        middle_positions = set(
-            compute_middle_block_positions(num_samples, pattern.run_QC_after_n_samples)
-        )
-        extended_positions = compute_extended_positions(
-            len(middle_positions), pattern.middle_extended_frequency_multiplier or 0
-        )
+        # Build group structure (user samples + middle QCs)
+        if num_samples > 0:
+            middle_positions = set(
+                compute_middle_block_positions(num_samples, pattern.run_QC_after_n_samples)
+            )
+            extended_positions = compute_extended_positions(
+                len(middle_positions), pattern.middle_extended_frequency_multiplier or 0
+            )
 
-        middle_block_idx = 0
-        for i in range(num_samples):
-            structure.append("default")
-            if i in middle_positions:
-                if middle_block_idx in extended_positions and pattern.middle_extended:
-                    structure.extend(pattern.middle_extended)
-                else:
-                    structure.extend(pattern.middle)
-                middle_block_idx += 1
+            middle_block_idx = 0
+            for i in range(num_samples):
+                structure.append(SlotEntry(sample_id="default", container_id=container_id))
+                if i in middle_positions:
+                    if middle_block_idx in extended_positions and pattern.middle_extended:
+                        for sample_id in pattern.middle_extended:
+                            structure.append(SlotEntry(sample_id=sample_id, container_id=0))
+                    else:
+                        for sample_id in pattern.middle:
+                            structure.append(SlotEntry(sample_id=sample_id, container_id=0))
+                    middle_block_idx += 1
 
-    # End
-    structure.extend(pattern.end)
+    # End block
+    for sample_id in pattern.end:
+        structure.append(SlotEntry(sample_id=sample_id, container_id=0))
 
-    qc_count = len(structure) - num_samples
+    user_count = sum(1 for s in structure if s.sample_id == "default")
+    qc_count = len(structure) - user_count
     logger.debug(
-        "Queue structure built: {} total slots ({} QC, {} user)",
+        "Multi-group structure built: {} total slots ({} QC, {} user across {} groups)",
         len(structure),
         qc_count,
-        num_samples,
+        user_count,
+        len(groups),
     )
-    logger.trace("Structure: {}", structure)
 
     return structure

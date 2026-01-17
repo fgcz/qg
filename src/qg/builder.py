@@ -15,7 +15,8 @@ import polars as pl
 from qg.config import ConfigBundle, load_all_configs
 from qg.config_models import Sample, QueuePattern, requires_polarity
 from qg.generator import MethodResolver
-from qg.params_models import QueueParameters
+from qg.params_models import QueueInput
+from qg.queue_structure import extract_groups
 from qg.strategies import create_position_assigner
 
 logger = logging.getLogger(__name__)
@@ -42,11 +43,11 @@ class QueueGeneratorBuilder:
         self.configs = configs
         self._methods_cache: dict[str, pl.DataFrame] = {}
 
-    def build(self, params: QueueParameters) -> "QueueGenerator":
-        """Build a QueueGenerator for the given parameters.
+    def build(self, queue_input: QueueInput) -> "QueueGenerator":
+        """Build a QueueGenerator for the given input.
 
         Args:
-            params: Queue generation parameters
+            queue_input: Complete queue input with parameters and samples/groups
 
         Returns:
             Configured QueueGenerator ready to generate queues
@@ -55,6 +56,8 @@ class QueueGeneratorBuilder:
             ValueError: If configuration is invalid
         """
         from qg.generator import QueueGenerator
+
+        params = queue_input.parameters
 
         # Resolve pattern
         pattern = self.configs.queue_patterns.get_pattern(
@@ -83,8 +86,12 @@ class QueueGeneratorBuilder:
         # Resolve samples config
         samples_config = self._resolve_samples_config(params.technology, pattern)
 
-        # Resolve data path
-        data_path = self._resolve_data_path(params)
+        # Extract groups from QueueInput
+        groups = extract_groups(queue_input)
+        primary_container_id = queue_input.get_primary_container_id()
+
+        # Resolve data path (uses primary container)
+        data_path = self._resolve_data_path(params, primary_container_id)
 
         # Create method resolver
         method_resolver = self._create_method_resolver(
@@ -109,7 +116,7 @@ class QueueGeneratorBuilder:
             "  samples_config=%s\n"
             "  polarities=%s\n"
             "  data_path=%s\n"
-            "  date=%s, container_id=%s",
+            "  date=%s, groups=%s",
             params.technology,
             params.instrument,
             params.sampler,
@@ -123,7 +130,7 @@ class QueueGeneratorBuilder:
             polarities,
             data_path,
             params.date,
-            params.container_id,
+            groups,
         )
 
         return QueueGenerator(
@@ -133,7 +140,7 @@ class QueueGeneratorBuilder:
             method_resolver=method_resolver,
             polarities=polarities,
             date=params.date,
-            container_id=params.container_id,
+            groups=groups,
             data_path=data_path,
             method=params.method,
             inj_vol_override=params.inj_vol_override,
@@ -163,7 +170,7 @@ class QueueGeneratorBuilder:
 
         return samples
 
-    def _resolve_data_path(self, params: QueueParameters) -> str:
+    def _resolve_data_path(self, params, container_id: int) -> str:
         """Resolve the data path from instrument config."""
         row = self.configs.instruments_df.filter(
             (pl.col("technology") == params.technology)
@@ -177,7 +184,7 @@ class QueueGeneratorBuilder:
             return ""
 
         return template.format(
-            container=params.container_id,
+            container=container_id,
             user=params.user,
             date=params.date,
         )

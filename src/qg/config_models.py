@@ -364,6 +364,13 @@ class QueuePattern(BaseModel):
     # Extended middle for metabolomics/lipidomics dilution series
     middle_extended: list[str] | None = None
     middle_extended_frequency_multiplier: int | None = None
+    # Separation block between project groups (falls back to middle if None)
+    separation: list[str] | None = None
+
+    @property
+    def effective_separation(self) -> list[str]:
+        """Get separation block, falling back to middle if not defined."""
+        return self.separation if self.separation is not None else self.middle
 
 
 class QueuePatternsConfig(BaseModel):
@@ -397,6 +404,8 @@ class QueuePatternsConfig(BaseModel):
             refs.update(pattern.end)
             if pattern.middle_extended:
                 refs.update(pattern.middle_extended)
+            if pattern.separation:
+                refs.update(pattern.separation)
         return refs
 
 

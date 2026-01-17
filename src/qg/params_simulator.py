@@ -7,7 +7,7 @@ from datetime import date
 from pathlib import Path
 
 from qg.config import ConfigBundle
-from qg.params_models import InputSample, QueueInput, QueueParameters
+from qg.params_models import InputSample, QueueInput, QueueParameters, SampleGroup
 
 
 def simulate_samples(
@@ -53,7 +53,7 @@ def simulate_params(
     user: str = "testuser",
     sim_date: date | None = None,
 ) -> QueueInput:
-    """Generate simulated queue parameters.
+    """Generate simulated queue parameters (single container convenience wrapper).
 
     Args:
         num_samples: Number of user samples to generate.
@@ -67,7 +67,96 @@ def simulate_params(
         sim_date: Date for queue (defaults to today).
 
     Returns:
-        QueueInput with parameters and simulated samples.
+        QueueInput with parameters and sample_groups (single group).
+
+    Raises:
+        ValueError: If invalid combination of parameters.
+    """
+    return simulate_multi_group_params(
+        groups=[(container_id, num_samples)],
+        configs=configs,
+        technology=technology,
+        instrument=instrument,
+        sampler=sampler,
+        queue_pattern=queue_pattern,
+        user=user,
+        sim_date=sim_date,
+    )
+
+
+def write_params(queue_input: QueueInput, output_path: str | Path) -> Path:
+    """Write queue parameters to JSON file.
+
+    Args:
+        queue_input: The QueueInput object to serialize.
+        output_path: Path to write the JSON file.
+
+    Returns:
+        Path to the written file.
+    """
+    output_path = Path(output_path)
+
+    # Build parameters dict
+    params = queue_input.parameters
+    params_dict: dict = {
+        "technology": params.technology,
+        "instrument": params.instrument,
+        "sampler": params.sampler,
+        "output_format": params.output_format,
+        "queue_pattern": params.queue_pattern,
+        "polarity": params.polarity,
+        "date": params.date,
+        "user": params.user,
+        "method": params.method,
+        "randomization": params.randomization,
+        "inj_vol_override": params.inj_vol_override,
+    }
+
+    output_dict: dict = {
+        "parameters": params_dict,
+        "sample_groups": [
+            {
+                "container_id": group.container_id,
+                "group_name": group.group_name,
+                "samples": [
+                    sample.model_dump(by_alias=True, exclude_none=True)
+                    for sample in group.samples
+                ],
+            }
+            for group in queue_input.sample_groups
+        ],
+    }
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(output_dict, indent=2))
+
+    return output_path
+
+
+def simulate_multi_group_params(
+    groups: list[tuple[int, int]],  # (container_id, num_samples)
+    configs: ConfigBundle,
+    technology: str,
+    instrument: str,
+    sampler: str,
+    queue_pattern: str,
+    user: str = "testuser",
+    sim_date: date | None = None,
+) -> QueueInput:
+    """Generate simulated queue parameters for multiple groups.
+
+    Args:
+        groups: List of (container_id, num_samples) tuples.
+        configs: ConfigBundle with all loaded configs.
+        technology: Technology (proteomics, metabolomics, lipidomics).
+        instrument: Instrument name.
+        sampler: Sampler (e.g., "Vanquish.vial").
+        queue_pattern: Queue pattern name.
+        user: Username for output path.
+        sim_date: Date for queue (defaults to today).
+
+    Returns:
+        QueueInput with parameters and sample_groups.
 
     Raises:
         ValueError: If invalid combination of parameters.
@@ -83,8 +172,8 @@ def simulate_params(
 
     date_str = (sim_date or date.today()).strftime("%Y%m%d")
 
+    # No container_id needed when using sample_groups
     params = QueueParameters(
-        container_id=container_id,
         technology=technology,
         instrument=instrument,
         sampler=sampler,
@@ -98,54 +187,15 @@ def simulate_params(
         inj_vol_override=None,
     )
 
-    samples = simulate_samples(num_samples, container_id, sampler)
+    sample_groups = []
+    start_id = 1000001
+    for container_id, num_samples in groups:
+        samples = simulate_samples(num_samples, container_id, sampler, start_id)
+        sample_groups.append(SampleGroup(
+            container_id=container_id,
+            group_name=f"Project_{container_id}",
+            samples=samples,
+        ))
+        start_id += num_samples
 
-    return QueueInput(parameters=params, samples=samples)
-
-
-def write_params(queue_input: QueueInput, output_path: str | Path) -> Path:
-    """Write queue parameters to JSON file.
-
-    Serializes QueueInput using the expected file format with aliased field names.
-
-    Args:
-        queue_input: The QueueInput object to serialize.
-        output_path: Path to write the JSON file.
-
-    Returns:
-        Path to the written file.
-    """
-    output_path = Path(output_path)
-
-    # Build parameters dict with file-format field names
-    params = queue_input.parameters
-    params_dict = {
-        "container_id": params.container_id,
-        "technology": params.technology,
-        "instrument": params.instrument,
-        "sampler": params.sampler,
-        "software": params.output_format,  # File uses "software"
-        "pattern": params.queue_pattern,  # File uses "pattern"
-        "polarity": params.polarity,
-        "date": params.date,
-        "user": params.user,
-        "method": params.method,
-        "randomization": params.randomization,
-        "inj_vol_override": params.inj_vol_override,
-    }
-
-    # Serialize samples with aliases ("Sample Name", "Sample ID", etc.)
-    samples_list = [
-        sample.model_dump(by_alias=True, exclude_none=True)
-        for sample in queue_input.samples
-    ]
-
-    output_dict = {
-        "parameters": params_dict,
-        "samples": samples_list,
-    }
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(output_dict, indent=2))
-
-    return output_path
+    return QueueInput(parameters=params, sample_groups=sample_groups)
