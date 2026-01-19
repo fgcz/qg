@@ -24,6 +24,11 @@
 # Plate: 8 rows (A-H) x 12 cols, QC row H
 # =============================================================================
 
+# TODO : remove qc_row becuase qc positions we have already in qc_layouts.toml
+# TODO : remove qc_plate -> qc_layout has the plate.
+# TODO : check if samples_per_plate is needed?
+# TODO : 
+
 [Vanquish]
 description = "Thermo Vanquish autosampler"
 plates = ["Y", "R", "B", "G"]
@@ -35,7 +40,7 @@ position_source = "generated"
 fill_order = "row_major"
 position_format = "{plate}:{row}{col}"
 sample_rows = ["A", "B", "C", "D", "E"]
-qc_row = "F"
+qc_row = "F" 
 cols = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 samples_per_plate = 45
 
@@ -79,6 +84,8 @@ position_format = "{plate}:{grid_position}"
 # Position (1-96) + tray (slot number) as separate fields
 # Grid per tray: 8 rows (A-H) x 12 cols = 96 positions
 # =============================================================================
+
+# TODO : tray and position are to columns
 
 [Evosep]
 description = "Evosep One autosampler"

@@ -69,6 +69,7 @@ pooledQCDil4 = "B:H5"
 pooledQCDil5 = "B:H6"
 pooledQCDil6 = "B:H7"
 
+# TODO : can be removed.
 [Metabolomics.MClass48]
 # QC row: F, QC plate: 1 (same for Vial and Plate)
 blank = "1:F,8"
@@ -82,6 +83,7 @@ pooledQCDil4 = "1:F,2"
 pooledQCDil5 = "1:F,1"
 pooledQCDil6 = "2:F,8"
 
+# TODO : can be removed.
 [Metabolomics.Evosep]
 # Tray 5: QC samples, Tray 6: blanks
 blank = { tray = 6, position_start = 1, position_end = 48 }
@@ -98,6 +100,7 @@ pooledQCDil6 = { tray = 5, position_start = 93, position_end = 96 }
 # =============================================================================
 # LIPIDOMICS
 # =============================================================================
+
 
 [Lipidomics.Vanquish.vial]
 # QC row: F, QC plate: B
@@ -123,6 +126,7 @@ pooledQCDil4 = "B:H5"
 pooledQCDil5 = "B:H6"
 pooledQCDil6 = "B:H7"
 
+# TODO remove
 [Lipidomics.MClass48]
 # QC row: F, QC plate: 1 (same for Vial and Plate)
 blank = "1:F,8"
@@ -135,6 +139,7 @@ pooledQCDil4 = "1:F,2"
 pooledQCDil5 = "1:F,1"
 pooledQCDil6 = "2:F,8"
 
+TODO remove
 [Lipidomics.Evosep]
 # Tray 5: QC samples, Tray 6: blanks
 blank = { tray = 6, position_start = 1, position_end = 48 }
