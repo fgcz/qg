@@ -220,6 +220,18 @@ class TestMultiGroupSimulatorIntegration:
         assert len(user_slots) == 5  # 2 + 3
         assert [s.container_id for s in user_slots] == [1001, 1001, 1002, 1002, 1002]
 
-        # QC slots should have container_id=0
+        # QC slots should have context-aware container_ids:
+        # - Start block: first group's container_id (1001)
+        # - Separation block: previous group's container_id (1001)
+        # - End block: last group's container_id (1002)
         qc_slots = [s for s in structure if s.sample_id != "default"]
-        assert all(s.container_id == 0 for s in qc_slots)
+        start_count = len(pattern.start)  # 2
+        separation_count = len(pattern.effective_separation)  # 3
+        end_count = len(pattern.end)  # 4
+
+        expected_qc_ids = (
+            [1001] * start_count  # Start block
+            + [1001] * separation_count  # Separation block (belongs to first group)
+            + [1002] * end_count  # End block
+        )
+        assert [s.container_id for s in qc_slots] == expected_qc_ids

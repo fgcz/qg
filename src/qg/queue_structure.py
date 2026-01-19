@@ -22,7 +22,7 @@ class SlotEntry:
     """A slot in the queue structure with container context."""
 
     sample_id: str  # "default" for user samples, qc_id for QC
-    container_id: int  # Which container this slot belongs to (0 for QC)
+    container_id: int  # Which container this slot belongs to
 
 
 def extract_groups(
@@ -158,16 +158,19 @@ def build_multi_container_queue_structure(
         separation_block,
     )
 
-    # Start block (no container context - QC)
+    # Start block - use first group's container_id
+    first_container_id = groups[0][0]
     for sample_id in pattern.start:
-        structure.append(SlotEntry(sample_id=sample_id, container_id=0))
+        structure.append(SlotEntry(sample_id=sample_id, container_id=first_container_id))
 
     # Process each group
     for group_idx, (container_id, num_samples) in enumerate(groups):
         # Insert separation block before each group (except first)
+        # Separation block belongs to the group being finished (previous group)
         if group_idx > 0 and separation_block:
+            prev_container_id = groups[group_idx - 1][0]
             for sample_id in separation_block:
-                structure.append(SlotEntry(sample_id=sample_id, container_id=0))
+                structure.append(SlotEntry(sample_id=sample_id, container_id=prev_container_id))
 
         # Build group structure (user samples + middle QCs)
         if num_samples > 0:
@@ -184,15 +187,16 @@ def build_multi_container_queue_structure(
                 if i in middle_positions:
                     if middle_block_idx in extended_positions and pattern.middle_extended:
                         for sample_id in pattern.middle_extended:
-                            structure.append(SlotEntry(sample_id=sample_id, container_id=0))
+                            structure.append(SlotEntry(sample_id=sample_id, container_id=container_id))
                     else:
                         for sample_id in pattern.middle:
-                            structure.append(SlotEntry(sample_id=sample_id, container_id=0))
+                            structure.append(SlotEntry(sample_id=sample_id, container_id=container_id))
                     middle_block_idx += 1
 
-    # End block
+    # End block - use last group's container_id
+    last_container_id = groups[-1][0]
     for sample_id in pattern.end:
-        structure.append(SlotEntry(sample_id=sample_id, container_id=0))
+        structure.append(SlotEntry(sample_id=sample_id, container_id=last_container_id))
 
     user_count = sum(1 for s in structure if s.sample_id == "default")
     qc_count = len(structure) - user_count

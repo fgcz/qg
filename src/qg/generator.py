@@ -51,7 +51,7 @@ class SlotInfo:
     position: str
     sample_config: Sample
     user_sample: InputSample | None  # Only for "default" slots
-    container_id: int  # Which container this slot belongs to (0 for QC)
+    container_id: int  # Which container this slot belongs to
 
 
 @dataclass(slots=True)
