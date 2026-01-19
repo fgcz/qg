@@ -1,23 +1,24 @@
 """Pydantic models for queue parameters (runtime input)."""
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from qg.config_models import requires_polarity
 
+if TYPE_CHECKING:
+    import polars as pl
+
 
 class InputSample(BaseModel):
     """A sample from B-Fabric input JSON."""
 
-    model_config = ConfigDict(populate_by_name=True)
-
-    sample_name: str = Field(..., alias="Sample Name")
-    sample_id: int = Field(..., alias="Sample ID")
-    tube_id: str | None = Field(default=None, alias="Tube ID")
-    position: str | None = Field(default=None, alias="Position")
-    grid_position: str | None = Field(default=None, alias="GridPosition")
-    grouping_var: str | None = Field(default=None, alias="Grouping")
+    sample_name: str
+    sample_id: int
+    tube_id: str | None = None
+    position: str | None = None
+    grid_position: str | None = None
+    grouping_var: str | None = None
 
 
 class SampleGroup(BaseModel):
@@ -74,3 +75,8 @@ class QueueInput(BaseModel):
     def get_primary_container_id(self) -> int:
         """Get the primary container ID (first group's container_id)."""
         return self.sample_groups[0].container_id
+
+
+def samples_from_dataframe(df: "pl.DataFrame") -> list[InputSample]:
+    """Convert a polars DataFrame to list of InputSample."""
+    return [InputSample(**row) for row in df.to_dicts()]

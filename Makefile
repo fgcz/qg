@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help configs queues queues-vanquish validate clean app editor parse-sld configs-from-csv test
+.PHONY: help projects configs queues queues-vanquish validate clean app editor parse-sld
 
 PYTHON := uv run python
 CONFIG_DIR := qg_configs
@@ -12,6 +12,7 @@ help:
 	@echo "Usage: make <target>"
 	@echo ""
 	@echo "Targets:"
+	@echo "  projects         Fetch projects from B-Fabric (updates bfabric_cache/)"
 	@echo "  configs          Generate all config JSONs from B-Fabric"
 	@echo "  configs-vanquish Generate configs for Vanquish sampler only"
 	@echo "  queues           Generate queue CSVs from all config JSONs"
@@ -19,10 +20,12 @@ help:
 	@echo "  validate         Validate all configuration files"
 	@echo "  clean            Remove generated examples (JSON + CSV)"
 	@echo "  parse-sld        Parse SLD files to CSVs (queue_files/)"
-	@echo "  configs-from-csv Generate test fixture configs from CSVs"
-	@echo "  test             Run round-trip tests (snakemake)"
 	@echo "  app              Run the marimo GUI app"
 	@echo "  editor           Run the config editor app"
+
+# Fetch projects from B-Fabric
+projects:
+	uv run qg-find-projects
 
 # Generate all config JSONs from B-Fabric
 configs:
@@ -78,11 +81,3 @@ editor:
 # Parse SLD files to CSVs (delegates to queue_files/Snakefile)
 parse-sld:
 	cd queue_files && snakemake -j4 all
-
-# Parse real queue CSV files to config JSONs (delegates to tests/Snakefile)
-configs-from-csv:
-	cd tests && snakemake configs
-
-# Run round-trip tests
-test:
-	cd tests && snakemake -j4 all

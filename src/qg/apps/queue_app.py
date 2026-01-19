@@ -8,16 +8,16 @@ with app.setup:
     import polars as pl
     import pydantic
     from bfabric import Bfabric
-    import functools
     import json
-    import operator
     from pathlib import Path
     from datetime import date
 
+    from qg.bfabric_utils import load_orders_from_cache, load_plates_for_container, load_samples_for_container, normalize_samples_df
     from qg.config import load_all_configs
     from qg.config_models import requires_polarity
-    from qg.params_models import InputSample, QueueInput, QueueParameters, SampleGroup
+    from qg.params_models import QueueInput, QueueParameters, SampleGroup, samples_from_dataframe
     from qg.params_simulator import write_params
+    from qg.builder import QueueGeneratorBuilder
 
 
 @app.cell
@@ -63,28 +63,7 @@ def _(CONFIG_DIR):
 
 @app.cell
 def _(BFABRIC_CACHE_DIR):
-    with open(BFABRIC_CACHE_DIR / "proteomics_projects.json") as f:
-        _projects_data = json.load(f)
-    # Extract orders from projects - order ID is the actual container ID
-    _orders = []
-    for _p in _projects_data:
-        for _order in _p.get("order", []):
-            _plate_count = _order.get("plate_count", 0)
-            _sample_count = _order.get("sample_count", 0)
-            _orders.append({
-                "Container ID": _order["id"],
-                "Project ID": _p["id"],
-                "Project Name": _p.get("name", ""),
-                "PI": _p.get("billingcustomer", ""),
-                "Samples": _sample_count,
-                "Type": "Plates" if _plate_count > 0 else "Vials",
-                "Plates": _plate_count,
-                "Status": _p.get("status", ""),
-                "Area": _p.get("technology", [""])[0] if _p.get("technology") else "",
-            })
-    projects_df = pl.DataFrame(_orders).filter(
-        (pl.col("Samples") > 0) & ~pl.col("Area").str.to_lowercase().is_in(["genomics", "administration"])
-    ).sort("Container ID", descending=True)
+    projects_df = load_orders_from_cache(BFABRIC_CACHE_DIR)
     return (projects_df,)
 
 
@@ -347,7 +326,6 @@ def _():
 def _(
     container_id,
     date_field,
-    default_qc_frequency,
     inj_vol_field,
     instrument_field,
     method_field_neg,
@@ -385,7 +363,7 @@ def _(
             date_field,
             user_field,
             inj_vol_field,
-            mo.hstack([qc_frequency_field, mo.md(f"(default: {default_qc_frequency})")], justify="start"),
+            qc_frequency_field,
         ])
 
     mo.sidebar(mo.vstack(_sidebar_items))
@@ -400,7 +378,7 @@ def _(
 @app.cell
 def _(client, container_id):
     mo.stop(container_id is None)
-    plates = client.reader.query("plate", {"containerid": container_id})
+    plates = load_plates_for_container(client, container_id)
     return (plates,)
 
 
@@ -413,19 +391,9 @@ def _(plates):
 
 @app.cell
 def _(client, container_id, plates, plates_select):
-    selected_plate_ids = plates_select.value
-    if selected_plate_ids:
-        _plates = [_plate for _uri, _plate in plates.items() if _uri.components.entity_id in selected_plate_ids]
-        _samples = functools.reduce(operator.iadd, (_plate.refs.sample for _plate in _plates))
-        full_samples_df = pl.from_dicts(_sample.data_dict for _sample in _samples)
-    else:
-        full_samples_df = client.read(
-            "sample", {"containerid": container_id}, max_results=None
-        ).to_polars()
-    mo.stop(
-        full_samples_df.is_empty(),
-        mo.md("**No samples found for this container**"),
-    )
+    selected_plate_ids = plates_select.value if plates_select.value else None
+    full_samples_df = load_samples_for_container(client, container_id, plates, selected_plate_ids)
+    mo.stop(full_samples_df.is_empty(), mo.md("**No samples found**"))
     full_samples_df = full_samples_df.sort("id")
     return (full_samples_df,)
 
@@ -456,19 +424,7 @@ def _(full_samples_df, subset_samples_select):
 
 @app.cell
 def _(selected_samples_df):
-    _optional_columns = []
-    if "_position" in selected_samples_df.columns:
-        _optional_columns.extend([
-            pl.col("_position").alias("Position"),
-            pl.col("_gridposition").alias("GridPosition")
-        ])
-    if "tubeid" in selected_samples_df.columns:
-        _optional_columns.append(pl.col("tubeid").alias("Tube ID"))
-    sample_df = selected_samples_df.select(
-        pl.col("name").alias("Sample Name"),
-        pl.col("id").alias("Sample ID"),
-        *_optional_columns
-    ).sort("Sample ID")
+    sample_df = normalize_samples_df(selected_samples_df)
     return (sample_df,)
 
 
@@ -537,24 +493,14 @@ def _(
 @app.cell
 def _(queue_parameters):
     save_button = mo.ui.run_button(label="Save Config JSON")
-    save_button if queue_parameters is not None else None
+    # Button is displayed in Parameters tab, not here
     return (save_button,)
 
 
 @app.cell
 def _(CONFIG_DIR, container_id, queue_parameters, sample_df, save_button):
     mo.stop(not save_button.value or queue_parameters is None)
-    # Build InputSample objects from sample_df
-    _samples = [
-        InputSample(
-            sample_name=row["Sample Name"],
-            sample_id=row["Sample ID"],
-            tube_id=row.get("Tube ID"),
-            position=row.get("Position"),
-            grid_position=row.get("GridPosition"),
-        )
-        for row in sample_df.to_dicts()
-    ]
+    _samples = samples_from_dataframe(sample_df)
     _sample_group = SampleGroup(container_id=container_id, samples=_samples)
     _queue_input = QueueInput(parameters=queue_parameters, sample_groups=[_sample_group])
     _examples_dir = CONFIG_DIR / "examples"
@@ -593,41 +539,78 @@ def _(container_id, container_type):
 
 @app.cell
 def _(plates, plates_select, sample_df, subset_samples_select, subset_samples_toggle):
-    mo.vstack([
-        mo.md("## Samples"),
+    # Sample Selection tab content
+    sample_selection_content = mo.vstack([
         plates_select if plates else None,
         mo.hstack([subset_samples_toggle, mo.md(f"**{len(sample_df)} samples**")], justify="start"),
         subset_samples_select if subset_samples_select else sample_df,
     ])
-    return
+    return (sample_selection_content,)
 
 
 @app.cell
 def _(container_id, queue_parameters, queue_parameters_err, sample_df, save_button):
-    # Build full QueueInput for display
+    # Build full QueueInput for display (Parameters tab content)
     if queue_parameters and container_id is not None and sample_df is not None:
-        _samples = [
-            InputSample(
-                sample_name=row["Sample Name"],
-                sample_id=row["Sample ID"],
-                tube_id=row.get("Tube ID"),
-                position=row.get("Position"),
-                grid_position=row.get("GridPosition"),
-            )
-            for row in sample_df.to_dicts()
-        ]
+        _samples = samples_from_dataframe(sample_df)
         _sample_group = SampleGroup(container_id=container_id, samples=_samples)
         _queue_input = QueueInput(parameters=queue_parameters, sample_groups=[_sample_group])
         _output = _queue_input.model_dump(mode="json")
     else:
         _output = None
 
-    mo.vstack([
-        mo.md("## Output"),
+    parameters_content = mo.vstack([
         mo.callout(_output, kind="info") if _output else mo.callout(str(queue_parameters_err) if queue_parameters_err else "Select a project", kind="danger"),
         save_button if queue_parameters else None,
     ])
-    return
+    return (parameters_content,)
+
+
+@app.cell
+def _(configs, container_id, queue_parameters, sample_df):
+    # Generate queue from current parameters
+    generated_queue_df = None
+    generation_error = None
+
+    if queue_parameters and container_id and sample_df is not None and not sample_df.is_empty():
+        try:
+            _samples = samples_from_dataframe(sample_df)
+            _sample_group = SampleGroup(container_id=container_id, samples=_samples)
+            _queue_input = QueueInput(parameters=queue_parameters, sample_groups=[_sample_group])
+            _builder = QueueGeneratorBuilder(configs)
+            _generator = _builder.build(_queue_input)
+            generated_queue_df = _generator.generate(_queue_input.get_all_samples())
+        except Exception as e:
+            generation_error = str(e)
+
+    return generated_queue_df, generation_error
+
+
+@app.cell
+def _(generated_queue_df, generation_error):
+    # Queue Preview tab content
+    if generation_error:
+        queue_preview_content = mo.callout(f"Generation error: {generation_error}", kind="danger")
+    elif generated_queue_df is not None:
+        queue_preview_content = mo.vstack([
+            mo.md(f"**{len(generated_queue_df)} rows**"),
+            generated_queue_df,
+        ])
+    else:
+        queue_preview_content = mo.md("_Select a project and configure parameters to preview queue_")
+    return (queue_preview_content,)
+
+
+@app.cell
+def _(parameters_content, queue_preview_content, sample_selection_content):
+    # Tabbed interface for the right panel
+    right_panel_tabs = mo.ui.tabs({
+        "Queue Preview": queue_preview_content,
+        "Sample Selection": sample_selection_content,
+        "Parameters": parameters_content,
+    })
+    right_panel_tabs
+    return (right_panel_tabs,)
 
 
 if __name__ == "__main__":

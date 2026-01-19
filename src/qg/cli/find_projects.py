@@ -6,6 +6,7 @@ from pathlib import Path
 
 import polars as pl
 from bfabric import Bfabric
+from loguru import logger
 
 
 def get_proteomics_projects_with_samples(
@@ -85,12 +86,12 @@ def main():
     # Connect to TEST environment
     client = Bfabric.connect(config_file_env="TEST")
 
-    print("Querying B-Fabric TEST for running proteomics projects with samples...")
+    logger.info("Querying B-Fabric TEST for running proteomics projects with samples...")
     projects = get_proteomics_projects_with_samples(client, only_running=True)
 
-    print(f"\nFound {len(projects)} projects:\n")
+    logger.info(f"Found {len(projects)} projects")
     for p in projects:
-        print(f"  [{p['id']}] {p.get('name', 'N/A')} (samples: {p.get('countsamples', 0)})")
+        logger.debug(f"  [{p['id']}] {p.get('name', 'N/A')} (samples: {p.get('countsamples', 0)})")
 
     # Get all order IDs
     all_order_ids = []
@@ -98,7 +99,7 @@ def main():
         for order in p.get("order", []):
             all_order_ids.append(order["id"])
 
-    print(f"\nQuerying plate and sample info for {len(all_order_ids)} orders...")
+    logger.info(f"Querying plate and sample info for {len(all_order_ids)} orders...")
     order_info = get_order_info(client, all_order_ids)
 
     # Add plate and sample counts to orders in projects
@@ -127,14 +128,14 @@ def main():
     ])
     csv_path = output_dir / "proteomics_projects.csv"
     df.write_csv(csv_path)
-    print(f"\nSaved CSV to: {csv_path}")
+    logger.info(f"Saved CSV to: {csv_path}")
 
     # Full JSON for all fields
     json_path = output_dir / "proteomics_projects.json"
     json_path.write_text(json.dumps(projects, indent=2, default=str))
-    print(f"Saved JSON to: {json_path}")
+    logger.info(f"Saved JSON to: {json_path}")
 
-    return projects
+    return 0
 
 
 if __name__ == "__main__":
