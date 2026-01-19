@@ -19,6 +19,7 @@ class InputSample(BaseModel):
     position: str | None = None
     grid_position: str | None = None
     grouping_var: str | None = None
+    plate_id: int | None = None  # Plate ID for plate samples
 
 
 class SampleGroup(BaseModel):

@@ -12,7 +12,7 @@ with app.setup:
     from pathlib import Path
     from datetime import date
 
-    from qg.bfabric_utils import load_orders_from_cache, load_plates_for_container, load_samples_for_container, normalize_samples_df
+    from qg.bfabric_utils import get_samples, get_plates, samples_to_dataframe
     from qg.config import load_all_configs
     from qg.config_models import requires_polarity
     from qg.params_models import QueueInput, QueueParameters, SampleGroup, samples_from_dataframe
@@ -63,7 +63,30 @@ def _(CONFIG_DIR):
 
 @app.cell
 def _(BFABRIC_CACHE_DIR):
-    projects_df = load_orders_from_cache(BFABRIC_CACHE_DIR)
+    # Load orders from cached proteomics_projects.json
+    with open(BFABRIC_CACHE_DIR / "proteomics_projects.json") as f:
+        _projects_data = json.load(f)
+
+    _orders = [
+        {
+            "Container ID": order["id"],
+            "Project ID": project["id"],
+            "Project Name": project.get("name", ""),
+            "PI": project.get("billingcustomer", ""),
+            "Samples": order.get("sample_count", 0),
+            "Type": "Plates" if order.get("plate_count", 0) > 0 else "Vials",
+            "Plates": order.get("plate_count", 0),
+            "Status": project.get("status", ""),
+            "Area": project.get("technology", [""])[0] if project.get("technology") else "",
+        }
+        for project in _projects_data
+        for order in project.get("order", [])
+    ]
+
+    projects_df = pl.DataFrame(_orders).filter(
+        (pl.col("Samples") > 0)
+        & ~pl.col("Area").str.to_lowercase().is_in(["genomics", "administration"])
+    ).sort("Container ID", descending=True)
     return (projects_df,)
 
 
@@ -225,23 +248,17 @@ def _(CONFIG_DIR, instrument_field, technology_field):
 @app.cell
 def _(methods_df):
     # Get unique method names for each polarity from default sample_type
-    if methods_df.is_empty():
-        available_methods_pos = []
-        available_methods_neg = []
-    else:
-        _default = methods_df.filter(pl.col("sample_type") == "default")
-        # Check if polarity column exists
-        if "polarity" in _default.columns:
-            available_methods_pos = sorted(
-                _default.filter(pl.col("polarity") == "pos")["method_name"].unique().to_list()
-            )
-            available_methods_neg = sorted(
-                _default.filter(pl.col("polarity") == "neg")["method_name"].unique().to_list()
-            )
-        else:
-            # Backward compat: no polarity column, all methods available for both
-            available_methods_pos = sorted(_default["method_name"].unique().to_list())
-            available_methods_neg = available_methods_pos
+    def _get_methods(df: pl.DataFrame, polarity: str | None) -> list[str]:
+        if df.is_empty():
+            return []
+        filtered = df.filter(pl.col("sample_type") == "default")
+        if polarity and "polarity" in filtered.columns:
+            filtered = filtered.filter(pl.col("polarity") == polarity)
+        return sorted(filtered["method_name"].unique().to_list())
+
+    _has_polarity = not methods_df.is_empty() and "polarity" in methods_df.columns
+    available_methods_pos = _get_methods(methods_df, "pos" if _has_polarity else None)
+    available_methods_neg = _get_methods(methods_df, "neg" if _has_polarity else None)
     return available_methods_neg, available_methods_pos
 
 
@@ -378,7 +395,7 @@ def _(
 @app.cell
 def _(client, container_id):
     mo.stop(container_id is None)
-    plates = load_plates_for_container(client, container_id)
+    plates = get_plates(client, container_id)
     return (plates,)
 
 
@@ -390,12 +407,13 @@ def _(plates):
 
 
 @app.cell
-def _(client, container_id, plates, plates_select):
+def _(client, container_id, container_type, plates, plates_select):
     selected_plate_ids = plates_select.value if plates_select.value else None
-    full_samples_df = load_samples_for_container(client, container_id, plates, selected_plate_ids)
+    sample_group = get_samples(client, container_id, container_type, plates, selected_plate_ids)
+    full_samples_df = samples_to_dataframe(sample_group)
     mo.stop(full_samples_df.is_empty(), mo.md("**No samples found**"))
-    full_samples_df = full_samples_df.sort("id")
-    return (full_samples_df,)
+    full_samples_df = full_samples_df.sort("sample_id")
+    return full_samples_df, sample_group
 
 
 @app.cell
@@ -407,7 +425,7 @@ def _():
 @app.cell
 def _(full_samples_df, subset_samples_toggle):
     if subset_samples_toggle.value:
-        subset_samples_select = mo.ui.table(data=full_samples_df, freeze_columns_left=["name"])
+        subset_samples_select = mo.ui.table(data=full_samples_df, freeze_columns_left=["sample_name"])
     else:
         subset_samples_select = None
     return (subset_samples_select,)
@@ -416,15 +434,9 @@ def _(full_samples_df, subset_samples_toggle):
 @app.cell
 def _(full_samples_df, subset_samples_select):
     if subset_samples_select is None:
-        selected_samples_df = full_samples_df
+        sample_df = full_samples_df
     else:
-        selected_samples_df = subset_samples_select.value
-    return (selected_samples_df,)
-
-
-@app.cell
-def _(selected_samples_df):
-    sample_df = normalize_samples_df(selected_samples_df)
+        sample_df = subset_samples_select.value
     return (sample_df,)
 
 
@@ -453,20 +465,16 @@ def _(
     try:
         _inj_vol = float(inj_vol_field.value) if inj_vol_field.value.strip() else None
         _qc_freq = int(qc_frequency_field.value) if qc_frequency_field.value.strip() else None
-        # Build polarity list from checkbox group
-        _polarity = []
-        if polarity_group.value.get("pos"):
-            _polarity.append("pos")
-        if polarity_group.value.get("neg"):
-            _polarity.append("neg")
+        _polarity = [p for p in ("pos", "neg") if polarity_group.value.get(p)]
         _randomization = randomization_field.value == "yes"
 
         # Build method dict from per-polarity selections
-        method_dict = {}
-        if method_field_pos is not None and method_field_pos.value:
-            method_dict["pos"] = method_field_pos.value
-        if method_field_neg is not None and method_field_neg.value:
-            method_dict["neg"] = method_field_neg.value
+        _method_fields = {"pos": method_field_pos, "neg": method_field_neg}
+        method_dict = {
+            pol: field.value
+            for pol, field in _method_fields.items()
+            if field is not None and field.value
+        }
 
         queue_parameters = QueueParameters.model_validate(
             {

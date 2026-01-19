@@ -31,7 +31,7 @@ QC03dia = "1:F,7"
 QC03dda = "1:F,7"
 clean = "1:F,6"
 
-[Proteomics.Evosep]
+[Proteomics.Evosep] 
 # Position ranges within dedicated trays
 # Tray 5: QC samples, Tray 6: Clean/wash
 QC01 = { tray = 5, position_start = 1, position_end = 48 }
