@@ -422,49 +422,52 @@ def validate_all_configs(config_dir: Path | str) -> bool:
     """Validate all configuration files and print results.
 
     Args:
-        config_dir: Path to configuration directory
+        config_dir: Path to configuration directory (contains core/ and ui/)
 
     Returns:
         True if all validations pass, False otherwise
     """
     config_dir = Path(config_dir)
+    core_dir = config_dir / "core"
+    ui_dir = config_dir / "ui"
     errors: list[tuple[str, Exception]] = []
 
     # Derive dynamic values BEFORE validation (required for Pydantic validators)
-    with open(config_dir / "sampler.toml", "rb") as f:
+    with open(core_dir / "sampler.toml", "rb") as f:
         sampler_raw = tomllib.load(f)
     set_valid_samplers(derive_valid_samplers(sampler_raw))
 
-    samples_df = pl.read_csv(config_dir / "samples.csv")
+    samples_df = pl.read_csv(core_dir / "samples.csv")
     set_polarity_technologies(derive_polarity_technologies(samples_df))
 
-    # Validate CSV configs
-    samples, errs = _validate_samples(config_dir)
+    # Validate core CSV configs
+    samples, errs = _validate_samples(core_dir)
     errors.extend(errs)
 
-    instruments, errs = _validate_instruments(config_dir)
+    instruments, errs = _validate_instruments(core_dir)
     errors.extend(errs)
 
-    patterns, errs = _validate_instrument_patterns(config_dir)
+    # Validate UI CSV configs
+    patterns, errs = _validate_instrument_patterns(ui_dir)
     errors.extend(errs)
 
-    combos, errs = _validate_combinations(config_dir)
+    combos, errs = _validate_combinations(ui_dir)
     errors.extend(errs)
 
     # Cross-validate CSV configs
     _cross_validate_instrument_refs(instruments, patterns, combos)
 
-    # Validate TOML configs
-    _, errs = _validate_samplers(config_dir)
+    # Validate core TOML configs
+    _, errs = _validate_samplers(core_dir)
     errors.extend(errs)
 
-    queue_patterns, errs = _validate_queue_patterns(config_dir)
+    queue_patterns, errs = _validate_queue_patterns(core_dir)
     errors.extend(errs)
 
-    qc_layouts, errs = _validate_qc_layouts(config_dir)
+    qc_layouts, errs = _validate_qc_layouts(core_dir)
     errors.extend(errs)
 
-    _, errs = _validate_output_formats(config_dir)
+    _, errs = _validate_output_formats(core_dir)
     errors.extend(errs)
 
     # Cross-validate TOML configs against samples
@@ -486,38 +489,79 @@ def load_all_configs(config_dir: Path | str) -> ConfigBundle:
 
     Args:
         config_dir: Path to configuration directory (e.g., qg_configs/)
+                   Contains core/ and ui/ subdirectories.
 
     Returns:
         ConfigBundle with all validated configurations
     """
     config_dir = Path(config_dir)
+    core_dir = config_dir / "core"
+    ui_dir = config_dir / "ui"
 
     # Step 1: Derive dynamic values from raw data BEFORE Pydantic validation
     # This ensures validators have correct values to check against
 
     # Derive valid samplers from sampler.toml
-    with open(config_dir / "sampler.toml", "rb") as f:
+    with open(core_dir / "sampler.toml", "rb") as f:
         sampler_raw = tomllib.load(f)
     valid_samplers = derive_valid_samplers(sampler_raw)
     set_valid_samplers(valid_samplers)
 
     # Derive polarity technologies from samples.csv
-    samples_df = pl.read_csv(config_dir / "samples.csv")
+    samples_df = pl.read_csv(core_dir / "samples.csv")
     polarity_techs = derive_polarity_technologies(samples_df)
     set_polarity_technologies(polarity_techs)
 
     # Step 2: Load and validate all configs with dynamic values in place
     return ConfigBundle(
-        config_dir=config_dir,
-        samples=load_samples(config_dir / "samples.csv"),
-        instruments=load_instruments(config_dir / "instruments.csv"),
-        instrument_patterns=load_instrument_patterns(config_dir / "instrument_patterns.csv"),
-        combinations=load_combinations(config_dir / "combinations.csv"),
-        samplers=load_samplers(config_dir / "sampler.toml"),
-        queue_patterns=load_queue_patterns(config_dir / "queue_patterns.toml"),
-        qc_layouts=load_qc_layouts(config_dir / "qc_layouts.toml"),
-        output_formats=load_output_formats(config_dir / "output_formats.toml"),
-        instruments_df=pl.read_csv(config_dir / "instruments.csv"),
+        config_dir=core_dir,  # Store core_dir for methods path resolution
+        samples=load_samples(core_dir / "samples.csv"),
+        instruments=load_instruments(core_dir / "instruments.csv"),
+        instrument_patterns=load_instrument_patterns(ui_dir / "instrument_patterns.csv"),
+        combinations=load_combinations(ui_dir / "combinations.csv"),
+        samplers=load_samplers(core_dir / "sampler.toml"),
+        queue_patterns=load_queue_patterns(core_dir / "queue_patterns.toml"),
+        qc_layouts=load_qc_layouts(core_dir / "qc_layouts.toml"),
+        output_formats=load_output_formats(core_dir / "output_formats.toml"),
+        instruments_df=pl.read_csv(core_dir / "instruments.csv"),
         polarity_technologies=polarity_techs,
         valid_samplers=valid_samplers,
     )
+
+
+# =============================================================================
+# Aliases for backwards compatibility
+# =============================================================================
+
+# CoreConfigBundle and UIConfigBundle both point to ConfigBundle
+# since ConfigBundle contains all configs (both core and UI)
+CoreConfigBundle = ConfigBundle
+UIConfigBundle = ConfigBundle
+
+# Loading functions are aliases for load_all_configs
+load_core_configs = load_all_configs
+load_ui_configs = load_all_configs
+
+
+def get_core_dir(config_dir: Path | str) -> Path:
+    """Get path to core config directory.
+
+    Args:
+        config_dir: Root configuration directory (e.g., qg_configs/)
+
+    Returns:
+        Path to core/ subdirectory
+    """
+    return Path(config_dir) / "core"
+
+
+def get_ui_dir(config_dir: Path | str) -> Path:
+    """Get path to UI config directory.
+
+    Args:
+        config_dir: Root configuration directory (e.g., qg_configs/)
+
+    Returns:
+        Path to ui/ subdirectory
+    """
+    return Path(config_dir) / "ui"

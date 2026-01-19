@@ -6,7 +6,7 @@ import json
 from datetime import date
 from pathlib import Path
 
-from qg.config import ConfigBundle
+from qg.config import CoreConfigBundle
 from qg.params_models import InputSample, QueueInput, QueueParameters, SampleGroup
 
 
@@ -44,11 +44,12 @@ def simulate_samples(
 
 def simulate_params(
     num_samples: int,
-    configs: ConfigBundle,
+    configs: CoreConfigBundle,
     technology: str,
     instrument: str,
     sampler: str,
     queue_pattern: str,
+    output_format: str = "xcalibur",
     container_id: int = 12345,
     user: str = "testuser",
     sim_date: date | None = None,
@@ -57,11 +58,12 @@ def simulate_params(
 
     Args:
         num_samples: Number of user samples to generate.
-        configs: ConfigBundle with all loaded configs.
+        configs: CoreConfigBundle with core configs.
         technology: Technology (proteomics, metabolomics, lipidomics).
         instrument: Instrument name.
         sampler: Sampler (e.g., "Vanquish.vial").
         queue_pattern: Queue pattern name.
+        output_format: Output format (e.g., "xcalibur", "chronos").
         container_id: Container ID.
         user: Username for output path.
         sim_date: Date for queue (defaults to today).
@@ -70,7 +72,7 @@ def simulate_params(
         QueueInput with parameters and sample_groups (single group).
 
     Raises:
-        ValueError: If invalid combination of parameters.
+        ValueError: If invalid queue pattern.
     """
     return simulate_multi_group_params(
         groups=[(container_id, num_samples)],
@@ -79,6 +81,7 @@ def simulate_params(
         instrument=instrument,
         sampler=sampler,
         queue_pattern=queue_pattern,
+        output_format=output_format,
         user=user,
         sim_date=sim_date,
     )
@@ -135,11 +138,12 @@ def write_params(queue_input: QueueInput, output_path: str | Path) -> Path:
 
 def simulate_multi_group_params(
     groups: list[tuple[int, int]],  # (container_id, num_samples)
-    configs: ConfigBundle,
+    configs: CoreConfigBundle,
     technology: str,
     instrument: str,
     sampler: str,
     queue_pattern: str,
+    output_format: str = "xcalibur",
     user: str = "testuser",
     sim_date: date | None = None,
 ) -> QueueInput:
@@ -147,11 +151,12 @@ def simulate_multi_group_params(
 
     Args:
         groups: List of (container_id, num_samples) tuples.
-        configs: ConfigBundle with all loaded configs.
+        configs: CoreConfigBundle with core configs.
         technology: Technology (proteomics, metabolomics, lipidomics).
         instrument: Instrument name.
         sampler: Sampler (e.g., "Vanquish.vial").
         queue_pattern: Queue pattern name.
+        output_format: Output format (e.g., "xcalibur", "chronos").
         user: Username for output path.
         sim_date: Date for queue (defaults to today).
 
@@ -159,13 +164,8 @@ def simulate_multi_group_params(
         QueueInput with parameters and sample_groups.
 
     Raises:
-        ValueError: If invalid combination of parameters.
+        ValueError: If invalid queue pattern.
     """
-    # Validate combination exists
-    combo = configs.combinations.get_combination(instrument, sampler)
-    if combo is None:
-        raise ValueError(f"Invalid combination: {instrument} + {sampler}")
-
     # Validate queue_pattern exists
     if configs.queue_patterns.get_pattern(technology, queue_pattern) is None:
         raise ValueError(f"Queue pattern '{queue_pattern}' not found for {technology}")
@@ -177,13 +177,13 @@ def simulate_multi_group_params(
         technology=technology,
         instrument=instrument,
         sampler=sampler,
-        output_format=combo.output_format,
+        output_format=output_format,
         queue_pattern=queue_pattern,
         polarity=[],  # Model validator sets default for metabolomics/lipidomics
         date=date_str,
         user=user,
         method={},
-        randomization=False,
+        randomization="no",
         inj_vol_override=None,
     )
 

@@ -13,11 +13,11 @@ from typing import TYPE_CHECKING
 import polars as pl
 
 from qg.config import ConfigBundle, load_all_configs
-from qg.config_models import Sample, QueuePattern, requires_polarity
+from qg.config_models import Sample, QueuePattern
 from qg.generator import MethodResolver
 from qg.params_models import QueueInput
+from qg.positions import create_sampler
 from qg.queue_structure import extract_groups
-from qg.strategies import create_position_assigner
 
 logger = logging.getLogger(__name__)
 
@@ -83,17 +83,8 @@ class QueueGeneratorBuilder:
                 f"QC layout not found for {params.technology}.{params.sampler}"
             )
 
-        # Get combination for position_format override
-        combination = self.configs.combinations.get_combination(
-            params.instrument, params.sampler
-        )
-        position_format_override = combination.position_format if combination else None
-
-        # Resolve sampler config and create position assigner
-        sampler_config = self.configs.samplers.get_sampler(params.sampler)
-        position_assigner = create_position_assigner(
-            params.sampler, sampler_config, qc_layout, position_format_override
-        )
+        # Create sampler directly from factory
+        sampler = create_sampler(params.sampler, self.configs.samplers)
 
         # Resolve samples config
         samples_config = self._resolve_samples_config(params.technology, pattern)
@@ -123,7 +114,7 @@ class QueueGeneratorBuilder:
             "Building QueueGenerator:\n"
             "  technology=%s, instrument=%s, sampler=%s\n"
             "  pattern=%s (start=%s, middle=%s, end=%s)\n"
-            "  position_assigner=%s\n"
+            "  sampler=%s\n"
             "  qc_layout=%s\n"
             "  samples_config=%s\n"
             "  polarities=%s\n"
@@ -136,7 +127,7 @@ class QueueGeneratorBuilder:
             pattern.start,
             pattern.middle,
             pattern.end,
-            type(position_assigner).__name__,
+            type(sampler).__name__,
             list(qc_layout.keys()),
             list(samples_config.keys()),
             polarities,
@@ -147,7 +138,8 @@ class QueueGeneratorBuilder:
 
         return QueueGenerator(
             pattern=pattern,
-            position_assigner=position_assigner,
+            sampler=sampler,
+            qc_layout=qc_layout,
             samples_config=samples_config,
             method_resolver=method_resolver,
             polarities=polarities,

@@ -4,20 +4,10 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from qg.config_models_samplers import (
-    EvosepContainer,
-    EvosepSampler,
-    GridContainer,
-    GridSampler,
-    SamplersConfig,
-)
+from qg.config_models_samplers import SamplersConfig
 
 __all__ = [
     # Re-exported from config_models_samplers
-    "EvosepContainer",
-    "EvosepSampler",
-    "GridContainer",
-    "GridSampler",
     "SamplersConfig",
     # Defined here
     "Sample",
@@ -73,11 +63,11 @@ def get_polarity_technologies() -> set[str]:
     """Get technologies requiring polarity expansion.
 
     Derived from samples.csv: technologies whose file_name_template contains {polarity}.
-    Requires load_all_configs() to be called first.
+    Requires load_core_configs() to be called first.
     """
     if _polarity_technologies is None:
         raise RuntimeError(
-            "polarity_technologies not initialized. Call load_all_configs() first."
+            "polarity_technologies not initialized. Call load_core_configs() first."
         )
     return _polarity_technologies
 
@@ -86,11 +76,11 @@ def get_valid_samplers() -> set[str]:
     """Get valid sampler identifiers.
 
     Derived from sampler.toml: {Parent}.{child} for each sampler with vial/plate containers.
-    Requires load_all_configs() to be called first.
+    Requires load_core_configs() to be called first.
     """
     if _valid_samplers is None:
         raise RuntimeError(
-            "valid_samplers not initialized. Call load_all_configs() first."
+            "valid_samplers not initialized. Call load_core_configs() first."
         )
     return _valid_samplers
 
@@ -311,10 +301,6 @@ class Combination(BaseModel):
     instrument: str = Field(..., min_length=1)
     sampler: str = Field(..., min_length=1, description="Sampler.container key")
     output_format: str = Field(..., min_length=1, description="Output format identifier (software)")
-    position_format: str | None = Field(
-        default=None,
-        description="Position format override for this instrument+sampler (empty = use sampler default)",
-    )
 
     @field_validator("sampler")
     @classmethod
@@ -324,12 +310,6 @@ class Combination(BaseModel):
         if v not in valid:
             raise ValueError(f"Invalid sampler: {v}. Valid: {valid}")
         return v
-
-    @field_validator("position_format", mode="before")
-    @classmethod
-    def empty_str_to_none(cls, v):
-        """Convert empty string to None (CSV empty cells)."""
-        return None if v == "" else v
 
 
 class CombinationsConfig(BaseModel):

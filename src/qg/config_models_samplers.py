@@ -1,106 +1,132 @@
-"""Pydantic models for sampler configuration (TOML)."""
+"""Pydantic models for sampler configuration (TOML).
+
+9 explicit models mapping directly to TOML sections:
+- 6 container configs (VanquishVial, VanquishPlate, MClass48Vial, MClass48Plate, EvosepVial, EvosepPlate)
+- 3 parent configs (Vanquish, MClass48, Evosep)
+- 1 root config (SamplersConfig)
+"""
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 
-class GridContainer(BaseModel):
-    """Container config for grid-based samplers (Vanquish, MClass48)."""
-
-    container_type: Literal["Vial", "Plate"]
-    position_source: Literal["generated", "input"]
-    fill_order: Literal["row_major"] | None = None
-    position_format: str | None = None
-    # These may be inherited from parent or defined here
-    sample_rows: list[str] | None = None
-    qc_row: str | None = None
-    cols: list[int] | None = None
-    samples_per_plate: int | None = None
-
-    @model_validator(mode="after")
-    def validate_generated_requirements(self) -> "GridContainer":
-        """Generated positions need fill_order and position_format."""
-        if self.position_source == "generated":
-            if self.fill_order is None:
-                raise ValueError("position_source='generated' requires fill_order")
-            if self.position_format is None:
-                raise ValueError("position_source='generated' requires position_format")
-        return self
+# =============================================================================
+# Vanquish Container Configs
+# =============================================================================
 
 
-class EvosepContainer(BaseModel):
-    """Container config for Evosep sampler."""
+class VanquishVialConfig(BaseModel):
+    """Vanquish vial container - generates positions row-major."""
 
-    container_type: Literal["Vial", "Plate"]
-    position_source: Literal["generated", "input"]
-    fill_order: Literal["sequential"] | None = None
+    container_type: Literal["Vial"] = "Vial"
+    position_source: Literal["generated"] = "generated"
+    fill_order: Literal["row_major"] = "row_major"
+    position_format: str  # "{plate}:{row}{col}"
+    sample_rows: list[str]  # ["A", "B", "C", "D", "E"]
+    cols: list[int]  # [1, 2, ..., 9]
 
 
-class GridSampler(BaseModel):
-    """Grid-based sampler (Vanquish, MClass48)."""
+class VanquishPlateConfig(BaseModel):
+    """Vanquish plate container - positions from input."""
+
+    container_type: Literal["Plate"] = "Plate"
+    position_source: Literal["input"] = "input"
+    position_format: str  # "{plate}:{grid_position}"
+    sample_rows: list[str]  # ["A", "B", "C", "D", "E", "F", "G"]
+    cols: list[int]  # [1, 2, ..., 12]
+
+
+# =============================================================================
+# MClass48 Container Configs
+# =============================================================================
+
+
+class MClass48VialConfig(BaseModel):
+    """MClass48 vial container - generates positions row-major."""
+
+    container_type: Literal["Vial"] = "Vial"
+    position_source: Literal["generated"] = "generated"
+    fill_order: Literal["row_major"] = "row_major"
+    position_format: str  # "{plate}:{row},{col}"
+
+
+class MClass48PlateConfig(BaseModel):
+    """MClass48 plate container - positions from input."""
+
+    container_type: Literal["Plate"] = "Plate"
+    position_source: Literal["input"] = "input"
+    position_format: str  # "{plate}:{grid_position}"
+
+
+# =============================================================================
+# Evosep Container Configs
+# =============================================================================
+
+
+class EvosepVialConfig(BaseModel):
+    """Evosep vial container - generates positions sequentially."""
+
+    container_type: Literal["Vial"] = "Vial"
+    position_source: Literal["generated"] = "generated"
+    fill_order: Literal["sequential"] = "sequential"
+
+
+class EvosepPlateConfig(BaseModel):
+    """Evosep plate container - positions from input."""
+
+    container_type: Literal["Plate"] = "Plate"
+    position_source: Literal["input"] = "input"
+
+
+# =============================================================================
+# Parent Sampler Configs
+# =============================================================================
+
+
+class VanquishConfig(BaseModel):
+    """Vanquish sampler configuration."""
 
     description: str
-    plates: list[str]
-    qc_plate: str
-    # Grid layout (may be at parent or child level)
-    sample_rows: list[str] | None = None
-    qc_row: str | None = None
-    cols: list[int] | None = None
-    samples_per_plate: int | None = None
-    # Container configs
-    vial: GridContainer | None = None
-    plate: GridContainer | None = None
-
-    @model_validator(mode="after")
-    def validate_qc_plate_in_plates(self) -> "GridSampler":
-        """QC plate must be one of the available plates."""
-        if self.qc_plate not in self.plates:
-            raise ValueError(f"qc_plate '{self.qc_plate}' not in plates {self.plates}")
-        return self
+    plates: list[str]  # ["Y", "R", "B", "G"]
+    vial: VanquishVialConfig
+    plate: VanquishPlateConfig
 
 
-class EvosepSampler(BaseModel):
-    """Evosep tray-based sampler."""
+class MClass48Config(BaseModel):
+    """MClass48 sampler configuration."""
+
+    description: str
+    plates: list[str]  # ["1", "2"]
+    sample_rows: list[str]  # shared by vial/plate: ["A", "B", "C", "D", "E"]
+    cols: list[int]  # shared by vial/plate: [1, 2, ..., 8]
+    vial: MClass48VialConfig
+    plate: MClass48PlateConfig
+
+
+class EvosepConfig(BaseModel):
+    """Evosep sampler configuration."""
 
     description: str
     position_type: Literal["tray_position"] = "tray_position"
-    slots: list[int]
-    positions_per_slot: int = Field(..., gt=0)
-    # Container configs
-    vial: EvosepContainer | None = None
-    plate: EvosepContainer | None = None
+    slots: list[int] = Field(..., min_length=1)  # [1, 2, 3, 4]
+    positions_per_slot: int = Field(..., gt=0)  # 96
+    vial: EvosepVialConfig
+    plate: EvosepPlateConfig
+
+
+# =============================================================================
+# Root Config
+# =============================================================================
 
 
 class SamplersConfig(BaseModel):
-    """All sampler configurations."""
+    """All sampler configurations - root of sampler.toml."""
 
-    Vanquish: GridSampler | None = None
-    MClass48: GridSampler | None = None
-    Evosep: EvosepSampler | None = None
+    Vanquish: VanquishConfig
+    MClass48: MClass48Config
+    Evosep: EvosepConfig
 
     def get_sampler_names(self) -> list[str]:
         """Get names of all defined samplers."""
-        sampler_attrs = ["Vanquish", "MClass48", "Evosep"]
-        return [name for name in sampler_attrs if getattr(self, name) is not None]
-
-    def get_sampler(self, sampler_name: str) -> GridSampler | EvosepSampler:
-        """Get typed sampler config model for position generators.
-
-        Args:
-            sampler_name: Sampler name like "Vanquish.vial" or "MClass48.plate"
-
-        Returns:
-            Typed sampler model (GridSampler or EvosepSampler)
-
-        Raises:
-            ValueError: If sampler not found
-        """
-        parts = sampler_name.split(".")
-        sampler_base = parts[0]
-
-        sampler = getattr(self, sampler_base, None)
-        if sampler is None:
-            raise ValueError(f"Sampler '{sampler_base}' not found")
-
-        return sampler
+        return ["Vanquish", "MClass48", "Evosep"]

@@ -15,24 +15,18 @@
 #
 # Structure: Base config + .vial/.plate sub-tables for container-specific settings
 #
-# NOTE: output_format is determined by combinations.csv (instrument+sampler → format)
+# NOTE: output_format is determined by combinations.csv (instrument+sampler -> format)
 
 # =============================================================================
 # Vanquish Sampler (Thermo)
 # Grid: 4 plates (Y, R, B, G)
-# Vial: 6 rows (A-F) x 9 cols, QC row F
-# Plate: 8 rows (A-H) x 12 cols, QC row H
+# Vial: 5 rows (A-E) x 9 cols for samples
+# Plate: 7 rows (A-G) x 12 cols for samples
 # =============================================================================
-
-# TODO : remove qc_row becuase qc positions we have already in qc_layouts.toml
-# TODO : remove qc_plate -> qc_layout has the plate.
-# TODO : check if samples_per_plate is needed?
-# TODO : 
 
 [Vanquish]
 description = "Thermo Vanquish autosampler"
 plates = ["Y", "R", "B", "G"]
-qc_plate = "B"
 
 [Vanquish.vial]
 container_type = "Vial"
@@ -40,33 +34,26 @@ position_source = "generated"
 fill_order = "row_major"
 position_format = "{plate}:{row}{col}"
 sample_rows = ["A", "B", "C", "D", "E"]
-qc_row = "F" 
 cols = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-samples_per_plate = 45
 
 [Vanquish.plate]
 container_type = "Plate"
 position_source = "input"
 position_format = "{plate}:{grid_position}"
 sample_rows = ["A", "B", "C", "D", "E", "F", "G"]
-qc_row = "H"
 cols = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-samples_per_plate = 84
 
 # =============================================================================
 # MClass48 Sampler (Waters M-class with 48-well trays)
-# Grid: 6 rows (A-F) x 8 cols, 2 plates
-# Position format: plate:row,col (e.g., "1:A,1", "1:F,8")
+# Grid: 2 plates, 5 rows (A-E) x 8 cols for samples
+# Position format: plate:row,col (e.g., "1:A,1", "1:E,8")
 # =============================================================================
 
 [MClass48]
 description = "Waters M-class 48-well autosampler"
 plates = ["1", "2"]
 sample_rows = ["A", "B", "C", "D", "E"]
-qc_row = "F"
 cols = [1, 2, 3, 4, 5, 6, 7, 8]
-samples_per_plate = 40
-qc_plate = "1"
 
 [MClass48.vial]
 container_type = "Vial"
@@ -84,8 +71,6 @@ position_format = "{plate}:{grid_position}"
 # Position (1-96) + tray (slot number) as separate fields
 # Grid per tray: 8 rows (A-H) x 12 cols = 96 positions
 # =============================================================================
-
-# TODO : tray and position are to columns
 
 [Evosep]
 description = "Evosep One autosampler"

@@ -23,7 +23,7 @@ import cyclopts
 from bfabric import Bfabric
 from rich.console import Console
 
-from qg.config import ConfigBundle, load_all_configs
+from qg.config import UIConfigBundle, load_ui_configs, load_core_configs
 from qg.params_models import InputSample, QueueInput, QueueParameters
 from qg.params_simulator import write_params
 
@@ -100,18 +100,19 @@ def fetch_samples(client: Bfabric, container_id: int) -> list[InputSample]:
 def get_valid_combinations(
     technology: str,
     container_type: str,
-    configs: ConfigBundle,
+    core_configs,
+    ui_configs: UIConfigBundle,
     sampler_filter: str | None = None,
 ) -> list[dict]:
     """Get all valid (instrument, sampler, software, pattern) combinations."""
-    tech_instruments = configs.instruments.get_by_technology(technology)
+    tech_instruments = core_configs.instruments.get_by_technology(technology)
     instrument_names = list({i.instrument for i in tech_instruments})
 
     container_suffix = ".vial" if container_type == "vials" else ".plate"
 
     combinations = []
     for instrument in instrument_names:
-        valid_samplers = configs.combinations.get_samplers_for_instrument(instrument)
+        valid_samplers = ui_configs.combinations.get_samplers_for_instrument(instrument)
 
         matching_samplers = [s for s in valid_samplers if s.endswith(container_suffix)]
         if not matching_samplers:
@@ -121,12 +122,12 @@ def get_valid_combinations(
             matching_samplers = [s for s in matching_samplers if s.startswith(sampler_filter)]
 
         for sampler in matching_samplers:
-            combo = configs.combinations.get_combination(instrument, sampler)
+            combo = ui_configs.combinations.get_combination(instrument, sampler)
             if not combo:
                 continue
             output_format = combo.output_format
 
-            patterns = configs.instrument_patterns.get_patterns_for_instrument(technology, instrument)
+            patterns = ui_configs.instrument_patterns.get_patterns_for_instrument(technology, instrument)
 
             for pattern in patterns:
                 combinations.append({
@@ -158,7 +159,7 @@ def generate_queue_params(
         date=run_date,
         user=user,
         method="",
-        randomization=False,
+        randomization="no",
         inj_vol_override=None,
     )
 
@@ -233,17 +234,18 @@ def cli_main() -> None:
     ) -> None:
         """Generate queue parameter JSON files for all valid parameter combinations."""
         console.print("Loading configuration files...")
-        configs = load_all_configs(config_dir)
+        core_configs = load_core_configs(config_dir)
+        ui_configs = load_ui_configs(config_dir)
 
         # Validate sampler parameter against configs
         if sampler is not None:
-            valid_samplers = configs.samplers.get_sampler_names()
+            valid_samplers = core_configs.samplers.get_sampler_names()
             if sampler not in valid_samplers:
                 console.print(f"[red]Invalid sampler: {sampler}. Valid: {valid_samplers}[/red]")
                 return
 
         # Get valid technologies from configs
-        valid_technologies = {i.technology for i in configs.instruments.instruments}
+        valid_technologies = {i.technology for i in core_configs.instruments.instruments}
 
         console.print(f"Loading orders from {projects_file}...")
         orders = load_orders(projects_file, valid_technologies, technology_filter=technology)
@@ -278,7 +280,8 @@ def cli_main() -> None:
             combos = get_valid_combinations(
                 order_technology,
                 container_type,
-                configs,
+                core_configs,
+                ui_configs,
                 sampler_filter=sampler,
             )
 
