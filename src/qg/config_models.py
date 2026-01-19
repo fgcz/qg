@@ -311,6 +311,10 @@ class Combination(BaseModel):
     instrument: str = Field(..., min_length=1)
     sampler: str = Field(..., min_length=1, description="Sampler.container key")
     output_format: str = Field(..., min_length=1, description="Output format identifier (software)")
+    position_format: str | None = Field(
+        default=None,
+        description="Position format override for this instrument+sampler (empty = use sampler default)",
+    )
 
     @field_validator("sampler")
     @classmethod
@@ -320,6 +324,12 @@ class Combination(BaseModel):
         if v not in valid:
             raise ValueError(f"Invalid sampler: {v}. Valid: {valid}")
         return v
+
+    @field_validator("position_format", mode="before")
+    @classmethod
+    def empty_str_to_none(cls, v):
+        """Convert empty string to None (CSV empty cells)."""
+        return None if v == "" else v
 
 
 class CombinationsConfig(BaseModel):

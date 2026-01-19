@@ -213,6 +213,25 @@ def _(instrument_field, instrument_patterns_df, technology_field):
 
 
 @app.cell
+def _(configs, pattern_field, technology_field):
+    # Get default QC frequency from selected pattern
+    mo.stop(not technology_field.value or not pattern_field.value)
+    _pattern = configs.queue_patterns.get_pattern(technology_field.value, pattern_field.value)
+    default_qc_frequency = _pattern.run_QC_after_n_samples if _pattern else 16
+    return (default_qc_frequency,)
+
+
+@app.cell
+def _(default_qc_frequency):
+    qc_frequency_field = mo.ui.text(
+        value="",
+        label="QC frequency",
+        placeholder=str(default_qc_frequency),
+    )
+    return (qc_frequency_field,)
+
+
+@app.cell
 def _(CONFIG_DIR, instrument_field, technology_field):
     # Load available methods from CSV
     mo.stop(not technology_field.value or not instrument_field.value)
@@ -328,6 +347,7 @@ def _():
 def _(
     container_id,
     date_field,
+    default_qc_frequency,
     inj_vol_field,
     instrument_field,
     method_field_neg,
@@ -335,6 +355,7 @@ def _(
     output_format_value,
     pattern_field,
     polarity_group,
+    qc_frequency_field,
     randomization_field,
     sampler_field,
     technology_field,
@@ -364,6 +385,7 @@ def _(
             date_field,
             user_field,
             inj_vol_field,
+            mo.hstack([qc_frequency_field, mo.md(f"(default: {default_qc_frequency})")], justify="start"),
         ])
 
     mo.sidebar(mo.vstack(_sidebar_items))
@@ -464,6 +486,7 @@ def _(
     method_field_pos,
     pattern_field,
     polarity_group,
+    qc_frequency_field,
     randomization_field,
     sampler_field,
     output_format_value,
@@ -473,6 +496,7 @@ def _(
     queue_parameters_err = None
     try:
         _inj_vol = float(inj_vol_field.value) if inj_vol_field.value.strip() else None
+        _qc_freq = int(qc_frequency_field.value) if qc_frequency_field.value.strip() else None
         # Build polarity list from checkbox group
         _polarity = []
         if polarity_group.value.get("pos"):
@@ -498,16 +522,16 @@ def _(
                 "polarity": _polarity,
                 "date": date_field.value.strftime("%Y%m%d"),
                 "user": user_field.value.strip(),
-                "method": "",  # Deprecated, use SampleGroup.method
+                "method": method_dict,
                 "randomization": _randomization,
                 "inj_vol_override": _inj_vol,
+                "qc_frequency_override": _qc_freq,
             }
         )
     except pydantic.ValidationError as e:
         queue_parameters_err = e
         queue_parameters = None
-        method_dict = {}
-    return method_dict, queue_parameters, queue_parameters_err
+    return queue_parameters, queue_parameters_err
 
 
 @app.cell
@@ -518,7 +542,7 @@ def _(queue_parameters):
 
 
 @app.cell
-def _(CONFIG_DIR, container_id, method_dict, queue_parameters, sample_df, save_button):
+def _(CONFIG_DIR, container_id, queue_parameters, sample_df, save_button):
     mo.stop(not save_button.value or queue_parameters is None)
     # Build InputSample objects from sample_df
     _samples = [
@@ -531,7 +555,7 @@ def _(CONFIG_DIR, container_id, method_dict, queue_parameters, sample_df, save_b
         )
         for row in sample_df.to_dicts()
     ]
-    _sample_group = SampleGroup(container_id=container_id, samples=_samples, method=method_dict)
+    _sample_group = SampleGroup(container_id=container_id, samples=_samples)
     _queue_input = QueueInput(parameters=queue_parameters, sample_groups=[_sample_group])
     _examples_dir = CONFIG_DIR / "examples"
     _examples_dir.mkdir(exist_ok=True)
@@ -579,7 +603,7 @@ def _(plates, plates_select, sample_df, subset_samples_select, subset_samples_to
 
 
 @app.cell
-def _(container_id, method_dict, queue_parameters, queue_parameters_err, sample_df, save_button):
+def _(container_id, queue_parameters, queue_parameters_err, sample_df, save_button):
     # Build full QueueInput for display
     if queue_parameters and container_id is not None and sample_df is not None:
         _samples = [
@@ -592,7 +616,7 @@ def _(container_id, method_dict, queue_parameters, queue_parameters_err, sample_
             )
             for row in sample_df.to_dicts()
         ]
-        _sample_group = SampleGroup(container_id=container_id, samples=_samples, method=method_dict)
+        _sample_group = SampleGroup(container_id=container_id, samples=_samples)
         _queue_input = QueueInput(parameters=queue_parameters, sample_groups=[_sample_group])
         _output = _queue_input.model_dump(mode="json")
     else:

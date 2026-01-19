@@ -121,6 +121,7 @@ def create_position_assigner(
     sampler_name: str,
     sampler_config: GridSampler | EvosepSampler,
     qc_layout: dict[str, QCPosition],
+    position_format_override: str | None = None,
 ) -> PositionAssigner:
     """Factory function to create the appropriate position assigner.
 
@@ -128,6 +129,7 @@ def create_position_assigner(
         sampler_name: Full sampler name like "Vanquish.vial"
         sampler_config: Typed sampler configuration model
         qc_layout: QC positions for this technology/sampler
+        position_format_override: Optional position format to override sampler default
 
     Returns:
         Position assigner callable
@@ -143,7 +145,9 @@ def create_position_assigner(
     position_source = container_config.position_source
 
     if position_source == "generated":
-        generator = get_position_generator(sampler_name, sampler_config)
+        generator = get_position_generator(
+            sampler_name, sampler_config, position_format_override
+        )
         return GeneratedPositionAssigner(sampler=generator, qc_layout=qc_layout)
     else:
         return InputPositionAssigner(qc_layout=qc_layout)

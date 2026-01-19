@@ -68,6 +68,12 @@ class QueueGeneratorBuilder:
                 f"Pattern '{params.queue_pattern}' not found for {params.technology}"
             )
 
+        # Apply QC frequency override if specified
+        if params.qc_frequency_override is not None:
+            pattern = pattern.model_copy(
+                update={"run_QC_after_n_samples": params.qc_frequency_override}
+            )
+
         # Resolve QC layout
         qc_layout = self.configs.qc_layouts.get_layout(
             params.technology, params.sampler
@@ -77,10 +83,16 @@ class QueueGeneratorBuilder:
                 f"QC layout not found for {params.technology}.{params.sampler}"
             )
 
+        # Get combination for position_format override
+        combination = self.configs.combinations.get_combination(
+            params.instrument, params.sampler
+        )
+        position_format_override = combination.position_format if combination else None
+
         # Resolve sampler config and create position assigner
         sampler_config = self.configs.samplers.get_sampler(params.sampler)
         position_assigner = create_position_assigner(
-            params.sampler, sampler_config, qc_layout
+            params.sampler, sampler_config, qc_layout, position_format_override
         )
 
         # Resolve samples config
@@ -89,11 +101,6 @@ class QueueGeneratorBuilder:
         # Extract groups from QueueInput
         groups = extract_groups(queue_input)
         primary_container_id = queue_input.get_primary_container_id()
-
-        # Extract group methods: container_id -> {polarity: method_name}
-        group_methods = {
-            g.container_id: g.method for g in queue_input.sample_groups if g.method
-        }
 
         # Resolve data path (uses primary container)
         data_path = self._resolve_data_path(params, primary_container_id)
@@ -147,8 +154,7 @@ class QueueGeneratorBuilder:
             date=params.date,
             groups=groups,
             data_path=data_path,
-            group_methods=group_methods,
-            fallback_method=params.method,  # Backward compat: use global method as fallback
+            method=params.method,
             inj_vol_override=params.inj_vol_override,
             output_format=output_format,
         )

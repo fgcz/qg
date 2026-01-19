@@ -182,7 +182,7 @@ def simulate_multi_group_params(
         polarity=[],  # Model validator sets default for metabolomics/lipidomics
         date=date_str,
         user=user,
-        method="",
+        method={},
         randomization=False,
         inj_vol_override=None,
     )

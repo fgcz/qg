@@ -28,6 +28,7 @@ class GridPositionGenerator:
         config: GridSampler,
         container: Literal["vial", "plate"] = "vial",
         sampler_name: str = "sampler",
+        position_format_override: str | None = None,
     ):
         """Initialize from typed GridSampler config.
 
@@ -35,6 +36,7 @@ class GridPositionGenerator:
             config: Typed GridSampler model
             container: Container type ("vial" or "plate")
             sampler_name: Name for error messages (e.g., "Vanquish", "MClass48")
+            position_format_override: Optional format to override sampler default
         """
         container_config = getattr(config, container)
         if container_config is None:
@@ -47,7 +49,8 @@ class GridPositionGenerator:
         # Container-level overrides (use container if set, else parent)
         self.sample_rows = container_config.sample_rows or config.sample_rows
         self.cols = container_config.cols or config.cols
-        self.position_format = container_config.position_format
+        # Use override if provided, otherwise container default
+        self.position_format = position_format_override or container_config.position_format
 
         # Validate required fields are set
         if self.sample_rows is None:
@@ -155,13 +158,16 @@ class EvosepPositionGenerator:
 
 
 def get_position_generator(
-    sampler_name: str, config: GridSampler | EvosepSampler
+    sampler_name: str,
+    config: GridSampler | EvosepSampler,
+    position_format_override: str | None = None,
 ) -> SamplerPositionGenerator:
     """Factory function to get the right position generator.
 
     Args:
         sampler_name: Sampler name like "Vanquish.vial" or "MClass48.plate"
         config: Typed sampler configuration model
+        position_format_override: Optional position format to override sampler default
 
     Returns:
         Position generator implementing SamplerPositionGenerator protocol
@@ -171,7 +177,10 @@ def get_position_generator(
     container = parts[1] if len(parts) > 1 else "vial"
 
     if sampler_base in ("Vanquish", "MClass48"):
-        return GridPositionGenerator(config, container, sampler_name=sampler_base)
+        return GridPositionGenerator(
+            config, container, sampler_name=sampler_base,
+            position_format_override=position_format_override,
+        )
     elif sampler_base == "Evosep":
         return EvosepPositionGenerator(config, container)
     else:

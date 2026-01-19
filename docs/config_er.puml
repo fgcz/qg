@@ -77,6 +77,8 @@ entity "Combination" as combo <<combinations.csv>> {
   * sampler.container : FK
   * output_format : FK
   --
+  position_format : string (optional)
+  ----
   Valid instrument+sampler+format tuple
 }
 
@@ -89,6 +91,7 @@ entity "Queue Pattern" as pattern <<queue_patterns.toml>> {
   middle[] : FK -> Sample
   end[] : FK -> Sample
   middle_extended[] : FK -> Sample
+  separation[] : FK -> Sample (optional)
 }
 
 entity "Sample" as sample <<samples.csv>> {
@@ -119,6 +122,7 @@ entity "Methods File" as methods <<methods/*.csv>> {
   * methods/<tech>/<instr>_methods.csv
   --
   sample_type : string
+  polarity : string (pos|neg|empty)
   method_name : string
   method_path : string
 }

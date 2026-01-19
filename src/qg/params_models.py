@@ -27,11 +27,6 @@ class SampleGroup(BaseModel):
 
     container_id: int
     group_name: str | None = Field(default=None)
-
-    # Method per polarity: {"pos": "DIA_60min", "neg": "DIA_60min"}
-    # Keys are polarities ("pos", "neg"), values are method names (not paths)
-    method: dict[str, str] = Field(default_factory=dict)
-
     samples: list[InputSample] = Field(default_factory=list)  # Can be empty for QC-only
 
     @property
@@ -51,9 +46,12 @@ class QueueParameters(BaseModel):
     polarity: list[Literal["pos", "neg"]] = Field(default_factory=list)
     date: str  # YYYYMMDD
     user: str = ""  # Username for output path (e.g., "cpanse")
-    method: str = ""  # Method name for user samples (e.g., "DIA_60min")
+    # Method per polarity: {"pos": "DIA_60min", "neg": "DIA_60min"}
+    # Keys are polarities ("pos", "neg"), values are method names (not paths)
+    method: dict[str, str] = Field(default_factory=dict)
     randomization: bool = False
     inj_vol_override: float | None = None
+    qc_frequency_override: int | None = None  # Override run_QC_after_n_samples
 
     @model_validator(mode="after")
     def set_default_polarity(self) -> "QueueParameters":

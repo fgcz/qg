@@ -11,10 +11,12 @@ start
 note right
   parameters:
     technology, instrument
-    sampler, pattern
+    sampler, queue_pattern
     date, user, polarity
-  samples:
-    [Sample Name, Sample ID, ...]
+    **method: {pos: ..., neg: ...}**
+    qc_frequency_override
+  sample_groups:
+    [{container_id, samples: [...]}]
 end note
 
 |Pipeline|
@@ -69,17 +71,16 @@ note right
   **Input:**
     expanded_structure
     user_samples (B-Fabric)
-    positions
-    qc_layout
+    positions, qc_layout
     samples_config
-    params, methods_df
+    params.method: {pos: ..., neg: ...}
   **Output:** list[QueueRow]
   ----
   For each (sample_id, polarity):
   • Get sample definition
   • Assign position
   • Format file_name
-  • Lookup method path
+  • Get method[polarity] -> path
   • Format data_path
 end note
 
