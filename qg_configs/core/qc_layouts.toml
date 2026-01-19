@@ -139,7 +139,7 @@ pooledQCDil4 = "1:F,2"
 pooledQCDil5 = "1:F,1"
 pooledQCDil6 = "2:F,8"
 
-TODO remove
+# TODO: remove
 [Lipidomics.Evosep]
 # Tray 5: QC samples, Tray 6: blanks
 blank = { tray = 6, position_start = 1, position_end = 48 }
