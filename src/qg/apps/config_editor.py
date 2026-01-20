@@ -589,7 +589,7 @@ def _():
         try:
             samplers = tomllib.loads(sampler_content)
             patterns = tomllib.loads(patterns_content)
-            qc_layouts = tomllib.loads(qc_layouts_content)
+            _qc_layouts = tomllib.loads(qc_layouts_content)  # noqa: F841 parsed for syntax validation
             output_formats = tomllib.loads(output_formats_content)
         except Exception as e:
             errors.append(f"Failed to parse TOML: {e}")
@@ -613,10 +613,10 @@ def _():
                 errors.append(f"instruments.csv: Unknown technology '{tech}' (not in samples.csv)")
 
         # Validate instrument_patterns.csv references
-        instrument_keys = set(
+        instrument_keys = {
             f"{r['technology']}.{r['instrument']}"
             for r in instruments_df.iter_rows(named=True)
-        )
+        }
         for row in instrument_patterns_df.iter_rows(named=True):
             tech = row.get("technology", "")
             instr = row.get("instrument", "")
@@ -625,7 +625,6 @@ def _():
             if key not in instrument_keys:
                 errors.append(f"instrument_patterns.csv: Unknown instrument {key}")
             # Check pattern exists
-            pattern_key = f"{tech}.{pattern}"
             if tech in patterns and pattern not in patterns.get(tech, {}):
                 errors.append(
                     f"instrument_patterns.csv: {key} references unknown pattern '{pattern}'"
@@ -634,9 +633,9 @@ def _():
         # Validate combinations.csv
         sampler_names = set(samplers.keys())
         output_format_names = set(output_formats.keys())
-        instrument_names = set(
+        instrument_names = {
             r["instrument"] for r in instruments_df.iter_rows(named=True)
-        )
+        }
         for row in combinations_df.iter_rows(named=True):
             instr = row.get("instrument", "")
             sampler = row.get("sampler", "")
