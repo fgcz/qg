@@ -9,10 +9,11 @@ Each sampler handles full position assignment including QC merging.
 Uses composition and duck typing (no inheritance hierarchy).
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Protocol, Sequence
+from typing import Protocol
 
-from qg.config_models import QCPosition, QueuePattern, EvosepPosition
+from qg.config_models import EvosepPosition, QCPosition, QueuePattern
 from qg.config_models_samplers import (
     EvosepConfig,
     EvosepPlateConfig,
@@ -26,7 +27,6 @@ from qg.config_models_samplers import (
     VanquishVialConfig,
 )
 from qg.params_models import InputSample
-
 
 # =============================================================================
 # QC Layout Pattern (Validated)
@@ -89,7 +89,7 @@ class QCLayoutPattern:
         cls,
         pattern: QueuePattern,
         qc_layout: dict[str, QCPosition],
-    ) -> "QCLayoutPattern":
+    ) -> QCLayoutPattern:
         """Create and validate QC layout for a pattern.
 
         Args:

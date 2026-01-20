@@ -13,10 +13,10 @@ from typing import TYPE_CHECKING
 import polars as pl
 
 from qg.config import ConfigBundle, load_all_configs
-from qg.config_models import Sample, QueuePattern
+from qg.config_models import QueuePattern, Sample
 from qg.generator import MethodResolver
 from qg.params_models import QueueInput
-from qg.positions import create_sampler, QCLayoutPattern
+from qg.positions import QCLayoutPattern, create_sampler
 from qg.queue_structure import extract_groups
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ class QueueGeneratorBuilder:
         self.configs = configs
         self._methods_cache: dict[str, pl.DataFrame] = {}
 
-    def build(self, queue_input: QueueInput) -> "QueueGenerator":
+    def build(self, queue_input: QueueInput) -> QueueGenerator:
         """Build a QueueGenerator for the given input.
 
         Args:

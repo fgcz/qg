@@ -1,6 +1,5 @@
 """Pydantic models for queue generation configuration."""
 
-from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -124,7 +123,7 @@ class Sample(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def validate_polarity_for_technology(self) -> "Sample":
+    def validate_polarity_for_technology(self) -> Sample:
         """Technologies requiring polarity should have {polarity} in template."""
         if requires_polarity(self.technology):
             if "{polarity}" not in self.file_name_template:
@@ -134,7 +133,7 @@ class Sample(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def validate_default_has_sample_id(self) -> "Sample":
+    def validate_default_has_sample_id(self) -> Sample:
         """Default samples should have {sample_id} in template."""
         if self.sample_id == "default":
             if "{sample_id}" not in self.file_name_template:
@@ -148,7 +147,7 @@ class SamplesConfig(BaseModel):
     samples: list[Sample]
 
     @model_validator(mode="after")
-    def validate_unique_keys(self) -> "SamplesConfig":
+    def validate_unique_keys(self) -> SamplesConfig:
         """Check that (technology, sample_id) pairs are unique."""
         keys = [(s.technology, s.sample_id) for s in self.samples]
         if len(keys) != len(set(keys)):
@@ -157,7 +156,7 @@ class SamplesConfig(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def validate_each_tech_has_default(self) -> "SamplesConfig":
+    def validate_each_tech_has_default(self) -> SamplesConfig:
         """Check that each technology has a 'default' sample."""
         techs_with_default = {s.technology for s in self.samples if s.sample_id == "default"}
         all_techs = {s.technology for s in self.samples}
@@ -207,7 +206,7 @@ class InstrumentsConfig(BaseModel):
     instruments: list[Instrument]
 
     @model_validator(mode="after")
-    def validate_unique_keys(self) -> "InstrumentsConfig":
+    def validate_unique_keys(self) -> InstrumentsConfig:
         """Check that (technology, instrument) pairs are unique."""
         keys = [(i.technology, i.instrument) for i in self.instruments]
         if len(keys) != len(set(keys)):
@@ -247,7 +246,7 @@ class InstrumentPatternsConfig(BaseModel):
     patterns: list[InstrumentPattern]
 
     @model_validator(mode="after")
-    def validate_unique_keys(self) -> "InstrumentPatternsConfig":
+    def validate_unique_keys(self) -> InstrumentPatternsConfig:
         """Check that (technology, instrument, queue_pattern) triples are unique."""
         keys = [(p.technology, p.instrument, p.queue_pattern) for p in self.patterns]
         if len(keys) != len(set(keys)):
@@ -256,7 +255,7 @@ class InstrumentPatternsConfig(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def validate_one_default_per_instrument(self) -> "InstrumentPatternsConfig":
+    def validate_one_default_per_instrument(self) -> InstrumentPatternsConfig:
         """Each (technology, instrument) should have exactly one default pattern."""
         from collections import defaultdict
 
@@ -318,7 +317,7 @@ class CombinationsConfig(BaseModel):
     combinations: list[Combination]
 
     @model_validator(mode="after")
-    def validate_unique_keys(self) -> "CombinationsConfig":
+    def validate_unique_keys(self) -> CombinationsConfig:
         """Check that (instrument, sampler) pairs are unique."""
         keys = [(c.instrument, c.sampler) for c in self.combinations]
         if len(keys) != len(set(keys)):
@@ -412,7 +411,7 @@ class EvosepPosition(BaseModel):
     position_end: int = Field(..., gt=0)
 
     @model_validator(mode="after")
-    def validate_range(self) -> "EvosepPosition":
+    def validate_range(self) -> EvosepPosition:
         """End must be >= start."""
         if self.position_end < self.position_start:
             raise ValueError(f"position_end ({self.position_end}) < position_start ({self.position_start})")

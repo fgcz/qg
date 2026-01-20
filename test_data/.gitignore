@@ -20,3 +20,6 @@ reference/merged.csv
 tools/__marimo__/
 __marimo__/
 inferred_params/
+qg_20260119_dump/20260119_dump/
+qg_20260119_dump/qg_logs/
+qg_20260119_dump/qg_new/

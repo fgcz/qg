@@ -56,7 +56,7 @@ class QueueParameters(BaseModel):
     qc_frequency_override: int | None = None  # Override run_QC_after_n_samples
 
     @model_validator(mode="after")
-    def set_default_polarity(self) -> "QueueParameters":
+    def set_default_polarity(self) -> QueueParameters:
         """Set default polarity for technologies requiring it."""
         if not self.polarity and requires_polarity(self.technology):
             self.polarity = ["pos", "neg"]
@@ -78,6 +78,6 @@ class QueueInput(BaseModel):
         return self.sample_groups[0].container_id
 
 
-def samples_from_dataframe(df: "pl.DataFrame") -> list[InputSample]:
+def samples_from_dataframe(df: pl.DataFrame) -> list[InputSample]:
     """Convert a polars DataFrame to list of InputSample."""
     return [InputSample(**row) for row in df.to_dicts()]

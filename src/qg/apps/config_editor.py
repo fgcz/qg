@@ -4,11 +4,11 @@ __generated_with = "0.18.4"
 app = marimo.App(width="full")
 
 with app.setup:
+    import tomllib
+    from pathlib import Path
+
     import marimo as mo
     import polars as pl
-    import tomllib
-    import tomli_w
-    from pathlib import Path
 
 
 @app.cell

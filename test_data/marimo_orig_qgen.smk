@@ -1,12 +1,19 @@
 """Queue generator validation workflow - starts from B-Fabric dump.
 
 Pipeline:
-1. Generate queue params JSON from CSV files (csv_to_paramsjson.py)
-2. Run queue generator
-3. Compare generated vs original
-4. Launch marimo comparison app
+1. Extract source CSVs from zip archive
+2. Generate queue params JSON from CSV files
+3. Run queue generator
+4. Compare generated vs original
+5. Launch marimo comparison app
 
-Source: qg_20260119_dump/20260119_dump/*.csv (409 B-Fabric queue files)
+Directory structure (all within qg_20260119_dump/):
+  20260119_dump.zip    Source archive (~410 B-Fabric queue files)
+  20260119_dump/       Extracted CSVs
+  params_json/         Generated params
+  qg_new/              Generated queues
+  qg_logs/             Generation logs
+  results/             Comparison results
 
 Usage:
     snakemake -s marimo_orig_qgen.smk -j4 all
@@ -16,11 +23,14 @@ Usage:
 import json
 from pathlib import Path
 
-# Directories
-SOURCE_DIR = Path("qg_20260119_dump/20260119_dump")
-PARAMS_DIR = Path("params_json")
-GENERATED_DIR = Path("generated")
-RESULTS_DIR = Path("results")
+# Directories - all within BASE_DIR for clean structure
+BASE_DIR = Path("qg_20260119_dump")
+SOURCE_ZIP = BASE_DIR / "20260119_dump.zip"
+SOURCE_DIR = BASE_DIR / "20260119_dump"
+PARAMS_DIR = BASE_DIR / "params_json"
+GENERATED_DIR = BASE_DIR / "qg_new"
+LOGS_DIR = BASE_DIR / "qg_logs"
+RESULTS_DIR = BASE_DIR / "results"
 
 
 # =============================================================================
@@ -42,11 +52,10 @@ def get_comparison_results(_wildcards):
     """Get comparison result files after params are generated."""
     checkpoints.params.get()
     results = []
-    params_dir = PARAMS_DIR
-    if params_dir.exists():
-        for f in params_dir.glob("*_params.json"):
+    if PARAMS_DIR.exists():
+        for f in PARAMS_DIR.glob("*_params.json"):
             if "_PARTIAL_" not in f.name:
-                results.append(f"results/{f.stem}.json")
+                results.append(str(RESULTS_DIR / f"{f.stem}.json"))
     return results
 
 
@@ -67,7 +76,7 @@ def get_original_csv(name):
 rule all:
     """Run complete pipeline: params → generate → compare → summary."""
     input:
-        "results/test_results.csv"
+        RESULTS_DIR / "test_results.csv"
 
 
 rule help:
@@ -76,21 +85,31 @@ rule help:
         print("""
 Queue Generator Validation Workflow
 
-Source: qg_20260119_dump/20260119_dump/*.csv (409 B-Fabric queue files)
+Source: qg_20260119_dump/20260119_dump.zip (409 B-Fabric queue files)
+
+Directory structure (all within qg_20260119_dump/):
+  20260119_dump.zip    Source archive
+  20260119_dump/       Extracted CSVs
+  params_json/         Generated params
+  qg_new/              Generated queues
+  qg_logs/             Generation logs
+  results/             Comparison results
 
 Pipeline:
-  1. params       Generate queue params JSON from CSVs
-  2. generate     Run queue generator
-  3. compare      Compare generated vs original
-  4. summary      Create test_results.csv
-  5. marimo_app   Launch comparison viewer
+  1. extract_zip  Extract source CSVs from zip
+  2. params       Generate queue params JSON from CSVs
+  3. generate     Run queue generator
+  4. compare      Compare generated vs original
+  5. summary      Create test_results.csv
+  6. marimo_app   Launch comparison viewer
 
 Targets:
   all             Run complete pipeline
-  params_json     Generate params only
+  extract_zip     Extract source data only
+  params          Generate params only
   marimo_app      Launch marimo comparison app
-  clean           Remove generated/ and results/
-  clean_all       Remove ALL intermediates
+  clean           Remove qg_new/, results/, qg_logs/
+  clean_all       Remove ALL intermediates (keeps zip)
 
 Usage:
   snakemake -s marimo_orig_qgen.smk -j4 all
@@ -99,19 +118,29 @@ Usage:
 
 
 # =============================================================================
-# Phase 1: CSV → Param JSON Generation
+# Phase 1: Extract Source Data and Generate Param JSONs
 # =============================================================================
+
+rule extract_zip:
+    """Extract source CSV files from zip archive."""
+    input:
+        SOURCE_ZIP
+    output:
+        directory(SOURCE_DIR)
+    shell:
+        "unzip -q {input} -d {BASE_DIR}"
+
 
 checkpoint params:
     """Generate param JSONs from source CSVs."""
     input:
         csv_dir=SOURCE_DIR
     output:
-        directory("params_json")
+        directory(PARAMS_DIR)
     shell:
         """
-        mkdir -p params_json
-        qg-tools csv-to-params {input.csv_dir}/ -o params_json/
+        mkdir -p {output}
+        qg-tools csv-to-params {input.csv_dir}/ -o {output}/
         """
 
 
@@ -122,26 +151,30 @@ checkpoint params:
 rule generate_queue:
     """Run queue generator on a param file."""
     input:
-        params="params_json/{name}.json"
+        params=PARAMS_DIR / "{name}.json"
     output:
-        csv="generated/{name}.csv"
+        csv=GENERATED_DIR / "{name}.csv"
+    log:
+        LOGS_DIR / "{name}.log"
     shell:
         """
-        cd .. && qg test_data/{input.params} -o test_data/{output.csv} 2>/dev/null || touch test_data/{output.csv}
+        mkdir -p {GENERATED_DIR} {LOGS_DIR}
+        cd .. && qg test_data/{input.params} -o test_data/{output.csv} 2>test_data/{log} || touch test_data/{output.csv}
         """
 
 
 rule compare:
     """Compare generated queue CSV with original reference CSV."""
     input:
-        generated="generated/{name}.csv",
-        config="params_json/{name}.json"
+        generated=GENERATED_DIR / "{name}.csv",
+        config=PARAMS_DIR / "{name}.json"
     output:
-        result="results/{name}.json"
+        result=RESULTS_DIR / "{name}.json"
     params:
         original=lambda wildcards: get_original_csv(wildcards.name)
     shell:
         """
+        mkdir -p {RESULTS_DIR}
         qg-tools compare {input.generated} {params.original} {input.config} {output.result}
         """
 
@@ -151,7 +184,7 @@ rule summary:
     input:
         get_comparison_results
     output:
-        "results/test_results.csv"
+        RESULTS_DIR / "test_results.csv"
     shell:
         "qg-tools summarize {output} {input}"
 
@@ -163,7 +196,7 @@ rule summary:
 rule marimo_app:
     """Launch test results marimo app (compare original vs generated)."""
     input:
-        "results/test_results.csv"
+        RESULTS_DIR / "test_results.csv"
     shell:
         "marimo run ../src/qg/tools_apps/compare_existing_generated.py"
 
@@ -173,18 +206,18 @@ rule marimo_app:
 # =============================================================================
 
 rule clean:
-    """Remove generated/ and results/ (keeps params)."""
+    """Remove generated and results (keeps params and source)."""
     shell:
         """
-        rm -rf generated/ results/
-        echo "Cleaned generated/ and results/"
+        rm -rf {GENERATED_DIR} {RESULTS_DIR} {LOGS_DIR}
+        echo "Cleaned {GENERATED_DIR}, {RESULTS_DIR}, {LOGS_DIR}"
         """
 
 
 rule clean_all:
-    """Remove ALL intermediates."""
+    """Remove ALL intermediates (keeps source zip)."""
     shell:
         """
-        rm -rf generated/ results/ params_json/
-        echo "Cleaned all intermediates."
+        rm -rf {GENERATED_DIR} {RESULTS_DIR} {LOGS_DIR} {PARAMS_DIR} {SOURCE_DIR}
+        echo "Cleaned all intermediates in {BASE_DIR}"
         """

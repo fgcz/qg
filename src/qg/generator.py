@@ -8,16 +8,16 @@ Clean separation of concerns:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
-from typing import Callable, Literal
+from typing import Literal
 
 import polars as pl
 
-from qg.config_models import Sample, QueuePattern, OutputFormat
+from qg.config_models import OutputFormat, QueuePattern, Sample
 from qg.params_models import InputSample
 from qg.positions import Sampler
 from qg.queue_structure import build_multi_container_queue_structure
-
 
 # =============================================================================
 # Data Structures

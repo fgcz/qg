@@ -4,20 +4,21 @@ __generated_with = "0.18.4"
 app = marimo.App(width="full", sql_output="polars")
 
 with app.setup:
+    import json
+    from datetime import date
+    from pathlib import Path
+
     import marimo as mo
     import polars as pl
     import pydantic
     from bfabric import Bfabric
-    import json
-    from pathlib import Path
-    from datetime import date
 
-    from qg.bfabric_utils import get_samples, get_plates, samples_to_dataframe
+    from qg.bfabric_utils import get_plates, get_samples, samples_to_dataframe
+    from qg.builder import QueueGeneratorBuilder
     from qg.config import load_all_configs
     from qg.config_models import requires_polarity
     from qg.params_models import QueueInput, QueueParameters, SampleGroup, samples_from_dataframe
     from qg.params_simulator import write_params
-    from qg.builder import QueueGeneratorBuilder
 
 
 @app.cell

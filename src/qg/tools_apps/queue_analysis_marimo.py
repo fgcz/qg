@@ -6,9 +6,9 @@ app = marimo.App(width="medium")
 
 @app.cell
 def _():
+    import altair as alt
     import marimo as mo
     import polars as pl
-    import altair as alt
 
     # Enable larger datasets in altair
     alt.data_transformers.enable("vegafusion")

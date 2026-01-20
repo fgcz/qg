@@ -22,12 +22,11 @@ from qg.config_models import (
     QueuePattern,
     QueuePatternsConfig,
     Sample,
-    SamplesConfig,
     SamplersConfig,
+    SamplesConfig,
     set_polarity_technologies,
     set_valid_samplers,
 )
-
 
 # =============================================================================
 # Dynamic Config Derivation
