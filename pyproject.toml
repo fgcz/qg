@@ -43,6 +43,7 @@ qg-validate = "qg.cli.validate_config:cli_main"
 qg-find-projects = "qg.cli.find_projects:main"
 qg-params = "qg.cli.generate_params:cli_main"
 qg-tools = "qg.tools.cli:main"
+qg-csv-to-params = "qg.tools.csv_to_paramsjson:app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

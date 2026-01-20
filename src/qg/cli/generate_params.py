@@ -23,7 +23,7 @@ import cyclopts
 from bfabric import Bfabric
 from rich.console import Console
 
-from qg.config import UIConfigBundle, load_ui_configs, load_core_configs
+from qg.config import ConfigBundle, load_all_configs, load_all_configs
 from qg.params_models import InputSample, QueueInput, QueueParameters
 from qg.params_simulator import write_params
 
@@ -101,7 +101,7 @@ def get_valid_combinations(
     technology: str,
     container_type: str,
     core_configs,
-    ui_configs: UIConfigBundle,
+    ui_configs: ConfigBundle,
     sampler_filter: str | None = None,
 ) -> list[dict]:
     """Get all valid (instrument, sampler, software, pattern) combinations."""
@@ -234,8 +234,8 @@ def cli_main() -> None:
     ) -> None:
         """Generate queue parameter JSON files for all valid parameter combinations."""
         console.print("Loading configuration files...")
-        core_configs = load_core_configs(config_dir)
-        ui_configs = load_ui_configs(config_dir)
+        core_configs = load_all_configs(config_dir)
+        ui_configs = load_all_configs(config_dir)
 
         # Validate sampler parameter against configs
         if sampler is not None:

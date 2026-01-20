@@ -13,13 +13,10 @@ from qg.params_simulator import simulate_multi_group_params
 from qg.queue_structure import build_multi_container_queue_structure, extract_groups
 
 
-CONFIG_DIR = Path(__file__).parent.parent / "qg_configs"
-
-
 @pytest.fixture
 def configs():
-    """Load actual configs from qg_configs/."""
-    return load_all_configs(CONFIG_DIR)
+    """Load all configs for testing."""
+    return load_all_configs(Path("qg_configs"))
 
 
 @pytest.fixture
@@ -159,6 +156,7 @@ class TestMultiGroupSimulatorIntegration:
             instrument="ASTRAL_1",
             sampler="Vanquish.vial",
             queue_pattern="standard",
+            output_format="xcalibur",
         )
 
         # Extract groups and build structure
@@ -192,6 +190,7 @@ class TestMultiGroupSimulatorIntegration:
             instrument="ASTRAL_1",
             sampler="Vanquish.vial",
             queue_pattern="standard",
+            output_format="xcalibur",
         )
 
         groups = extract_groups(queue_input.sample_groups)
@@ -207,6 +206,7 @@ class TestMultiGroupSimulatorIntegration:
             instrument="ASTRAL_1",
             sampler="Vanquish.vial",
             queue_pattern="standard",
+            output_format="xcalibur",
         )
 
         groups = extract_groups(queue_input.sample_groups)

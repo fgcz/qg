@@ -533,14 +533,8 @@ def load_all_configs(config_dir: Path | str) -> ConfigBundle:
 # Aliases for backwards compatibility
 # =============================================================================
 
-# CoreConfigBundle and UIConfigBundle both point to ConfigBundle
+# ConfigBundle and ConfigBundle both point to ConfigBundle
 # since ConfigBundle contains all configs (both core and UI)
-CoreConfigBundle = ConfigBundle
-UIConfigBundle = ConfigBundle
-
-# Loading functions are aliases for load_all_configs
-load_core_configs = load_all_configs
-load_ui_configs = load_all_configs
 
 
 def get_core_dir(config_dir: Path | str) -> Path:

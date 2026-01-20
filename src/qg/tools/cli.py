@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import cyclopts
 
-from qg.tools import compare, csv_to_params, merge, sld_to_csv, summarize
+from qg.tools import compare, csv_to_paramsjson, merge, sld_to_csv, summarize
 
 app = cyclopts.App(
     name="qg-tools",
@@ -21,7 +21,7 @@ app = cyclopts.App(
 
 # Register subcommands
 app.command(sld_to_csv.app)
-app.command(csv_to_params.app)
+app.command(csv_to_paramsjson.app, name="csv-to-params")
 app.command(compare.app)
 app.command(summarize.app)
 app.command(merge.app)

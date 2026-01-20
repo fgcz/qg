@@ -24,11 +24,12 @@ def config_dir() -> Path:
     """Return path to the qg_configs directory."""
     return Path(__file__).parent.parent / "qg_configs"
 
+# TODO: use get_core_config_dir() instead of config_dir / "core" /# return Path
 
 @pytest.fixture
 def all_patterns(config_dir: Path) -> dict[str, dict[str, QueuePattern]]:
     """Load all queue patterns from config."""
-    patterns_config = load_queue_patterns(config_dir / "queue_patterns.toml")
+    patterns_config = load_queue_patterns(config_dir / "core" / "queue_patterns.toml")
     return patterns_config.patterns
 
 
@@ -40,7 +41,7 @@ SAMPLE_COUNTS = [8, 16, 32, 56, 106, 212]
 
 # Generate pattern keys from config file
 _config_dir = Path(__file__).parent.parent / "qg_configs"
-_patterns_config = load_queue_patterns(_config_dir / "queue_patterns.toml")
+_patterns_config = load_queue_patterns(_config_dir / "core" / "queue_patterns.toml")
 
 ALL_PATTERN_KEYS = [
     (tech, pattern_name)

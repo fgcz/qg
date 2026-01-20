@@ -6,7 +6,7 @@ import polars as pl
 import pytest
 
 from qg.builder import QueueGeneratorBuilder
-from qg.config import ConfigBundle, load_all_configs
+from qg.config import ConfigBundle, load_all_configs, load_all_configs, get_ui_dir
 from qg.params_models import InputSample, QueueInput, QueueParameters, SampleGroup
 
 
@@ -16,6 +16,12 @@ CONFIG_DIR = Path(__file__).parent.parent / "qg_configs"
 @pytest.fixture
 def configs():
     """Load configs for all tests."""
+    return load_all_configs(CONFIG_DIR)
+
+
+@pytest.fixture
+def ui_configs():
+    """Load UI configs for all tests."""
     return load_all_configs(CONFIG_DIR)
 
 
@@ -42,10 +48,10 @@ def make_queue_input(params: QueueParameters, samples: list[InputSample], contai
 
 
 def find_combination_for_format(
-    configs: ConfigBundle, output_format: str
+    configs: ConfigBundle, ui_configs, output_format: str
 ) -> tuple[str, str, str]:
     """Find a valid (technology, instrument, sampler) for the given output format."""
-    for combo in configs.combinations.combinations:
+    for combo in ui_configs.combinations.combinations:
         if combo.output_format == output_format:
             # Look up technology for this instrument
             for instr in configs.instruments.instruments:
@@ -71,9 +77,9 @@ class TestOutputFormats:
     """Tests for QueueGenerator output formats - columns and row counts."""
 
     @pytest.mark.parametrize("output_format", ["xcalibur", "chronos", "hystar"])
-    def test_output_format_has_expected_columns(self, configs, builder, output_format: str):
+    def test_output_format_has_expected_columns(self, configs, ui_configs, builder, output_format: str):
         """Each output format produces a DataFrame with the configured columns."""
-        technology, instrument, sampler = find_combination_for_format(configs, output_format)
+        technology, instrument, sampler = find_combination_for_format(configs, ui_configs, output_format)
         expected_columns = get_expected_columns(configs, output_format)
         samples = make_samples(1)
 
@@ -96,9 +102,9 @@ class TestOutputFormats:
         assert not missing, f"Missing columns for {output_format}: {missing}"
 
     @pytest.mark.parametrize("output_format", ["xcalibur", "chronos", "hystar"])
-    def test_output_format_single_sample_row_count(self, configs, builder, output_format: str):
+    def test_output_format_single_sample_row_count(self, configs, ui_configs, builder, output_format: str):
         """Single sample with noqc pattern produces exactly 1 row (proteomics, no polarity)."""
-        technology, instrument, sampler = find_combination_for_format(configs, output_format)
+        technology, instrument, sampler = find_combination_for_format(configs, ui_configs, output_format)
         samples = make_samples(1)
 
         params = QueueParameters(

@@ -63,11 +63,11 @@ def get_polarity_technologies() -> set[str]:
     """Get technologies requiring polarity expansion.
 
     Derived from samples.csv: technologies whose file_name_template contains {polarity}.
-    Requires load_core_configs() to be called first.
+    Requires load_all_configs() to be called first.
     """
     if _polarity_technologies is None:
         raise RuntimeError(
-            "polarity_technologies not initialized. Call load_core_configs() first."
+            "polarity_technologies not initialized. Call load_all_configs() first."
         )
     return _polarity_technologies
 
@@ -76,11 +76,11 @@ def get_valid_samplers() -> set[str]:
     """Get valid sampler identifiers.
 
     Derived from sampler.toml: {Parent}.{child} for each sampler with vial/plate containers.
-    Requires load_core_configs() to be called first.
+    Requires load_all_configs() to be called first.
     """
     if _valid_samplers is None:
         raise RuntimeError(
-            "valid_samplers not initialized. Call load_core_configs() first."
+            "valid_samplers not initialized. Call load_all_configs() first."
         )
     return _valid_samplers
 

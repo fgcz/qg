@@ -78,3 +78,69 @@ def samples_to_dataframe(sample_group: SampleGroup) -> pl.DataFrame:
     if not sample_group.samples:
         return pl.DataFrame()
     return pl.DataFrame([s.model_dump() for s in sample_group.samples])
+
+
+def get_proteomics_projects_with_samples(
+    client: Bfabric,
+    only_running: bool = True,
+    max_projects: int | None = None,
+) -> list[dict]:
+    """Query B-Fabric for proteomics projects that have samples.
+
+    Args:
+        client: B-Fabric client instance.
+        only_running: If True, only return projects with status 'running'.
+        max_projects: Maximum number of projects to return. None for all.
+
+    Returns:
+        List of project dictionaries that have samples.
+    """
+    # Build query filter - status can be 'pending', 'rejected', 'running'
+    query = {}
+    if only_running:
+        query["status"] = "running"
+
+    # Query projects
+    projects = client.read("project", query, max_results=max_projects)
+    if not projects:
+        return []
+
+    # Filter to proteomics projects with samples
+    # - technology is a list field, filter client-side
+    # - countsamples tells us if project has samples
+    projects_with_samples = []
+    for project in projects:
+        technologies = project.get("technology", [])
+        if "Proteomics" not in technologies:
+            continue
+
+        # Check if project has samples (via containers/orders)
+        count_samples = project.get("countsamples", 0)
+        if count_samples > 0:
+            projects_with_samples.append(project)
+
+    return projects_with_samples
+
+
+def get_order_info(client: Bfabric, order_ids: list[int]) -> dict[int, dict]:
+    """Query plate and sample counts for orders.
+
+    Args:
+        client: B-Fabric client instance.
+        order_ids: List of order/container IDs.
+
+    Returns:
+        Dict mapping order_id to {plate_count, sample_count}.
+    """
+    order_info = {oid: {"plate_count": 0, "sample_count": 0} for oid in order_ids}
+    for order_id in order_ids:
+        # Get plate count
+        plates = client.read("plate", {"containerid": order_id}, max_results=1000)
+        order_info[order_id]["plate_count"] = len(plates) if plates else 0
+        # Get sample count
+        samples = client.read("sample", {"containerid": order_id}, max_results=1)
+        if samples:
+            # Use the response to get total count - query with count only
+            all_samples = client.read("sample", {"containerid": order_id}, max_results=10000)
+            order_info[order_id]["sample_count"] = len(all_samples) if all_samples else 0
+    return order_info

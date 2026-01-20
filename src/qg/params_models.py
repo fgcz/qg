@@ -51,7 +51,7 @@ class QueueParameters(BaseModel):
     # Method per polarity: {"pos": "DIA_60min", "neg": "DIA_60min"}
     # Keys are polarities ("pos", "neg"), values are method names (not paths)
     method: dict[str, str] = Field(default_factory=dict)
-    randomization: bool = False
+    randomization: Literal["no", "random", "blockrandom"] = "no"
     inj_vol_override: float | None = None
     qc_frequency_override: int | None = None  # Override run_QC_after_n_samples
 

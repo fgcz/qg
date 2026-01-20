@@ -6,7 +6,7 @@ import json
 from datetime import date
 from pathlib import Path
 
-from qg.config import CoreConfigBundle
+from qg.config import ConfigBundle
 from qg.params_models import InputSample, QueueInput, QueueParameters, SampleGroup
 
 
@@ -44,7 +44,7 @@ def simulate_samples(
 
 def simulate_params(
     num_samples: int,
-    configs: CoreConfigBundle,
+    configs: ConfigBundle,
     technology: str,
     instrument: str,
     sampler: str,
@@ -58,7 +58,7 @@ def simulate_params(
 
     Args:
         num_samples: Number of user samples to generate.
-        configs: CoreConfigBundle with core configs.
+        configs: ConfigBundle with core configs.
         technology: Technology (proteomics, metabolomics, lipidomics).
         instrument: Instrument name.
         sampler: Sampler (e.g., "Vanquish.vial").
@@ -138,7 +138,7 @@ def write_params(queue_input: QueueInput, output_path: str | Path) -> Path:
 
 def simulate_multi_group_params(
     groups: list[tuple[int, int]],  # (container_id, num_samples)
-    configs: CoreConfigBundle,
+    configs: ConfigBundle,
     technology: str,
     instrument: str,
     sampler: str,
@@ -151,7 +151,7 @@ def simulate_multi_group_params(
 
     Args:
         groups: List of (container_id, num_samples) tuples.
-        configs: CoreConfigBundle with core configs.
+        configs: ConfigBundle with core configs.
         technology: Technology (proteomics, metabolomics, lipidomics).
         instrument: Instrument name.
         sampler: Sampler (e.g., "Vanquish.vial").

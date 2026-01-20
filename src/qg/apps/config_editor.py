@@ -26,17 +26,19 @@ def _():
     """)
     return
 
-
+# TODO: replace with get_core_config_dir() # return Path
 @app.cell
 def _(CONFIG_DIR):
-    instruments_df = pl.read_csv(CONFIG_DIR / "instruments.csv")
+    # Core configs
+    instruments_df = pl.read_csv(CONFIG_DIR / "core" / "instruments.csv")
     instruments_editor = mo.ui.data_editor(instruments_df, label="Instruments")
     return instruments_df, instruments_editor
 
-
+# TODO: replace with get_ui_config_dir() # return Path
 @app.cell
 def _(CONFIG_DIR):
-    instrument_patterns_df = pl.read_csv(CONFIG_DIR / "instrument_patterns.csv")
+    # UI configs
+    instrument_patterns_df = pl.read_csv(CONFIG_DIR / "ui" / "instrument_patterns.csv")
     instrument_patterns_editor = mo.ui.data_editor(
         instrument_patterns_df, label="Instrument Patterns"
     )
@@ -45,14 +47,16 @@ def _(CONFIG_DIR):
 
 @app.cell
 def _(CONFIG_DIR):
-    combinations_df = pl.read_csv(CONFIG_DIR / "combinations.csv")
+    # UI configs
+    combinations_df = pl.read_csv(CONFIG_DIR / "ui" / "combinations.csv")
     combinations_editor = mo.ui.data_editor(combinations_df, label="Combinations")
     return combinations_df, combinations_editor
 
 
 @app.cell
 def _(CONFIG_DIR):
-    sampler_content = (CONFIG_DIR / "sampler.toml").read_text()
+    # Core configs
+    sampler_content = (CONFIG_DIR / "core" / "sampler.toml").read_text()
     sampler_editor = mo.ui.code_editor(
         sampler_content, language="toml", min_height=400
     )
@@ -61,14 +65,16 @@ def _(CONFIG_DIR):
 
 @app.cell
 def _(CONFIG_DIR):
-    samples_df = pl.read_csv(CONFIG_DIR / "samples.csv")
+    # Core configs
+    samples_df = pl.read_csv(CONFIG_DIR / "core" / "samples.csv")
     samples_editor = mo.ui.data_editor(samples_df, label="Samples")
     return samples_df, samples_editor
 
 
 @app.cell
 def _(CONFIG_DIR):
-    patterns_content = (CONFIG_DIR / "queue_patterns.toml").read_text()
+    # Core configs
+    patterns_content = (CONFIG_DIR / "core" / "queue_patterns.toml").read_text()
     patterns_editor = mo.ui.code_editor(
         patterns_content, language="toml", min_height=400
     )
@@ -77,7 +83,8 @@ def _(CONFIG_DIR):
 
 @app.cell
 def _(CONFIG_DIR):
-    qc_layouts_content = (CONFIG_DIR / "qc_layouts.toml").read_text()
+    # Core configs
+    qc_layouts_content = (CONFIG_DIR / "core" / "qc_layouts.toml").read_text()
     qc_layouts_editor = mo.ui.code_editor(
         qc_layouts_content, language="toml", min_height=400
     )
@@ -86,7 +93,8 @@ def _(CONFIG_DIR):
 
 @app.cell
 def _(CONFIG_DIR):
-    output_formats_content = (CONFIG_DIR / "output_formats.toml").read_text()
+    # Core configs
+    output_formats_content = (CONFIG_DIR / "core" / "output_formats.toml").read_text()
     output_formats_editor = mo.ui.code_editor(
         output_formats_content, language="toml", min_height=400
     )
@@ -95,7 +103,8 @@ def _(CONFIG_DIR):
 
 @app.cell
 def _(CONFIG_DIR):
-    methods_files = sorted(CONFIG_DIR.glob("methods/**/*.csv"))
+    # Core configs - methods
+    methods_files = sorted((CONFIG_DIR / "core").glob("methods/**/*.csv"))
     methods_options = {f.relative_to(CONFIG_DIR).as_posix(): f for f in methods_files}
     methods_dropdown = mo.ui.dropdown(
         options=list(methods_options.keys()),
@@ -743,19 +752,19 @@ def _(
             kind="danger",
         )
     else:
-        # Save CSV files
-        instruments_editor.value.write_csv(CONFIG_DIR / "instruments.csv")
-        instrument_patterns_editor.value.write_csv(CONFIG_DIR / "instrument_patterns.csv")
-        combinations_editor.value.write_csv(CONFIG_DIR / "combinations.csv")
+        # Save core CSV files
+        instruments_editor.value.write_csv(CONFIG_DIR / "core" / "instruments.csv")
+        samples_editor.value.write_csv(CONFIG_DIR / "core" / "samples.csv")
 
-        # Save CSV files (samples)
-        samples_editor.value.write_csv(CONFIG_DIR / "samples.csv")
+        # Save UI CSV files
+        instrument_patterns_editor.value.write_csv(CONFIG_DIR / "ui" / "instrument_patterns.csv")
+        combinations_editor.value.write_csv(CONFIG_DIR / "ui" / "combinations.csv")
 
-        # Save TOML files
-        (CONFIG_DIR / "sampler.toml").write_text(sampler_editor.value)
-        (CONFIG_DIR / "queue_patterns.toml").write_text(patterns_editor.value)
-        (CONFIG_DIR / "qc_layouts.toml").write_text(qc_layouts_editor.value)
-        (CONFIG_DIR / "output_formats.toml").write_text(output_formats_editor.value)
+        # Save core TOML files
+        (CONFIG_DIR / "core" / "sampler.toml").write_text(sampler_editor.value)
+        (CONFIG_DIR / "core" / "queue_patterns.toml").write_text(patterns_editor.value)
+        (CONFIG_DIR / "core" / "qc_layouts.toml").write_text(qc_layouts_editor.value)
+        (CONFIG_DIR / "core" / "output_formats.toml").write_text(output_formats_editor.value)
 
         # Save selected methods file
         if methods_dropdown.value:

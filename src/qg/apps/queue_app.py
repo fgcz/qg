@@ -39,20 +39,21 @@ def _():
     BFABRIC_CACHE_DIR = Path(__file__).parent.parent.parent.parent / "bfabric_cache"
     return (BFABRIC_CACHE_DIR,)
 
+# TODO: use get_core_config_dir() # return Path
 
 @app.cell
 def _(CONFIG_DIR):
-    # Load all configs using the qg package
+    # Load core configs for queue generation
     configs = load_all_configs(CONFIG_DIR)
     return (configs,)
 
-
+# TODO: why do we read pl dataframes if we have models? Add to polars to the models?
 @app.cell
 def _(CONFIG_DIR):
-    # Also load raw DataFrames for UI filtering (instruments, combinations, patterns)
-    instruments_df = pl.read_csv(CONFIG_DIR / "instruments.csv")
-    combinations_df = pl.read_csv(CONFIG_DIR / "combinations.csv")
-    instrument_patterns_df = pl.read_csv(CONFIG_DIR / "instrument_patterns.csv")
+    # Load raw DataFrames for UI filtering (instruments from core, combinations/patterns from ui)
+    instruments_df = pl.read_csv(CONFIG_DIR / "core" / "instruments.csv")
+    combinations_df = pl.read_csv(CONFIG_DIR / "ui" / "combinations.csv")
+    instrument_patterns_df = pl.read_csv(CONFIG_DIR / "ui" / "instrument_patterns.csv")
     return combinations_df, instrument_patterns_df, instruments_df
 
 
@@ -235,9 +236,9 @@ def _(default_qc_frequency):
 
 @app.cell
 def _(CONFIG_DIR, instrument_field, technology_field):
-    # Load available methods from CSV
+    # Load available methods from CSV (methods are in core/)
     mo.stop(not technology_field.value or not instrument_field.value)
-    _methods_file = CONFIG_DIR / "methods" / technology_field.value / f"{instrument_field.value}_methods.csv"
+    _methods_file = CONFIG_DIR / "core" / "methods" / technology_field.value / f"{instrument_field.value}_methods.csv"
     if _methods_file.exists():
         methods_df = pl.read_csv(_methods_file)
     else:

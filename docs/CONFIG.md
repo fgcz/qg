@@ -1,22 +1,43 @@
 # Queue Generation Configuration
 
+## Directory Structure
+
+```
+qg_configs/
+├── core/                          # Required for queue generation
+│   ├── sampler.toml               # Physical sampler layouts
+│   ├── samples.csv                # QC sample definitions
+│   ├── queue_patterns.toml        # QC injection patterns
+│   ├── qc_layouts.toml            # QC position assignments
+│   ├── instruments.csv            # Instrument settings
+│   ├── output_formats.toml        # CSV column mappings
+│   └── methods/                   # Method files per technology/instrument
+│       ├── proteomics/
+│       ├── metabolomics/
+│       └── lipidomics/
+└── ui/                            # Used by GUIs for filtering/validation only
+    ├── combinations.csv           # Valid (instrument, sampler, output_format) tuples
+    └── instrument_patterns.csv    # Valid patterns per instrument
+```
+
 ## Files
 
-| File | Purpose |
-|------|---------|
-| **Data** | |
-| `sampler.toml` | Physical sampler layout: positions, grids, output format |
-| `qc_layouts.toml` | QC positions: `<technology>.<sampler_key>` |
-| `output_formats.toml` | Queue file formats: column mappings |
-| `samples.csv` | QC sample definitions (technology, sample_id, inj_vol, template) |
-| `queue_patterns.toml` | Injection patterns: `<technology>.<pattern>` |
-| `instruments.csv` | Instruments: technology, instrument, methods_file |
-| `instrument_patterns.csv` | Available patterns per instrument |
-| `combinations.csv` | Valid instrument+sampler+output_format+position_format |
-| `methods/<tech>/<instr>_methods.csv` | Methods per instrument (with polarity column) |
+| File | Location | Purpose |
+|------|----------|---------|
+| **Core (Required for Generation)** | |
+| `sampler.toml` | `core/` | Physical sampler layout: positions, grids, output format |
+| `samples.csv` | `core/` | QC sample definitions (technology, sample_id, inj_vol, template) |
+| `queue_patterns.toml` | `core/` | Injection patterns: `<technology>.<pattern>` |
+| `qc_layouts.toml` | `core/` | QC positions: `<technology>.<sampler_key>` |
+| `instruments.csv` | `core/` | Instruments: technology, instrument, methods_file |
+| `output_formats.toml` | `core/` | Queue file formats: column mappings |
+| `methods/<tech>/<instr>_methods.csv` | `core/` | Methods per instrument (with polarity column) |
+| **UI (Filtering/Validation Only)** | |
+| `combinations.csv` | `ui/` | Valid instrument+sampler+output_format combinations |
+| `instrument_patterns.csv` | `ui/` | Available patterns per instrument |
 | **Docs** | |
-| `ALGORITHM.md` | Queue generation pseudocode |
-| `*.puml` | PlantUML diagrams (ER, flow) |
+| `ALGORITHM.md` | `docs/` | Queue generation pseudocode |
+| `*.puml` | `docs/` | PlantUML diagrams (ER, flow) |
 
 ## Configuration Structure
 
@@ -261,19 +282,18 @@ Same instrument can appear under multiple technologies with different configs.
 
 **`combinations.csv`** - valid instrument+sampler+format combinations:
 ```csv
-instrument,sampler,output_format,position_format
-ASTRAL_1,Vanquish.vial,xcalibur,
-ASTRAL_1,Vanquish.plate,xcalibur,
-ASCEND_1,MClass48.vial,xcalibur,{plate}:{row}{col}
-ASCEND_1,MClass48.plate,xcalibur,{plate}:{row}{col}
-EXPLORIS_1,Evosep.vial,chronos,
+instrument,sampler,output_format
+ASTRAL_1,Vanquish.vial,xcalibur
+ASTRAL_1,Vanquish.plate,xcalibur
+ASCEND_1,MClass48.vial,xcalibur
+ASCEND_1,MClass48.plate,xcalibur
+EXPLORIS_1,Evosep.vial,chronos
 ```
 
 **Fields:**
 - `instrument` - instrument name (matches `instruments.csv`)
 - `sampler` - sampler.container key (e.g., `Vanquish.vial`)
 - `output_format` - output format (e.g., `xcalibur`, `chronos`, `hystar`)
-- `position_format` - optional override for position formatting (empty = use sampler default)
 
 ## Adding New Configurations
 

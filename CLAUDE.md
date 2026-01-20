@@ -107,7 +107,7 @@ CSV Output
 | `queue_structure.py` | `build_queue_structure()`, `compute_queue_counts()`, `SlotEntry` |
 | `positions.py` | `GridPositionGenerator`, `EvosepPositionGenerator`, factory function |
 | `strategies.py` | `PositionAssigner` protocol, `GeneratedPositionAssigner`, `InputPositionAssigner` |
-| `config.py` | `ConfigBundle` - loads all config files |
+| `config.py` | `ConfigBundle`, `ConfigBundle` - config bundles and loaders |
 | `config_models.py` | Pydantic models for config files (Sample, Instrument, QueuePattern, etc.) |
 | `config_models_samplers.py` | Sampler config models (GridSampler, EvosepSampler) |
 | `params_models.py` | `QueueInput`, `QueueParameters`, `SampleGroup`, `InputSample` |
@@ -144,22 +144,37 @@ CSV Output
 
 ### Config Files (`qg_configs/`)
 
-| File | Purpose |
-|------|---------|
-| `sampler.toml` | Physical sampler layouts (Vanquish, MClass48, Evosep) |
-| `samples.csv` | QC sample definitions (per technology, inj_vol, file_name_template) |
-| `queue_patterns.toml` | QC injection patterns (start/middle/end/separation) |
-| `qc_layouts.toml` | QC positions per technology/sampler |
-| `instruments.csv` | Instrument -> methods_file, path_template mapping |
-| `instrument_patterns.csv` | Valid patterns per instrument |
-| `combinations.csv` | Valid (instrument, sampler, output_format, position_format) tuples |
-| `output_formats.toml` | Column mappings for xcalibur/chronos/hystar |
-| `methods/<tech>/<instr>_methods.csv` | Methods with polarity column |
+```
+qg_configs/
+├── core/           # Required for queue generation
+│   ├── sampler.toml
+│   ├── samples.csv
+│   ├── queue_patterns.toml
+│   ├── qc_layouts.toml
+│   ├── instruments.csv
+│   ├── output_formats.toml
+│   └── methods/
+└── ui/             # GUI filtering only
+    ├── combinations.csv
+    └── instrument_patterns.csv
+```
+
+| File | Location | Purpose |
+|------|----------|---------|
+| `sampler.toml` | `core/` | Physical sampler layouts (Vanquish, MClass48, Evosep) |
+| `samples.csv` | `core/` | QC sample definitions (per technology, inj_vol, file_name_template) |
+| `queue_patterns.toml` | `core/` | QC injection patterns (start/middle/end/separation) |
+| `qc_layouts.toml` | `core/` | QC positions per technology/sampler |
+| `instruments.csv` | `core/` | Instrument -> methods_file, path_template mapping |
+| `output_formats.toml` | `core/` | Column mappings for xcalibur/chronos/hystar |
+| `methods/<tech>/<instr>_methods.csv` | `core/` | Methods with polarity column |
+| `combinations.csv` | `ui/` | Valid (instrument, sampler, output_format) tuples |
+| `instrument_patterns.csv` | `ui/` | Valid patterns per instrument |
 
 **Method Files:**
-- `methods/proteomics/`: 9 instruments (ASTRAL_1, ASCEND_1, EXPLORIS_1/2/5, LUMOS_2, QEXACTIVE_1, TIMSTOF_1, TIMSTOFFLEX_1)
-- `methods/metabolomics/`: 3 instruments (EXPLORIS_3, QEXACTIVEHF_2, QUANTIVA_1)
-- `methods/lipidomics/`: 2 instruments (EXPLORIS_3, EXPLORIS_4)
+- `core/methods/proteomics/`: 9 instruments (ASTRAL_1, ASCEND_1, EXPLORIS_1/2/5, LUMOS_2, QEXACTIVE_1, TIMSTOF_1, TIMSTOFFLEX_1)
+- `core/methods/metabolomics/`: 3 instruments (EXPLORIS_3, QEXACTIVEHF_2, QUANTIVA_1)
+- `core/methods/lipidomics/`: 2 instruments (EXPLORIS_3, EXPLORIS_4)
 
 ### Technologies
 

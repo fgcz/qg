@@ -19,3 +19,4 @@ reference/merged.csv
 # Marimo cache
 tools/__marimo__/
 __marimo__/
+inferred_params/
