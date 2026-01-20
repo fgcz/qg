@@ -44,17 +44,17 @@ clean = { tray = 6, position_start = 1, position_end = 96 }
 # =============================================================================
 
 [Metabolomics.Vanquish.vial]
-# QC row: F, QC plate: B
-blank = "B:F9"
-pooledQC = "B:F8"
-108mix_AA = "B:F7"
-108mix_OAP = "B:F7"
-pooledQCDil1 = "B:F6"
-pooledQCDil2 = "B:F5"
+# QC row: F, QC plate: B (positions 1-9)
+blank = "B:F1"
+pooledQCDil1 = "B:F2"
+pooledQCDil2 = "B:F3"
 pooledQCDil3 = "B:F4"
-pooledQCDil4 = "B:F3"
-pooledQCDil5 = "B:F2"
-pooledQCDil6 = "B:F1"
+pooledQCDil4 = "B:F5"
+pooledQCDil5 = "B:F6"
+pooledQCDil6 = "B:F7"
+pooledQC = "B:F8"
+108mix_AA = "B:F9"
+108mix_OAP = "B:E9"
 
 [Metabolomics.Vanquish.plate]
 # QC row: H, QC plate: B
@@ -103,16 +103,16 @@ pooledQCDil6 = { tray = 5, position_start = 93, position_end = 96 }
 
 
 [Lipidomics.Vanquish.vial]
-# QC row: F, QC plate: B
-blank = "B:F9"
-pooledQC = "B:F8"
-EquiSPLASH = "B:F7"
-pooledQCDil1 = "B:F6"
-pooledQCDil2 = "B:F5"
+# QC row: F, QC plate: B (positions 1-9)
+blank = "B:F1"
+pooledQCDil1 = "B:F2"
+pooledQCDil2 = "B:F3"
 pooledQCDil3 = "B:F4"
-pooledQCDil4 = "B:F3"
-pooledQCDil5 = "B:F2"
-pooledQCDil6 = "B:F1"
+pooledQCDil4 = "B:F5"
+pooledQCDil5 = "B:F6"
+pooledQCDil6 = "B:F7"
+pooledQC = "B:F8"
+EquiSPLASH = "B:F9"
 
 [Lipidomics.Vanquish.plate]
 # QC row: H, QC plate: B

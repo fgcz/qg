@@ -311,7 +311,7 @@ def _(technology_field):
 @app.cell
 def _():
     randomization_field = mo.ui.dropdown(
-        options=["no", "yes"],
+        options=["no", "random", "blockrandom"],
         value="no",
         label="Randomization"
     )
@@ -468,7 +468,6 @@ def _(
         _inj_vol = float(inj_vol_field.value) if inj_vol_field.value.strip() else None
         _qc_freq = int(qc_frequency_field.value) if qc_frequency_field.value.strip() else None
         _polarity = [p for p in ("pos", "neg") if polarity_group.value.get(p)]
-        _randomization = randomization_field.value == "yes"
 
         # Build method dict from per-polarity selections
         _method_fields = {"pos": method_field_pos, "neg": method_field_neg}
@@ -489,7 +488,7 @@ def _(
                 "date": date_field.value.strftime("%Y%m%d"),
                 "user": user_field.value.strip(),
                 "method": method_dict,
-                "randomization": _randomization,
+                "randomization": randomization_field.value,
                 "inj_vol_override": _inj_vol,
                 "qc_frequency_override": _qc_freq,
             }
