@@ -1,9 +1,8 @@
 """CLI entry point for config validation."""
 
 import sys
-from pathlib import Path
 
-from qg.config import validate_all_configs
+from qg.config import qg_config
 
 
 def cli_main() -> None:
@@ -12,6 +11,13 @@ def cli_main() -> None:
     Usage:
         uv run qg-validate
     """
-    config_dir = Path("qg_configs")
-    success = validate_all_configs(config_dir)
-    sys.exit(0 if success else 1)
+    try:
+        qg_config()  # Loads and validates, prints output, raises on failure
+        print("\nValidation complete.")
+        sys.exit(0)
+    except ValueError as e:
+        print(f"\n{e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Failed to load configs: {e}")
+        sys.exit(1)

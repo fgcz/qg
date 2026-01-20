@@ -1,6 +1,6 @@
 """Pydantic models for queue generation configuration."""
 
-
+import polars as pl
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from qg.config_models_samplers import SamplersConfig
@@ -24,6 +24,8 @@ __all__ = [
     "QCLayoutsConfig",
     "OutputFormat",
     "OutputFormatsConfig",
+    "Method",
+    "MethodsConfig",
 ]
 
 
@@ -40,54 +42,6 @@ VALID_PLACEHOLDERS = {
     "sample_name",
     "polarity",
 }
-
-# Runtime caches for dynamically derived values (populated by ConfigBundle)
-_polarity_technologies: set[str] | None = None
-_valid_samplers: set[str] | None = None
-
-
-def set_polarity_technologies(technologies: set[str]) -> None:
-    """Set polarity technologies (called by ConfigBundle after loading samples)."""
-    global _polarity_technologies
-    _polarity_technologies = technologies
-
-
-def set_valid_samplers(samplers: set[str]) -> None:
-    """Set valid samplers (called by ConfigBundle after loading sampler.toml)."""
-    global _valid_samplers
-    _valid_samplers = samplers
-
-
-def get_polarity_technologies() -> set[str]:
-    """Get technologies requiring polarity expansion.
-
-    Derived from samples.csv: technologies whose file_name_template contains {polarity}.
-    Requires load_all_configs() to be called first.
-    """
-    if _polarity_technologies is None:
-        raise RuntimeError(
-            "polarity_technologies not initialized. Call load_all_configs() first."
-        )
-    return _polarity_technologies
-
-
-def get_valid_samplers() -> set[str]:
-    """Get valid sampler identifiers.
-
-    Derived from sampler.toml: {Parent}.{child} for each sampler with vial/plate containers.
-    Requires load_all_configs() to be called first.
-    """
-    if _valid_samplers is None:
-        raise RuntimeError(
-            "valid_samplers not initialized. Call load_all_configs() first."
-        )
-    return _valid_samplers
-
-
-def requires_polarity(technology: str) -> bool:
-    """Check if a technology requires polarity expansion."""
-    return technology in get_polarity_technologies()
-
 
 # =============================================================================
 # Sample Model
@@ -121,16 +75,6 @@ class Sample(BaseModel):
         if invalid:
             raise ValueError(f"Invalid placeholders: {invalid}. Valid: {VALID_PLACEHOLDERS}")
         return v
-
-    @model_validator(mode="after")
-    def validate_polarity_for_technology(self) -> Sample:
-        """Technologies requiring polarity should have {polarity} in template."""
-        if requires_polarity(self.technology):
-            if "{polarity}" not in self.file_name_template:
-                raise ValueError(
-                    f"{self.technology} samples should have {{polarity}} in file_name_template"
-                )
-        return self
 
     @model_validator(mode="after")
     def validate_default_has_sample_id(self) -> Sample:
@@ -188,6 +132,7 @@ class Instrument(BaseModel):
     technology: str = Field(..., min_length=1, description="Technology identifier")
     instrument: str = Field(..., min_length=1, description="Instrument identifier")
     methods_file: str = Field(..., min_length=1, description="Path to methods CSV file")
+    path_template: str = Field(default="", description="Data path template with {container}, {user}, {date}")
 
     @field_validator("methods_file")
     @classmethod
@@ -224,6 +169,10 @@ class InstrumentsConfig(BaseModel):
             if i.technology == tech and i.instrument == instrument:
                 return i
         return None
+
+    def to_table(self) -> pl.DataFrame:
+        """Convert instruments to a polars DataFrame."""
+        return pl.DataFrame([i.model_dump() for i in self.instruments])
 
 
 # =============================================================================
@@ -288,6 +237,10 @@ class InstrumentPatternsConfig(BaseModel):
                 return p
         return None
 
+    def to_table(self) -> pl.DataFrame:
+        """Convert instrument patterns to a polars DataFrame."""
+        return pl.DataFrame([p.model_dump() for p in self.patterns])
+
 
 # =============================================================================
 # Combination Model
@@ -300,15 +253,6 @@ class Combination(BaseModel):
     instrument: str = Field(..., min_length=1)
     sampler: str = Field(..., min_length=1, description="Sampler.container key")
     output_format: str = Field(..., min_length=1, description="Output format identifier (software)")
-
-    @field_validator("sampler")
-    @classmethod
-    def validate_sampler_format(cls, v: str) -> str:
-        """Check that sampler is a valid Sampler.container key."""
-        valid = get_valid_samplers()
-        if v not in valid:
-            raise ValueError(f"Invalid sampler: {v}. Valid: {valid}")
-        return v
 
 
 class CombinationsConfig(BaseModel):
@@ -335,6 +279,10 @@ class CombinationsConfig(BaseModel):
             if c.instrument == instrument and c.sampler == sampler:
                 return c
         return None
+
+    def to_table(self) -> pl.DataFrame:
+        """Convert combinations to a polars DataFrame."""
+        return pl.DataFrame([c.model_dump() for c in self.combinations])
 
 
 # =============================================================================
@@ -481,3 +429,44 @@ class OutputFormatsConfig(BaseModel):
     def get_format(self, format_id: str) -> OutputFormat | None:
         """Get an output format by ID."""
         return self.formats.get(format_id)
+
+
+# =============================================================================
+# Method Models (CSV)
+# =============================================================================
+
+
+class Method(BaseModel):
+    """A method definition from methods CSV."""
+
+    sample_type: str = Field(..., min_length=1, description="Sample type (default, QC03dda, etc.)")
+    polarity: str = Field(..., description="Polarity (pos, neg, or empty for proteomics)")
+    method_name: str = Field(..., min_length=1, description="Method name")
+    method_path: str = Field(..., min_length=1, description="Full path to method file")
+
+    @field_validator("polarity", mode="before")
+    @classmethod
+    def empty_str_if_none(cls, v):
+        """Convert None to empty string (CSV empty cells)."""
+        return v if v is not None else ""
+
+
+class MethodsConfig(BaseModel):
+    """All methods by technology and instrument.
+
+    Structure: technology -> instrument -> list[Method]
+    """
+
+    methods: dict[str, dict[str, list[Method]]] = Field(default_factory=dict)
+
+    def get_methods(self, technology: str, instrument: str) -> list[Method]:
+        """Get methods for a technology/instrument combination."""
+        tech_methods = self.methods.get(technology, {})
+        return tech_methods.get(instrument, [])
+
+    def to_table(self, technology: str, instrument: str) -> pl.DataFrame:
+        """Get methods as a polars DataFrame."""
+        methods = self.get_methods(technology, instrument)
+        if not methods:
+            return pl.DataFrame()
+        return pl.DataFrame([m.model_dump() for m in methods])

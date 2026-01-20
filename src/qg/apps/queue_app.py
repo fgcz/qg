@@ -15,10 +15,8 @@ with app.setup:
 
     from qg.bfabric_utils import get_plates, get_samples, samples_to_dataframe
     from qg.builder import QueueGeneratorBuilder
-    from qg.config import load_all_configs
-    from qg.config_models import requires_polarity
-    from qg.params_models import QueueInput, QueueParameters, SampleGroup, samples_from_dataframe
-    from qg.params_simulator import write_params
+    from qg.config import qg_config
+    from qg.params_models import QueueInput, QueueParameters, SampleGroup, samples_from_dataframe, write_params
 
 
 @app.cell
@@ -29,32 +27,23 @@ def _():
 
 @app.cell
 def _():
-    # Config directory is qg_configs/ relative to the project root
-    CONFIG_DIR = Path(__file__).parent.parent.parent.parent / "qg_configs"
-    return (CONFIG_DIR,)
-
-
-@app.cell
-def _():
     # B-Fabric cache directory for cached project data
     BFABRIC_CACHE_DIR = Path(__file__).parent.parent.parent.parent / "bfabric_cache"
     return (BFABRIC_CACHE_DIR,)
 
-# TODO: use get_core_config_dir() # return Path
 
 @app.cell
-def _(CONFIG_DIR):
-    # Load core configs for queue generation
-    configs = load_all_configs(CONFIG_DIR)
+def _():
+    # Load configs via qg_config() - uses default path
+    configs = qg_config()
     return (configs,)
 
-# TODO: why do we read pl dataframes if we have models? Add to polars to the models?
 @app.cell
-def _(CONFIG_DIR):
-    # Load raw DataFrames for UI filtering (instruments from core, combinations/patterns from ui)
-    instruments_df = pl.read_csv(CONFIG_DIR / "core" / "instruments.csv")
-    combinations_df = pl.read_csv(CONFIG_DIR / "ui" / "combinations.csv")
-    instrument_patterns_df = pl.read_csv(CONFIG_DIR / "ui" / "instrument_patterns.csv")
+def _(configs):
+    # Get DataFrames for UI filtering from the loaded config bundle
+    instruments_df = configs.instruments.to_table()
+    combinations_df = configs.combinations.to_table()
+    instrument_patterns_df = configs.instrument_patterns.to_table()
     return combinations_df, instrument_patterns_df, instruments_df
 
 
@@ -236,14 +225,10 @@ def _(default_qc_frequency):
 
 
 @app.cell
-def _(CONFIG_DIR, instrument_field, technology_field):
-    # Load available methods from CSV (methods are in core/)
+def _(configs, instrument_field, technology_field):
+    # Load available methods from config
     mo.stop(not technology_field.value or not instrument_field.value)
-    _methods_file = CONFIG_DIR / "core" / "methods" / technology_field.value / f"{instrument_field.value}_methods.csv"
-    if _methods_file.exists():
-        methods_df = pl.read_csv(_methods_file)
-    else:
-        methods_df = pl.DataFrame()
+    methods_df = configs.methods.to_table(technology_field.value, instrument_field.value)
     return (methods_df,)
 
 
@@ -297,13 +282,11 @@ def _(available_methods_neg, polarity_group):
 
 
 @app.cell
-def _(technology_field):
-    # Polarity selection for all technologies
-    # Default: proteomics=pos only, metabolomics/lipidomics=pos+neg
-    _default_neg = requires_polarity(technology_field.value)  # True for metabolomics/lipidomics
+def _():
+    # Polarity selection - user chooses which polarities to run
     polarity_group = mo.ui.batch(
         mo.md("**Polarity:** {pos} pos {neg} neg"),
-        {"pos": mo.ui.checkbox(value=True), "neg": mo.ui.checkbox(value=_default_neg)},
+        {"pos": mo.ui.checkbox(value=True), "neg": mo.ui.checkbox(value=True)},
     )
     return (polarity_group,)
 
@@ -500,26 +483,26 @@ def _(
 
 
 @app.cell
-def _(queue_parameters):
-    save_button = mo.ui.run_button(label="Save Config JSON")
-    # Button is displayed in Parameters tab, not here
-    return (save_button,)
+def _():
+    save_folder = mo.ui.text(value=".", label="Save folder", full_width=True)
+    save_button = mo.ui.run_button(label="Save Params JSON")
+    return save_button, save_folder
 
 
 @app.cell
-def _(CONFIG_DIR, container_id, queue_parameters, sample_df, save_button):
+def _(container_id, queue_parameters, sample_df, save_button, save_folder):
     mo.stop(not save_button.value or queue_parameters is None)
     _samples = samples_from_dataframe(sample_df)
     _sample_group = SampleGroup(container_id=container_id, samples=_samples)
     _queue_input = QueueInput(parameters=queue_parameters, sample_groups=[_sample_group])
-    _examples_dir = CONFIG_DIR / "examples"
-    _examples_dir.mkdir(exist_ok=True)
+    _output_dir = Path(save_folder.value)
+    _output_dir.mkdir(exist_ok=True, parents=True)
     _n_samples = len(sample_df)
     _tech = queue_parameters.technology
     _sampler = queue_parameters.sampler.replace(".", "_")
-    _filepath = _examples_dir / f"{_tech}_{_sampler}_c{container_id}_n{_n_samples}.json"
+    _filepath = _output_dir / f"{_tech}_{_sampler}_c{container_id}_n{_n_samples}.json"
     write_params(_queue_input, _filepath)
-    mo.md(f"**Saved configuration to `{_filepath}`**")
+    mo.md(f"**Saved to `{_filepath.resolve()}`**")
     return
 
 
@@ -558,7 +541,7 @@ def _(plates, plates_select, sample_df, subset_samples_select, subset_samples_to
 
 
 @app.cell
-def _(container_id, queue_parameters, queue_parameters_err, sample_df, save_button):
+def _(container_id, queue_parameters, queue_parameters_err, sample_df, save_button, save_folder):
     # Build full QueueInput for display (Parameters tab content)
     if queue_parameters and container_id is not None and sample_df is not None:
         _samples = samples_from_dataframe(sample_df)
@@ -570,7 +553,7 @@ def _(container_id, queue_parameters, queue_parameters_err, sample_df, save_butt
 
     parameters_content = mo.vstack([
         mo.callout(_output, kind="info") if _output else mo.callout(str(queue_parameters_err) if queue_parameters_err else "Select a project", kind="danger"),
-        save_button if queue_parameters else None,
+        mo.hstack([save_folder, save_button], justify="start") if queue_parameters else None,
     ])
     return (parameters_content,)
 

@@ -8,15 +8,16 @@ from pathlib import Path
 
 import pytest
 
-from qg.config import load_all_configs
-from qg.params_simulator import simulate_multi_group_params
+from qg.config import qg_config
 from qg.queue_structure import build_multi_container_queue_structure, extract_groups
+
+from .helpers import make_queue_input
 
 
 @pytest.fixture
 def configs():
     """Load all configs for testing."""
-    return load_all_configs(Path("qg_configs"))
+    return qg_config(Path("qg_configs"))
 
 
 @pytest.fixture
@@ -129,8 +130,8 @@ class TestSingleContainerWithMultiGroupFunction:
         assert len(structure) == expected
 
 
-class TestMultiGroupSimulatorIntegration:
-    """Test full pipeline: simulate_multi_group_params -> extract_groups -> build structure.
+class TestMultiGroupIntegration:
+    """Test full pipeline: QueueInput -> extract_groups -> build structure.
 
     Note: SampleGroup requires min 1 sample per group. Edge cases with 0 samples
     are tested in TestMultiGroupQueueStructure which bypasses model validation.
@@ -147,17 +148,9 @@ class TestMultiGroupSimulatorIntegration:
             (6, 4),
         ],
     )
-    def test_simulate_two_containers(self, configs, n_first, n_second):
-        """Test full pipeline from simulation to structure building."""
-        queue_input = simulate_multi_group_params(
-            groups=[(1001, n_first), (1002, n_second)],
-            configs=configs,
-            technology="Proteomics",
-            instrument="ASTRAL_1",
-            sampler="Vanquish.vial",
-            queue_pattern="standard",
-            output_format="xcalibur",
-        )
+    def test_two_containers(self, configs, n_first, n_second):
+        """Test full pipeline from QueueInput to structure building."""
+        queue_input = make_queue_input([(1001, n_first), (1002, n_second)])
 
         # Extract groups and build structure
         groups = extract_groups(queue_input.sample_groups)
@@ -181,17 +174,9 @@ class TestMultiGroupSimulatorIntegration:
         )
         assert len(structure) == expected
 
-    def test_extract_groups_from_simulator(self, configs):
-        """Verify extract_groups returns correct tuples from simulated input."""
-        queue_input = simulate_multi_group_params(
-            groups=[(1001, 5), (1002, 3), (1003, 7)],
-            configs=configs,
-            technology="Proteomics",
-            instrument="ASTRAL_1",
-            sampler="Vanquish.vial",
-            queue_pattern="standard",
-            output_format="xcalibur",
-        )
+    def test_extract_groups(self, configs):
+        """Verify extract_groups returns correct tuples from QueueInput."""
+        queue_input = make_queue_input([(1001, 5), (1002, 3), (1003, 7)])
 
         groups = extract_groups(queue_input.sample_groups)
 
@@ -199,15 +184,7 @@ class TestMultiGroupSimulatorIntegration:
 
     def test_container_ids_in_structure(self, configs):
         """Verify container_id is correctly set in SlotEntry for each group."""
-        queue_input = simulate_multi_group_params(
-            groups=[(1001, 2), (1002, 3)],
-            configs=configs,
-            technology="Proteomics",
-            instrument="ASTRAL_1",
-            sampler="Vanquish.vial",
-            queue_pattern="standard",
-            output_format="xcalibur",
-        )
+        queue_input = make_queue_input([(1001, 2), (1002, 3)])
 
         groups = extract_groups(queue_input.sample_groups)
         pattern = configs.queue_patterns.get_pattern("Proteomics", "standard")

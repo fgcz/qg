@@ -10,6 +10,7 @@ from typing import Annotated
 import cyclopts
 
 from qg.builder import QueueGeneratorBuilder
+from qg.config import qg_config
 from qg.params_models import QueueInput
 
 
@@ -47,13 +48,16 @@ def cli_main() -> None:
                 format="%(name)s: %(message)s",
             )
 
-        # Create builder first (loads configs and sets polarity_technologies)
-        builder = QueueGeneratorBuilder(config_dir)
+        # Load configs first (sets polarity_technologies needed for input validation)
+        configs = qg_config(config_dir)
 
         # Load and parse input (requires configs to be loaded for polarity validation)
         with open(input_json) as f:
             input_data = json.load(f)
         queue_input = QueueInput(**input_data)
+
+        # Create builder with loaded configs
+        builder = QueueGeneratorBuilder(configs)
 
         # Build generator
         generator = builder.build(queue_input)

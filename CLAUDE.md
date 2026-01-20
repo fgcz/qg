@@ -105,13 +105,35 @@ CSV Output
 | `generator.py` | Pipeline orchestration, `QueueGenerator` class, `QueueRow` dataclass |
 | `builder.py` | `QueueGeneratorBuilder` - config resolution and generator creation |
 | `queue_structure.py` | `build_queue_structure()`, `compute_queue_counts()`, `SlotEntry` |
-| `positions.py` | `GridPositionGenerator`, `EvosepPositionGenerator`, factory function |
-| `strategies.py` | `PositionAssigner` protocol, `GeneratedPositionAssigner`, `InputPositionAssigner` |
-| `config.py` | `ConfigBundle`, `ConfigBundle` - config bundles and loaders |
+| `positions.py` | `GridPositionGenerator`, `EvosepPositionGenerator`, `QCLayoutPattern`, factory function |
+| `config.py` | `ConfigBundle`, `qg_config()`, validation functions |
 | `config_models.py` | Pydantic models for config files (Sample, Instrument, QueuePattern, etc.) |
 | `config_models_samplers.py` | Sampler config models (GridSampler, EvosepSampler) |
-| `params_models.py` | `QueueInput`, `QueueParameters`, `SampleGroup`, `InputSample` |
-| `params_simulator.py` | Parameter simulation for testing |
+| `params_models.py` | `QueueInput`, `QueueParameters`, `SampleGroup`, `InputSample`, `write_params` |
+| `bfabric_utils.py` | B-Fabric LIMS integration utilities |
+
+### Config Access Rules
+
+**IMPORTANT:** The `config.py` module has only ONE public function: `qg_config()`. All other functions are private (prefixed with `_`).
+
+**Only these modules may read/write files in `qg_configs/`:**
+- `config.py` - loads configs via `qg_config()`
+- `apps/config_editor.py` - edits config files directly
+
+**All other modules MUST access configs through `ConfigBundle`** returned by `qg_config()`:
+```python
+from qg.config import qg_config
+
+configs = qg_config()
+configs.instruments.to_table()  # Get DataFrame
+configs.instruments.get_instrument(tech, name)  # Get specific instrument
+configs.samples.get_sample(tech, sample_id)  # Get specific sample
+configs.methods.to_table(tech, instrument)  # Get methods as DataFrame
+```
+
+**If something in `qg_configs/` is not accessible through ConfigBundle, add a new Pydantic model to `config_models.py` and load it in `config.py`.**
+
+Never use `pl.read_csv()` or `Path().read_text()` to read config files directly in application code.
 
 ### CLI Modules (`src/qg/cli/`)
 
@@ -127,7 +149,7 @@ CSV Output
 | Module | Purpose |
 |--------|---------|
 | `sld_to_csv.py` | Convert Thermo SLD files to CSV |
-| `csv_to_params.py` | Convert queue CSV to params JSON |
+| `csv_to_paramsjson.py` | Convert queue CSV to params JSON |
 | `compare.py` | Compare generated vs reference queues |
 | `merge.py` | Merge queue files |
 | `summarize.py` | Summarize queue data |
@@ -197,10 +219,10 @@ qg_configs/
 | `test_generator.py` | Generator pipeline tests |
 | `test_queue_structure.py` | Queue structure building |
 | `test_queue_structure_explicit.py` | Explicit queue structure tests |
-| `test_position_assigner.py` | Position assignment strategies |
 | `test_config_integration.py` | Configuration loading and validation |
 | `test_cli.py` | CLI functionality |
-| `test_params_simulator.py` | Parameter simulation |
+| `test_samplers.py` | Sampler configuration tests |
+| `test_csv_to_paramsjson.py` | CSV to params JSON conversion tests |
 
 ### Validation Testing (`test_data/`)
 
@@ -228,7 +250,9 @@ Pipeline: SLD files -> CSV -> params JSON -> generate queue -> compare with orig
 |------|---------|
 | `ALGORITHM.md` | Queue generation algorithm details |
 | `CONFIG.md` | Configuration file documentation |
-| `Todo.md` | Development tasks |
+| `PRIVATE.md` | Internal development notes |
+
+Generated formats (.html, .pdf, .svg, .png) are also available.
 
 ## Related Projects
 

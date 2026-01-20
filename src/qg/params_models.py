@@ -1,10 +1,10 @@
 """Pydantic models for queue parameters (runtime input)."""
 
+import json
+from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
-
-from qg.config_models import requires_polarity
+from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
     import polars as pl
@@ -55,13 +55,6 @@ class QueueParameters(BaseModel):
     inj_vol_override: float | None = None
     qc_frequency_override: int | None = None  # Override run_QC_after_n_samples
 
-    @model_validator(mode="after")
-    def set_default_polarity(self) -> QueueParameters:
-        """Set default polarity for technologies requiring it."""
-        if not self.polarity and requires_polarity(self.technology):
-            self.polarity = ["pos", "neg"]
-        return self
-
 
 class QueueInput(BaseModel):
     """Complete input for queue generation."""
@@ -81,3 +74,52 @@ class QueueInput(BaseModel):
 def samples_from_dataframe(df: pl.DataFrame) -> list[InputSample]:
     """Convert a polars DataFrame to list of InputSample."""
     return [InputSample(**row) for row in df.to_dicts()]
+
+
+def write_params(queue_input: QueueInput, output_path: str | Path) -> Path:
+    """Write queue parameters to JSON file.
+
+    Args:
+        queue_input: The QueueInput object to serialize.
+        output_path: Path to write the JSON file.
+
+    Returns:
+        Path to the written file.
+    """
+    output_path = Path(output_path)
+
+    # Build parameters dict
+    params = queue_input.parameters
+    params_dict: dict = {
+        "technology": params.technology,
+        "instrument": params.instrument,
+        "sampler": params.sampler,
+        "output_format": params.output_format,
+        "queue_pattern": params.queue_pattern,
+        "polarity": params.polarity,
+        "date": params.date,
+        "user": params.user,
+        "method": params.method,
+        "randomization": params.randomization,
+        "inj_vol_override": params.inj_vol_override,
+    }
+
+    output_dict: dict = {
+        "parameters": params_dict,
+        "sample_groups": [
+            {
+                "container_id": group.container_id,
+                "group_name": group.group_name,
+                "samples": [
+                    sample.model_dump(by_alias=True, exclude_none=True)
+                    for sample in group.samples
+                ],
+            }
+            for group in queue_input.sample_groups
+        ],
+    }
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(output_dict, indent=2))
+
+    return output_path

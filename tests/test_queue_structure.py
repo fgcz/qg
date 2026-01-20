@@ -4,14 +4,14 @@ from pathlib import Path
 
 import pytest
 
-from qg.config import load_queue_patterns
+from qg.config import qg_config
+from qg.config_models import QueuePattern
 from qg.queue_structure import (
     build_multi_container_queue_structure,
     compute_extended_positions,
     compute_middle_block_positions,
     compute_queue_counts,
 )
-from qg.config_models import QueuePattern
 
 
 # =============================================================================
@@ -20,17 +20,12 @@ from qg.config_models import QueuePattern
 
 
 @pytest.fixture
-def config_dir() -> Path:
-    """Return path to the qg_configs directory."""
-    return Path(__file__).parent.parent / "qg_configs"
-
-# TODO: use get_core_config_dir() instead of config_dir / "core" /# return Path
-
-@pytest.fixture
-def all_patterns(config_dir: Path) -> dict[str, dict[str, QueuePattern]]:
+def all_patterns() -> dict[str, dict[str, QueuePattern]]:
     """Load all queue patterns from config."""
-    patterns_config = load_queue_patterns(config_dir / "core" / "queue_patterns.toml")
-    return patterns_config.patterns
+    qg_config.cache_clear()
+    config_dir = Path(__file__).parent.parent / "qg_configs"
+    bundle = qg_config(config_dir)
+    return bundle.queue_patterns.patterns
 
 
 # =============================================================================
@@ -41,7 +36,8 @@ SAMPLE_COUNTS = [8, 16, 32, 56, 106, 212]
 
 # Generate pattern keys from config file
 _config_dir = Path(__file__).parent.parent / "qg_configs"
-_patterns_config = load_queue_patterns(_config_dir / "core" / "queue_patterns.toml")
+_bundle = qg_config(_config_dir)
+_patterns_config = _bundle.queue_patterns
 
 ALL_PATTERN_KEYS = [
     (tech, pattern_name)

@@ -7,12 +7,11 @@ QueueGenerator that simply executes the pipeline steps.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import polars as pl
 
-from qg.config import ConfigBundle, load_all_configs
+from qg.config import ConfigBundle
 from qg.config_models import QueuePattern, Sample
 from qg.generator import MethodResolver
 from qg.params_models import QueueInput
@@ -32,16 +31,13 @@ class QueueGeneratorBuilder:
     a QueueGenerator ready to execute the pipeline.
     """
 
-    def __init__(self, configs: ConfigBundle | Path):
+    def __init__(self, configs: ConfigBundle):
         """Initialize with configuration bundle.
 
         Args:
             configs: ConfigBundle or path to config directory
         """
-        if isinstance(configs, Path):
-            configs = load_all_configs(configs)
         self.configs = configs
-        self._methods_cache: dict[str, pl.DataFrame] = {}
 
     def build(self, queue_input: QueueInput) -> QueueGenerator:
         """Build a QueueGenerator for the given input.
@@ -180,18 +176,11 @@ class QueueGeneratorBuilder:
 
     def _resolve_data_path(self, params, container_id: int) -> str:
         """Resolve the data path from instrument config."""
-        row = self.configs.instruments_df.filter(
-            (pl.col("technology") == params.technology)
-            & (pl.col("instrument") == params.instrument)
-        )
-        if row.is_empty():
+        instr = self.configs.instruments.get_instrument(params.technology, params.instrument)
+        if not instr or not instr.path_template:
             return ""
 
-        template = row["path_template"][0]
-        if not template:
-            return ""
-
-        return template.format(
+        return instr.path_template.format(
             container=container_id,
             user=params.user,
             date=params.date,
@@ -201,14 +190,14 @@ class QueueGeneratorBuilder:
         self, technology: str, instrument: str
     ) -> MethodResolver:
         """Create a method resolver function for the given technology/instrument."""
-        methods_df = self._load_methods(technology, instrument)
+        methods_df = self.configs.methods.to_table(technology, instrument)
 
         def resolve_method(
             sample_type: str,
             polarity: str | None,
             method_name: str,
         ) -> str:
-            if methods_df is None:
+            if methods_df.is_empty():
                 return ""
 
             # Filter by sample_type
@@ -238,25 +227,3 @@ class QueueGeneratorBuilder:
             return matches["method_path"][0]
 
         return resolve_method
-
-    def _load_methods(self, technology: str, instrument: str) -> pl.DataFrame | None:
-        """Load methods CSV for a given technology/instrument."""
-        cache_key = f"{technology}.{instrument}"
-        if cache_key in self._methods_cache:
-            return self._methods_cache[cache_key]
-
-        row = self.configs.instruments_df.filter(
-            (pl.col("technology") == technology)
-            & (pl.col("instrument") == instrument)
-        )
-        if row.is_empty():
-            return None
-
-        methods_file = row["methods_file"][0]
-        methods_path = self.configs.config_dir / methods_file
-        if not methods_path.exists():
-            return None
-
-        methods_df = pl.read_csv(methods_path)
-        self._methods_cache[cache_key] = methods_df
-        return methods_df

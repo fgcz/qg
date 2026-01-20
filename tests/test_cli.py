@@ -5,13 +5,14 @@ from pathlib import Path
 
 import pytest
 
-from qg.config import load_all_configs
-from qg.params_simulator import simulate_params
+from qg.config import qg_config
+
+from .helpers import make_queue_input
 
 
 @pytest.fixture
 def configs():
-    return load_all_configs(Path("qg_configs"))
+    return qg_config(Path("qg_configs"))
 
 
 def test_validate_config_cli():
@@ -23,20 +24,13 @@ def test_validate_config_cli():
     )
 
     assert result.returncode == 0, f"CLI failed: {result.stderr}"
-    assert "All validations passed" in result.stdout
+    # Validation output goes to stderr via loguru
+    assert "All validations passed" in result.stderr
 
 
 def test_generate_queues_cli(configs, tmp_path):
     """Test qg CLI generates CSV output to file."""
-    # Generate input using simulator
-    queue_input = simulate_params(
-        num_samples=5,
-        configs=configs,
-        technology="Proteomics",
-        instrument="ASTRAL_1",
-        sampler="Vanquish.vial",
-        queue_pattern="standard",
-    )
+    queue_input = make_queue_input(num_samples=5)
     input_file = tmp_path / "input.json"
     input_file.write_text(queue_input.model_dump_json(indent=2))
 
@@ -62,14 +56,7 @@ def test_generate_queues_cli(configs, tmp_path):
 
 def test_generate_queues_cli_stdout(configs, tmp_path):
     """Test qg CLI outputs to stdout when no -o given."""
-    queue_input = simulate_params(
-        num_samples=5,
-        configs=configs,
-        technology="Proteomics",
-        instrument="ASTRAL_1",
-        sampler="Vanquish.vial",
-        queue_pattern="standard",
-    )
+    queue_input = make_queue_input(num_samples=5)
     input_file = tmp_path / "input.json"
     input_file.write_text(queue_input.model_dump_json(indent=2))
 

@@ -6,7 +6,7 @@ import polars as pl
 import pytest
 
 from qg.builder import QueueGeneratorBuilder
-from qg.config import ConfigBundle, load_all_configs, load_all_configs, get_ui_dir
+from qg.config import ConfigBundle, qg_config
 from qg.params_models import InputSample, QueueInput, QueueParameters, SampleGroup
 
 
@@ -16,13 +16,13 @@ CONFIG_DIR = Path(__file__).parent.parent / "qg_configs"
 @pytest.fixture
 def configs():
     """Load configs for all tests."""
-    return load_all_configs(CONFIG_DIR)
+    return qg_config(CONFIG_DIR)
 
 
 @pytest.fixture
 def ui_configs():
     """Load UI configs for all tests."""
-    return load_all_configs(CONFIG_DIR)
+    return qg_config(CONFIG_DIR)
 
 
 @pytest.fixture
@@ -148,12 +148,15 @@ class TestNoQCPattern:
     ):
         """noqc pattern returns num_samples * polarity_multiplier rows."""
         samples = make_samples(num_samples)
+        # Set polarity explicitly: proteomics=pos only, others=pos+neg
+        polarity = ["pos", "neg"] if expected_multiplier == 2 else ["pos"]
         params = QueueParameters(
-                        technology=technology,
+            technology=technology,
             instrument=instrument,
             sampler=sampler,
             output_format="xcalibur",
             queue_pattern="noqc",
+            polarity=polarity,
             date="20260116",
             user="test",
         )
@@ -203,11 +206,12 @@ class TestMetabolomicsBlankPattern:
         """blank pattern returns (N + 6) * 2 rows (3 start + N samples + 3 end) * 2 polarities."""
         samples = make_samples(num_samples)
         params = QueueParameters(
-                        technology="Metabolomics",
+            technology="Metabolomics",
             instrument="EXPLORIS_3",
             sampler="Vanquish.vial",
             output_format="xcalibur",
             queue_pattern="blank",
+            polarity=["pos", "neg"],
             date="20260116",
             user="test",
         )

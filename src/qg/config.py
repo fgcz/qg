@@ -2,10 +2,12 @@
 
 import tomllib
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 import polars as pl
+from loguru import logger
 
 from qg.config_models import (
     Combination,
@@ -15,6 +17,8 @@ from qg.config_models import (
     InstrumentPattern,
     InstrumentPatternsConfig,
     InstrumentsConfig,
+    Method,
+    MethodsConfig,
     OutputFormat,
     OutputFormatsConfig,
     QCLayoutsConfig,
@@ -24,44 +28,19 @@ from qg.config_models import (
     Sample,
     SamplersConfig,
     SamplesConfig,
-    set_polarity_technologies,
-    set_valid_samplers,
 )
 from qg.positions import QCLayoutPattern
 
 # =============================================================================
-# Dynamic Config Derivation
+# Module-level path cache (set by qg_config)
 # =============================================================================
 
-
-def derive_polarity_technologies(samples_df: pl.DataFrame) -> set[str]:
-    """Derive technologies requiring polarity from samples config.
-
-    A technology requires polarity if ANY of its samples has {polarity} in file_name_template.
-    """
-    return set(
-        samples_df.filter(pl.col("file_name_template").str.contains(r"\{polarity\}"))
-        .get_column("technology")
-        .unique()
-        .to_list()
-    )
+_core_dir: Path | None = None
 
 
-def derive_valid_samplers(sampler_config: dict[str, Any]) -> set[str]:
-    """Derive valid sampler identifiers from sampler config.
-
-    Returns set of {Parent}.{child} for each sampler with vial/plate containers.
-    """
-    samplers: set[str] = set()
-    for parent, value in sampler_config.items():
-        if isinstance(value, dict):
-            for child in ("vial", "plate"):
-                if child in value and isinstance(value[child], dict):
-                    samplers.add(f"{parent}.{child}")
-    return samplers
 
 
-def load_samples(path: Path | str) -> SamplesConfig:
+def _load_samples(path: Path | str) -> SamplesConfig:
     """Load and validate samples from CSV file.
 
     Args:
@@ -78,35 +57,35 @@ def load_samples(path: Path | str) -> SamplesConfig:
     return SamplesConfig(samples=samples)
 
 
-def load_instruments(path: Path | str) -> InstrumentsConfig:
+def _load_instruments(path: Path | str) -> InstrumentsConfig:
     """Load and validate instruments from CSV file."""
     df = pl.read_csv(path)
     instruments = [Instrument(**row) for row in df.iter_rows(named=True)]
     return InstrumentsConfig(instruments=instruments)
 
 
-def load_instrument_patterns(path: Path | str) -> InstrumentPatternsConfig:
+def _load_instrument_patterns(path: Path | str) -> InstrumentPatternsConfig:
     """Load and validate instrument patterns from CSV file."""
     df = pl.read_csv(path)
     patterns = [InstrumentPattern(**row) for row in df.iter_rows(named=True)]
     return InstrumentPatternsConfig(patterns=patterns)
 
 
-def load_combinations(path: Path | str) -> CombinationsConfig:
+def _load_combinations(path: Path | str) -> CombinationsConfig:
     """Load and validate combinations from CSV file."""
     df = pl.read_csv(path)
     combinations = [Combination(**row) for row in df.iter_rows(named=True)]
     return CombinationsConfig(combinations=combinations)
 
 
-def load_samplers(path: Path | str) -> SamplersConfig:
+def _load_samplers(path: Path | str) -> SamplersConfig:
     """Load and validate samplers from TOML file."""
     with open(path, "rb") as f:
         data = tomllib.load(f)
     return SamplersConfig(**data)
 
 
-def load_queue_patterns(path: Path | str) -> QueuePatternsConfig:
+def _load_queue_patterns(path: Path | str) -> QueuePatternsConfig:
     """Load and validate queue patterns from TOML file.
 
     TOML structure: [technology.pattern_name] -> converts to patterns dict
@@ -124,7 +103,7 @@ def load_queue_patterns(path: Path | str) -> QueuePatternsConfig:
     return QueuePatternsConfig(patterns=patterns)
 
 
-def load_qc_layouts(path: Path | str) -> QCLayoutsConfig:
+def _load_qc_layouts(path: Path | str) -> QCLayoutsConfig:
     """Load and validate QC layouts from TOML file.
 
     Handles both grid positions (strings) and Evosep positions (dicts).
@@ -176,7 +155,7 @@ def load_qc_layouts(path: Path | str) -> QCLayoutsConfig:
     return QCLayoutsConfig(layouts=layouts)
 
 
-def load_output_formats(path: Path | str) -> OutputFormatsConfig:
+def _load_output_formats(path: Path | str) -> OutputFormatsConfig:
     """Load and validate output formats from TOML file."""
     with open(path, "rb") as f:
         raw_data = tomllib.load(f)
@@ -187,11 +166,35 @@ def load_output_formats(path: Path | str) -> OutputFormatsConfig:
     return OutputFormatsConfig(formats=formats)
 
 
+def _load_methods(methods_dir: Path, instruments: InstrumentsConfig) -> MethodsConfig:
+    """Load all methods CSVs based on instruments config.
+
+    Discovers methods files from instruments.methods_file paths.
+    """
+    methods: dict[str, dict[str, list[Method]]] = {}
+
+    for instr in instruments.instruments:
+        tech = instr.technology
+        methods_file = methods_dir / instr.methods_file.removeprefix("methods/")
+
+        if not methods_file.exists():
+            logger.warning(f"Methods file not found: {methods_file}")
+            continue
+
+        df = pl.read_csv(methods_file)
+        instr_methods = [Method(**row) for row in df.iter_rows(named=True)]
+
+        if tech not in methods:
+            methods[tech] = {}
+        methods[tech][instr.instrument] = instr_methods
+
+    return MethodsConfig(methods=methods)
+
+
 @dataclass(slots=True)
 class ConfigBundle:
     """Consolidated container for all configuration files."""
 
-    config_dir: Path  # Directory where configs are loaded from
     samples: SamplesConfig
     instruments: InstrumentsConfig
     instrument_patterns: InstrumentPatternsConfig
@@ -200,223 +203,114 @@ class ConfigBundle:
     queue_patterns: QueuePatternsConfig
     qc_layouts: QCLayoutsConfig
     output_formats: OutputFormatsConfig
-    instruments_df: pl.DataFrame  # Raw DataFrame for path templates
-    # Derived values (computed from configs, not hardcoded)
-    polarity_technologies: set[str] = None  # type: ignore[assignment]
-    valid_samplers: set[str] = None  # type: ignore[assignment]
+    methods: MethodsConfig
 
 
 # =============================================================================
-# Validation Helpers
+# Cross-Validation Helpers
 # =============================================================================
-
-
-def _validate_samples(config_dir: Path) -> tuple[SamplesConfig | None, list[tuple[str, Exception]]]:
-    """Validate samples.csv and print results."""
-    errors: list[tuple[str, Exception]] = []
-    print("Validating samples.csv...")
-    try:
-        samples = load_samples(config_dir / "samples.csv")
-        print(f"  OK: {len(samples.samples)} samples")
-        technologies = sorted({s.technology for s in samples.samples})
-        for tech in technologies:
-            count = len(samples.get_by_technology(tech))
-            print(f"    - {tech}: {count} samples")
-        return samples, errors
-    except Exception as e:
-        print(f"  FAILED: {e}")
-        errors.append(("samples.csv", e))
-        return None, errors
-
-
-def _validate_instruments(config_dir: Path) -> tuple[InstrumentsConfig | None, list[tuple[str, Exception]]]:
-    """Validate instruments.csv and print results."""
-    errors: list[tuple[str, Exception]] = []
-    print("\nValidating instruments.csv...")
-    try:
-        instruments = load_instruments(config_dir / "instruments.csv")
-        print(f"  OK: {len(instruments.instruments)} instruments")
-        technologies = sorted({i.technology for i in instruments.instruments})
-        for tech in technologies:
-            count = len(instruments.get_by_technology(tech))
-            print(f"    - {tech}: {count} instruments")
-        return instruments, errors
-    except Exception as e:
-        print(f"  FAILED: {e}")
-        errors.append(("instruments.csv", e))
-        return None, errors
-
-
-def _validate_instrument_patterns(
-    config_dir: Path,
-) -> tuple[InstrumentPatternsConfig | None, list[tuple[str, Exception]]]:
-    """Validate instrument_patterns.csv and print results."""
-    errors: list[tuple[str, Exception]] = []
-    print("\nValidating instrument_patterns.csv...")
-    try:
-        patterns = load_instrument_patterns(config_dir / "instrument_patterns.csv")
-        print(f"  OK: {len(patterns.patterns)} instrument-pattern mappings")
-        return patterns, errors
-    except Exception as e:
-        print(f"  FAILED: {e}")
-        errors.append(("instrument_patterns.csv", e))
-        return None, errors
-
-
-def _validate_combinations(
-    config_dir: Path,
-) -> tuple[CombinationsConfig | None, list[tuple[str, Exception]]]:
-    """Validate combinations.csv and print results."""
-    errors: list[tuple[str, Exception]] = []
-    print("\nValidating combinations.csv...")
-    try:
-        combos = load_combinations(config_dir / "combinations.csv")
-        print(f"  OK: {len(combos.combinations)} valid combinations")
-        return combos, errors
-    except Exception as e:
-        print(f"  FAILED: {e}")
-        errors.append(("combinations.csv", e))
-        return None, errors
-
-
-def _validate_samplers(config_dir: Path) -> tuple[SamplersConfig | None, list[tuple[str, Exception]]]:
-    """Validate sampler.toml and print results."""
-    errors: list[tuple[str, Exception]] = []
-    print("\nValidating sampler.toml...")
-    try:
-        samplers = load_samplers(config_dir / "sampler.toml")
-        print(f"  OK: {len(samplers.get_sampler_names())} samplers")
-        for name in samplers.get_sampler_names():
-            sampler = getattr(samplers, name)
-            if hasattr(sampler, "plates"):
-                print(f"    - {name}: grid sampler ({len(sampler.plates)} plates)")
-            else:
-                print(f"    - {name}: tray sampler ({len(sampler.slots)} slots)")
-        return samplers, errors
-    except Exception as e:
-        print(f"  FAILED: {e}")
-        errors.append(("sampler.toml", e))
-        return None, errors
-
-
-def _validate_queue_patterns(
-    config_dir: Path,
-) -> tuple[QueuePatternsConfig | None, list[tuple[str, Exception]]]:
-    """Validate queue_patterns.toml and print results."""
-    errors: list[tuple[str, Exception]] = []
-    print("\nValidating queue_patterns.toml...")
-    try:
-        queue_patterns = load_queue_patterns(config_dir / "queue_patterns.toml")
-        for tech in queue_patterns.get_technologies():
-            tech_patterns = queue_patterns.get_patterns_for_technology(tech)
-            print(f"  OK: {tech}: {len(tech_patterns)} patterns")
-        return queue_patterns, errors
-    except Exception as e:
-        print(f"  FAILED: {e}")
-        errors.append(("queue_patterns.toml", e))
-        return None, errors
-
-
-def _validate_qc_layouts(config_dir: Path) -> tuple[QCLayoutsConfig | None, list[tuple[str, Exception]]]:
-    """Validate qc_layouts.toml and print results."""
-    errors: list[tuple[str, Exception]] = []
-    print("\nValidating qc_layouts.toml...")
-    try:
-        qc_layouts = load_qc_layouts(config_dir / "qc_layouts.toml")
-        for tech in qc_layouts.get_technologies():
-            sampler_count = len(qc_layouts.get_samplers_for_technology(tech))
-            print(f"  OK: {tech}: {sampler_count} sampler layouts")
-        return qc_layouts, errors
-    except Exception as e:
-        print(f"  FAILED: {e}")
-        errors.append(("qc_layouts.toml", e))
-        return None, errors
-
-
-def _validate_output_formats(
-    config_dir: Path,
-) -> tuple[OutputFormatsConfig | None, list[tuple[str, Exception]]]:
-    """Validate output_formats.toml and print results."""
-    errors: list[tuple[str, Exception]] = []
-    print("\nValidating output_formats.toml...")
-    try:
-        output_formats = load_output_formats(config_dir / "output_formats.toml")
-        format_names = output_formats.get_format_names()
-        print(f"  OK: {len(format_names)} output formats ({', '.join(format_names)})")
-        return output_formats, errors
-    except Exception as e:
-        print(f"  FAILED: {e}")
-        errors.append(("output_formats.toml", e))
-        return None, errors
 
 
 def _cross_validate_instrument_refs(
-    instruments: InstrumentsConfig | None,
-    patterns: InstrumentPatternsConfig | None,
-    combos: CombinationsConfig | None,
-) -> None:
+    instruments: InstrumentsConfig,
+    instrument_patterns: InstrumentPatternsConfig,
+    combinations: CombinationsConfig,
+) -> list[str]:
     """Cross-validate instrument references in patterns and combinations."""
-    if instruments and patterns:
-        print("\nCross-validating instrument_patterns against instruments...")
-        valid_instruments = {(i.technology, i.instrument) for i in instruments.instruments}
-        pattern_instruments = {(p.technology, p.instrument) for p in patterns.patterns}
-        unknown = pattern_instruments - valid_instruments
-        if unknown:
-            print(f"  WARNING: instrument_patterns reference unknown instruments: {unknown}")
-        else:
-            print("  OK: All instrument_patterns reference valid instruments")
+    warnings: list[str] = []
 
-    if instruments and combos:
-        print("\nCross-validating combinations against instruments...")
-        valid_instr_names = {i.instrument for i in instruments.instruments}
-        combo_instruments = {c.instrument for c in combos.combinations}
-        unknown = combo_instruments - valid_instr_names
-        if unknown:
-            print(f"  WARNING: combinations reference unknown instruments: {unknown}")
-        else:
-            print("  OK: All combinations reference valid instruments")
+    logger.info("Cross-validating instrument_patterns against instruments...")
+    valid_instruments = {(i.technology, i.instrument) for i in instruments.instruments}
+    pattern_instruments = {(p.technology, p.instrument) for p in instrument_patterns.patterns}
+    unknown = pattern_instruments - valid_instruments
+    if unknown:
+        msg = f"instrument_patterns reference unknown instruments: {unknown}"
+        warnings.append(msg)
+        logger.warning(msg)
+    else:
+        logger.info("  OK: All instrument_patterns reference valid instruments")
+
+    logger.info("Cross-validating combinations against instruments...")
+    valid_instr_names = {i.instrument for i in instruments.instruments}
+    combo_instruments = {c.instrument for c in combinations.combinations}
+    unknown = combo_instruments - valid_instr_names
+    if unknown:
+        msg = f"combinations reference unknown instruments: {unknown}"
+        warnings.append(msg)
+        logger.warning(msg)
+    else:
+        logger.info("  OK: All combinations reference valid instruments")
+
+    return warnings
+
+
+def _cross_validate_sampler_refs(
+    samplers: SamplersConfig,
+    combinations: CombinationsConfig,
+) -> list[str]:
+    """Cross-validate sampler references in combinations."""
+    warnings: list[str] = []
+
+    logger.info("Cross-validating combinations against samplers...")
+    valid_samplers = samplers.get_valid_sampler_keys()
+    combo_samplers = {c.sampler for c in combinations.combinations}
+    unknown = combo_samplers - valid_samplers
+    if unknown:
+        msg = f"combinations reference unknown samplers: {unknown}"
+        warnings.append(msg)
+        logger.warning(msg)
+    else:
+        logger.info("  OK: All combinations reference valid samplers")
+
+    return warnings
 
 
 def _cross_validate_sample_refs(
-    samples: SamplesConfig | None,
-    queue_patterns: QueuePatternsConfig | None,
-    qc_layouts: QCLayoutsConfig | None,
-) -> None:
+    samples: SamplesConfig,
+    queue_patterns: QueuePatternsConfig,
+    qc_layouts: QCLayoutsConfig,
+) -> list[str]:
     """Cross-validate sample references in patterns and layouts."""
-    if samples and queue_patterns:
-        print("\nCross-validating queue_patterns against samples...")
-        all_ok = True
-        for tech in queue_patterns.get_technologies():
-            pattern_refs = queue_patterns.get_all_sample_refs(tech)
-            valid_sample_ids = {s.sample_id for s in samples.get_by_technology(tech)}
-            unknown = pattern_refs - valid_sample_ids
-            if unknown:
-                print(f"  WARNING: {tech} patterns reference unknown samples: {unknown}")
-                all_ok = False
-        if all_ok:
-            print("  OK: All queue_patterns reference valid samples")
+    warnings: list[str] = []
 
-    if samples and qc_layouts:
-        print("\nCross-validating qc_layouts against samples...")
-        all_ok = True
-        for tech in qc_layouts.get_technologies():
-            valid_sample_ids = {s.sample_id for s in samples.get_by_technology(tech)}
-            for sampler_key in qc_layouts.get_samplers_for_technology(tech):
-                layout = qc_layouts.get_layout(tech, sampler_key)
-                if layout:
-                    layout_samples = set(layout.keys())
-                    unknown = layout_samples - valid_sample_ids
-                    if unknown:
-                        print(f"  WARNING: {tech}.{sampler_key} references unknown samples: {unknown}")
-                        all_ok = False
-        if all_ok:
-            print("  OK: All qc_layouts reference valid samples")
+    logger.info("Cross-validating queue_patterns against samples...")
+    all_ok = True
+    for tech in queue_patterns.get_technologies():
+        pattern_refs = queue_patterns.get_all_sample_refs(tech)
+        valid_sample_ids = {s.sample_id for s in samples.get_by_technology(tech)}
+        unknown = pattern_refs - valid_sample_ids
+        if unknown:
+            msg = f"{tech} patterns reference unknown samples: {unknown}"
+            warnings.append(msg)
+            logger.warning(msg)
+            all_ok = False
+    if all_ok:
+        logger.info("  OK: All queue_patterns reference valid samples")
+
+    logger.info("Cross-validating qc_layouts against samples...")
+    all_ok = True
+    for tech in qc_layouts.get_technologies():
+        valid_sample_ids = {s.sample_id for s in samples.get_by_technology(tech)}
+        for sampler_key in qc_layouts.get_samplers_for_technology(tech):
+            layout = qc_layouts.get_layout(tech, sampler_key)
+            if layout:
+                layout_samples = set(layout.keys())
+                unknown = layout_samples - valid_sample_ids
+                if unknown:
+                    msg = f"{tech}.{sampler_key} references unknown samples: {unknown}"
+                    warnings.append(msg)
+                    logger.warning(msg)
+                    all_ok = False
+    if all_ok:
+        logger.info("  OK: All qc_layouts reference valid samples")
+
+    return warnings
 
 
 def _cross_validate_qc_layout_patterns(
-    queue_patterns: QueuePatternsConfig | None,
-    qc_layouts: QCLayoutsConfig | None,
-) -> None:
+    queue_patterns: QueuePatternsConfig,
+    qc_layouts: QCLayoutsConfig,
+) -> list[str]:
     """Cross-validate that patterns and QC layouts are compatible.
 
     Validates all (technology, pattern, sampler) combinations using
@@ -424,10 +318,8 @@ def _cross_validate_qc_layout_patterns(
     - Coverage: All QC IDs in pattern have positions in qc_layout
     - Uniqueness: No two QC samples map to the same position
     """
-    if not queue_patterns or not qc_layouts:
-        return
-
-    print("\nCross-validating queue_patterns against qc_layouts...")
+    warnings: list[str] = []
+    logger.info("Cross-validating queue_patterns against qc_layouts...")
     all_ok = True
 
     for tech in queue_patterns.get_technologies():
@@ -442,11 +334,59 @@ def _cross_validate_qc_layout_patterns(
                 try:
                     QCLayoutPattern.create(pattern, qc_layout)
                 except ValueError as e:
-                    print(f"  WARNING: {tech}.{pattern_name} + {sampler_key}: {e}")
+                    msg = f"{tech}.{pattern_name} + {sampler_key}: {e}"
+                    warnings.append(msg)
+                    logger.warning(msg)
                     all_ok = False
 
     if all_ok:
-        print("  OK: All pattern/layout combinations are valid")
+        logger.info("  OK: All pattern/layout combinations are valid")
+
+    return warnings
+
+
+def _print_config_summary(bundle: ConfigBundle) -> None:
+    """Print summary of loaded configs."""
+    logger.info("Validating samples.csv...")
+    logger.info(f"  OK: {len(bundle.samples.samples)} samples")
+    for tech in sorted({s.technology for s in bundle.samples.samples}):
+        count = len(bundle.samples.get_by_technology(tech))
+        logger.info(f"    - {tech}: {count} samples")
+
+    logger.info("Validating instruments.csv...")
+    logger.info(f"  OK: {len(bundle.instruments.instruments)} instruments")
+    for tech in sorted({i.technology for i in bundle.instruments.instruments}):
+        count = len(bundle.instruments.get_by_technology(tech))
+        logger.info(f"    - {tech}: {count} instruments")
+
+    logger.info("Validating instrument_patterns.csv...")
+    logger.info(f"  OK: {len(bundle.instrument_patterns.patterns)} instrument-pattern mappings")
+
+    logger.info("Validating combinations.csv...")
+    logger.info(f"  OK: {len(bundle.combinations.combinations)} valid combinations")
+
+    logger.info("Validating sampler.toml...")
+    logger.info(f"  OK: {len(bundle.samplers.get_sampler_names())} samplers")
+    for name in bundle.samplers.get_sampler_names():
+        sampler = getattr(bundle.samplers, name)
+        if hasattr(sampler, "plates"):
+            logger.info(f"    - {name}: grid sampler ({len(sampler.plates)} plates)")
+        else:
+            logger.info(f"    - {name}: tray sampler ({len(sampler.slots)} slots)")
+
+    logger.info("Validating queue_patterns.toml...")
+    for tech in bundle.queue_patterns.get_technologies():
+        tech_patterns = bundle.queue_patterns.get_patterns_for_technology(tech)
+        logger.info(f"  OK: {tech}: {len(tech_patterns)} patterns")
+
+    logger.info("Validating qc_layouts.toml...")
+    for tech in bundle.qc_layouts.get_technologies():
+        sampler_count = len(bundle.qc_layouts.get_samplers_for_technology(tech))
+        logger.info(f"  OK: {tech}: {sampler_count} sampler layouts")
+
+    logger.info("Validating output_formats.toml...")
+    format_names = bundle.output_formats.get_format_names()
+    logger.info(f"  OK: {len(format_names)} output formats ({', '.join(format_names)})")
 
 
 # =============================================================================
@@ -454,76 +394,46 @@ def _cross_validate_qc_layout_patterns(
 # =============================================================================
 
 
-def validate_all_configs(config_dir: Path | str) -> bool:
-    """Validate all configuration files and print results.
+def _validate_all_configs(bundle: ConfigBundle) -> bool:
+    """Validate ConfigBundle and print cross-validation results.
 
     Args:
-        config_dir: Path to configuration directory (contains core/ and ui/)
+        bundle: Pre-loaded ConfigBundle from qg_config()
 
     Returns:
         True if all validations pass, False otherwise
     """
-    config_dir = Path(config_dir)
-    core_dir = config_dir / "core"
-    ui_dir = config_dir / "ui"
-    errors: list[tuple[str, Exception]] = []
+    warnings: list[str] = []
 
-    # Derive dynamic values BEFORE validation (required for Pydantic validators)
-    with open(core_dir / "sampler.toml", "rb") as f:
-        sampler_raw = tomllib.load(f)
-    set_valid_samplers(derive_valid_samplers(sampler_raw))
+    # Print summary of loaded configs
+    _print_config_summary(bundle)
 
-    samples_df = pl.read_csv(core_dir / "samples.csv")
-    set_polarity_technologies(derive_polarity_technologies(samples_df))
-
-    # Validate core CSV configs
-    samples, errs = _validate_samples(core_dir)
-    errors.extend(errs)
-
-    instruments, errs = _validate_instruments(core_dir)
-    errors.extend(errs)
-
-    # Validate UI CSV configs
-    patterns, errs = _validate_instrument_patterns(ui_dir)
-    errors.extend(errs)
-
-    combos, errs = _validate_combinations(ui_dir)
-    errors.extend(errs)
-
-    # Cross-validate CSV configs
-    _cross_validate_instrument_refs(instruments, patterns, combos)
-
-    # Validate core TOML configs
-    _, errs = _validate_samplers(core_dir)
-    errors.extend(errs)
-
-    queue_patterns, errs = _validate_queue_patterns(core_dir)
-    errors.extend(errs)
-
-    qc_layouts, errs = _validate_qc_layouts(core_dir)
-    errors.extend(errs)
-
-    _, errs = _validate_output_formats(core_dir)
-    errors.extend(errs)
-
-    # Cross-validate TOML configs against samples
-    _cross_validate_sample_refs(samples, queue_patterns, qc_layouts)
-
-    # Cross-validate patterns against QC layouts
-    _cross_validate_qc_layout_patterns(queue_patterns, qc_layouts)
+    # Cross-validate references between configs
+    warnings.extend(
+        _cross_validate_instrument_refs(
+            bundle.instruments, bundle.instrument_patterns, bundle.combinations
+        )
+    )
+    warnings.extend(
+        _cross_validate_sampler_refs(bundle.samplers, bundle.combinations)
+    )
+    warnings.extend(
+        _cross_validate_sample_refs(bundle.samples, bundle.queue_patterns, bundle.qc_layouts)
+    )
+    warnings.extend(_cross_validate_qc_layout_patterns(bundle.queue_patterns, bundle.qc_layouts))
 
     # Summary
-    if errors:
-        print(f"\n{len(errors)} validation(s) FAILED:")
-        for name, err in errors:
-            print(f"  - {name}: {err}")
+    if warnings:
+        logger.error(f"{len(warnings)} cross-validation warning(s):")
+        for msg in warnings:
+            logger.error(f"  - {msg}")
         return False
 
-    print("\nAll validations passed!")
+    logger.info("All validations passed!")
     return True
 
-
-def load_all_configs(config_dir: Path | str) -> ConfigBundle:
+@lru_cache(maxsize=1)
+def qg_config(config_dir: Path | None = None) -> ConfigBundle:
     """Load all configuration files from a directory.
 
     Args:
@@ -533,68 +443,28 @@ def load_all_configs(config_dir: Path | str) -> ConfigBundle:
     Returns:
         ConfigBundle with all validated configurations
     """
+
+    if config_dir is None:
+        config_dir = Path(__file__).parent.parent.parent / "qg_configs"
     config_dir = Path(config_dir)
     core_dir = config_dir / "core"
     ui_dir = config_dir / "ui"
 
-    # Step 1: Derive dynamic values from raw data BEFORE Pydantic validation
-    # This ensures validators have correct values to check against
-
-    # Derive valid samplers from sampler.toml
-    with open(core_dir / "sampler.toml", "rb") as f:
-        sampler_raw = tomllib.load(f)
-    valid_samplers = derive_valid_samplers(sampler_raw)
-    set_valid_samplers(valid_samplers)
-
-    # Derive polarity technologies from samples.csv
-    samples_df = pl.read_csv(core_dir / "samples.csv")
-    polarity_techs = derive_polarity_technologies(samples_df)
-    set_polarity_technologies(polarity_techs)
-
-    # Step 2: Load and validate all configs with dynamic values in place
-    return ConfigBundle(
-        config_dir=core_dir,  # Store core_dir for methods path resolution
-        samples=load_samples(core_dir / "samples.csv"),
-        instruments=load_instruments(core_dir / "instruments.csv"),
-        instrument_patterns=load_instrument_patterns(ui_dir / "instrument_patterns.csv"),
-        combinations=load_combinations(ui_dir / "combinations.csv"),
-        samplers=load_samplers(core_dir / "sampler.toml"),
-        queue_patterns=load_queue_patterns(core_dir / "queue_patterns.toml"),
-        qc_layouts=load_qc_layouts(core_dir / "qc_layouts.toml"),
-        output_formats=load_output_formats(core_dir / "output_formats.toml"),
-        instruments_df=pl.read_csv(core_dir / "instruments.csv"),
-        polarity_technologies=polarity_techs,
-        valid_samplers=valid_samplers,
+    # Load and validate all configs
+    instruments = _load_instruments(core_dir / "instruments.csv")
+    config_bundle = ConfigBundle(
+        samples=_load_samples(core_dir / "samples.csv"),
+        instruments=instruments,
+        instrument_patterns=_load_instrument_patterns(ui_dir / "instrument_patterns.csv"),
+        combinations=_load_combinations(ui_dir / "combinations.csv"),
+        samplers=_load_samplers(core_dir / "sampler.toml"),
+        queue_patterns=_load_queue_patterns(core_dir / "queue_patterns.toml"),
+        qc_layouts=_load_qc_layouts(core_dir / "qc_layouts.toml"),
+        output_formats=_load_output_formats(core_dir / "output_formats.toml"),
+        methods=_load_methods(core_dir / "methods", instruments),
     )
+    if not _validate_all_configs(config_bundle):
+        raise ValueError("Config validation failed")
+    return config_bundle
 
 
-# =============================================================================
-# Aliases for backwards compatibility
-# =============================================================================
-
-# ConfigBundle and ConfigBundle both point to ConfigBundle
-# since ConfigBundle contains all configs (both core and UI)
-
-
-def get_core_dir(config_dir: Path | str) -> Path:
-    """Get path to core config directory.
-
-    Args:
-        config_dir: Root configuration directory (e.g., qg_configs/)
-
-    Returns:
-        Path to core/ subdirectory
-    """
-    return Path(config_dir) / "core"
-
-
-def get_ui_dir(config_dir: Path | str) -> Path:
-    """Get path to UI config directory.
-
-    Args:
-        config_dir: Root configuration directory (e.g., qg_configs/)
-
-    Returns:
-        Path to ui/ subdirectory
-    """
-    return Path(config_dir) / "ui"
