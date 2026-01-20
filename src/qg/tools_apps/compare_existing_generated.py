@@ -12,7 +12,15 @@ def _():
 
     import marimo as mo
     import polars as pl
-    return json, mo, pl, re, Path
+
+    def read_queue_csv(path: Path) -> pl.DataFrame:
+        """Read a queue CSV, skipping 'Bracket Type=X' header line if present."""
+        with open(path) as f:
+            first_line = f.readline()
+        skip_rows = 1 if first_line.startswith("Bracket Type=") else 0
+        return pl.read_csv(path, skip_rows=skip_rows)
+
+    return json, mo, pl, re, Path, read_queue_csv
 
 
 @app.cell
@@ -118,7 +126,7 @@ def _(df, instrument_filter, sampler_filter, score_filter, mo, pl):
 
 
 @app.cell
-def _(results_table, mo, pl, Path):
+def _(results_table, mo, pl, Path, read_queue_csv):
     # Load data when row selected
     orig_df = None
     gen_df = None
@@ -146,7 +154,7 @@ def _(results_table, mo, pl, Path):
         _gen_path = Path(_gen)
 
         if _orig_path.exists():
-            orig_df = pl.read_csv(_orig_path)
+            orig_df = read_queue_csv(_orig_path)
             orig_df = orig_df.rename({c: f"{c}_orig" for c in orig_df.columns})
 
         if _gen_path.exists() and _gen_path.stat().st_size > 0:
@@ -213,37 +221,41 @@ def _(results_table, selected_info, orig_df, gen_df, join_column_dropdown, join_
             left_col = f"{join_base}_orig"
             right_col = f"{join_base}_gen"
 
-            _joined = orig_df.join(
-                gen_df,
+            # Cast join columns to string to handle type mismatches (e.g., int vs str)
+            _orig_for_join = orig_df.with_columns(pl.col(left_col).cast(pl.Utf8))
+            _gen_for_join = gen_df.with_columns(pl.col(right_col).cast(pl.Utf8))
+
+            _joined = _orig_for_join.join(
+                _gen_for_join,
                 left_on=left_col,
                 right_on=right_col,
                 how=join_how,
             )
 
-            # Order columns nicely: paired columns side by side
-            _ordered = [
-                "row_orig", "row_gen",
-                "filename_orig", "filename_gen",
-                "vial_orig", "vial_gen",
-                "method_orig", "method_gen",
-                "path_orig", "path_gen",
-                "run_orig",
-            ]
-            for col in _joined.columns:
-                if col not in _ordered:
-                    _ordered.append(col)
-            _ordered = [c for c in _ordered if c in _joined.columns]
+            # Order columns nicely: paired _orig/_gen columns side by side
+            _orig_cols = sorted([c for c in _joined.columns if c.endswith("_orig")])
+            _gen_cols = {c.removesuffix("_gen") for c in _joined.columns if c.endswith("_gen")}
+            _ordered = []
+            for c in _orig_cols:
+                _ordered.append(c)
+                base = c.removesuffix("_orig")
+                if base in _gen_cols:
+                    _ordered.append(f"{base}_gen")
+            # Add any remaining _gen columns not paired
+            for c in sorted(_joined.columns):
+                if c not in _ordered:
+                    _ordered.append(c)
             _joined = _joined.select(_ordered)
 
             _output.append(mo.md(f"### Comparison ({join_how} join on {join_base})"))
-            _output.append(mo.ui.table(_joined))
+            _output.append(mo.ui.table(_joined, selection=None, page_size=50))
 
         elif orig_df is not None:
             _output.append(mo.md("### Original Queue (no generated file)"))
-            _output.append(mo.ui.table(orig_df))
+            _output.append(mo.ui.table(orig_df, selection=None, page_size=50))
         elif gen_df is not None:
             _output.append(mo.md("### Generated Queue (no original file)"))
-            _output.append(mo.ui.table(gen_df))
+            _output.append(mo.ui.table(gen_df, selection=None, page_size=50))
 
         # Side panel: Queue Parameters + raw data toggle
         _side_panel = []

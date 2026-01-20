@@ -59,7 +59,7 @@ cols = [1, 2, 3, 4, 5, 6, 7, 8]
 container_type = "Vial"
 position_source = "generated"
 fill_order = "row_major"
-position_format = "{plate}:{row},{col}"
+position_format = "{plate}:{row}{col}"
 
 [MClass48.plate]
 container_type = "Plate"

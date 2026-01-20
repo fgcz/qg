@@ -206,11 +206,11 @@ rule marimo_app:
 # =============================================================================
 
 rule clean:
-    """Remove generated and results (keeps params and source)."""
+    """Remove generated, results, and params (keeps source)."""
     shell:
         """
-        rm -rf {GENERATED_DIR} {RESULTS_DIR} {LOGS_DIR}
-        echo "Cleaned {GENERATED_DIR}, {RESULTS_DIR}, {LOGS_DIR}"
+        rm -rf {GENERATED_DIR} {RESULTS_DIR} {LOGS_DIR} {PARAMS_DIR}
+        echo "Cleaned {GENERATED_DIR}, {RESULTS_DIR}, {LOGS_DIR}, {PARAMS_DIR}"
         """
 
 
