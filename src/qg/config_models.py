@@ -352,22 +352,24 @@ class QueuePatternsConfig(BaseModel):
 
 
 class EvosepPosition(BaseModel):
-    """Evosep QC position range."""
+    """Evosep QC position range - consumable tips need sequential positions."""
 
     tray: int = Field(..., gt=0)
     position_start: int = Field(..., gt=0)
     position_end: int = Field(..., gt=0)
 
     @model_validator(mode="after")
-    def validate_range(self) -> EvosepPosition:
+    def validate_range(self) -> "EvosepPosition":
         """End must be >= start."""
         if self.position_end < self.position_start:
             raise ValueError(f"position_end ({self.position_end}) < position_start ({self.position_start})")
         return self
 
 
-# QC positions: either a string (grid) or EvosepPosition dict
-QCPosition = str | EvosepPosition
+# QC positions:
+#   Grid samplers: {"plate": str, "row": str, "col": int}
+#   Evosep samplers: EvosepPosition (range of consumable tips)
+QCPosition = dict[str, str | int] | EvosepPosition
 
 
 class QCLayoutsConfig(BaseModel):

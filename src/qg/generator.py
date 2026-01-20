@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
-from typing import Literal
+from typing import Any, Literal
 
 import polars as pl
 
@@ -18,6 +18,9 @@ from qg.config_models import OutputFormat, QueuePattern, Sample
 from qg.params_models import InputSample
 from qg.positions import Sampler
 from qg.queue_structure import build_multi_container_queue_structure
+
+# Type alias for position dict
+PositionDict = dict[str, Any]
 
 # =============================================================================
 # Data Structures
@@ -32,8 +35,7 @@ class QueueRow:
     sample_type: Literal["user", "qc"]
     sample_id: str
     sample_name: str
-    position: str
-    tray: int | None = None
+    position: PositionDict  # {"plate": str, "row": str, "col": int} or {"tray": int, "position": int}
     inj_vol: float = 0.0
     method: str = ""
     file_name: str = ""
@@ -48,7 +50,7 @@ class SlotInfo:
 
     idx: int
     sample_id: str  # "default" for user samples, qc_id for QC
-    position: str
+    position: PositionDict  # Position dict
     sample_config: Sample
     user_sample: InputSample | None  # Only for "default" slots
     container_id: int  # Which container this slot belongs to
@@ -84,7 +86,7 @@ def lookup_sample_config(
 
 def build_slots(
     slot_entries: list,  # list[SlotEntry] from queue_structure
-    positions: list[str],
+    positions: list[PositionDict],
     samples: list[InputSample],
     samples_config: dict[str, Sample],
 ) -> list[SlotInfo]:
@@ -197,7 +199,7 @@ def build_queue_rows(
             sample_type="user" if slot.slot.sample_id == "default" else "qc",
             sample_id=str(user.sample_id) if user else slot.slot.sample_id,
             sample_name=user.sample_name if user else sample_cfg.sample_name,
-            position=slot.slot.position,
+            position=slot.slot.position,  # Keep as dict
             inj_vol=inj_vol_override or sample_cfg.inj_vol,
             file_name=slot.file_name,
             polarity=slot.polarity,
@@ -213,9 +215,67 @@ def build_queue_rows(
 # =============================================================================
 
 
-def format_table(rows: list[QueueRow], output_format: OutputFormat) -> pl.DataFrame:
-    """Format queue rows as DataFrame for the given output format."""
-    df = pl.DataFrame([asdict(row) for row in rows])
+def _format_position(pos: PositionDict, position_format: str | None) -> dict[str, Any]:
+    """Format a position dict for output.
+
+    Args:
+        pos: Position dict (e.g., {"plate": "Y", "row": "A", "col": 1} or {"tray": 5, "position": 1})
+        position_format: Format string for grid positions (e.g., "{plate}:{row}{col}")
+                        None for Evosep positions (handled differently)
+
+    Returns:
+        Dict with formatted position and optionally tray field for Evosep
+    """
+    result: dict[str, Any] = {}
+
+    if "tray" in pos and "position" in pos:
+        # Evosep position - output tray and position separately
+        result["position"] = pos["position"]
+        result["tray"] = pos["tray"]
+    elif "grid_position" in pos:
+        # Plate mode - use grid_position directly with plate prefix
+        plate = pos.get("plate", "")
+        grid_pos = pos.get("grid_position", "")
+        if position_format and plate and grid_pos:
+            result["position"] = position_format.format(plate=plate, grid_position=grid_pos)
+        else:
+            result["position"] = grid_pos
+        result["tray"] = None
+    elif position_format:
+        # Grid position with format template
+        result["position"] = position_format.format(**pos)
+        result["tray"] = None
+    else:
+        # Fallback - convert dict to string
+        result["position"] = str(pos)
+        result["tray"] = None
+
+    return result
+
+
+def format_table(
+    rows: list[QueueRow],
+    output_format: OutputFormat,
+    position_format: str | None = None,
+) -> pl.DataFrame:
+    """Format queue rows as DataFrame for the given output format.
+
+    Args:
+        rows: List of QueueRow objects
+        output_format: Output format specification with column mappings
+        position_format: Format string for grid positions (e.g., "{plate}:{row}{col}")
+    """
+    # Convert rows to dicts and format positions
+    row_dicts = []
+    for row in rows:
+        row_dict = asdict(row)
+        # Format position dict to position string and optional tray
+        pos_result = _format_position(row.position, position_format)
+        row_dict["position"] = pos_result["position"]
+        row_dict["tray"] = pos_result.get("tray")
+        row_dicts.append(row_dict)
+
+    df = pl.DataFrame(row_dicts)
 
     # Select and rename columns per output format
     # columns maps: {"Output Name": "internal_field", ...}
@@ -247,11 +307,12 @@ class QueueGenerator:
     method: dict[str, str]  # polarity -> method_name (e.g., {"pos": "DIA_60min"})
     inj_vol_override: float | None
     output_format: OutputFormat
+    position_format: str | None = None  # Format template for grid positions
 
     def generate(self, samples: list[InputSample]) -> pl.DataFrame:
         """Execute the queue generation pipeline and return formatted DataFrame."""
         rows = self.build_rows(samples)
-        return format_table(rows, self.output_format)
+        return format_table(rows, self.output_format, self.position_format)
 
     def build_rows(self, samples: list[InputSample]) -> list[QueueRow]:
         """Execute the queue generation pipeline to build rows."""

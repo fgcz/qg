@@ -137,6 +137,9 @@ class QueueGeneratorBuilder:
             groups,
         )
 
+        # Resolve position format from sampler container config
+        position_format = self._resolve_position_format(params.sampler)
+
         return QueueGenerator(
             pattern=pattern,
             sampler=sampler,
@@ -149,6 +152,7 @@ class QueueGeneratorBuilder:
             method=params.method,
             inj_vol_override=params.inj_vol_override,
             output_format=output_format,
+            position_format=position_format,
         )
 
     def _resolve_samples_config(
@@ -185,6 +189,34 @@ class QueueGeneratorBuilder:
             user=params.user,
             date=params.date,
         )
+
+    def _resolve_position_format(self, sampler_name: str) -> str | None:
+        """Resolve the position format from sampler container config.
+
+        Args:
+            sampler_name: Sampler identifier like "Vanquish.vial"
+
+        Returns:
+            Position format string or None for Evosep
+        """
+        parts = sampler_name.split(".")
+        if len(parts) != 2:
+            return None
+
+        parent_name, container_type = parts
+
+        # Get parent sampler config
+        parent = getattr(self.configs.samplers, parent_name, None)
+        if parent is None:
+            return None
+
+        # Get container config
+        container = getattr(parent, container_type, None)
+        if container is None:
+            return None
+
+        # Return position_format if it exists (not on Evosep configs)
+        return getattr(container, "position_format", None)
 
     def _create_method_resolver(
         self, technology: str, instrument: str

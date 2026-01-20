@@ -7,11 +7,17 @@
 
 Each sampler handles full position assignment including QC merging.
 Uses composition and duck typing (no inheritance hierarchy).
+
+Positions are returned as dicts:
+- Grid samplers: {"plate": str, "row": str, "col": int}
+- Evosep samplers: {"tray": int, "position": int}
 """
 
+from __future__ import annotations
+
 from collections.abc import Sequence
-from dataclasses import dataclass
-from typing import Protocol
+from dataclasses import dataclass, field
+from typing import Any, Protocol
 
 from qg.config_models import EvosepPosition, QCPosition, QueuePattern
 from qg.config_models_samplers import (
@@ -28,22 +34,13 @@ from qg.config_models_samplers import (
 )
 from qg.params_models import InputSample
 
+# Type alias for position dict
+PositionDict = dict[str, Any]
+
+
 # =============================================================================
 # QC Layout Pattern (Validated)
 # =============================================================================
-
-
-def _format_qc_position(pos: QCPosition) -> str:
-    """Format a QC position as a string."""
-    if isinstance(pos, str):
-        return pos
-    elif isinstance(pos, EvosepPosition):
-        return f"tray{pos.tray}:{pos.position_start}"
-    elif isinstance(pos, dict):
-        # Handle raw dict (from test fixtures)
-        return f"tray{pos.get('tray', 0)}:{pos.get('position_start', 0)}"
-    else:
-        return str(pos)
 
 
 def _collect_pattern_qc_ids(pattern: QueuePattern) -> set[str]:
@@ -59,30 +56,43 @@ def _collect_pattern_qc_ids(pattern: QueuePattern) -> set[str]:
     return qc_ids
 
 
-def _validate_unique_positions(positions: dict[str, str]) -> None:
+def _position_to_key(pos: PositionDict | EvosepPosition) -> tuple:
+    """Convert position to a hashable key for uniqueness check."""
+    if isinstance(pos, EvosepPosition):
+        # For Evosep ranges, use tray + start as key
+        return ("tray", pos.tray, pos.position_start)
+    # Sort items for consistent key regardless of dict order
+    return tuple(sorted(pos.items()))
+
+
+def _validate_unique_positions(positions: dict[str, PositionDict | EvosepPosition]) -> None:
     """Validate that all positions are unique.
 
     Raises:
         ValueError: If two different QC samples share the same position
     """
-    seen: dict[str, str] = {}  # position -> qc_id
+    seen: dict[tuple, str] = {}  # position_key -> qc_id
     for qc_id, pos in positions.items():
-        if pos in seen:
+        key = _position_to_key(pos)
+        if key in seen:
             raise ValueError(
-                f"Position conflict: '{qc_id}' and '{seen[pos]}' "
-                f"both map to position '{pos}'"
+                f"Position conflict: '{qc_id}' and '{seen[key]}' "
+                f"both map to position {pos}"
             )
-        seen[pos] = qc_id
+        seen[key] = qc_id
 
 
-@dataclass(frozen=True)
+@dataclass
 class QCLayoutPattern:
     """Validated QC layout for a specific queue pattern.
 
     Ensures that QC samples used in the pattern have unique positions.
+    For Evosep, tracks position counters to allocate sequential positions.
     """
 
-    positions: dict[str, str]  # QC sample ID -> formatted position string
+    positions: dict[str, PositionDict | EvosepPosition]
+    # Evosep position counters: qc_id -> next position to use
+    _evosep_counters: dict[str, int] = field(default_factory=dict, repr=False)
 
     @classmethod
     def create(
@@ -106,20 +116,47 @@ class QCLayoutPattern:
         qc_ids = _collect_pattern_qc_ids(pattern)
 
         # 2. Map to positions
-        positions: dict[str, str] = {}
+        positions: dict[str, PositionDict | EvosepPosition] = {}
+        evosep_counters: dict[str, int] = {}
+
         for qc_id in qc_ids:
             if qc_id not in qc_layout:
                 raise ValueError(f"QC sample '{qc_id}' not in qc_layout")
-            positions[qc_id] = _format_qc_position(qc_layout[qc_id])
+            pos = qc_layout[qc_id]
+            if isinstance(pos, EvosepPosition):
+                positions[qc_id] = pos
+                evosep_counters[qc_id] = pos.position_start
+            else:
+                positions[qc_id] = dict(pos)  # Copy grid dict
 
         # 3. Validate uniqueness
         _validate_unique_positions(positions)
 
-        return cls(positions=positions)
+        return cls(positions=positions, _evosep_counters=evosep_counters)
 
-    def get_position(self, qc_id: str) -> str:
-        """Get position for a QC sample ID."""
-        return self.positions.get(qc_id, "")
+    def get_position(self, qc_id: str) -> PositionDict:
+        """Get position dict for a QC sample ID.
+
+        For Evosep, returns the next available position and increments counter.
+        """
+        pos = self.positions.get(qc_id)
+        if pos is None:
+            return {}
+
+        if isinstance(pos, EvosepPosition):
+            # Get next position in range
+            current = self._evosep_counters.get(qc_id, pos.position_start)
+            if current > pos.position_end:
+                raise ValueError(
+                    f"Evosep position range exhausted for '{qc_id}': "
+                    f"needed position {current}, range is {pos.position_start}-{pos.position_end}"
+                )
+            # Increment counter for next call
+            self._evosep_counters[qc_id] = current + 1
+            return {"tray": pos.tray, "position": current}
+        else:
+            # Grid position - return as-is (copy to avoid mutation)
+            return dict(pos)
 
 
 # =============================================================================
@@ -134,7 +171,7 @@ class SamplerProtocol(Protocol):
         self,
         structure: list[str],
         samples: Sequence[InputSample],
-    ) -> list[str]:
+    ) -> list[PositionDict]:
         """Assign positions to all slots (user samples merged with QC).
 
         Args:
@@ -142,16 +179,16 @@ class SamplerProtocol(Protocol):
             samples: Input samples (used for input-based position extraction)
 
         Returns:
-            List of position strings, same length as structure
+            List of position dicts, same length as structure
         """
         ...
 
 
 def _merge_positions(
     structure: list[str],
-    user_positions: list[str],
+    user_positions: list[PositionDict],
     qc_positions: QCLayoutPattern,
-) -> list[str]:
+) -> list[PositionDict]:
     """Merge user positions with QC positions based on structure."""
     result = []
     user_idx = 0
@@ -187,12 +224,12 @@ class VanquishVialSampler:
         self,
         structure: list[str],
         samples: Sequence[InputSample],
-    ) -> list[str]:
+    ) -> list[PositionDict]:
         num_user = structure.count("default")
         user_positions = self._generate_positions(num_user)
         return _merge_positions(structure, user_positions, self._qc_positions)
 
-    def _generate_positions(self, n: int) -> list[str]:
+    def _generate_positions(self, n: int) -> list[PositionDict]:
         """Generate n positions row-major across all plates.
 
         Note: Sample rows (A-E) don't overlap with QC row (F), so we can
@@ -205,12 +242,11 @@ class VanquishVialSampler:
             if plate_idx >= len(self._parent.plates):
                 raise ValueError(f"Not enough positions available (requested {n})")
 
-            pos = self._container.position_format.format(
-                plate=self._parent.plates[plate_idx],
-                row=self._container.sample_rows[row_idx],
-                col=self._container.cols[col_idx],
-            )
-            positions.append(pos)
+            positions.append({
+                "plate": self._parent.plates[plate_idx],
+                "row": self._container.sample_rows[row_idx],
+                "col": self._container.cols[col_idx],
+            })
 
             # Advance (row-major order)
             col_idx += 1
@@ -241,13 +277,18 @@ class VanquishPlateSampler:
         self,
         structure: list[str],
         samples: Sequence[InputSample],
-    ) -> list[str]:
+    ) -> list[PositionDict]:
         num_user = structure.count("default")
         if len(samples) < num_user:
             raise ValueError(
                 f"Not enough input samples ({len(samples)}) for {num_user} positions"
             )
-        user_positions = [s.grid_position or "" for s in samples[:num_user]]
+        # For plate mode, positions come from input samples with grid_position
+        # We store them as dicts with a special "grid_position" key for later formatting
+        user_positions = [
+            {"plate": "Y", "grid_position": s.grid_position or ""}
+            for s in samples[:num_user]
+        ]
         return _merge_positions(structure, user_positions, self._qc_positions)
 
 
@@ -273,12 +314,12 @@ class MClass48VialSampler:
         self,
         structure: list[str],
         samples: Sequence[InputSample],
-    ) -> list[str]:
+    ) -> list[PositionDict]:
         num_user = structure.count("default")
         user_positions = self._generate_positions(num_user)
         return _merge_positions(structure, user_positions, self._qc_positions)
 
-    def _generate_positions(self, n: int) -> list[str]:
+    def _generate_positions(self, n: int) -> list[PositionDict]:
         """Generate n positions row-major across all plates.
 
         Uses sample_rows and cols from parent config.
@@ -290,12 +331,11 @@ class MClass48VialSampler:
             if plate_idx >= len(self._parent.plates):
                 raise ValueError(f"Not enough positions available (requested {n})")
 
-            pos = self._container.position_format.format(
-                plate=self._parent.plates[plate_idx],
-                row=self._parent.sample_rows[row_idx],
-                col=self._parent.cols[col_idx],
-            )
-            positions.append(pos)
+            positions.append({
+                "plate": self._parent.plates[plate_idx],
+                "row": self._parent.sample_rows[row_idx],
+                "col": self._parent.cols[col_idx],
+            })
 
             # Advance (row-major order)
             col_idx += 1
@@ -326,13 +366,17 @@ class MClass48PlateSampler:
         self,
         structure: list[str],
         samples: Sequence[InputSample],
-    ) -> list[str]:
+    ) -> list[PositionDict]:
         num_user = structure.count("default")
         if len(samples) < num_user:
             raise ValueError(
                 f"Not enough input samples ({len(samples)}) for {num_user} positions"
             )
-        user_positions = [s.grid_position or "" for s in samples[:num_user]]
+        # For plate mode, positions come from input samples with grid_position
+        user_positions = [
+            {"plate": "1", "grid_position": s.grid_position or ""}
+            for s in samples[:num_user]
+        ]
         return _merge_positions(structure, user_positions, self._qc_positions)
 
 
@@ -358,15 +402,15 @@ class EvosepVialSampler:
         self,
         structure: list[str],
         samples: Sequence[InputSample],
-    ) -> list[str]:
+    ) -> list[PositionDict]:
         num_user = structure.count("default")
         user_positions = self._generate_positions(num_user)
         return _merge_positions(structure, user_positions, self._qc_positions)
 
-    def _generate_positions(self, n: int) -> list[str]:
+    def _generate_positions(self, n: int) -> list[PositionDict]:
         """Generate n positions sequentially across slots.
 
-        Format: "tray{slot}:{position}" (1-indexed positions).
+        Returns dicts with tray and position (1-indexed).
         """
         positions = []
         slot_idx = 0
@@ -377,7 +421,10 @@ class EvosepVialSampler:
                 raise ValueError(f"Not enough positions available (requested {n})")
 
             slot = self._parent.slots[slot_idx]
-            positions.append(f"tray{slot}:{position_in_slot}")
+            positions.append({
+                "tray": slot,
+                "position": position_in_slot,
+            })
 
             # Advance
             position_in_slot += 1
@@ -405,13 +452,18 @@ class EvosepPlateSampler:
         self,
         structure: list[str],
         samples: Sequence[InputSample],
-    ) -> list[str]:
+    ) -> list[PositionDict]:
         num_user = structure.count("default")
         if len(samples) < num_user:
             raise ValueError(
                 f"Not enough input samples ({len(samples)}) for {num_user} positions"
             )
-        user_positions = [s.grid_position or "" for s in samples[:num_user]]
+        # For plate mode, positions come from input samples
+        # Assume grid_position contains "tray:position" format or similar
+        user_positions = [
+            {"tray": 1, "position": i + 1, "grid_position": s.grid_position or ""}
+            for i, s in enumerate(samples[:num_user])
+        ]
         return _merge_positions(structure, user_positions, self._qc_positions)
 
 

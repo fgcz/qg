@@ -4,7 +4,6 @@ import tomllib
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
 
 import polars as pl
 from loguru import logger
@@ -103,54 +102,61 @@ def _load_queue_patterns(path: Path | str) -> QueuePatternsConfig:
     return QueuePatternsConfig(patterns=patterns)
 
 
-def _load_qc_layouts(path: Path | str) -> QCLayoutsConfig:
-    """Load and validate QC layouts from TOML file.
+def _load_qc_layouts(config_dir: Path | str) -> QCLayoutsConfig:
+    """Load QC layouts from CSV files.
 
-    Handles both grid positions (strings) and Evosep positions (dicts).
-    TOML structure is nested: [proteomics.Vanquish.vial] -> flattened to "Vanquish.vial" key.
+    Reads from two CSV files:
+      - qc_layouts_grid.csv: Grid sampler positions (plate, row, col)
+      - qc_layouts_evosep.csv: Evosep position ranges (tray, position_start, position_end)
+
+    Args:
+        config_dir: Path to config directory containing the CSV files
+
+    Returns:
+        QCLayoutsConfig with nested dict structure: {tech: {sampler: {sample_id: position}}}
     """
-    with open(path, "rb") as f:
-        raw_data = tomllib.load(f)
-
-    def flatten_sampler_keys(
-        tech_data: dict[str, Any], prefix: str = ""
-    ) -> dict[str, dict[str, QCPosition]]:
-        """Flatten nested sampler dicts to dot-notation keys.
-
-        [proteomics.Vanquish.vial] becomes {"Vanquish.vial": {...}}
-        [proteomics.Evosep] becomes {"Evosep": {...}}
-        """
-        result: dict[str, dict[str, QCPosition]] = {}
-        for key, value in tech_data.items():
-            full_key = f"{prefix}.{key}" if prefix else key
-
-            # Check if this is a QC positions dict or a nested sampler dict
-            # QC positions have sample_id -> position (str or {tray, pos_start, pos_end})
-            # Nested sampler has container_type keys like "vial", "plate"
-            if isinstance(value, dict):
-                # Check if all values are positions (str or Evosep dict)
-                is_positions = all(
-                    isinstance(v, str) or (isinstance(v, dict) and "tray" in v)
-                    for v in value.values()
-                )
-                if is_positions:
-                    # This is a QC positions dict - convert Evosep dicts
-                    positions: dict[str, QCPosition] = {}
-                    for sample_id, pos in value.items():
-                        if isinstance(pos, dict):
-                            positions[sample_id] = EvosepPosition(**pos)
-                        else:
-                            positions[sample_id] = pos
-                    result[full_key] = positions
-                else:
-                    # This is a nested sampler dict - recurse
-                    result.update(flatten_sampler_keys(value, full_key))
-        return result
-
-    # Process each technology
+    config_dir = Path(config_dir)
     layouts: dict[str, dict[str, dict[str, QCPosition]]] = {}
-    for tech, tech_data in raw_data.items():
-        layouts[tech] = flatten_sampler_keys(tech_data)
+
+    # Load grid positions (Vanquish, MClass48)
+    grid_path = config_dir / "qc_layouts_grid.csv"
+    if grid_path.exists():
+        df = pl.read_csv(grid_path, comment_prefix="#")
+        for row in df.iter_rows(named=True):
+            tech = row["technology"]
+            sampler = row["sampler"]
+            sample_id = row["sample_id"]
+            position: QCPosition = {
+                "plate": row["plate"],
+                "row": row["row"],
+                "col": row["col"],
+            }
+
+            if tech not in layouts:
+                layouts[tech] = {}
+            if sampler not in layouts[tech]:
+                layouts[tech][sampler] = {}
+            layouts[tech][sampler][sample_id] = position
+
+    # Load Evosep positions (consumable tip ranges)
+    evosep_path = config_dir / "qc_layouts_evosep.csv"
+    if evosep_path.exists():
+        df = pl.read_csv(evosep_path, comment_prefix="#")
+        for row in df.iter_rows(named=True):
+            tech = row["technology"]
+            sampler = row["sampler"]
+            sample_id = row["sample_id"]
+            position = EvosepPosition(
+                tray=row["tray"],
+                position_start=row["position_start"],
+                position_end=row["position_end"],
+            )
+
+            if tech not in layouts:
+                layouts[tech] = {}
+            if sampler not in layouts[tech]:
+                layouts[tech][sampler] = {}
+            layouts[tech][sampler][sample_id] = position
 
     return QCLayoutsConfig(layouts=layouts)
 
@@ -379,7 +385,7 @@ def _print_config_summary(bundle: ConfigBundle) -> None:
         tech_patterns = bundle.queue_patterns.get_patterns_for_technology(tech)
         logger.info(f"  OK: {tech}: {len(tech_patterns)} patterns")
 
-    logger.info("Validating qc_layouts.toml...")
+    logger.info("Validating qc_layouts CSVs...")
     for tech in bundle.qc_layouts.get_technologies():
         sampler_count = len(bundle.qc_layouts.get_samplers_for_technology(tech))
         logger.info(f"  OK: {tech}: {sampler_count} sampler layouts")
@@ -459,7 +465,7 @@ def qg_config(config_dir: Path | None = None) -> ConfigBundle:
         combinations=_load_combinations(ui_dir / "combinations.csv"),
         samplers=_load_samplers(core_dir / "sampler.toml"),
         queue_patterns=_load_queue_patterns(core_dir / "queue_patterns.toml"),
-        qc_layouts=_load_qc_layouts(core_dir / "qc_layouts.toml"),
+        qc_layouts=_load_qc_layouts(core_dir),
         output_formats=_load_output_formats(core_dir / "output_formats.toml"),
         methods=_load_methods(core_dir / "methods", instruments),
     )

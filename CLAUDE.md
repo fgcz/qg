@@ -172,7 +172,8 @@ qg_configs/
 │   ├── sampler.toml
 │   ├── samples.csv
 │   ├── queue_patterns.toml
-│   ├── qc_layouts.toml
+│   ├── qc_layouts_grid.csv
+│   ├── qc_layouts_evosep.csv
 │   ├── instruments.csv
 │   ├── output_formats.toml
 │   └── methods/
@@ -186,7 +187,8 @@ qg_configs/
 | `sampler.toml` | `core/` | Physical sampler layouts (Vanquish, MClass48, Evosep) |
 | `samples.csv` | `core/` | QC sample definitions (per technology, inj_vol, file_name_template) |
 | `queue_patterns.toml` | `core/` | QC injection patterns (start/middle/end/separation) |
-| `qc_layouts.toml` | `core/` | QC positions per technology/sampler |
+| `qc_layouts_grid.csv` | `core/` | QC positions for grid samplers (Vanquish, MClass48) |
+| `qc_layouts_evosep.csv` | `core/` | QC tip ranges for Evosep (consumable tips) |
 | `instruments.csv` | `core/` | Instrument -> methods_file, path_template mapping |
 | `output_formats.toml` | `core/` | Column mappings for xcalibur/chronos/hystar |
 | `methods/<tech>/<instr>_methods.csv` | `core/` | Methods with polarity column |
