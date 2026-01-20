@@ -9,9 +9,10 @@ Each sampler handles full position assignment including QC merging.
 Uses composition and duck typing (no inheritance hierarchy).
 """
 
+from dataclasses import dataclass
 from typing import Protocol, Sequence
 
-from qg.config_models import QCPosition, EvosepPosition
+from qg.config_models import QCPosition, QueuePattern, EvosepPosition
 from qg.config_models_samplers import (
     EvosepConfig,
     EvosepPlateConfig,
@@ -28,30 +29,8 @@ from qg.params_models import InputSample
 
 
 # =============================================================================
-# Protocol and Helper
+# QC Layout Pattern (Validated)
 # =============================================================================
-
-
-class SamplerProtocol(Protocol):
-    """Duck-typed interface for all samplers."""
-
-    def assign_positions(
-        self,
-        structure: list[str],
-        samples: Sequence[InputSample],
-        qc_layout: dict[str, QCPosition],
-    ) -> list[str]:
-        """Assign positions to all slots (user samples merged with QC).
-
-        Args:
-            structure: List of sample IDs ("default" for user, QC IDs for QC)
-            samples: Input samples (used for input-based position extraction)
-            qc_layout: QC positions for this technology/sampler
-
-        Returns:
-            List of position strings, same length as structure
-        """
-        ...
 
 
 def _format_qc_position(pos: QCPosition) -> str:
@@ -67,10 +46,111 @@ def _format_qc_position(pos: QCPosition) -> str:
         return str(pos)
 
 
+def _collect_pattern_qc_ids(pattern: QueuePattern) -> set[str]:
+    """Collect all unique QC sample IDs from a pattern."""
+    qc_ids: set[str] = set()
+    qc_ids.update(pattern.start)
+    qc_ids.update(pattern.middle)
+    qc_ids.update(pattern.end)
+    if pattern.separation:
+        qc_ids.update(pattern.separation)
+    if pattern.middle_extended:
+        qc_ids.update(pattern.middle_extended)
+    return qc_ids
+
+
+def _validate_unique_positions(positions: dict[str, str]) -> None:
+    """Validate that all positions are unique.
+
+    Raises:
+        ValueError: If two different QC samples share the same position
+    """
+    seen: dict[str, str] = {}  # position -> qc_id
+    for qc_id, pos in positions.items():
+        if pos in seen:
+            raise ValueError(
+                f"Position conflict: '{qc_id}' and '{seen[pos]}' "
+                f"both map to position '{pos}'"
+            )
+        seen[pos] = qc_id
+
+
+@dataclass(frozen=True)
+class QCLayoutPattern:
+    """Validated QC layout for a specific queue pattern.
+
+    Ensures that QC samples used in the pattern have unique positions.
+    """
+
+    positions: dict[str, str]  # QC sample ID -> formatted position string
+
+    @classmethod
+    def create(
+        cls,
+        pattern: QueuePattern,
+        qc_layout: dict[str, QCPosition],
+    ) -> "QCLayoutPattern":
+        """Create and validate QC layout for a pattern.
+
+        Args:
+            pattern: Queue pattern with QC sample IDs
+            qc_layout: Raw QC positions from config
+
+        Returns:
+            Validated QCLayoutPattern
+
+        Raises:
+            ValueError: If a QC sample is missing from qc_layout or positions conflict
+        """
+        # 1. Collect unique QC IDs from pattern
+        qc_ids = _collect_pattern_qc_ids(pattern)
+
+        # 2. Map to positions
+        positions: dict[str, str] = {}
+        for qc_id in qc_ids:
+            if qc_id not in qc_layout:
+                raise ValueError(f"QC sample '{qc_id}' not in qc_layout")
+            positions[qc_id] = _format_qc_position(qc_layout[qc_id])
+
+        # 3. Validate uniqueness
+        _validate_unique_positions(positions)
+
+        return cls(positions=positions)
+
+    def get_position(self, qc_id: str) -> str:
+        """Get position for a QC sample ID."""
+        return self.positions.get(qc_id, "")
+
+
+# =============================================================================
+# Protocol and Helper
+# =============================================================================
+
+
+class SamplerProtocol(Protocol):
+    """Duck-typed interface for all samplers."""
+
+    def assign_positions(
+        self,
+        structure: list[str],
+        samples: Sequence[InputSample],
+    ) -> list[str]:
+        """Assign positions to all slots (user samples merged with QC).
+
+        Args:
+            structure: List of sample IDs ("default" for user, QC IDs for QC)
+            samples: Input samples (used for input-based position extraction)
+
+        Returns:
+            List of position strings, same length as structure
+        """
+        ...
+
+
 def _merge_positions(
     structure: list[str],
     user_positions: list[str],
-    qc_layout: dict[str, QCPosition],
+    qc_positions: QCLayoutPattern,
 ) -> list[str]:
     """Merge user positions with QC positions based on structure."""
     result = []
@@ -80,8 +160,7 @@ def _merge_positions(
             result.append(user_positions[user_idx])
             user_idx += 1
         else:
-            pos = qc_layout.get(slot, "")
-            result.append(_format_qc_position(pos))
+            result.append(qc_positions.get_position(slot))
     return result
 
 
@@ -90,22 +169,28 @@ def _merge_positions(
 # =============================================================================
 
 
+
 class VanquishVialSampler:
     """Vanquish vial - generates positions row-major across plates."""
 
-    def __init__(self, parent: VanquishConfig, container: VanquishVialConfig):
+    def __init__(
+        self,
+        parent: VanquishConfig,
+        container: VanquishVialConfig,
+        qc_layout_pattern: QCLayoutPattern,
+    ):
         self._parent = parent
         self._container = container
+        self._qc_positions = qc_layout_pattern
 
     def assign_positions(
         self,
         structure: list[str],
         samples: Sequence[InputSample],
-        qc_layout: dict[str, QCPosition],
     ) -> list[str]:
         num_user = structure.count("default")
         user_positions = self._generate_positions(num_user)
-        return _merge_positions(structure, user_positions, qc_layout)
+        return _merge_positions(structure, user_positions, self._qc_positions)
 
     def _generate_positions(self, n: int) -> list[str]:
         """Generate n positions row-major across all plates.
@@ -142,15 +227,20 @@ class VanquishVialSampler:
 class VanquishPlateSampler:
     """Vanquish plate - positions from input samples."""
 
-    def __init__(self, parent: VanquishConfig, container: VanquishPlateConfig):
+    def __init__(
+        self,
+        parent: VanquishConfig,
+        container: VanquishPlateConfig,
+        qc_layout_pattern: QCLayoutPattern,
+    ):
         self._parent = parent
         self._container = container
+        self._qc_positions = qc_layout_pattern
 
     def assign_positions(
         self,
         structure: list[str],
         samples: Sequence[InputSample],
-        qc_layout: dict[str, QCPosition],
     ) -> list[str]:
         num_user = structure.count("default")
         if len(samples) < num_user:
@@ -158,7 +248,7 @@ class VanquishPlateSampler:
                 f"Not enough input samples ({len(samples)}) for {num_user} positions"
             )
         user_positions = [s.grid_position or "" for s in samples[:num_user]]
-        return _merge_positions(structure, user_positions, qc_layout)
+        return _merge_positions(structure, user_positions, self._qc_positions)
 
 
 # =============================================================================
@@ -169,19 +259,24 @@ class VanquishPlateSampler:
 class MClass48VialSampler:
     """MClass48 vial - generates positions row-major across plates."""
 
-    def __init__(self, parent: MClass48Config, container: MClass48VialConfig):
+    def __init__(
+        self,
+        parent: MClass48Config,
+        container: MClass48VialConfig,
+        qc_layout_pattern: QCLayoutPattern,
+    ):
         self._parent = parent
         self._container = container
+        self._qc_positions = qc_layout_pattern
 
     def assign_positions(
         self,
         structure: list[str],
         samples: Sequence[InputSample],
-        qc_layout: dict[str, QCPosition],
     ) -> list[str]:
         num_user = structure.count("default")
         user_positions = self._generate_positions(num_user)
-        return _merge_positions(structure, user_positions, qc_layout)
+        return _merge_positions(structure, user_positions, self._qc_positions)
 
     def _generate_positions(self, n: int) -> list[str]:
         """Generate n positions row-major across all plates.
@@ -217,15 +312,20 @@ class MClass48VialSampler:
 class MClass48PlateSampler:
     """MClass48 plate - positions from input samples."""
 
-    def __init__(self, parent: MClass48Config, container: MClass48PlateConfig):
+    def __init__(
+        self,
+        parent: MClass48Config,
+        container: MClass48PlateConfig,
+        qc_layout_pattern: QCLayoutPattern,
+    ):
         self._parent = parent
         self._container = container
+        self._qc_positions = qc_layout_pattern
 
     def assign_positions(
         self,
         structure: list[str],
         samples: Sequence[InputSample],
-        qc_layout: dict[str, QCPosition],
     ) -> list[str]:
         num_user = structure.count("default")
         if len(samples) < num_user:
@@ -233,7 +333,7 @@ class MClass48PlateSampler:
                 f"Not enough input samples ({len(samples)}) for {num_user} positions"
             )
         user_positions = [s.grid_position or "" for s in samples[:num_user]]
-        return _merge_positions(structure, user_positions, qc_layout)
+        return _merge_positions(structure, user_positions, self._qc_positions)
 
 
 # =============================================================================
@@ -244,19 +344,24 @@ class MClass48PlateSampler:
 class EvosepVialSampler:
     """Evosep vial - generates positions sequentially across slots."""
 
-    def __init__(self, parent: EvosepConfig, container: EvosepVialConfig):
+    def __init__(
+        self,
+        parent: EvosepConfig,
+        container: EvosepVialConfig,
+        qc_layout_pattern: QCLayoutPattern,
+    ):
         self._parent = parent
         self._container = container
+        self._qc_positions = qc_layout_pattern
 
     def assign_positions(
         self,
         structure: list[str],
         samples: Sequence[InputSample],
-        qc_layout: dict[str, QCPosition],
     ) -> list[str]:
         num_user = structure.count("default")
         user_positions = self._generate_positions(num_user)
-        return _merge_positions(structure, user_positions, qc_layout)
+        return _merge_positions(structure, user_positions, self._qc_positions)
 
     def _generate_positions(self, n: int) -> list[str]:
         """Generate n positions sequentially across slots.
@@ -286,15 +391,20 @@ class EvosepVialSampler:
 class EvosepPlateSampler:
     """Evosep plate - positions from input samples."""
 
-    def __init__(self, parent: EvosepConfig, container: EvosepPlateConfig):
+    def __init__(
+        self,
+        parent: EvosepConfig,
+        container: EvosepPlateConfig,
+        qc_layout_pattern: QCLayoutPattern,
+    ):
         self._parent = parent
         self._container = container
+        self._qc_positions = qc_layout_pattern
 
     def assign_positions(
         self,
         structure: list[str],
         samples: Sequence[InputSample],
-        qc_layout: dict[str, QCPosition],
     ) -> list[str]:
         num_user = structure.count("default")
         if len(samples) < num_user:
@@ -302,7 +412,7 @@ class EvosepPlateSampler:
                 f"Not enough input samples ({len(samples)}) for {num_user} positions"
             )
         user_positions = [s.grid_position or "" for s in samples[:num_user]]
-        return _merge_positions(structure, user_positions, qc_layout)
+        return _merge_positions(structure, user_positions, self._qc_positions)
 
 
 # =============================================================================
@@ -320,12 +430,17 @@ Sampler = (
 )
 
 
-def create_sampler(sampler_name: str, config: SamplersConfig) -> Sampler:
-    """Factory: 'Vanquish.vial' + config -> Sampler instance.
+def create_sampler(
+    sampler_name: str,
+    config: SamplersConfig,
+    qc_layout_pattern: QCLayoutPattern,
+) -> Sampler:
+    """Factory: 'Vanquish.vial' + config + qc_layout_pattern -> Sampler instance.
 
     Args:
         sampler_name: Sampler identifier like "Vanquish.vial" or "Evosep.plate"
         config: Root samplers configuration from sampler.toml
+        qc_layout_pattern: Validated QC layout for the pattern
 
     Returns:
         Sampler instance for the given name
@@ -335,16 +450,28 @@ def create_sampler(sampler_name: str, config: SamplersConfig) -> Sampler:
     """
     match sampler_name:
         case "Vanquish.vial":
-            return VanquishVialSampler(config.Vanquish, config.Vanquish.vial)
+            return VanquishVialSampler(
+                config.Vanquish, config.Vanquish.vial, qc_layout_pattern
+            )
         case "Vanquish.plate":
-            return VanquishPlateSampler(config.Vanquish, config.Vanquish.plate)
+            return VanquishPlateSampler(
+                config.Vanquish, config.Vanquish.plate, qc_layout_pattern
+            )
         case "MClass48.vial":
-            return MClass48VialSampler(config.MClass48, config.MClass48.vial)
+            return MClass48VialSampler(
+                config.MClass48, config.MClass48.vial, qc_layout_pattern
+            )
         case "MClass48.plate":
-            return MClass48PlateSampler(config.MClass48, config.MClass48.plate)
+            return MClass48PlateSampler(
+                config.MClass48, config.MClass48.plate, qc_layout_pattern
+            )
         case "Evosep.vial":
-            return EvosepVialSampler(config.Evosep, config.Evosep.vial)
+            return EvosepVialSampler(
+                config.Evosep, config.Evosep.vial, qc_layout_pattern
+            )
         case "Evosep.plate":
-            return EvosepPlateSampler(config.Evosep, config.Evosep.plate)
+            return EvosepPlateSampler(
+                config.Evosep, config.Evosep.plate, qc_layout_pattern
+            )
         case _:
             raise ValueError(f"Unknown sampler: {sampler_name}")

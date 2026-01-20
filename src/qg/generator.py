@@ -13,7 +13,7 @@ from typing import Callable, Literal
 
 import polars as pl
 
-from qg.config_models import Sample, QueuePattern, OutputFormat, QCPosition
+from qg.config_models import Sample, QueuePattern, OutputFormat
 from qg.params_models import InputSample
 from qg.positions import Sampler
 from qg.queue_structure import build_multi_container_queue_structure
@@ -238,7 +238,6 @@ class QueueGenerator:
 
     pattern: QueuePattern
     sampler: Sampler
-    qc_layout: dict[str, QCPosition]
     samples_config: dict[str, Sample]
     method_resolver: MethodResolver
     polarities: list[str | None]
@@ -261,7 +260,7 @@ class QueueGenerator:
         structure = [s.sample_id for s in slot_entries]
 
         # Step 2: Assign all positions (user + QC) via sampler
-        positions = self.sampler.assign_positions(structure, samples, self.qc_layout)
+        positions = self.sampler.assign_positions(structure, samples)
 
         # Step 3: Build slots (pass full slot_entries to preserve container_id)
         slots = build_slots(slot_entries, positions, samples, self.samples_config)

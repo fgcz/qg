@@ -16,7 +16,7 @@ from qg.config import ConfigBundle, load_all_configs
 from qg.config_models import Sample, QueuePattern
 from qg.generator import MethodResolver
 from qg.params_models import QueueInput
-from qg.positions import create_sampler
+from qg.positions import create_sampler, QCLayoutPattern
 from qg.queue_structure import extract_groups
 
 logger = logging.getLogger(__name__)
@@ -83,8 +83,13 @@ class QueueGeneratorBuilder:
                 f"QC layout not found for {params.technology}.{params.sampler}"
             )
 
-        # Create sampler directly from factory
-        sampler = create_sampler(params.sampler, self.configs.samplers)
+        # Create validated QC layout pattern (validates uniqueness)
+        qc_layout_pattern = QCLayoutPattern.create(pattern, qc_layout)
+
+        # Create sampler with validated layout
+        sampler = create_sampler(
+            params.sampler, self.configs.samplers, qc_layout_pattern
+        )
 
         # Resolve samples config
         samples_config = self._resolve_samples_config(params.technology, pattern)
@@ -115,7 +120,7 @@ class QueueGeneratorBuilder:
             "  technology=%s, instrument=%s, sampler=%s\n"
             "  pattern=%s (start=%s, middle=%s, end=%s)\n"
             "  sampler=%s\n"
-            "  qc_layout=%s\n"
+            "  qc_positions=%s\n"
             "  samples_config=%s\n"
             "  polarities=%s\n"
             "  data_path=%s\n"
@@ -128,7 +133,7 @@ class QueueGeneratorBuilder:
             pattern.middle,
             pattern.end,
             type(sampler).__name__,
-            list(qc_layout.keys()),
+            list(qc_layout_pattern.positions.keys()),
             list(samples_config.keys()),
             polarities,
             data_path,
@@ -139,7 +144,6 @@ class QueueGeneratorBuilder:
         return QueueGenerator(
             pattern=pattern,
             sampler=sampler,
-            qc_layout=qc_layout,
             samples_config=samples_config,
             method_resolver=method_resolver,
             polarities=polarities,

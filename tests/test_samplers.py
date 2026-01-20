@@ -23,6 +23,7 @@ from qg.positions import (
     EvosepVialSampler,
     EvosepPlateSampler,
     create_sampler,
+    QCLayoutPattern,
 )
 
 
@@ -46,14 +47,14 @@ class TestVanquishVialSampler:
                 cols=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
             ),
         )
-        sampler = VanquishVialSampler(parent, parent.vial)
 
-        # Proteomics QC layout (from qc_layouts.toml)
-        qc_layout = {
+        # QC layout pattern with pre-formatted positions
+        qc_layout_pattern = QCLayoutPattern(positions={
             "QC01": "B:F9",
             "QC03dia": "B:F8",
             "clean": "B:F7",
-        }
+        })
+        sampler = VanquishVialSampler(parent, parent.vial, qc_layout_pattern)
 
         # Queue structure: start QCs, 3 user samples, end QCs
         structure = ["QC03dia", "QC01", "default", "default", "default", "clean", "QC01"]
@@ -63,7 +64,7 @@ class TestVanquishVialSampler:
             InputSample(sample_name="s3", sample_id=3),
         ]
 
-        positions = sampler.assign_positions(structure, samples, qc_layout)
+        positions = sampler.assign_positions(structure, samples)
 
         assert len(positions) == 7
         # QC positions from layout
@@ -96,14 +97,14 @@ class TestMClass48VialSampler:
                 position_format="{plate}:{grid_position}",
             ),
         )
-        sampler = MClass48VialSampler(parent, parent.vial)
 
-        # Proteomics QC layout for MClass48
-        qc_layout = {
+        # QC layout pattern with pre-formatted positions
+        qc_layout_pattern = QCLayoutPattern(positions={
             "QC01": "1:F,8",
             "QC03dia": "1:F,7",
             "clean": "1:F,6",
-        }
+        })
+        sampler = MClass48VialSampler(parent, parent.vial, qc_layout_pattern)
 
         # Queue structure: start QCs, 3 user samples, end QCs
         structure = ["QC03dia", "QC01", "default", "default", "default", "clean", "QC01"]
@@ -113,7 +114,7 @@ class TestMClass48VialSampler:
             InputSample(sample_name="s3", sample_id=3),
         ]
 
-        positions = sampler.assign_positions(structure, samples, qc_layout)
+        positions = sampler.assign_positions(structure, samples)
 
         assert len(positions) == 7
         # QC positions from layout
@@ -141,14 +142,14 @@ class TestEvosepVialSampler:
             vial=EvosepVialConfig(),
             plate=EvosepPlateConfig(),
         )
-        sampler = EvosepVialSampler(parent, parent.vial)
 
-        # Proteomics QC layout for Evosep (dict format)
-        qc_layout = {
-            "QC01": {"tray": 5, "position_start": 1, "position_end": 48},
-            "QC03dia": {"tray": 5, "position_start": 49, "position_end": 96},
-            "clean": {"tray": 6, "position_start": 1, "position_end": 96},
-        }
+        # QC layout pattern with pre-formatted positions (Evosep format)
+        qc_layout_pattern = QCLayoutPattern(positions={
+            "QC01": "tray5:1",
+            "QC03dia": "tray5:49",
+            "clean": "tray6:1",
+        })
+        sampler = EvosepVialSampler(parent, parent.vial, qc_layout_pattern)
 
         # Queue structure: start QCs, 3 user samples, end QCs
         structure = ["QC03dia", "QC01", "default", "default", "default", "clean", "QC01"]
@@ -158,7 +159,7 @@ class TestEvosepVialSampler:
             InputSample(sample_name="s3", sample_id=3),
         ]
 
-        positions = sampler.assign_positions(structure, samples, qc_layout)
+        positions = sampler.assign_positions(structure, samples)
 
         assert len(positions) == 7
         # QC positions formatted as "tray{tray}:{position_start}"
@@ -192,14 +193,14 @@ class TestVanquishPlateSampler:
                 cols=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
             ),
         )
-        sampler = VanquishPlateSampler(parent, parent.plate)
 
-        # Metabolomics QC layout (from qc_layouts.toml)
-        qc_layout = {
+        # QC layout pattern with pre-formatted positions
+        qc_layout_pattern = QCLayoutPattern(positions={
             "blank": "B:H1",
             "pooledQC": "B:H9",
             "108mix_AA": "B:H12",
-        }
+        })
+        sampler = VanquishPlateSampler(parent, parent.plate, qc_layout_pattern)
 
         # Simple structure: blank, 2 user samples, pooledQC
         structure = ["blank", "default", "default", "pooledQC"]
@@ -208,7 +209,7 @@ class TestVanquishPlateSampler:
             InputSample(sample_name="s2", sample_id=2, grid_position="Y:A2"),
         ]
 
-        positions = sampler.assign_positions(structure, samples, qc_layout)
+        positions = sampler.assign_positions(structure, samples)
 
         assert len(positions) == 4
         assert positions[0] == "B:H1"  # blank
@@ -234,14 +235,14 @@ class TestMClass48PlateSampler:
                 position_format="{plate}:{grid_position}",
             ),
         )
-        sampler = MClass48PlateSampler(parent, parent.plate)
 
-        # Proteomics QC layout for MClass48 (from qc_layouts.toml)
-        qc_layout = {
+        # QC layout pattern with pre-formatted positions
+        qc_layout_pattern = QCLayoutPattern(positions={
             "QC01": "1:F,8",
             "QC03dia": "1:F,7",
             "clean": "1:F,6",
-        }
+        })
+        sampler = MClass48PlateSampler(parent, parent.plate, qc_layout_pattern)
 
         # Structure: QC03dia, QC01, 2 user samples, clean
         structure = ["QC03dia", "QC01", "default", "default", "clean"]
@@ -250,7 +251,7 @@ class TestMClass48PlateSampler:
             InputSample(sample_name="s2", sample_id=2, grid_position="1:A,2"),
         ]
 
-        positions = sampler.assign_positions(structure, samples, qc_layout)
+        positions = sampler.assign_positions(structure, samples)
 
         assert len(positions) == 5
         assert positions[0] == "1:F,7"  # QC03dia
@@ -272,14 +273,14 @@ class TestEvosepPlateSampler:
             vial=EvosepVialConfig(),
             plate=EvosepPlateConfig(),
         )
-        sampler = EvosepPlateSampler(parent, parent.plate)
 
-        # Proteomics QC layout for Evosep (from qc_layouts.toml) - uses dict format
-        qc_layout = {
-            "QC01": {"tray": 5, "position_start": 1, "position_end": 48},
-            "QC03dia": {"tray": 5, "position_start": 49, "position_end": 96},
-            "clean": {"tray": 6, "position_start": 1, "position_end": 96},
-        }
+        # QC layout pattern with pre-formatted positions (Evosep format)
+        qc_layout_pattern = QCLayoutPattern(positions={
+            "QC01": "tray5:1",
+            "QC03dia": "tray5:49",
+            "clean": "tray6:1",
+        })
+        sampler = EvosepPlateSampler(parent, parent.plate, qc_layout_pattern)
 
         # Structure: QC01, 2 user samples, clean
         structure = ["QC01", "default", "default", "clean"]
@@ -288,7 +289,7 @@ class TestEvosepPlateSampler:
             InputSample(sample_name="s2", sample_id=2, grid_position="2"),
         ]
 
-        positions = sampler.assign_positions(structure, samples, qc_layout)
+        positions = sampler.assign_positions(structure, samples)
 
         assert len(positions) == 4
         # Evosep QC positions formatted as "tray{tray}:{position_start}"
@@ -306,7 +307,10 @@ class TestEvosepPlateSampler:
             vial=EvosepVialConfig(),
             plate=EvosepPlateConfig(),
         )
-        sampler = EvosepPlateSampler(parent, parent.plate)
+
+        # Empty QC layout pattern for this test
+        qc_layout_pattern = QCLayoutPattern(positions={})
+        sampler = EvosepPlateSampler(parent, parent.plate, qc_layout_pattern)
 
         structure = ["default", "default", "default"]
         samples = [
@@ -314,7 +318,7 @@ class TestEvosepPlateSampler:
         ]
 
         with pytest.raises(ValueError, match="Not enough input samples"):
-            sampler.assign_positions(structure, samples, {})
+            sampler.assign_positions(structure, samples)
 
 
 class TestCreateSampler:
@@ -359,37 +363,180 @@ class TestCreateSampler:
             ),
         )
 
-    def test_creates_vanquish_vial_sampler(self, samplers_config):
+    @pytest.fixture
+    def qc_layout_pattern(self):
+        """Create a QCLayoutPattern for testing."""
+        return QCLayoutPattern(positions={
+            "QC01": "B:F9",
+            "QC03dia": "B:F8",
+            "clean": "B:F7",
+        })
+
+    def test_creates_vanquish_vial_sampler(self, samplers_config, qc_layout_pattern):
         """Vanquish.vial should create VanquishVialSampler."""
-        sampler = create_sampler("Vanquish.vial", samplers_config)
+        sampler = create_sampler("Vanquish.vial", samplers_config, qc_layout_pattern)
         assert isinstance(sampler, VanquishVialSampler)
 
-    def test_creates_vanquish_plate_sampler(self, samplers_config):
+    def test_creates_vanquish_plate_sampler(self, samplers_config, qc_layout_pattern):
         """Vanquish.plate should create VanquishPlateSampler."""
-        sampler = create_sampler("Vanquish.plate", samplers_config)
+        sampler = create_sampler("Vanquish.plate", samplers_config, qc_layout_pattern)
         assert isinstance(sampler, VanquishPlateSampler)
 
-    def test_creates_mclass48_vial_sampler(self, samplers_config):
+    def test_creates_mclass48_vial_sampler(self, samplers_config, qc_layout_pattern):
         """MClass48.vial should create MClass48VialSampler."""
-        sampler = create_sampler("MClass48.vial", samplers_config)
+        sampler = create_sampler("MClass48.vial", samplers_config, qc_layout_pattern)
         assert isinstance(sampler, MClass48VialSampler)
 
-    def test_creates_mclass48_plate_sampler(self, samplers_config):
+    def test_creates_mclass48_plate_sampler(self, samplers_config, qc_layout_pattern):
         """MClass48.plate should create MClass48PlateSampler."""
-        sampler = create_sampler("MClass48.plate", samplers_config)
+        sampler = create_sampler("MClass48.plate", samplers_config, qc_layout_pattern)
         assert isinstance(sampler, MClass48PlateSampler)
 
-    def test_creates_evosep_vial_sampler(self, samplers_config):
+    def test_creates_evosep_vial_sampler(self, samplers_config, qc_layout_pattern):
         """Evosep.vial should create EvosepVialSampler."""
-        sampler = create_sampler("Evosep.vial", samplers_config)
+        sampler = create_sampler("Evosep.vial", samplers_config, qc_layout_pattern)
         assert isinstance(sampler, EvosepVialSampler)
 
-    def test_creates_evosep_plate_sampler(self, samplers_config):
+    def test_creates_evosep_plate_sampler(self, samplers_config, qc_layout_pattern):
         """Evosep.plate should create EvosepPlateSampler."""
-        sampler = create_sampler("Evosep.plate", samplers_config)
+        sampler = create_sampler("Evosep.plate", samplers_config, qc_layout_pattern)
         assert isinstance(sampler, EvosepPlateSampler)
 
-    def test_raises_for_unknown_sampler(self, samplers_config):
+    def test_raises_for_unknown_sampler(self, samplers_config, qc_layout_pattern):
         """Should raise ValueError for unknown sampler."""
         with pytest.raises(ValueError, match="Unknown sampler"):
-            create_sampler("Unknown.vial", samplers_config)
+            create_sampler("Unknown.vial", samplers_config, qc_layout_pattern)
+
+
+class TestQCLayoutPattern:
+    """Tests for QCLayoutPattern validation."""
+
+    def test_create_from_pattern_and_layout(self):
+        """Should create QCLayoutPattern from pattern and qc_layout."""
+        from qg.config_models import QueuePattern
+
+        pattern = QueuePattern(
+            description="Test pattern",
+            run_QC_after_n_samples=5,
+            start=["QC01"],
+            middle=["QC01"],
+            end=["clean"],
+        )
+        qc_layout = {
+            "QC01": "B:F9",
+            "clean": "B:F7",
+        }
+
+        qc_layout_pattern = QCLayoutPattern.create(pattern, qc_layout)
+
+        assert qc_layout_pattern.positions == {"QC01": "B:F9", "clean": "B:F7"}
+        assert qc_layout_pattern.get_position("QC01") == "B:F9"
+        assert qc_layout_pattern.get_position("clean") == "B:F7"
+        assert qc_layout_pattern.get_position("unknown") == ""
+
+    def test_raises_if_qc_sample_not_in_layout(self):
+        """Should raise ValueError if pattern references QC not in layout."""
+        from qg.config_models import QueuePattern
+
+        pattern = QueuePattern(
+            description="Test pattern",
+            run_QC_after_n_samples=5,
+            start=["QC01", "missing_qc"],
+            middle=[],
+            end=[],
+        )
+        qc_layout = {"QC01": "B:F9"}
+
+        with pytest.raises(ValueError, match="QC sample 'missing_qc' not in qc_layout"):
+            QCLayoutPattern.create(pattern, qc_layout)
+
+    def test_raises_if_positions_conflict(self):
+        """Should raise ValueError if two QC samples have same position."""
+        from qg.config_models import QueuePattern
+
+        pattern = QueuePattern(
+            description="Test pattern",
+            run_QC_after_n_samples=5,
+            start=["QC01", "QC02"],  # Both used in pattern
+            middle=[],
+            end=[],
+        )
+        # Both QC samples map to the same position - this is the conflict
+        qc_layout = {
+            "QC01": "B:F9",
+            "QC02": "B:F9",  # Same position as QC01!
+        }
+
+        with pytest.raises(ValueError, match="Position conflict"):
+            QCLayoutPattern.create(pattern, qc_layout)
+
+    def test_no_conflict_for_unused_duplicate_positions(self):
+        """Position duplicates are OK if only one is used in pattern."""
+        from qg.config_models import QueuePattern
+
+        pattern = QueuePattern(
+            description="Test pattern",
+            run_QC_after_n_samples=5,
+            start=["QC01"],
+            middle=[],
+            end=[],
+        )
+        # QC02 has same position as QC01 but it's not used in pattern
+        qc_layout = {
+            "QC01": "B:F9",
+            "QC02": "B:F9",  # Same position, but QC02 not used
+        }
+
+        # Should not raise - only QC01 is used
+        qc_layout_pattern = QCLayoutPattern.create(pattern, qc_layout)
+        assert qc_layout_pattern.positions == {"QC01": "B:F9"}
+
+    def test_collects_from_all_pattern_sections(self):
+        """Should collect QC IDs from start, middle, end, separation, middle_extended."""
+        from qg.config_models import QueuePattern
+
+        pattern = QueuePattern(
+            description="Test pattern",
+            run_QC_after_n_samples=5,
+            start=["qc_start"],
+            middle=["qc_middle"],
+            end=["qc_end"],
+            separation=["qc_sep"],
+            middle_extended=["qc_ext"],
+        )
+        qc_layout = {
+            "qc_start": "A:1",
+            "qc_middle": "A:2",
+            "qc_end": "A:3",
+            "qc_sep": "A:4",
+            "qc_ext": "A:5",
+        }
+
+        qc_layout_pattern = QCLayoutPattern.create(pattern, qc_layout)
+
+        # All 5 should be collected
+        assert len(qc_layout_pattern.positions) == 5
+        assert qc_layout_pattern.get_position("qc_start") == "A:1"
+        assert qc_layout_pattern.get_position("qc_middle") == "A:2"
+        assert qc_layout_pattern.get_position("qc_end") == "A:3"
+        assert qc_layout_pattern.get_position("qc_sep") == "A:4"
+        assert qc_layout_pattern.get_position("qc_ext") == "A:5"
+
+    def test_formats_evosep_positions(self):
+        """Should format Evosep dict positions correctly."""
+        from qg.config_models import QueuePattern, EvosepPosition
+
+        pattern = QueuePattern(
+            description="Test pattern",
+            run_QC_after_n_samples=5,
+            start=["QC01"],
+            middle=[],
+            end=[],
+        )
+        qc_layout = {
+            "QC01": EvosepPosition(tray=5, position_start=1, position_end=48),
+        }
+
+        qc_layout_pattern = QCLayoutPattern.create(pattern, qc_layout)
+
+        assert qc_layout_pattern.get_position("QC01") == "tray5:1"
