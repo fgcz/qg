@@ -34,7 +34,7 @@ rule help:
         print("""
 Queue Analysis Workflow - SLD to CSV Pipeline
 
-Source: reference/sld/ (SLD binary files from instruments)
+Source: reference/sld/*.zip (SLD archives from instruments)
 
 Pipeline:
   1. extract      Extract SLD files from zip archives
@@ -58,13 +58,12 @@ Usage:
 # =============================================================================
 
 rule extract:
-    """Extract SLD files from zip archives in reference/zip/ to reference/sld/."""
+    """Extract SLD files from zip archives in reference/sld/*.zip to reference/sld/{instrument}/."""
     output:
-        directory("reference/sld")
+        expand("reference/sld/{instrument}/", instrument=INSTRUMENTS)
     shell:
         """
-        mkdir -p reference/sld
-        for zip in reference/zip/*.zip; do
+        for zip in reference/sld/*.zip; do
             if [ -f "$zip" ]; then
                 instrument=$(basename "$zip" .zip)
                 mkdir -p "reference/sld/$instrument"

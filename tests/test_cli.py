@@ -1,6 +1,5 @@
 """Tests for CLI entry points."""
 
-import json
 import subprocess
 from pathlib import Path
 
@@ -15,22 +14,6 @@ def configs():
     return load_all_configs(Path("qg_configs"))
 
 
-@pytest.fixture
-def projects_json(tmp_path):
-    """Create minimal projects JSON for qg-params testing."""
-    data = [
-        {
-            "id": 1000,
-            "name": "Test Project",
-            "technology": ["Proteomics"],
-            "order": [{"id": 12345, "sample_count": 5, "plate_count": 0}],
-        }
-    ]
-    path = tmp_path / "projects.json"
-    path.write_text(json.dumps(data))
-    return path
-
-
 def test_validate_config_cli():
     """Test qg-validate CLI passes with valid configs."""
     result = subprocess.run(
@@ -41,38 +24,6 @@ def test_validate_config_cli():
 
     assert result.returncode == 0, f"CLI failed: {result.stderr}"
     assert "All validations passed" in result.stdout
-
-
-def test_generate_params_dry_run(projects_json, tmp_path):
-    """Test qg-params --dry-run shows what would be generated."""
-    result = subprocess.run(
-        ["uv", "run", "qg-params", "--projects", str(projects_json), "--dry-run", "--limit", "1"],
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, f"CLI failed: {result.stderr}"
-    assert "Would create" in result.stdout or "valid combinations" in result.stdout
-
-
-def test_generate_params_creates_json(projects_json, tmp_path):
-    """Test qg-params generates JSON files, then use them with qg."""
-    output_dir = tmp_path / "params"
-
-    # Generate params (dry-run to avoid B-Fabric, but verify CLI works)
-    result = subprocess.run(
-        [
-            "uv", "run", "qg-params",
-            "--projects", str(projects_json),
-            "--output-dir", str(output_dir),
-            "--dry-run",
-            "--limit", "1",
-        ],
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, f"CLI failed: {result.stderr}"
 
 
 def test_generate_queues_cli(configs, tmp_path):

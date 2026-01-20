@@ -27,6 +27,7 @@ from qg.config_models import (
     set_polarity_technologies,
     set_valid_samplers,
 )
+from qg.positions import QCLayoutPattern
 
 # =============================================================================
 # Dynamic Config Derivation
@@ -412,6 +413,42 @@ def _cross_validate_sample_refs(
             print("  OK: All qc_layouts reference valid samples")
 
 
+def _cross_validate_qc_layout_patterns(
+    queue_patterns: QueuePatternsConfig | None,
+    qc_layouts: QCLayoutsConfig | None,
+) -> None:
+    """Cross-validate that patterns and QC layouts are compatible.
+
+    Validates all (technology, pattern, sampler) combinations using
+    QCLayoutPattern.create() to check:
+    - Coverage: All QC IDs in pattern have positions in qc_layout
+    - Uniqueness: No two QC samples map to the same position
+    """
+    if not queue_patterns or not qc_layouts:
+        return
+
+    print("\nCross-validating queue_patterns against qc_layouts...")
+    all_ok = True
+
+    for tech in queue_patterns.get_technologies():
+        tech_patterns = queue_patterns.get_patterns_for_technology(tech)
+        samplers = qc_layouts.get_samplers_for_technology(tech)
+
+        for pattern_name, pattern in tech_patterns.items():
+            for sampler_key in samplers:
+                qc_layout = qc_layouts.get_layout(tech, sampler_key)
+                if not qc_layout:
+                    continue
+                try:
+                    QCLayoutPattern.create(pattern, qc_layout)
+                except ValueError as e:
+                    print(f"  WARNING: {tech}.{pattern_name} + {sampler_key}: {e}")
+                    all_ok = False
+
+    if all_ok:
+        print("  OK: All pattern/layout combinations are valid")
+
+
 # =============================================================================
 # Main Validation Entry Point
 # =============================================================================
@@ -471,6 +508,9 @@ def validate_all_configs(config_dir: Path | str) -> bool:
 
     # Cross-validate TOML configs against samples
     _cross_validate_sample_refs(samples, queue_patterns, qc_layouts)
+
+    # Cross-validate patterns against QC layouts
+    _cross_validate_qc_layout_patterns(queue_patterns, qc_layouts)
 
     # Summary
     if errors:
