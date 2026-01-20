@@ -2,7 +2,8 @@ pattern depends on plate or vial sampler.
 
 there is no Mclass plate Sampler. --> remove. 
 
-Evosep A1-1
+Evosep 
+A1-1
 B1- 13
 C1- 25.....
 

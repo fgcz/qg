@@ -16,7 +16,7 @@ from qg.config_models import QueuePattern, Sample
 from qg.generator import MethodResolver
 from qg.params_models import QueueInput
 from qg.positions import QCLayoutPattern, create_sampler
-from qg.queue_structure import extract_groups
+from qg.queue_structure import _extract_groups
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +91,7 @@ class QueueGeneratorBuilder:
         samples_config = self._resolve_samples_config(params.technology, pattern)
 
         # Extract groups from QueueInput
-        groups = extract_groups(queue_input)
+        groups = _extract_groups(queue_input)
         primary_container_id = queue_input.get_primary_container_id()
 
         # Resolve data path (uses primary container)

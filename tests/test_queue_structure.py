@@ -8,9 +8,9 @@ from qg.config import qg_config
 from qg.config_models import QueuePattern
 from qg.queue_structure import (
     build_multi_container_queue_structure,
-    compute_extended_positions,
-    compute_middle_block_positions,
-    compute_queue_counts,
+    _compute_extended_positions,
+    _compute_middle_block_positions,
+    _compute_queue_counts,
 )
 
 
@@ -83,7 +83,7 @@ class TestComputeMiddleBlockPositions:
         ],
     )
     def test_positions(self, num_samples: int, frequency: int, expected: list[int]) -> None:
-        assert compute_middle_block_positions(num_samples, frequency) == expected
+        assert _compute_middle_block_positions(num_samples, frequency) == expected
 
 
 # =============================================================================
@@ -118,7 +118,7 @@ class TestComputeExtendedPositions:
     def test_extended_positions(
         self, num_blocks: int, multiplier: int, expected: set[int]
     ) -> None:
-        assert compute_extended_positions(num_blocks, multiplier) == expected
+        assert _compute_extended_positions(num_blocks, multiplier) == expected
 
 
 # =============================================================================
@@ -140,7 +140,7 @@ class TestComputeQueueCounts:
     ) -> None:
         """Test queue counts for all pattern/sample combinations."""
         pattern = all_patterns[tech][pattern_name]
-        result = compute_queue_counts(num_samples, pattern)
+        result = _compute_queue_counts(num_samples, pattern)
 
         # Compute expected values
         freq = pattern.run_QC_after_n_samples
@@ -210,7 +210,7 @@ class TestComputeQueueCountsExtended:
     ) -> None:
         """Verify extended blocks are correctly computed for Metabolomics/Lipidomics."""
         pattern = all_patterns[tech][pattern_name]
-        result = compute_queue_counts(num_samples, pattern)
+        result = _compute_queue_counts(num_samples, pattern)
 
         freq = pattern.run_QC_after_n_samples
         num_middle_blocks = (num_samples - 1) // freq if num_samples > 0 else 0
@@ -242,7 +242,7 @@ class TestComputeQueueCountsEdgeCases:
     ) -> None:
         """Test with zero or one sample - should have no middle blocks."""
         pattern = all_patterns[tech][pattern_name]
-        result = compute_queue_counts(num_samples, pattern)
+        result = _compute_queue_counts(num_samples, pattern)
 
         assert result["user_samples"] == num_samples
         assert result["middle_blocks"] == 0
@@ -260,7 +260,7 @@ class TestComputeQueueCountsEdgeCases:
         """Test when num_samples equals frequency (no middle block)."""
         pattern = all_patterns[tech][pattern_name]
         freq = pattern.run_QC_after_n_samples
-        result = compute_queue_counts(freq, pattern)
+        result = _compute_queue_counts(freq, pattern)
 
         # (freq-1)//freq = 0
         assert result["middle_blocks"] == 0
@@ -276,7 +276,7 @@ class TestComputeQueueCountsEdgeCases:
         """Test when num_samples is frequency + 1 (one middle block)."""
         pattern = all_patterns[tech][pattern_name]
         freq = pattern.run_QC_after_n_samples
-        result = compute_queue_counts(freq + 1, pattern)
+        result = _compute_queue_counts(freq + 1, pattern)
 
         # (freq+1-1)//freq = 1
         assert result["middle_blocks"] == 1
@@ -310,7 +310,7 @@ class TestComputeQueueCountsConsistency:
     ) -> None:
         """Verify totals equal sum of components."""
         pattern = all_patterns[tech][pattern_name]
-        result = compute_queue_counts(num_samples, pattern)
+        result = _compute_queue_counts(num_samples, pattern)
 
         # total = start + user + middle + extended + end
         assert result["total"] == (
@@ -361,7 +361,7 @@ class TestBuildQueueStructure:
         """Verify structure length matches computed total."""
         pattern = all_patterns[tech][pattern_name]
         structure = _build_structure(num_samples, pattern)
-        counts = compute_queue_counts(num_samples, pattern)
+        counts = _compute_queue_counts(num_samples, pattern)
 
         assert len(structure) == counts["total"]
 

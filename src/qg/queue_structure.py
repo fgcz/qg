@@ -25,7 +25,7 @@ class SlotEntry:
     container_id: int  # Which container this slot belongs to
 
 
-def extract_groups(
+def _extract_groups(
     source: QueueInput | list[SampleGroup],
 ) -> list[tuple[int, int]]:
     """Extract (container_id, num_samples) tuples from QueueInput or SampleGroup list.
@@ -42,7 +42,7 @@ def extract_groups(
     return [(g.container_id, len(g.samples)) for g in source]
 
 
-def compute_queue_counts(num_samples: int, pattern: QueuePattern) -> dict[str, int]:
+def _compute_queue_counts(num_samples: int, pattern: QueuePattern) -> dict[str, int]:
     """Compute queue slot counts without building the structure.
 
     Args:
@@ -86,7 +86,7 @@ def compute_queue_counts(num_samples: int, pattern: QueuePattern) -> dict[str, i
     return counts
 
 
-def compute_middle_block_positions(num_samples: int, qc_frequency: int) -> list[int]:
+def _compute_middle_block_positions(num_samples: int, qc_frequency: int) -> list[int]:
     """Compute user sample indices after which middle QC blocks are inserted.
 
     Args:
@@ -105,7 +105,7 @@ def compute_middle_block_positions(num_samples: int, qc_frequency: int) -> list[
     return positions
 
 
-def compute_extended_positions(num_middle_blocks: int, multiplier: int) -> set[int]:
+def _compute_extended_positions(num_middle_blocks: int, multiplier: int) -> set[int]:
     """Compute which middle blocks should use middle_extended.
 
     Uses 1-based counting: with multiplier=2, blocks 2,4,6... get extended.
@@ -175,9 +175,9 @@ def build_multi_container_queue_structure(
         # Build group structure (user samples + middle QCs)
         if num_samples > 0:
             middle_positions = set(
-                compute_middle_block_positions(num_samples, pattern.run_QC_after_n_samples)
+                _compute_middle_block_positions(num_samples, pattern.run_QC_after_n_samples)
             )
-            extended_positions = compute_extended_positions(
+            extended_positions = _compute_extended_positions(
                 len(middle_positions), pattern.middle_extended_frequency_multiplier or 0
             )
 

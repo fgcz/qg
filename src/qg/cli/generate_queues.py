@@ -48,10 +48,8 @@ def cli_main() -> None:
                 format="%(name)s: %(message)s",
             )
 
-        # Load configs first (sets polarity_technologies needed for input validation)
         configs = qg_config(config_dir)
 
-        # Load and parse input (requires configs to be loaded for polarity validation)
         with open(input_json) as f:
             input_data = json.load(f)
         queue_input = QueueInput(**input_data)
