@@ -2,7 +2,7 @@
 
 import sys
 
-from qg.config import qg_config
+from qg.config import ConfigValidationError, qg_config
 
 
 def cli_main() -> None:
@@ -15,9 +15,6 @@ def cli_main() -> None:
         qg_config()  # Loads and validates, prints output, raises on failure
         print("\nValidation complete.")
         sys.exit(0)
-    except ValueError as e:
+    except (ValueError, ConfigValidationError) as e:
         print(f"\n{e}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"Failed to load configs: {e}")
         sys.exit(1)

@@ -246,6 +246,56 @@ snakemake clean_all            # Reset
 
 Pipeline: SLD files -> CSV -> params JSON -> generate queue -> compare with original
 
+## Coding Standards
+
+### Exception Handling
+
+**NEVER** use broad exception handling that silently swallows errors:
+
+```python
+# BAD - catches everything, hides bugs
+try:
+    do_something()
+except Exception:
+    pass
+
+# BAD - catches everything, no re-raise
+try:
+    do_something()
+except Exception as e:
+    logger.error(e)
+    return None
+```
+
+**ALWAYS** catch specific exceptions, log with context, and re-raise:
+
+```python
+# GOOD - specific exception, logged, re-raised
+try:
+    data = json.load(f)
+except json.JSONDecodeError as e:
+    logger.exception("Failed to parse JSON from %s", filepath)
+    raise
+
+# GOOD - specific exceptions, converted to domain error
+try:
+    df = pl.read_csv(path)
+except (FileNotFoundError, pl.exceptions.ComputeError) as e:
+    logger.exception("Failed to load CSV from %s", path)
+    raise ConfigurationError(f"Cannot load {path}") from e
+```
+
+If you must handle an error without re-raising (rare), document why:
+
+```python
+# Acceptable - fallback with clear rationale
+try:
+    text = data.decode("utf-16-le")
+except UnicodeDecodeError:
+    # SLD files sometimes use latin-1 encoding as fallback
+    text = data.decode("latin-1", errors="replace")
+```
+
 ## Documentation (`docs/`)
 
 | File | Purpose |

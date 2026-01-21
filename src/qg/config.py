@@ -278,6 +278,58 @@ class ConfigBundle:
     output_formats: OutputFormatsConfig
     methods: MethodsConfig
 
+    def get_valid_samplers(self, tech_area: str | None = None) -> pl.DataFrame:
+        """Get valid (tech_area, sampler) combinations from QC layouts.
+
+        Args:
+            tech_area: Filter to specific tech_area, or None for all
+
+        Returns:
+            DataFrame with columns: tech_area, sampler
+        """
+        rows = []
+        for tech in self.qc_layouts.get_technologies():
+            if tech_area is not None and tech != tech_area:
+                continue
+            for sampler in self.qc_layouts.get_samplers_for_tech_area(tech):
+                rows.append({"tech_area": tech, "sampler": sampler})
+        return pl.DataFrame(rows)
+
+    def get_valid_instruments_samplers(self) -> pl.DataFrame:
+        """Get valid (tech_area, instrument, sampler, output_format) combinations.
+
+        Intersects instruments.csv (tech_area, instrument) with combinations.csv
+        (instrument, sampler, output_format) and filters by QC layouts availability.
+
+        Returns:
+            DataFrame with columns: tech_area, instrument, sampler, output_format
+        """
+        # Build instruments DataFrame (tech_area, instrument)
+        instruments_df = pl.DataFrame([
+            {"tech_area": i.tech_area, "instrument": i.instrument}
+            for i in self.instruments.instruments
+        ])
+
+        # Build combinations DataFrame (instrument, sampler, output_format)
+        combinations_df = self.combinations.to_table()
+
+        # Get valid samplers from QC layouts (tech_area, sampler)
+        valid_samplers_df = self.get_valid_samplers()
+
+        # Join: instruments + combinations on instrument
+        result = instruments_df.join(combinations_df, on="instrument", how="inner")
+
+        # Filter by valid samplers (tech_area, sampler must exist in QC layouts)
+        result = result.join(
+            valid_samplers_df,
+            on=["tech_area", "sampler"],
+            how="inner"
+        )
+
+        return result.select(["tech_area", "instrument", "sampler", "output_format"]).sort(
+            ["tech_area", "instrument", "sampler"]
+        )
+
 
 # =============================================================================
 # Cross-Validation Helpers

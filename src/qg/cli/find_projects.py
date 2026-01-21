@@ -57,7 +57,7 @@ def main():
             "status": p.get("status", ""),
             "countsamples": p.get("countsamples", 0),
             "countorders": p.get("countorders", 0),
-            "tech_area": ", ".join(p.get("tech_area", [])),
+            "tech_area": ", ".join(p.get("technology", [])),
             "created": p.get("created", ""),
         }
         for p in projects

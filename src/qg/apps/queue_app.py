@@ -5,6 +5,7 @@ app = marimo.App(width="full", sql_output="polars")
 
 with app.setup:
     import json
+    import logging
     from datetime import date
     from pathlib import Path
 
@@ -12,6 +13,8 @@ with app.setup:
     import polars as pl
     import pydantic
     from bfabric import Bfabric
+
+    logger = logging.getLogger(__name__)
     from bfabric.config import BfabricAuth, BfabricClientConfig
     from bfabric.config.config_data import ConfigData
 
@@ -54,7 +57,9 @@ def _(configs):
     instruments_df = configs.instruments.to_table()
     combinations_df = configs.combinations.to_table()
     instrument_patterns_df = configs.instrument_patterns.to_table()
-    return combinations_df, instrument_patterns_df, instruments_df
+    # Valid combinations filtered by QC layout availability
+    valid_combinations_df = configs.get_valid_instruments_samplers()
+    return combinations_df, instrument_patterns_df, instruments_df, valid_combinations_df
 
 
 # =============================================================================
@@ -78,7 +83,7 @@ def _(BFABRIC_CACHE_DIR):
             "Type": "Plates" if order.get("plate_count", 0) > 0 else "Vials",
             "Plates": order.get("plate_count", 0),
             "Status": project.get("status", ""),
-            "Area": project.get("tech_area", [""])[0] if project.get("tech_area") else "",
+            "Area": project.get("technology", [""])[0] if project.get("technology") else "",
         }
         for project in _projects_data
         for order in project.get("order", [])
@@ -151,12 +156,13 @@ def _(instruments_df, tech_area_field):
 
 
 @app.cell
-def _(combinations_df, container_type, instrument_field):
-    # Filter samplers by instrument and container type (vial vs plate)
-    mo.stop(not instrument_field.value)
+def _(container_type, instrument_field, tech_area_field, valid_combinations_df):
+    # Filter samplers by tech_area, instrument, container type, and QC layout availability
+    mo.stop(not instrument_field.value or not tech_area_field.value)
     _container_suffix = ".vial" if container_type == "Vials" else ".plate"
     _options = (
-        combinations_df
+        valid_combinations_df
+        .filter(pl.col("tech_area") == tech_area_field.value)
         .filter(pl.col("instrument") == instrument_field.value)
         .filter(pl.col("sampler").str.ends_with(_container_suffix))
         ["sampler"]
@@ -164,10 +170,11 @@ def _(combinations_df, container_type, instrument_field):
         .sort()
         .to_list()
     )
-    # If no matching container type, show all
+    # If no matching container type, show all valid for this tech_area+instrument
     if not _options:
         _options = (
-            combinations_df
+            valid_combinations_df
+            .filter(pl.col("tech_area") == tech_area_field.value)
             .filter(pl.col("instrument") == instrument_field.value)
             ["sampler"]
             .unique()
@@ -183,10 +190,11 @@ def _(combinations_df, container_type, instrument_field):
 
 
 @app.cell
-def _(combinations_df, instrument_field, sampler_field):
-    # Software is derived from combinations.csv
-    mo.stop(not instrument_field.value or not sampler_field.value)
-    _row = combinations_df.filter(
+def _(instrument_field, sampler_field, tech_area_field, valid_combinations_df):
+    # Software is derived from valid_combinations_df
+    mo.stop(not instrument_field.value or not sampler_field.value or not tech_area_field.value)
+    _row = valid_combinations_df.filter(
+        (pl.col("tech_area") == tech_area_field.value) &
         (pl.col("instrument") == instrument_field.value) &
         (pl.col("sampler") == sampler_field.value)
     )
@@ -575,14 +583,16 @@ def _(configs, container_id, queue_parameters, sample_df):
     generation_error = None
 
     if queue_parameters and container_id and sample_df is not None and not sample_df.is_empty():
+        _samples = samples_from_dataframe(sample_df)
+        _sample_group = SampleGroup(container_id=container_id, samples=_samples)
+        _queue_input = QueueInput(parameters=queue_parameters, sample_groups=[_sample_group])
+        _builder = QueueGeneratorBuilder(configs)
         try:
-            _samples = samples_from_dataframe(sample_df)
-            _sample_group = SampleGroup(container_id=container_id, samples=_samples)
-            _queue_input = QueueInput(parameters=queue_parameters, sample_groups=[_sample_group])
-            _builder = QueueGeneratorBuilder(configs)
             _generator = _builder.build(_queue_input)
             generated_queue_df = _generator.generate(_queue_input.get_all_samples())
-        except Exception as e:
+        except ValueError as e:
+            # Config errors (missing QC layout, etc.) - log and display to user
+            logger.exception("Queue generation failed")
             generation_error = str(e)
 
     return generated_queue_df, generation_error
@@ -592,7 +602,10 @@ def _(configs, container_id, queue_parameters, sample_df):
 def _(generated_queue_df, generation_error):
     # Queue Preview tab content
     if generation_error:
-        queue_preview_content = mo.callout(f"Generation error: {generation_error}", kind="danger")
+        queue_preview_content = mo.callout(
+            mo.md(f"**Generation Error:** {generation_error}"),
+            kind="danger"
+        )
     elif generated_queue_df is not None:
         queue_preview_content = mo.vstack([
             mo.md(f"**{len(generated_queue_df)} rows**"),
@@ -604,12 +617,23 @@ def _(generated_queue_df, generation_error):
 
 
 @app.cell
-def _(parameters_content, queue_preview_content, sample_selection_content):
+def _(valid_combinations_df):
+    # Valid Combinations tab content - shows all valid (tech_area, instrument, sampler) combos
+    valid_combinations_content = mo.vstack([
+        mo.md(f"**{len(valid_combinations_df)} valid combinations** (filtered by QC layout availability)"),
+        valid_combinations_df,
+    ])
+    return (valid_combinations_content,)
+
+
+@app.cell
+def _(parameters_content, queue_preview_content, sample_selection_content, valid_combinations_content):
     # Tabbed interface for the right panel
     right_panel_tabs = mo.ui.tabs({
         "Queue Preview": queue_preview_content,
         "Sample Selection": sample_selection_content,
         "Parameters": parameters_content,
+        "Valid Combinations": valid_combinations_content,
     })
     right_panel_tabs
     return (right_panel_tabs,)

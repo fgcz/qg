@@ -283,11 +283,8 @@ def parse_sld_file(filepath: str | Path) -> list[dict]:
     with open(filepath, "rb") as f:
         raw_data = f.read()
 
-    # Decode from UTF-16LE, ignoring errors for binary portions
-    try:
-        text = raw_data.decode("utf-16-le", errors="replace")
-    except Exception:
-        text = raw_data.decode("latin-1", errors="replace")
+    # Decode from UTF-16LE, replacing invalid sequences
+    text = raw_data.decode("utf-16-le", errors="replace")
 
     # Try new format first (with JSON blocks), fall back to old format
     samples = parse_sld_file_new_format(text)

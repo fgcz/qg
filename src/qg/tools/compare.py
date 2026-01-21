@@ -96,7 +96,7 @@ def compare_queues(generated_path: str | Path, original_path: str | Path, config
         gen_df = pl.read_csv(generated_path)
         # Read original CSV (SLD format)
         orig_df = pl.read_csv(original_path)
-    except Exception as e:
+    except (pl.exceptions.ComputeError, OSError) as e:
         result["status"] = "error"
         result["comparison_result"] = 0
         result["errors"].append(f"Failed to read CSVs: {e}")

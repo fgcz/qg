@@ -51,8 +51,9 @@ def merge_all_csvs(base_path: Path) -> pl.DataFrame:
                     pl.lit(csv_file.stem).alias("source_file"),
                 ])
                 all_dfs.append(df)
-            except Exception as e:
-                print(f"Error reading {csv_file}: {e}")
+            except (pl.exceptions.ComputeError, OSError) as e:
+                # Log and continue - don't let one bad file stop the merge
+                print(f"Warning: skipping {csv_file}: {e}")
 
     if not all_dfs:
         return pl.DataFrame()

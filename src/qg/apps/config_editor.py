@@ -10,6 +10,7 @@ with app.setup:
     import marimo as mo
     import polars as pl
 
+    from qg.config import ConfigValidationError
     from qg.config_store import config_store
 
 
@@ -221,8 +222,8 @@ def _(sampler_editor, samples_editor, patterns_editor, qc_layouts_grid_editor, q
     def safe_parse_toml(content: str) -> dict:
         try:
             return tomllib.loads(content)
-        except Exception:
-            return {"error": "Failed to parse TOML"}
+        except tomllib.TOMLDecodeError as e:
+            return {"error": f"Failed to parse TOML: {e}"}
 
     # Convert samples DataFrame to dict: {tech_area: {sample_id: {...}}}
     def samples_df_to_dict(df) -> dict:
@@ -455,11 +456,8 @@ def _(
     _methods_path = store.config_dir / _methods_file if _methods_file else None
     _methods_preview = None
     if _methods_path and _methods_path.exists():
-        try:
-            _methods_df = store.get_methods(_methods_path)
-            _methods_preview = _methods_df.head(10)
-        except Exception:
-            _methods_preview = None
+        _methods_df = store.get_methods(_methods_path)
+        _methods_preview = _methods_df.head(10)
 
     selected_config = {
         "tech": tech,
@@ -653,7 +651,7 @@ def _(
             mo.md("**All validations passed!**"),
             kind="success",
         )
-    except Exception as e:
+    except ConfigValidationError as e:
         validation_result = mo.callout(
             mo.vstack([
                 mo.md("**Validation failed:**"),
@@ -708,10 +706,10 @@ def _(
             mo.md(f"**Saved {len(saved_files)} file(s) successfully!**"),
             kind="success",
         )
-    except Exception as e:
+    except (ConfigValidationError, OSError) as e:
         save_result = mo.callout(
             mo.vstack([
-                mo.md("**Cannot save: validation failed:**"),
+                mo.md("**Cannot save:**"),
                 mo.md(f"```\n{e}\n```"),
             ]),
             kind="danger",

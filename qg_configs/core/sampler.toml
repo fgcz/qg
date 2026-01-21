@@ -32,14 +32,14 @@ plates = ["Y", "R", "B", "G"]
 container_type = "Vial"
 position_source = "generated"
 fill_order = "row_major"
-position_format = "{plate}:{row}{col}"
+grid_position_format = "{row}{col}"  # How row+col becomes grid_position (e.g., "A1")
 sample_rows = ["A", "B", "C", "D", "E"]
 cols = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 [Vanquish.plate]
 container_type = "Plate"
 position_source = "input"
-position_format = "{plate}:{grid_position}"
+# grid_position comes from input, no format needed
 sample_rows = ["A", "B", "C", "D", "E", "F", "G"]
 cols = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 
@@ -59,12 +59,12 @@ cols = [1, 2, 3, 4, 5, 6, 7, 8]
 container_type = "Vial"
 position_source = "generated"
 fill_order = "row_major"
-position_format = "{plate}:{row}{col}"
+grid_position_format = "{row}{col}"  # How row+col becomes grid_position (e.g., "A1")
 
 [MClass48.plate]
 container_type = "Plate"
 position_source = "input"
-position_format = "{plate}:{grid_position}"
+# grid_position comes from input, no format needed
 
 # =============================================================================
 # Evosep Sampler
@@ -82,7 +82,10 @@ positions_per_slot = 96
 container_type = "Vial"
 position_source = "generated"
 fill_order = "sequential"
+# grid_position is numeric (1-96), no format needed
 
 [Evosep.plate]
 container_type = "Plate"
 position_source = "input"
+# B-Fabric sends grid_position like "A1" - convert to numeric position
+grid_position_conversion = "grid_to_number"  # A1->1, A2->2, ..., B1->13, etc.

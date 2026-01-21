@@ -179,8 +179,8 @@ class TestEvosepVialSamplerIntegration:
         # 1. Load pattern
         pattern = configs.queue_patterns.get_pattern("Proteomics", "standard")
 
-        # 2. Load QC layout for Evosep
-        qc_layout = configs.qc_layouts.get_layout("Proteomics", "Evosep")
+        # 2. Load QC layout for Evosep.vial
+        qc_layout = configs.qc_layouts.get_layout("Proteomics", "Evosep.vial")
 
         # 3. Create validated QCLayoutPattern
         qc_layout_pattern = QCLayoutPattern.create(pattern, qc_layout)

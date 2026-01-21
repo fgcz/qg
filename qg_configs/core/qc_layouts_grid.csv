@@ -9,11 +9,11 @@ Proteomics,Vanquish.plate,QC01,B,H,9
 Proteomics,Vanquish.plate,QC03dia,B,H,10
 Proteomics,Vanquish.plate,QC03dda,B,H,10
 Proteomics,Vanquish.plate,clean,B,H,1
-# Proteomics - MClass48 (QC row F, plate 1 - same for vial and plate)
-Proteomics,MClass48,QC01,1,F,8
-Proteomics,MClass48,QC03dia,1,F,7
-Proteomics,MClass48,QC03dda,1,F,7
-Proteomics,MClass48,clean,1,F,6
+# Proteomics - MClass48 vial (QC row F, plate 1)
+Proteomics,MClass48.vial,QC01,1,F,8
+Proteomics,MClass48.vial,QC03dia,1,F,7
+Proteomics,MClass48.vial,QC03dda,1,F,7
+Proteomics,MClass48.vial,clean,1,F,6
 # Metabolomics - Vanquish vial (QC row F, plate Y)
 Metabolomics,Vanquish.vial,blank,Y,F,1
 Metabolomics,Vanquish.vial,pooledQCDil1,Y,F,2

@@ -110,7 +110,7 @@ def get_proteomics_projects_with_samples(
     # - countsamples tells us if project has samples
     projects_with_samples = []
     for project in projects:
-        technologies = project.get("tech_area", [])
+        technologies = project.get("technology", [])
         if "Proteomics" not in technologies:
             continue
 

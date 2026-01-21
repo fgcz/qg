@@ -17,16 +17,14 @@ app = cyclopts.App(
 
 def extract_instrument_sampler(config_path: str) -> tuple[str, str]:
     """Extract instrument and sampler from config JSON file."""
-    try:
-        config_file = Path(config_path)
-        if config_file.exists():
-            with open(config_file) as f:
-                config = json.load(f)
-            params = config.get("parameters", {})
-            return params.get("instrument", ""), params.get("sampler", "")
-    except Exception:
-        pass
-    return "", ""
+    config_file = Path(config_path)
+    if not config_file.exists():
+        return "", ""
+
+    with open(config_file) as f:
+        config = json.load(f)
+    params = config.get("parameters", {})
+    return params.get("instrument", ""), params.get("sampler", "")
 
 
 def aggregate_results(input_files: list[Path]) -> pl.DataFrame:
