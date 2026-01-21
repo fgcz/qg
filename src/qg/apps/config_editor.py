@@ -83,12 +83,25 @@ def _(CONFIG_DIR):
 
 @app.cell
 def _(CONFIG_DIR):
-    # Core configs
-    qc_layouts_content = (CONFIG_DIR / "core" / "qc_layouts.toml").read_text()
-    qc_layouts_editor = mo.ui.code_editor(
-        qc_layouts_content, language="toml", min_height=400
+    # Core configs - QC layouts (two CSV files)
+    qc_layouts_grid_df = pl.read_csv(
+        CONFIG_DIR / "core" / "qc_layouts_grid.csv", comment_prefix="#"
     )
-    return (qc_layouts_editor,)
+    qc_layouts_grid_editor = mo.ui.data_editor(
+        qc_layouts_grid_df, label="QC Layouts - Grid (Vanquish, MClass48)"
+    )
+    return qc_layouts_grid_df, qc_layouts_grid_editor
+
+
+@app.cell
+def _(CONFIG_DIR):
+    qc_layouts_evosep_df = pl.read_csv(
+        CONFIG_DIR / "core" / "qc_layouts_evosep.csv", comment_prefix="#"
+    )
+    qc_layouts_evosep_editor = mo.ui.data_editor(
+        qc_layouts_evosep_df, label="QC Layouts - Evosep"
+    )
+    return qc_layouts_evosep_df, qc_layouts_evosep_editor
 
 
 @app.cell
@@ -162,10 +175,14 @@ def _(patterns_editor):
 
 
 @app.cell
-def _(qc_layouts_editor):
+def _(qc_layouts_grid_editor, qc_layouts_evosep_editor):
     qc_layouts_tab = mo.vstack([
-        mo.md("### QC Layouts (qc_layouts.toml)"),
-        qc_layouts_editor,
+        mo.md("### QC Layouts - Grid Samplers (qc_layouts_grid.csv)"),
+        mo.md("_Vanquish and MClass48 positions: plate, row, col_"),
+        qc_layouts_grid_editor,
+        mo.md("### QC Layouts - Evosep (qc_layouts_evosep.csv)"),
+        mo.md("_Evosep tip ranges: tray, position_start, position_end_"),
+        qc_layouts_evosep_editor,
     ])
     return (qc_layouts_tab,)
 
@@ -204,7 +221,7 @@ def _(methods_dropdown, methods_editor):
 
 
 @app.cell
-def _(sampler_editor, samples_editor, patterns_editor, qc_layouts_editor, output_formats_editor):
+def _(sampler_editor, samples_editor, patterns_editor, qc_layouts_grid_editor, qc_layouts_evosep_editor, output_formats_editor):
     # Parse TOML content for visualization
     def safe_parse_toml(content: str) -> dict:
         try:
@@ -228,10 +245,49 @@ def _(sampler_editor, samples_editor, patterns_editor, qc_layouts_editor, output
             }
         return result
 
+    # Convert QC layout CSVs to nested dict: {tech: {sampler: {sample_id: position}}}
+    def qc_layouts_df_to_dict(grid_df, evosep_df) -> dict:
+        result = {}
+        # Process grid positions
+        for row in grid_df.iter_rows(named=True):
+            tech = row["technology"]
+            sampler = row["sampler"]
+            sample_id = row["sample_id"]
+            if tech not in result:
+                result[tech] = {}
+            # Parse sampler (e.g., "Vanquish.vial" -> nested dict)
+            parts = sampler.split(".")
+            if len(parts) == 2:
+                base, container = parts
+                if base not in result[tech]:
+                    result[tech][base] = {}
+                if container not in result[tech][base]:
+                    result[tech][base][container] = {}
+                result[tech][base][container][sample_id] = f"{row['plate']}:{row['row']}{row['col']}"
+            else:
+                if sampler not in result[tech]:
+                    result[tech][sampler] = {}
+                result[tech][sampler][sample_id] = f"{row['plate']}:{row['row']}{row['col']}"
+        # Process Evosep positions
+        for row in evosep_df.iter_rows(named=True):
+            tech = row["technology"]
+            sampler = row["sampler"]
+            sample_id = row["sample_id"]
+            if tech not in result:
+                result[tech] = {}
+            if sampler not in result[tech]:
+                result[tech][sampler] = {}
+            result[tech][sampler][sample_id] = {
+                "tray": row["tray"],
+                "position_start": row["position_start"],
+                "position_end": row["position_end"],
+            }
+        return result
+
     sampler_data = safe_parse_toml(sampler_editor.value)
     samples_data = samples_df_to_dict(samples_editor.value)
     patterns_data = safe_parse_toml(patterns_editor.value)
-    qc_layouts_data = safe_parse_toml(qc_layouts_editor.value)
+    qc_layouts_data = qc_layouts_df_to_dict(qc_layouts_grid_editor.value, qc_layouts_evosep_editor.value)
     output_formats_data = safe_parse_toml(output_formats_editor.value)
 
     return sampler_data, samples_data, patterns_data, qc_layouts_data, output_formats_data, safe_parse_toml
@@ -565,18 +621,18 @@ def _():
         sampler_content,
         samples_df,
         patterns_content,
-        qc_layouts_content,
+        qc_layouts_grid_df,
+        qc_layouts_evosep_df,
         output_formats_content,
     ) -> tuple[list[str], list[str]]:
         """Validate all configurations. Returns (errors, warnings)."""
         errors = []
         warnings = []
 
-        # Validate TOML syntax
+        # Validate TOML syntax (no longer includes qc_layouts)
         for content, name in [
             (sampler_content, "sampler.toml"),
             (patterns_content, "queue_patterns.toml"),
-            (qc_layouts_content, "qc_layouts.toml"),
             (output_formats_content, "output_formats.toml"),
         ]:
             errors.extend(validate_toml(content, name))
@@ -589,11 +645,21 @@ def _():
         try:
             samplers = tomllib.loads(sampler_content)
             patterns = tomllib.loads(patterns_content)
-            _qc_layouts = tomllib.loads(qc_layouts_content)  # noqa: F841 parsed for syntax validation
             output_formats = tomllib.loads(output_formats_content)
         except Exception as e:
             errors.append(f"Failed to parse TOML: {e}")
             return errors, warnings
+
+        # Validate QC layouts CSV structure
+        required_grid_cols = {"technology", "sampler", "sample_id", "plate", "row", "col"}
+        if not required_grid_cols.issubset(set(qc_layouts_grid_df.columns)):
+            missing = required_grid_cols - set(qc_layouts_grid_df.columns)
+            errors.append(f"qc_layouts_grid.csv: Missing required columns: {missing}")
+
+        required_evosep_cols = {"technology", "sampler", "sample_id", "tray", "position_start", "position_end"}
+        if not required_evosep_cols.issubset(set(qc_layouts_evosep_df.columns)):
+            missing = required_evosep_cols - set(qc_layouts_evosep_df.columns)
+            errors.append(f"qc_layouts_evosep.csv: Missing required columns: {missing}")
 
         # Convert samples_df to dict for validation
         samples = {}
@@ -672,7 +738,8 @@ def _(
     instruments_editor,
     output_formats_editor,
     patterns_editor,
-    qc_layouts_editor,
+    qc_layouts_grid_editor,
+    qc_layouts_evosep_editor,
     sampler_editor,
     samples_editor,
     validate_button,
@@ -686,7 +753,8 @@ def _(
         sampler_editor.value,
         samples_editor.value,
         patterns_editor.value,
-        qc_layouts_editor.value,
+        qc_layouts_grid_editor.value,
+        qc_layouts_evosep_editor.value,
         output_formats_editor.value,
     )
     if validation_errors:
@@ -725,7 +793,8 @@ def _(
     methods_options,
     output_formats_editor,
     patterns_editor,
-    qc_layouts_editor,
+    qc_layouts_grid_editor,
+    qc_layouts_evosep_editor,
     sampler_editor,
     samples_editor,
     save_button,
@@ -741,7 +810,8 @@ def _(
         sampler_editor.value,
         samples_editor.value,
         patterns_editor.value,
-        qc_layouts_editor.value,
+        qc_layouts_grid_editor.value,
+        qc_layouts_evosep_editor.value,
         output_formats_editor.value,
     )
 
@@ -754,6 +824,8 @@ def _(
         # Save core CSV files
         instruments_editor.value.write_csv(CONFIG_DIR / "core" / "instruments.csv")
         samples_editor.value.write_csv(CONFIG_DIR / "core" / "samples.csv")
+        qc_layouts_grid_editor.value.write_csv(CONFIG_DIR / "core" / "qc_layouts_grid.csv")
+        qc_layouts_evosep_editor.value.write_csv(CONFIG_DIR / "core" / "qc_layouts_evosep.csv")
 
         # Save UI CSV files
         instrument_patterns_editor.value.write_csv(CONFIG_DIR / "ui" / "instrument_patterns.csv")
@@ -762,7 +834,6 @@ def _(
         # Save core TOML files
         (CONFIG_DIR / "core" / "sampler.toml").write_text(sampler_editor.value)
         (CONFIG_DIR / "core" / "queue_patterns.toml").write_text(patterns_editor.value)
-        (CONFIG_DIR / "core" / "qc_layouts.toml").write_text(qc_layouts_editor.value)
         (CONFIG_DIR / "core" / "output_formats.toml").write_text(output_formats_editor.value)
 
         # Save selected methods file
