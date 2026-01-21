@@ -68,7 +68,7 @@ def _(BFABRIC_CACHE_DIR):
             "Type": "Plates" if order.get("plate_count", 0) > 0 else "Vials",
             "Plates": order.get("plate_count", 0),
             "Status": project.get("status", ""),
-            "Area": project.get("technology", [""])[0] if project.get("technology") else "",
+            "Area": project.get("tech_area", [""])[0] if project.get("tech_area") else "",
         }
         for project in _projects_data
         for order in project.get("order", [])
@@ -96,7 +96,7 @@ def _(project_table):
     # Provide defaults so sidebar shows immediately, update when project selected
     if project_table.value.is_empty():
         container_id = None
-        selected_area = "Proteomics"  # Default technology
+        selected_area = "Proteomics"  # Default tech_area
         container_type = "Vials"  # Default container type
     else:
         container_id = int(project_table.value["Container ID"][0])
@@ -112,21 +112,21 @@ def _(project_table):
 
 @app.cell
 def _(instruments_df, selected_area):
-    _options = sorted(instruments_df["technology"].unique().to_list())
-    technology_field = mo.ui.dropdown(
+    _options = sorted(instruments_df["tech_area"].unique().to_list())
+    tech_area_field = mo.ui.dropdown(
         options=_options,
         value=selected_area if selected_area in _options else _options[0],
-        label="Technology"
+        label="tech_area"
     )
-    return (technology_field,)
+    return (tech_area_field,)
 
 
 @app.cell
-def _(instruments_df, technology_field):
-    mo.stop(not technology_field.value)
+def _(instruments_df, tech_area_field):
+    mo.stop(not tech_area_field.value)
     _options = (
         instruments_df
-        .filter(pl.col("technology") == technology_field.value)
+        .filter(pl.col("tech_area") == tech_area_field.value)
         ["instrument"]
         .unique()
         .sort()
@@ -185,13 +185,13 @@ def _(combinations_df, instrument_field, sampler_field):
 
 
 @app.cell
-def _(instrument_field, instrument_patterns_df, technology_field):
-    # Pattern dropdown filtered by technology + instrument
-    mo.stop(not technology_field.value or not instrument_field.value)
+def _(instrument_field, instrument_patterns_df, tech_area_field):
+    # Pattern dropdown filtered by tech_area + instrument
+    mo.stop(not tech_area_field.value or not instrument_field.value)
     _patterns_df = (
         instrument_patterns_df
         .filter(
-            (pl.col("technology") == technology_field.value) &
+            (pl.col("tech_area") == tech_area_field.value) &
             (pl.col("instrument") == instrument_field.value)
         )
         .sort("is_default", descending=True)
@@ -206,10 +206,10 @@ def _(instrument_field, instrument_patterns_df, technology_field):
 
 
 @app.cell
-def _(configs, pattern_field, technology_field):
+def _(configs, pattern_field, tech_area_field):
     # Get default QC frequency from selected pattern
-    mo.stop(not technology_field.value or not pattern_field.value)
-    _pattern = configs.queue_patterns.get_pattern(technology_field.value, pattern_field.value)
+    mo.stop(not tech_area_field.value or not pattern_field.value)
+    _pattern = configs.queue_patterns.get_pattern(tech_area_field.value, pattern_field.value)
     default_qc_frequency = _pattern.run_QC_after_n_samples if _pattern else 16
     return (default_qc_frequency,)
 
@@ -225,10 +225,10 @@ def _(default_qc_frequency):
 
 
 @app.cell
-def _(configs, instrument_field, technology_field):
+def _(configs, instrument_field, tech_area_field):
     # Load available methods from config
-    mo.stop(not technology_field.value or not instrument_field.value)
-    methods_df = configs.methods.to_table(technology_field.value, instrument_field.value)
+    mo.stop(not tech_area_field.value or not instrument_field.value)
+    methods_df = configs.methods.to_table(tech_area_field.value, instrument_field.value)
     return (methods_df,)
 
 
@@ -338,7 +338,7 @@ def _(
     qc_frequency_field,
     randomization_field,
     sampler_field,
-    technology_field,
+    tech_area_field,
     user_field,
 ):
     # Build sidebar content - show title always, inputs only after order selected
@@ -354,7 +354,7 @@ def _(
 
         _sidebar_items.extend([
             mo.md("### Instrument"),
-            technology_field,
+            tech_area_field,
             instrument_field,
             sampler_field,
             mo.md(f"**Output:** {output_format_value}"),
@@ -443,7 +443,7 @@ def _(
     randomization_field,
     sampler_field,
     output_format_value,
-    technology_field,
+    tech_area_field,
     user_field,
 ):
     queue_parameters_err = None
@@ -462,7 +462,7 @@ def _(
 
         queue_parameters = QueueParameters.model_validate(
             {
-                "technology": technology_field.value,
+                "tech_area": tech_area_field.value,
                 "instrument": instrument_field.value,
                 "sampler": sampler_field.value,
                 "output_format": output_format_value,
@@ -498,7 +498,7 @@ def _(container_id, queue_parameters, sample_df, save_button, save_folder):
     _output_dir = Path(save_folder.value)
     _output_dir.mkdir(exist_ok=True, parents=True)
     _n_samples = len(sample_df)
-    _tech = queue_parameters.technology
+    _tech = queue_parameters.tech_area
     _sampler = queue_parameters.sampler.replace(".", "_")
     _filepath = _output_dir / f"{_tech}_{_sampler}_c{container_id}_n{_n_samples}.json"
     write_params(_queue_input, _filepath)

@@ -100,7 +100,7 @@ def _qc_layouts_from_dfs(
 
     if grid_df is not None:
         for row in grid_df.iter_rows(named=True):
-            tech = row["technology"]
+            tech = row["tech_area"]
             sampler = row["sampler"]
             sample_id = row["sample_id"]
             position: QCPosition = {
@@ -116,7 +116,7 @@ def _qc_layouts_from_dfs(
 
     if evosep_df is not None:
         for row in evosep_df.iter_rows(named=True):
-            tech = row["technology"]
+            tech = row["tech_area"]
             sampler = row["sampler"]
             sample_id = row["sample_id"]
             position = EvosepPosition(
@@ -145,7 +145,7 @@ def _methods_from_dfs(
     methods: dict[str, dict[str, list[Method]]] = {}
 
     for instr in instruments.instruments:
-        tech = instr.technology
+        tech = instr.tech_area
         # Find matching DataFrame by checking if path ends with methods_file (case-insensitive)
         methods_file_suffix = instr.methods_file.removeprefix("methods/").lower()
         matching_df = None
@@ -247,7 +247,7 @@ def _load_methods(methods_dir: Path, instruments: InstrumentsConfig) -> MethodsC
     methods: dict[str, dict[str, list[Method]]] = {}
 
     for instr in instruments.instruments:
-        tech = instr.technology
+        tech = instr.tech_area
         methods_file = methods_dir / instr.methods_file.removeprefix("methods/")
 
         if not methods_file.exists():
@@ -293,8 +293,8 @@ def _cross_validate_instrument_refs(
     warnings: list[str] = []
 
     logger.info("Cross-validating instrument_patterns against instruments...")
-    valid_instruments = {(i.technology, i.instrument) for i in instruments.instruments}
-    pattern_instruments = {(p.technology, p.instrument) for p in instrument_patterns.patterns}
+    valid_instruments = {(i.tech_area, i.instrument) for i in instruments.instruments}
+    pattern_instruments = {(p.tech_area, p.instrument) for p in instrument_patterns.patterns}
     unknown = pattern_instruments - valid_instruments
     if unknown:
         msg = f"instrument_patterns reference unknown instruments: {unknown}"
@@ -350,7 +350,7 @@ def _cross_validate_sample_refs(
     all_ok = True
     for tech in queue_patterns.get_technologies():
         pattern_refs = queue_patterns.get_all_sample_refs(tech)
-        valid_sample_ids = {s.sample_id for s in samples.get_by_technology(tech)}
+        valid_sample_ids = {s.sample_id for s in samples.get_by_tech_area(tech)}
         unknown = pattern_refs - valid_sample_ids
         if unknown:
             msg = f"{tech} patterns reference unknown samples: {unknown}"
@@ -363,8 +363,8 @@ def _cross_validate_sample_refs(
     logger.info("Cross-validating qc_layouts against samples...")
     all_ok = True
     for tech in qc_layouts.get_technologies():
-        valid_sample_ids = {s.sample_id for s in samples.get_by_technology(tech)}
-        for sampler_key in qc_layouts.get_samplers_for_technology(tech):
+        valid_sample_ids = {s.sample_id for s in samples.get_by_tech_area(tech)}
+        for sampler_key in qc_layouts.get_samplers_for_tech_area(tech):
             layout = qc_layouts.get_layout(tech, sampler_key)
             if layout:
                 layout_samples = set(layout.keys())
@@ -386,7 +386,7 @@ def _cross_validate_qc_layout_patterns(
 ) -> list[str]:
     """Cross-validate that patterns and QC layouts are compatible.
 
-    Validates all (technology, pattern, sampler) combinations using
+    Validates all (tech_area, pattern, sampler) combinations using
     QCLayoutPattern.create() to check:
     - Coverage: All QC IDs in pattern have positions in qc_layout
     - Uniqueness: No two QC samples map to the same position
@@ -396,8 +396,8 @@ def _cross_validate_qc_layout_patterns(
     all_ok = True
 
     for tech in queue_patterns.get_technologies():
-        tech_patterns = queue_patterns.get_patterns_for_technology(tech)
-        samplers = qc_layouts.get_samplers_for_technology(tech)
+        tech_patterns = queue_patterns.get_patterns_for_tech_area(tech)
+        samplers = qc_layouts.get_samplers_for_tech_area(tech)
 
         for pattern_name, pattern in tech_patterns.items():
             for sampler_key in samplers:
@@ -422,14 +422,14 @@ def _print_config_summary(bundle: ConfigBundle) -> None:
     """Print summary of loaded configs."""
     logger.info("Validating samples.csv...")
     logger.info(f"  OK: {len(bundle.samples.samples)} samples")
-    for tech in sorted({s.technology for s in bundle.samples.samples}):
-        count = len(bundle.samples.get_by_technology(tech))
+    for tech in sorted({s.tech_area for s in bundle.samples.samples}):
+        count = len(bundle.samples.get_by_tech_area(tech))
         logger.info(f"    - {tech}: {count} samples")
 
     logger.info("Validating instruments.csv...")
     logger.info(f"  OK: {len(bundle.instruments.instruments)} instruments")
-    for tech in sorted({i.technology for i in bundle.instruments.instruments}):
-        count = len(bundle.instruments.get_by_technology(tech))
+    for tech in sorted({i.tech_area for i in bundle.instruments.instruments}):
+        count = len(bundle.instruments.get_by_tech_area(tech))
         logger.info(f"    - {tech}: {count} instruments")
 
     logger.info("Validating instrument_patterns.csv...")
@@ -449,12 +449,12 @@ def _print_config_summary(bundle: ConfigBundle) -> None:
 
     logger.info("Validating queue_patterns.toml...")
     for tech in bundle.queue_patterns.get_technologies():
-        tech_patterns = bundle.queue_patterns.get_patterns_for_technology(tech)
+        tech_patterns = bundle.queue_patterns.get_patterns_for_tech_area(tech)
         logger.info(f"  OK: {tech}: {len(tech_patterns)} patterns")
 
     logger.info("Validating qc_layouts CSVs...")
     for tech in bundle.qc_layouts.get_technologies():
-        sampler_count = len(bundle.qc_layouts.get_samplers_for_technology(tech))
+        sampler_count = len(bundle.qc_layouts.get_samplers_for_tech_area(tech))
         logger.info(f"  OK: {tech}: {sampler_count} sampler layouts")
 
     logger.info("Validating output_formats.toml...")

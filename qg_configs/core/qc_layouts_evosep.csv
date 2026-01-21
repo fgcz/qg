@@ -1,4 +1,4 @@
-technology,sampler,sample_id,tray,position_start,position_end
+tech_area,sampler,sample_id,tray,position_start,position_end
 # Proteomics - Evosep (Tray 5: QC samples, Tray 6: clean/wash)
 Proteomics,Evosep,QC01,5,1,48
 Proteomics,Evosep,QC03dia,5,49,96

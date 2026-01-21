@@ -1,4 +1,4 @@
-technology,instrument,queue_pattern,is_default
+tech_area,instrument,queue_pattern,is_default
 Proteomics,ASTRAL_1,standard,true
 Proteomics,ASTRAL_1,frequent,false
 Proteomics,ASTRAL_1,minimal,false

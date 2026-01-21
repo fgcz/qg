@@ -50,13 +50,13 @@ def make_queue_input(params: QueueParameters, samples: list[InputSample], contai
 def find_combination_for_format(
     configs: ConfigBundle, ui_configs, output_format: str
 ) -> tuple[str, str, str]:
-    """Find a valid (technology, instrument, sampler) for the given output format."""
+    """Find a valid (tech_area, instrument, sampler) for the given output format."""
     for combo in ui_configs.combinations.combinations:
         if combo.output_format == output_format:
-            # Look up technology for this instrument
+            # Look up tech_area for this instrument
             for instr in configs.instruments.instruments:
                 if instr.instrument == combo.instrument:
-                    return instr.technology, combo.instrument, combo.sampler
+                    return instr.tech_area, combo.instrument, combo.sampler
     raise ValueError(f"No combination found for output_format={output_format}")
 
 
@@ -79,12 +79,12 @@ class TestOutputFormats:
     @pytest.mark.parametrize("output_format", ["xcalibur", "chronos", "hystar"])
     def test_output_format_has_expected_columns(self, configs, ui_configs, builder, output_format: str):
         """Each output format produces a DataFrame with the configured columns."""
-        technology, instrument, sampler = find_combination_for_format(configs, ui_configs, output_format)
+        tech_area, instrument, sampler = find_combination_for_format(configs, ui_configs, output_format)
         expected_columns = get_expected_columns(configs, output_format)
         samples = make_samples(1)
 
         params = QueueParameters(
-                        technology=technology,
+                        tech_area=tech_area,
             instrument=instrument,
             sampler=sampler,
             output_format=output_format,
@@ -104,11 +104,11 @@ class TestOutputFormats:
     @pytest.mark.parametrize("output_format", ["xcalibur", "chronos", "hystar"])
     def test_output_format_single_sample_row_count(self, configs, ui_configs, builder, output_format: str):
         """Single sample with noqc pattern produces exactly 1 row (proteomics, no polarity)."""
-        technology, instrument, sampler = find_combination_for_format(configs, ui_configs, output_format)
+        tech_area, instrument, sampler = find_combination_for_format(configs, ui_configs, output_format)
         samples = make_samples(1)
 
         params = QueueParameters(
-                        technology=technology,
+                        tech_area=tech_area,
             instrument=instrument,
             sampler=sampler,
             output_format=output_format,
@@ -129,7 +129,7 @@ class TestNoQCPattern:
     """Tests for noqc queue pattern - output should only contain user samples."""
 
     @pytest.mark.parametrize(
-        "technology,instrument,sampler,expected_multiplier",
+        "tech_area,instrument,sampler,expected_multiplier",
         [
             pytest.param("Proteomics", "ASTRAL_1", "Vanquish.vial", 1, id="Proteomics"),
             pytest.param("Metabolomics", "EXPLORIS_3", "Vanquish.vial", 2, id="Metabolomics"),
@@ -140,7 +140,7 @@ class TestNoQCPattern:
     def test_noqc_row_count(
         self,
         builder,
-        technology: str,
+        tech_area: str,
         instrument: str,
         sampler: str,
         expected_multiplier: int,
@@ -151,7 +151,7 @@ class TestNoQCPattern:
         # Set polarity explicitly: proteomics=pos only, others=pos+neg
         polarity = ["pos", "neg"] if expected_multiplier == 2 else ["pos"]
         params = QueueParameters(
-            technology=technology,
+            tech_area=tech_area,
             instrument=instrument,
             sampler=sampler,
             output_format="xcalibur",
@@ -167,7 +167,7 @@ class TestNoQCPattern:
 
         expected = num_samples * expected_multiplier
         assert len(result) == expected, (
-            f"{technology} noqc {num_samples} samples: expected {expected}, got {len(result)}"
+            f"{tech_area} noqc {num_samples} samples: expected {expected}, got {len(result)}"
         )
 
 
@@ -179,7 +179,7 @@ class TestQCOnlyPattern:
         """qc_only pattern returns N + 6 rows (3 start + N samples + 3 end)."""
         samples = make_samples(num_samples)
         params = QueueParameters(
-                        technology="Proteomics",
+                        tech_area="Proteomics",
             instrument="ASTRAL_1",
             sampler="Vanquish.vial",
             output_format="xcalibur",
@@ -206,7 +206,7 @@ class TestMetabolomicsBlankPattern:
         """blank pattern returns (N + 6) * 2 rows (3 start + N samples + 3 end) * 2 polarities."""
         samples = make_samples(num_samples)
         params = QueueParameters(
-            technology="Metabolomics",
+            tech_area="Metabolomics",
             instrument="EXPLORIS_3",
             sampler="Vanquish.vial",
             output_format="xcalibur",

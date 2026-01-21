@@ -58,7 +58,7 @@ def make_queue_input(
     groups: list[tuple[int, int]] | None = None,
     *,
     num_samples: int = 5,
-    technology: str = "Proteomics",
+    tech_area: str = "Proteomics",
     instrument: str = "ASTRAL_1",
     sampler: str = "Vanquish.vial",
     queue_pattern: str = "standard",
@@ -74,7 +74,7 @@ def make_queue_input(
     Args:
         groups: Optional list of (container_id, num_samples) tuples for multi-group.
         num_samples: Number of samples (single-group mode only).
-        technology: Technology identifier.
+        tech_area: Technology identifier.
         instrument: Instrument name.
         sampler: Sampler name (e.g., "Vanquish.vial").
         queue_pattern: Queue pattern name.
@@ -85,7 +85,7 @@ def make_queue_input(
         QueueInput object for testing.
     """
     params = QueueParameters(
-        technology=technology,
+        tech_area=tech_area,
         instrument=instrument,
         sampler=sampler,
         output_format=output_format,

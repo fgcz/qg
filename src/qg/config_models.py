@@ -51,8 +51,8 @@ VALID_PLACEHOLDERS = {
 class Sample(BaseModel):
     """A QC or default sample definition."""
 
-    technology: str = Field(..., min_length=1, description="Technology identifier")
-    sample_id: str = Field(..., min_length=1, description="Unique sample ID within technology")
+    tech_area: str = Field(..., min_length=1, description="tech_area identifier")
+    sample_id: str = Field(..., min_length=1, description="Unique sample ID within tech_area")
     sample_name: str = Field(default="", description="Display name (empty for 'default')")
     description: str = Field(default="", description="Human-readable description")
     inj_vol: float = Field(..., gt=0, description="Injection volume in uL")
@@ -92,31 +92,31 @@ class SamplesConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_unique_keys(self) -> SamplesConfig:
-        """Check that (technology, sample_id) pairs are unique."""
-        keys = [(s.technology, s.sample_id) for s in self.samples]
+        """Check that (tech_area, sample_id) pairs are unique."""
+        keys = [(s.tech_area, s.sample_id) for s in self.samples]
         if len(keys) != len(set(keys)):
             duplicates = [k for k in keys if keys.count(k) > 1]
-            raise ValueError(f"Duplicate (technology, sample_id) pairs: {set(duplicates)}")
+            raise ValueError(f"Duplicate (tech_area, sample_id) pairs: {set(duplicates)}")
         return self
 
     @model_validator(mode="after")
     def validate_each_tech_has_default(self) -> SamplesConfig:
-        """Check that each technology has a 'default' sample."""
-        techs_with_default = {s.technology for s in self.samples if s.sample_id == "default"}
-        all_techs = {s.technology for s in self.samples}
+        """Check that each tech_area has a 'default' sample."""
+        techs_with_default = {s.tech_area for s in self.samples if s.sample_id == "default"}
+        all_techs = {s.tech_area for s in self.samples}
         missing = all_techs - techs_with_default
         if missing:
             raise ValueError(f"Technologies missing 'default' sample: {missing}")
         return self
 
-    def get_by_technology(self, tech: str) -> list[Sample]:
-        """Get all samples for a technology."""
-        return [s for s in self.samples if s.technology == tech]
+    def get_by_tech_area(self, tech: str) -> list[Sample]:
+        """Get all samples for a tech_area."""
+        return [s for s in self.samples if s.tech_area == tech]
 
     def get_sample(self, tech: str, sample_id: str) -> Sample | None:
-        """Get a specific sample by technology and sample_id."""
+        """Get a specific sample by tech_area and sample_id."""
         for s in self.samples:
-            if s.technology == tech and s.sample_id == sample_id:
+            if s.tech_area == tech and s.sample_id == sample_id:
                 return s
         return None
 
@@ -129,7 +129,7 @@ class SamplesConfig(BaseModel):
 class Instrument(BaseModel):
     """An instrument definition."""
 
-    technology: str = Field(..., min_length=1, description="Technology identifier")
+    tech_area: str = Field(..., min_length=1, description="tech_area identifier")
     instrument: str = Field(..., min_length=1, description="Instrument identifier")
     methods_file: str = Field(..., min_length=1, description="Path to methods CSV file")
     path_template: str = Field(default="", description="Data path template with {container}, {user}, {date}")
@@ -152,21 +152,21 @@ class InstrumentsConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_unique_keys(self) -> InstrumentsConfig:
-        """Check that (technology, instrument) pairs are unique."""
-        keys = [(i.technology, i.instrument) for i in self.instruments]
+        """Check that (tech_area, instrument) pairs are unique."""
+        keys = [(i.tech_area, i.instrument) for i in self.instruments]
         if len(keys) != len(set(keys)):
             duplicates = [k for k in keys if keys.count(k) > 1]
-            raise ValueError(f"Duplicate (technology, instrument) pairs: {set(duplicates)}")
+            raise ValueError(f"Duplicate (tech_area, instrument) pairs: {set(duplicates)}")
         return self
 
-    def get_by_technology(self, tech: str) -> list[Instrument]:
-        """Get all instruments for a technology."""
-        return [i for i in self.instruments if i.technology == tech]
+    def get_by_tech_area(self, tech: str) -> list[Instrument]:
+        """Get all instruments for a tech_area."""
+        return [i for i in self.instruments if i.tech_area == tech]
 
     def get_instrument(self, tech: str, instrument: str) -> Instrument | None:
-        """Get a specific instrument by technology and name."""
+        """Get a specific instrument by tech_area and name."""
         for i in self.instruments:
-            if i.technology == tech and i.instrument == instrument:
+            if i.tech_area == tech and i.instrument == instrument:
                 return i
         return None
 
@@ -183,7 +183,7 @@ class InstrumentsConfig(BaseModel):
 class InstrumentPattern(BaseModel):
     """Mapping of instrument to available queue patterns."""
 
-    technology: str = Field(..., min_length=1, description="Technology identifier")
+    tech_area: str = Field(..., min_length=1, description="tech_area identifier")
     instrument: str = Field(..., min_length=1)
     queue_pattern: str = Field(..., min_length=1, description="Pattern name (e.g., standard, frequent)")
     is_default: bool = Field(..., description="Whether this is the default pattern for the instrument")
@@ -196,22 +196,22 @@ class InstrumentPatternsConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_unique_keys(self) -> InstrumentPatternsConfig:
-        """Check that (technology, instrument, queue_pattern) triples are unique."""
-        keys = [(p.technology, p.instrument, p.queue_pattern) for p in self.patterns]
+        """Check that (tech_area, instrument, queue_pattern) triples are unique."""
+        keys = [(p.tech_area, p.instrument, p.queue_pattern) for p in self.patterns]
         if len(keys) != len(set(keys)):
             duplicates = [k for k in keys if keys.count(k) > 1]
-            raise ValueError(f"Duplicate (technology, instrument, queue_pattern) triples: {set(duplicates)}")
+            raise ValueError(f"Duplicate (tech_area, instrument, queue_pattern) triples: {set(duplicates)}")
         return self
 
     @model_validator(mode="after")
     def validate_one_default_per_instrument(self) -> InstrumentPatternsConfig:
-        """Each (technology, instrument) should have exactly one default pattern."""
+        """Each (tech_area, instrument) should have exactly one default pattern."""
         from collections import defaultdict
 
         defaults_count: dict[tuple[str, str], int] = defaultdict(int)
         for p in self.patterns:
             if p.is_default:
-                defaults_count[(p.technology, p.instrument)] += 1
+                defaults_count[(p.tech_area, p.instrument)] += 1
 
         # Check for instruments with multiple defaults
         multi_defaults = {k: v for k, v in defaults_count.items() if v > 1}
@@ -219,7 +219,7 @@ class InstrumentPatternsConfig(BaseModel):
             raise ValueError(f"Instruments with multiple default patterns: {multi_defaults}")
 
         # Check for instruments with no defaults
-        all_instruments = {(p.technology, p.instrument) for p in self.patterns}
+        all_instruments = {(p.tech_area, p.instrument) for p in self.patterns}
         no_defaults = all_instruments - set(defaults_count.keys())
         if no_defaults:
             raise ValueError(f"Instruments with no default pattern: {no_defaults}")
@@ -228,12 +228,12 @@ class InstrumentPatternsConfig(BaseModel):
 
     def get_patterns_for_instrument(self, tech: str, instrument: str) -> list[InstrumentPattern]:
         """Get all patterns for a specific instrument."""
-        return [p for p in self.patterns if p.technology == tech and p.instrument == instrument]
+        return [p for p in self.patterns if p.tech_area == tech and p.instrument == instrument]
 
     def get_default_pattern(self, tech: str, instrument: str) -> InstrumentPattern | None:
         """Get the default pattern for an instrument."""
         for p in self.patterns:
-            if p.technology == tech and p.instrument == instrument and p.is_default:
+            if p.tech_area == tech and p.instrument == instrument and p.is_default:
                 return p
         return None
 
@@ -311,9 +311,9 @@ class QueuePattern(BaseModel):
 
 
 class QueuePatternsConfig(BaseModel):
-    """All queue patterns by technology.
+    """All queue patterns by tech_area.
 
-    Structure: technology -> pattern_name -> QueuePattern
+    Structure: tech_area -> pattern_name -> QueuePattern
     """
 
     patterns: dict[str, dict[str, QueuePattern]] = Field(default_factory=dict)
@@ -323,16 +323,16 @@ class QueuePatternsConfig(BaseModel):
         return list(self.patterns.keys())
 
     def get_pattern(self, tech: str, pattern_name: str) -> QueuePattern | None:
-        """Get a specific pattern by technology and name."""
+        """Get a specific pattern by tech_area and name."""
         tech_patterns = self.patterns.get(tech, {})
         return tech_patterns.get(pattern_name)
 
-    def get_patterns_for_technology(self, tech: str) -> dict[str, QueuePattern]:
-        """Get all patterns for a technology."""
+    def get_patterns_for_tech_area(self, tech: str) -> dict[str, QueuePattern]:
+        """Get all patterns for a tech_area."""
         return self.patterns.get(tech, {})
 
     def get_all_sample_refs(self, tech: str) -> set[str]:
-        """Get all sample IDs referenced by patterns for a technology."""
+        """Get all sample IDs referenced by patterns for a tech_area."""
         refs: set[str] = set()
         tech_patterns = self.patterns.get(tech, {})
         for pattern in tech_patterns.values():
@@ -373,9 +373,9 @@ QCPosition = dict[str, str | int] | EvosepPosition
 
 
 class QCLayoutsConfig(BaseModel):
-    """All QC layouts by technology and sampler.
+    """All QC layouts by tech_area and sampler.
 
-    Structure: technology -> sampler_key -> sample_id -> QCPosition
+    Structure: tech_area -> sampler_key -> sample_id -> QCPosition
     sampler_key examples: "Vanquish.vial", "Vanquish.plate", "MClass48", "Evosep"
     """
 
@@ -386,7 +386,7 @@ class QCLayoutsConfig(BaseModel):
         return list(self.layouts.keys())
 
     def get_layout(self, tech: str, sampler_key: str) -> dict[str, QCPosition] | None:
-        """Get QC layout for technology and sampler.
+        """Get QC layout for tech_area and sampler.
 
         Tries exact key first (e.g., 'Vanquish.vial'), falls back to parent (e.g., 'Vanquish').
         """
@@ -398,8 +398,8 @@ class QCLayoutsConfig(BaseModel):
         parent = sampler_key.split(".")[0]
         return tech_layouts.get(parent)
 
-    def get_samplers_for_technology(self, tech: str) -> list[str]:
-        """Get all sampler keys for a technology."""
+    def get_samplers_for_tech_area(self, tech: str) -> list[str]:
+        """Get all sampler keys for a tech_area."""
         return list(self.layouts.get(tech, {}).keys())
 
 
@@ -454,21 +454,21 @@ class Method(BaseModel):
 
 
 class MethodsConfig(BaseModel):
-    """All methods by technology and instrument.
+    """All methods by tech_area and instrument.
 
-    Structure: technology -> instrument -> list[Method]
+    Structure: tech_area -> instrument -> list[Method]
     """
 
     methods: dict[str, dict[str, list[Method]]] = Field(default_factory=dict)
 
-    def get_methods(self, technology: str, instrument: str) -> list[Method]:
-        """Get methods for a technology/instrument combination."""
-        tech_methods = self.methods.get(technology, {})
+    def get_methods(self, tech_area: str, instrument: str) -> list[Method]:
+        """Get methods for a tech_area/instrument combination."""
+        tech_methods = self.methods.get(tech_area, {})
         return tech_methods.get(instrument, [])
 
-    def to_table(self, technology: str, instrument: str) -> pl.DataFrame:
+    def to_table(self, tech_area: str, instrument: str) -> pl.DataFrame:
         """Get methods as a polars DataFrame."""
-        methods = self.get_methods(technology, instrument)
+        methods = self.get_methods(tech_area, instrument)
         if not methods:
             return pl.DataFrame()
         return pl.DataFrame([m.model_dump() for m in methods])

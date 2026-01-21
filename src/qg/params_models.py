@@ -40,7 +40,7 @@ class SampleGroup(BaseModel):
 class QueueParameters(BaseModel):
     """Queue generation parameters from input JSON."""
 
-    technology: str = Field(..., min_length=1, description="Technology identifier")
+    tech_area: str = Field(..., min_length=1, description="tech_area identifier")
     instrument: str
     sampler: str  # e.g., "Vanquish.vial"
     output_format: str = Field(..., min_length=1, description="Output format identifier")
@@ -91,7 +91,7 @@ def write_params(queue_input: QueueInput, output_path: str | Path) -> Path:
     # Build parameters dict
     params = queue_input.parameters
     params_dict: dict = {
-        "technology": params.technology,
+        "tech_area": params.tech_area,
         "instrument": params.instrument,
         "sampler": params.sampler,
         "output_format": params.output_format,

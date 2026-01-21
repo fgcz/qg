@@ -1,4 +1,4 @@
-technology,sampler,sample_id,plate,row,col
+tech_area,sampler,sample_id,plate,row,col
 # Proteomics - Vanquish vial (QC row F, plate B)
 Proteomics,Vanquish.vial,QC01,B,F,9
 Proteomics,Vanquish.vial,QC03dia,B,F,8

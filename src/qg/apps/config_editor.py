@@ -224,11 +224,11 @@ def _(sampler_editor, samples_editor, patterns_editor, qc_layouts_grid_editor, q
         except Exception:
             return {"error": "Failed to parse TOML"}
 
-    # Convert samples DataFrame to dict: {technology: {sample_id: {...}}}
+    # Convert samples DataFrame to dict: {tech_area: {sample_id: {...}}}
     def samples_df_to_dict(df) -> dict:
         result = {}
         for row in df.iter_rows(named=True):
-            tech = row["technology"]
+            tech = row["tech_area"]
             sid = row["sample_id"]
             if tech not in result:
                 result[tech] = {}
@@ -245,7 +245,7 @@ def _(sampler_editor, samples_editor, patterns_editor, qc_layouts_grid_editor, q
         result = {}
         # Process grid positions
         for row in grid_df.iter_rows(named=True):
-            tech = row["technology"]
+            tech = row["tech_area"]
             sampler = row["sampler"]
             sample_id = row["sample_id"]
             if tech not in result:
@@ -265,7 +265,7 @@ def _(sampler_editor, samples_editor, patterns_editor, qc_layouts_grid_editor, q
                 result[tech][sampler][sample_id] = f"{row['plate']}:{row['row']}{row['col']}"
         # Process Evosep positions
         for row in evosep_df.iter_rows(named=True):
-            tech = row["technology"]
+            tech = row["tech_area"]
             sampler = row["sampler"]
             sample_id = row["sample_id"]
             if tech not in result:
@@ -290,23 +290,23 @@ def _(sampler_editor, samples_editor, patterns_editor, qc_layouts_grid_editor, q
 
 @app.cell
 def _(instruments_df):
-    # Step 1: Technology dropdown
-    technologies = sorted(instruments_df["technology"].unique().to_list())
-    technology_dropdown = mo.ui.dropdown(
+    # Step 1: tech_area dropdown
+    technologies = sorted(instruments_df["tech_area"].unique().to_list())
+    tech_area_dropdown = mo.ui.dropdown(
         options=technologies,
         value=technologies[0] if technologies else None,
-        label="Technology",
+        label="tech_area",
     )
-    return (technology_dropdown,)
+    return (tech_area_dropdown,)
 
 
 @app.cell
-def _(technology_dropdown, instruments_df):
-    # Step 2: Instrument dropdown (filtered by technology)
-    mo.stop(not technology_dropdown.value)
+def _(tech_area_dropdown, instruments_df):
+    # Step 2: Instrument dropdown (filtered by tech_area)
+    mo.stop(not tech_area_dropdown.value)
     filtered_instruments = (
         instruments_df
-        .filter(pl.col("technology") == technology_dropdown.value)
+        .filter(pl.col("tech_area") == tech_area_dropdown.value)
         ["instrument"]
         .unique()
         .sort()
@@ -341,13 +341,13 @@ def _(instrument_dropdown, combinations_df):
 
 
 @app.cell
-def _(technology_dropdown, instrument_dropdown, instrument_patterns_df):
-    # Step 4: Pattern dropdown (filtered by technology + instrument)
-    mo.stop(not technology_dropdown.value or not instrument_dropdown.value)
+def _(tech_area_dropdown, instrument_dropdown, instrument_patterns_df):
+    # Step 4: Pattern dropdown (filtered by tech_area + instrument)
+    mo.stop(not tech_area_dropdown.value or not instrument_dropdown.value)
     filtered_patterns = (
         instrument_patterns_df
         .filter(
-            (pl.col("technology") == technology_dropdown.value) &
+            (pl.col("tech_area") == tech_area_dropdown.value) &
             (pl.col("instrument") == instrument_dropdown.value)
         )
         .sort("is_default", descending=True)
@@ -363,10 +363,10 @@ def _(technology_dropdown, instrument_dropdown, instrument_patterns_df):
 
 
 @app.cell
-def _(technology_dropdown, samples_data):
-    # Step 5: Sample dropdown (filtered by technology)
-    mo.stop(not technology_dropdown.value)
-    tech_samples = samples_data.get(technology_dropdown.value, {})
+def _(tech_area_dropdown, samples_data):
+    # Step 5: Sample dropdown (filtered by tech_area)
+    mo.stop(not tech_area_dropdown.value)
+    tech_samples = samples_data.get(tech_area_dropdown.value, {})
     sample_ids = [sid for sid in tech_samples.keys() if isinstance(tech_samples[sid], dict)]
     sample_dropdown = mo.ui.dropdown(
         options=sample_ids,
@@ -378,7 +378,7 @@ def _(technology_dropdown, samples_data):
 
 @app.cell
 def _(
-    technology_dropdown,
+    tech_area_dropdown,
     instrument_dropdown,
     sampler_dropdown,
     pattern_dropdown,
@@ -393,12 +393,12 @@ def _(
 ):
     # Build the selected configuration view
     mo.stop(
-        not technology_dropdown.value
+        not tech_area_dropdown.value
         or not instrument_dropdown.value
         or not sampler_dropdown.value
     )
 
-    tech = technology_dropdown.value
+    tech = tech_area_dropdown.value
     instr = instrument_dropdown.value
     sampler_key = sampler_dropdown.value  # e.g., "Vanquish.vial"
     pattern_key = pattern_dropdown.value if pattern_dropdown.value else None
@@ -444,12 +444,12 @@ def _(
     # Get pattern config
     pattern_config = patterns_data.get(tech, {}).get(pattern_key, {}) if pattern_key else {}
 
-    # Get samples for this technology (private, used only in selected_config)
+    # Get samples for this tech_area (private, used only in selected_config)
     _tech_samples = samples_data.get(tech, {})
 
     # Get methods file
     instr_row = instruments_df.filter(
-        (pl.col("technology") == tech) & (pl.col("instrument") == instr)
+        (pl.col("tech_area") == tech) & (pl.col("instrument") == instr)
     )
     _methods_file = instr_row["methods_file"][0] if len(instr_row) > 0 else None
     _methods_path = store.config_dir / _methods_file if _methods_file else None
@@ -480,7 +480,7 @@ def _(
 
 @app.cell
 def _(
-    technology_dropdown,
+    tech_area_dropdown,
     instrument_dropdown,
     sampler_dropdown,
     pattern_dropdown,
@@ -519,7 +519,7 @@ def _(
 
     # Dropdowns row 1: main config
     _dropdowns1 = mo.hstack([
-        technology_dropdown,
+        tech_area_dropdown,
         instrument_dropdown,
         sampler_dropdown,
         pattern_dropdown,

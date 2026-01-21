@@ -106,11 +106,11 @@ def get_proteomics_projects_with_samples(
         return []
 
     # Filter to proteomics projects with samples
-    # - technology is a list field, filter client-side
+    # - tech_area is a list field, filter client-side
     # - countsamples tells us if project has samples
     projects_with_samples = []
     for project in projects:
-        technologies = project.get("technology", [])
+        technologies = project.get("tech_area", [])
         if "Proteomics" not in technologies:
             continue
 

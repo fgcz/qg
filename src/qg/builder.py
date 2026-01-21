@@ -57,11 +57,11 @@ class QueueGeneratorBuilder:
 
         # Resolve pattern
         pattern = self.configs.queue_patterns.get_pattern(
-            params.technology, params.queue_pattern
+            params.tech_area, params.queue_pattern
         )
         if not pattern:
             raise ValueError(
-                f"Pattern '{params.queue_pattern}' not found for {params.technology}"
+                f"Pattern '{params.queue_pattern}' not found for {params.tech_area}"
             )
 
         # Apply QC frequency override if specified
@@ -72,11 +72,11 @@ class QueueGeneratorBuilder:
 
         # Resolve QC layout
         qc_layout = self.configs.qc_layouts.get_layout(
-            params.technology, params.sampler
+            params.tech_area, params.sampler
         )
         if not qc_layout:
             raise ValueError(
-                f"QC layout not found for {params.technology}.{params.sampler}"
+                f"QC layout not found for {params.tech_area}.{params.sampler}"
             )
 
         # Create validated QC layout pattern (validates uniqueness)
@@ -88,7 +88,7 @@ class QueueGeneratorBuilder:
         )
 
         # Resolve samples config
-        samples_config = self._resolve_samples_config(params.technology, pattern)
+        samples_config = self._resolve_samples_config(params.tech_area, pattern)
 
         # Extract groups from QueueInput
         groups = _extract_groups(queue_input)
@@ -99,7 +99,7 @@ class QueueGeneratorBuilder:
 
         # Create method resolver
         method_resolver = self._create_method_resolver(
-            params.technology, params.instrument
+            params.tech_area, params.instrument
         )
 
         # Resolve polarities
@@ -113,7 +113,7 @@ class QueueGeneratorBuilder:
         # Log resolved configuration
         logger.debug(
             "Building QueueGenerator:\n"
-            "  technology=%s, instrument=%s, sampler=%s\n"
+            "  tech_area=%s, instrument=%s, sampler=%s\n"
             "  pattern=%s (start=%s, middle=%s, end=%s)\n"
             "  sampler=%s\n"
             "  qc_positions=%s\n"
@@ -121,7 +121,7 @@ class QueueGeneratorBuilder:
             "  polarities=%s\n"
             "  data_path=%s\n"
             "  date=%s, groups=%s",
-            params.technology,
+            params.tech_area,
             params.instrument,
             params.sampler,
             params.queue_pattern,
@@ -156,7 +156,7 @@ class QueueGeneratorBuilder:
         )
 
     def _resolve_samples_config(
-        self, technology: str, pattern: QueuePattern
+        self, tech_area: str, pattern: QueuePattern
     ) -> dict[str, Sample]:
         """Resolve all sample configs needed for the pattern."""
         samples: dict[str, Sample] = {}
@@ -169,18 +169,18 @@ class QueueGeneratorBuilder:
         sample_ids.add("default")  # Always need default
 
         for sample_id in sample_ids:
-            config = self.configs.samples.get_sample(technology, sample_id)
+            config = self.configs.samples.get_sample(tech_area, sample_id)
             if config:
                 samples[sample_id] = config
 
         if "default" not in samples:
-            raise ValueError(f"No 'default' sample definition for {technology}")
+            raise ValueError(f"No 'default' sample definition for {tech_area}")
 
         return samples
 
     def _resolve_data_path(self, params, container_id: int) -> str:
         """Resolve the data path from instrument config."""
-        instr = self.configs.instruments.get_instrument(params.technology, params.instrument)
+        instr = self.configs.instruments.get_instrument(params.tech_area, params.instrument)
         if not instr or not instr.path_template:
             return ""
 
@@ -219,10 +219,10 @@ class QueueGeneratorBuilder:
         return getattr(container, "position_format", None)
 
     def _create_method_resolver(
-        self, technology: str, instrument: str
+        self, tech_area: str, instrument: str
     ) -> MethodResolver:
-        """Create a method resolver function for the given technology/instrument."""
-        methods_df = self.configs.methods.to_table(technology, instrument)
+        """Create a method resolver function for the given tech_area/instrument."""
+        methods_df = self.configs.methods.to_table(tech_area, instrument)
 
         def resolve_method(
             sample_type: str,

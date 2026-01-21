@@ -33,13 +33,13 @@ class TestConfigBundleSamples:
 
     def test_samples_have_required_fields(self, config_bundle: ConfigBundle) -> None:
         for sample in config_bundle.samples.samples:
-            assert sample.technology
+            assert sample.tech_area
             assert sample.sample_id
             assert sample.inj_vol > 0
             assert sample.file_name_template
 
-    def test_each_technology_has_default(self, config_bundle: ConfigBundle) -> None:
-        technologies = {s.technology for s in config_bundle.samples.samples}
+    def test_each_tech_area_has_default(self, config_bundle: ConfigBundle) -> None:
+        technologies = {s.tech_area for s in config_bundle.samples.samples}
         for tech in technologies:
             default = config_bundle.samples.get_sample(tech, "default")
             assert default is not None, f"Technology '{tech}' missing default sample"
@@ -75,7 +75,7 @@ class TestConfigBundleQueuePatterns:
 
     def test_get_pattern_returns_pattern(self, config_bundle: ConfigBundle) -> None:
         tech = config_bundle.queue_patterns.get_technologies()[0]
-        pattern_name = list(config_bundle.queue_patterns.get_patterns_for_technology(tech).keys())[0]
+        pattern_name = list(config_bundle.queue_patterns.get_patterns_for_tech_area(tech).keys())[0]
         pattern = config_bundle.queue_patterns.get_pattern(tech, pattern_name)
         assert pattern is not None
         assert pattern.run_QC_after_n_samples > 0
@@ -98,7 +98,7 @@ class TestConfigBundleQCLayouts:
 
     def test_get_layout_exact_match(self, config_bundle: ConfigBundle) -> None:
         tech = config_bundle.qc_layouts.get_technologies()[0]
-        sampler = config_bundle.qc_layouts.get_samplers_for_technology(tech)[0]
+        sampler = config_bundle.qc_layouts.get_samplers_for_tech_area(tech)[0]
         layout = config_bundle.qc_layouts.get_layout(tech, sampler)
         assert layout is not None
         assert len(layout) > 0
@@ -191,15 +191,15 @@ class TestCrossReferences:
         """All sample_ids in queue_patterns should exist in samples.csv."""
         for tech in config_bundle.queue_patterns.get_technologies():
             pattern_refs = config_bundle.queue_patterns.get_all_sample_refs(tech)
-            valid_ids = {s.sample_id for s in config_bundle.samples.get_by_technology(tech)}
+            valid_ids = {s.sample_id for s in config_bundle.samples.get_by_tech_area(tech)}
             unknown = pattern_refs - valid_ids
             assert not unknown, f"Unknown samples in {tech} patterns: {unknown}"
 
     def test_qc_layouts_reference_valid_samples(self, config_bundle: ConfigBundle) -> None:
         """All sample_ids in qc_layouts should exist in samples.csv."""
         for tech in config_bundle.qc_layouts.get_technologies():
-            valid_ids = {s.sample_id for s in config_bundle.samples.get_by_technology(tech)}
-            for sampler_key in config_bundle.qc_layouts.get_samplers_for_technology(tech):
+            valid_ids = {s.sample_id for s in config_bundle.samples.get_by_tech_area(tech)}
+            for sampler_key in config_bundle.qc_layouts.get_samplers_for_tech_area(tech):
                 layout = config_bundle.qc_layouts.get_layout(tech, sampler_key)
                 if layout:
                     layout_ids = set(layout.keys())
@@ -208,9 +208,9 @@ class TestCrossReferences:
 
     def test_instrument_patterns_reference_valid_instruments(self, config_bundle: ConfigBundle) -> None:
         """All instruments in instrument_patterns should exist in instruments.csv."""
-        valid = {(i.technology, i.instrument) for i in config_bundle.instruments.instruments}
+        valid = {(i.tech_area, i.instrument) for i in config_bundle.instruments.instruments}
         pattern_refs = {
-            (p.technology, p.instrument) for p in config_bundle.instrument_patterns.patterns
+            (p.tech_area, p.instrument) for p in config_bundle.instrument_patterns.patterns
         }
         unknown = pattern_refs - valid
         assert not unknown, f"Unknown instruments in patterns: {unknown}"

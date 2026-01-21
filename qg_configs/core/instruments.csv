@@ -1,4 +1,4 @@
-technology,instrument,methods_file,path_template
+tech_area,instrument,methods_file,path_template
 Proteomics,ASTRAL_1,methods/Proteomics/ASTRAL_1_methods.csv,D:\Data2San\p{container}\Proteomics\ASTRAL_1\{user}_{date}
 Proteomics,ASCEND_1,methods/Proteomics/ASCEND_1_methods.csv,D:\Data2San\p{container}\Proteomics\ASCEND_1\{user}_{date}
 Proteomics,EXPLORIS_1,methods/Proteomics/EXPLORIS_1_methods.csv,D:\Data2San\p{container}\Proteomics\EXPLORIS_1\{user}_{date}

@@ -1,7 +1,7 @@
 # Queue Patterns
-# Structure: <technology>.<pattern_name>
+# Structure: <tech_area>.<pattern_name>
 # Each pattern specifies QC sample injection sequences
-# Sample IDs reference samples from samples.toml under the same technology
+# Sample IDs reference samples from samples.toml under the same tech_area
 
 # =============================================================================
 # PROTEOMICS

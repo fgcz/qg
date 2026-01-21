@@ -69,7 +69,7 @@ class ConfigStore:
         """Load instruments.csv from core/ or return cached version.
 
         Returns:
-            DataFrame with columns: technology, instrument, methods_file, path_template
+            DataFrame with columns: tech_area, instrument, methods_file, path_template
         """
         if self._instruments is not None:
             return self._instruments
@@ -79,7 +79,7 @@ class ConfigStore:
         """Load samples.csv from core/ or return cached version.
 
         Returns:
-            DataFrame with columns: technology, sample_id, sample_name, description,
+            DataFrame with columns: tech_area, sample_id, sample_name, description,
                                    inj_vol, file_name_template
         """
         if self._samples is not None:
@@ -90,7 +90,7 @@ class ConfigStore:
         """Load qc_layouts_grid.csv from core/ or return cached version.
 
         Returns:
-            DataFrame with columns: technology, sampler, sample_id, plate, row, col
+            DataFrame with columns: tech_area, sampler, sample_id, plate, row, col
         """
         if self._qc_layouts_grid is not None:
             return self._qc_layouts_grid
@@ -100,7 +100,7 @@ class ConfigStore:
         """Load qc_layouts_evosep.csv from core/ or return cached version.
 
         Returns:
-            DataFrame with columns: technology, sampler, sample_id, tray,
+            DataFrame with columns: tech_area, sampler, sample_id, tray,
                                    position_start, position_end
         """
         if self._qc_layouts_evosep is not None:
@@ -115,7 +115,7 @@ class ConfigStore:
         """Load instrument_patterns.csv from ui/ or return cached version.
 
         Returns:
-            DataFrame with columns: technology, instrument, queue_pattern, is_default
+            DataFrame with columns: tech_area, instrument, queue_pattern, is_default
         """
         if self._instrument_patterns is not None:
             return self._instrument_patterns
@@ -215,7 +215,7 @@ class ConfigStore:
         """Store modified instruments data.
 
         Args:
-            df: DataFrame with columns: technology, instrument, methods_file, path_template
+            df: DataFrame with columns: tech_area, instrument, methods_file, path_template
         """
         self._instruments = df
 
@@ -223,7 +223,7 @@ class ConfigStore:
         """Store modified samples data.
 
         Args:
-            df: DataFrame with columns: technology, sample_id, sample_name, description,
+            df: DataFrame with columns: tech_area, sample_id, sample_name, description,
                                        inj_vol, file_name_template
         """
         self._samples = df
@@ -232,7 +232,7 @@ class ConfigStore:
         """Store modified QC layouts grid data.
 
         Args:
-            df: DataFrame with columns: technology, sampler, sample_id, plate, row, col
+            df: DataFrame with columns: tech_area, sampler, sample_id, plate, row, col
         """
         self._qc_layouts_grid = df
 
@@ -240,7 +240,7 @@ class ConfigStore:
         """Store modified QC layouts evosep data.
 
         Args:
-            df: DataFrame with columns: technology, sampler, sample_id, tray,
+            df: DataFrame with columns: tech_area, sampler, sample_id, tray,
                                        position_start, position_end
         """
         self._qc_layouts_evosep = df
@@ -253,7 +253,7 @@ class ConfigStore:
         """Store modified instrument patterns data.
 
         Args:
-            df: DataFrame with columns: technology, instrument, queue_pattern, is_default
+            df: DataFrame with columns: tech_area, instrument, queue_pattern, is_default
         """
         self._instrument_patterns = df
 
