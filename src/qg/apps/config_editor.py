@@ -10,13 +10,14 @@ with app.setup:
     import marimo as mo
     import polars as pl
 
+    from qg.config_store import config_store
+
 
 @app.cell
 def _():
-    # Config directory is qg_configs/ relative to the project root
-    # Navigate from src/qg/apps/ up to project root, then to qg_configs/
-    CONFIG_DIR = Path(__file__).parent.parent.parent.parent / "qg_configs"
-    return (CONFIG_DIR,)
+    # Create ConfigStore instance for reading/writing config files
+    store = config_store()
+    return (store,)
 
 
 @app.cell
@@ -26,19 +27,17 @@ def _():
     """)
     return
 
-# TODO: replace with get_core_config_dir() # return Path
 @app.cell
-def _(CONFIG_DIR):
+def _(store):
     # Core configs
-    instruments_df = pl.read_csv(CONFIG_DIR / "core" / "instruments.csv")
+    instruments_df = store.get_instruments()
     instruments_editor = mo.ui.data_editor(instruments_df, label="Instruments")
     return instruments_df, instruments_editor
 
-# TODO: replace with get_ui_config_dir() # return Path
 @app.cell
-def _(CONFIG_DIR):
+def _(store):
     # UI configs
-    instrument_patterns_df = pl.read_csv(CONFIG_DIR / "ui" / "instrument_patterns.csv")
+    instrument_patterns_df = store.get_instrument_patterns()
     instrument_patterns_editor = mo.ui.data_editor(
         instrument_patterns_df, label="Instrument Patterns"
     )
@@ -46,17 +45,17 @@ def _(CONFIG_DIR):
 
 
 @app.cell
-def _(CONFIG_DIR):
+def _(store):
     # UI configs
-    combinations_df = pl.read_csv(CONFIG_DIR / "ui" / "combinations.csv")
+    combinations_df = store.get_combinations()
     combinations_editor = mo.ui.data_editor(combinations_df, label="Combinations")
     return combinations_df, combinations_editor
 
 
 @app.cell
-def _(CONFIG_DIR):
+def _(store):
     # Core configs
-    sampler_content = (CONFIG_DIR / "core" / "sampler.toml").read_text()
+    sampler_content = store.get_sampler_toml()
     sampler_editor = mo.ui.code_editor(
         sampler_content, language="toml", min_height=400
     )
@@ -64,17 +63,17 @@ def _(CONFIG_DIR):
 
 
 @app.cell
-def _(CONFIG_DIR):
+def _(store):
     # Core configs
-    samples_df = pl.read_csv(CONFIG_DIR / "core" / "samples.csv")
+    samples_df = store.get_samples()
     samples_editor = mo.ui.data_editor(samples_df, label="Samples")
     return samples_df, samples_editor
 
 
 @app.cell
-def _(CONFIG_DIR):
+def _(store):
     # Core configs
-    patterns_content = (CONFIG_DIR / "core" / "queue_patterns.toml").read_text()
+    patterns_content = store.get_queue_patterns_toml()
     patterns_editor = mo.ui.code_editor(
         patterns_content, language="toml", min_height=400
     )
@@ -82,11 +81,9 @@ def _(CONFIG_DIR):
 
 
 @app.cell
-def _(CONFIG_DIR):
+def _(store):
     # Core configs - QC layouts (two CSV files)
-    qc_layouts_grid_df = pl.read_csv(
-        CONFIG_DIR / "core" / "qc_layouts_grid.csv", comment_prefix="#"
-    )
+    qc_layouts_grid_df = store.get_qc_layouts_grid()
     qc_layouts_grid_editor = mo.ui.data_editor(
         qc_layouts_grid_df, label="QC Layouts - Grid (Vanquish, MClass48)"
     )
@@ -94,10 +91,8 @@ def _(CONFIG_DIR):
 
 
 @app.cell
-def _(CONFIG_DIR):
-    qc_layouts_evosep_df = pl.read_csv(
-        CONFIG_DIR / "core" / "qc_layouts_evosep.csv", comment_prefix="#"
-    )
+def _(store):
+    qc_layouts_evosep_df = store.get_qc_layouts_evosep()
     qc_layouts_evosep_editor = mo.ui.data_editor(
         qc_layouts_evosep_df, label="QC Layouts - Evosep"
     )
@@ -105,9 +100,9 @@ def _(CONFIG_DIR):
 
 
 @app.cell
-def _(CONFIG_DIR):
+def _(store):
     # Core configs
-    output_formats_content = (CONFIG_DIR / "core" / "output_formats.toml").read_text()
+    output_formats_content = store.get_output_formats_toml()
     output_formats_editor = mo.ui.code_editor(
         output_formats_content, language="toml", min_height=400
     )
@@ -115,10 +110,10 @@ def _(CONFIG_DIR):
 
 
 @app.cell
-def _(CONFIG_DIR):
+def _(store):
     # Core configs - methods
-    methods_files = sorted((CONFIG_DIR / "core").glob("methods/**/*.csv"))
-    methods_options = {f.relative_to(CONFIG_DIR).as_posix(): f for f in methods_files}
+    methods_files = store.list_methods_files()
+    methods_options = {store.get_methods_relative_path(f): f for f in methods_files}
     methods_dropdown = mo.ui.dropdown(
         options=list(methods_options.keys()),
         value=list(methods_options.keys())[0] if methods_options else None,
@@ -128,10 +123,10 @@ def _(CONFIG_DIR):
 
 
 @app.cell
-def _(methods_dropdown, methods_options):
+def _(methods_dropdown, methods_options, store):
     mo.stop(not methods_dropdown.value)
     selected_methods_path = methods_options[methods_dropdown.value]
-    methods_df = pl.read_csv(selected_methods_path)
+    methods_df = store.get_methods(selected_methods_path)
     methods_editor = mo.ui.data_editor(methods_df, label="Methods")
     return (methods_editor,)
 
@@ -394,7 +389,7 @@ def _(
     output_formats_data,
     combinations_df,
     instruments_df,
-    CONFIG_DIR,
+    store,
 ):
     # Build the selected configuration view
     mo.stop(
@@ -457,11 +452,11 @@ def _(
         (pl.col("technology") == tech) & (pl.col("instrument") == instr)
     )
     _methods_file = instr_row["methods_file"][0] if len(instr_row) > 0 else None
-    _methods_path = CONFIG_DIR / _methods_file if _methods_file else None
+    _methods_path = store.config_dir / _methods_file if _methods_file else None
     _methods_preview = None
     if _methods_path and _methods_path.exists():
         try:
-            _methods_df = pl.read_csv(_methods_path)
+            _methods_df = store.get_methods(_methods_path)
             _methods_preview = _methods_df.head(10)
         except Exception:
             _methods_preview = None
@@ -603,119 +598,6 @@ def _(tabs):
     return
 
 
-@app.cell
-def _():
-    def validate_toml(content: str, name: str) -> list[str]:
-        """Validate TOML syntax."""
-        errors = []
-        try:
-            tomllib.loads(content)
-        except tomllib.TOMLDecodeError as e:
-            errors.append(f"{name}: TOML syntax error - {e}")
-        return errors
-
-    def validate_configs(
-        instruments_df,
-        instrument_patterns_df,
-        combinations_df,
-        sampler_content,
-        samples_df,
-        patterns_content,
-        qc_layouts_grid_df,
-        qc_layouts_evosep_df,
-        output_formats_content,
-    ) -> tuple[list[str], list[str]]:
-        """Validate all configurations. Returns (errors, warnings)."""
-        errors = []
-        warnings = []
-
-        # Validate TOML syntax (no longer includes qc_layouts)
-        for content, name in [
-            (sampler_content, "sampler.toml"),
-            (patterns_content, "queue_patterns.toml"),
-            (output_formats_content, "output_formats.toml"),
-        ]:
-            errors.extend(validate_toml(content, name))
-
-        # If TOML syntax errors, stop here
-        if errors:
-            return errors, warnings
-
-        # Parse TOML files
-        try:
-            samplers = tomllib.loads(sampler_content)
-            patterns = tomllib.loads(patterns_content)
-            output_formats = tomllib.loads(output_formats_content)
-        except Exception as e:
-            errors.append(f"Failed to parse TOML: {e}")
-            return errors, warnings
-
-        # Validate QC layouts CSV structure
-        required_grid_cols = {"technology", "sampler", "sample_id", "plate", "row", "col"}
-        if not required_grid_cols.issubset(set(qc_layouts_grid_df.columns)):
-            missing = required_grid_cols - set(qc_layouts_grid_df.columns)
-            errors.append(f"qc_layouts_grid.csv: Missing required columns: {missing}")
-
-        required_evosep_cols = {"technology", "sampler", "sample_id", "tray", "position_start", "position_end"}
-        if not required_evosep_cols.issubset(set(qc_layouts_evosep_df.columns)):
-            missing = required_evosep_cols - set(qc_layouts_evosep_df.columns)
-            errors.append(f"qc_layouts_evosep.csv: Missing required columns: {missing}")
-
-        # Convert samples_df to dict for validation
-        samples = {}
-        for row in samples_df.iter_rows(named=True):
-            tech = row["technology"]
-            if tech not in samples:
-                samples[tech] = {}
-            samples[tech][row["sample_id"]] = row
-
-        # Derive valid technologies from samples.csv (source of truth)
-        valid_technologies = set(samples.keys())
-
-        # Validate instruments.csv
-        for row in instruments_df.iter_rows(named=True):
-            tech = row.get("technology", "")
-            if tech not in valid_technologies:
-                errors.append(f"instruments.csv: Unknown technology '{tech}' (not in samples.csv)")
-
-        # Validate instrument_patterns.csv references
-        instrument_keys = {
-            f"{r['technology']}.{r['instrument']}"
-            for r in instruments_df.iter_rows(named=True)
-        }
-        for row in instrument_patterns_df.iter_rows(named=True):
-            tech = row.get("technology", "")
-            instr = row.get("instrument", "")
-            pattern = row.get("queue_pattern", "")
-            key = f"{tech}.{instr}"
-            if key not in instrument_keys:
-                errors.append(f"instrument_patterns.csv: Unknown instrument {key}")
-            # Check pattern exists
-            if tech in patterns and pattern not in patterns.get(tech, {}):
-                errors.append(
-                    f"instrument_patterns.csv: {key} references unknown pattern '{pattern}'"
-                )
-
-        # Validate combinations.csv
-        sampler_names = set(samplers.keys())
-        output_format_names = set(output_formats.keys())
-        instrument_names = {
-            r["instrument"] for r in instruments_df.iter_rows(named=True)
-        }
-        for row in combinations_df.iter_rows(named=True):
-            instr = row.get("instrument", "")
-            sampler = row.get("sampler", "")
-            fmt = row.get("output_format", "")
-            if instr not in instrument_names:
-                errors.append(f"combinations.csv: Unknown instrument '{instr}'")
-            sampler_base = sampler.split(".")[0]
-            if sampler_base not in sampler_names:
-                errors.append(f"combinations.csv: Unknown sampler '{sampler_base}'")
-            if fmt not in output_format_names:
-                errors.append(f"combinations.csv: Unknown output_format '{fmt}'")
-
-        return errors, warnings
-    return (validate_configs,)
 
 
 @app.cell
@@ -736,55 +618,56 @@ def _(
     combinations_editor,
     instrument_patterns_editor,
     instruments_editor,
+    methods_dropdown,
+    methods_editor,
+    methods_options,
     output_formats_editor,
     patterns_editor,
     qc_layouts_grid_editor,
     qc_layouts_evosep_editor,
     sampler_editor,
     samples_editor,
+    store,
     validate_button,
-    validate_configs,
 ):
     mo.stop(not validate_button.value)
-    validation_errors, validation_warnings = validate_configs(
-        instruments_editor.value,
-        instrument_patterns_editor.value,
-        combinations_editor.value,
-        sampler_editor.value,
-        samples_editor.value,
-        patterns_editor.value,
-        qc_layouts_grid_editor.value,
-        qc_layouts_evosep_editor.value,
-        output_formats_editor.value,
-    )
-    if validation_errors:
-        validation_result = mo.callout(
-            mo.vstack([
-                mo.md(f"**Validation failed with {len(validation_errors)} error(s):**"),
-                mo.md("\n".join(f"- {e}" for e in validation_errors)),
-            ]),
-            kind="danger",
-        )
-    elif validation_warnings:
-        validation_result = mo.callout(
-            mo.vstack([
-                mo.md(f"**Validation passed with {len(validation_warnings)} warning(s):**"),
-                mo.md("\n".join(f"- {w}" for w in validation_warnings)),
-            ]),
-            kind="warn",
-        )
-    else:
+
+    # Store all editor values in ConfigStore for validation
+    store.set_instruments(instruments_editor.value)
+    store.set_samples(samples_editor.value)
+    store.set_qc_layouts_grid(qc_layouts_grid_editor.value)
+    store.set_qc_layouts_evosep(qc_layouts_evosep_editor.value)
+    store.set_instrument_patterns(instrument_patterns_editor.value)
+    store.set_combinations(combinations_editor.value)
+    store.set_sampler_toml(sampler_editor.value)
+    store.set_queue_patterns_toml(patterns_editor.value)
+    store.set_output_formats_toml(output_formats_editor.value)
+    if methods_dropdown.value:
+        _methods_path = methods_options[methods_dropdown.value]
+        store.set_methods(_methods_path, methods_editor.value)
+
+    # Validate using ConfigBundle
+    try:
+        store.validate()
         validation_result = mo.callout(
             mo.md("**All validations passed!**"),
             kind="success",
         )
+    except Exception as e:
+        validation_result = mo.callout(
+            mo.vstack([
+                mo.md("**Validation failed:**"),
+                mo.md(f"```\n{e}\n```"),
+            ]),
+            kind="danger",
+        )
+
     validation_result
     return
 
 
 @app.cell
 def _(
-    CONFIG_DIR,
     combinations_editor,
     instrument_patterns_editor,
     instruments_editor,
@@ -798,52 +681,40 @@ def _(
     sampler_editor,
     samples_editor,
     save_button,
-    validate_configs,
+    store,
 ):
     mo.stop(not save_button.value)
 
-    # Validate before saving
-    save_errors, _ = validate_configs(
-        instruments_editor.value,
-        instrument_patterns_editor.value,
-        combinations_editor.value,
-        sampler_editor.value,
-        samples_editor.value,
-        patterns_editor.value,
-        qc_layouts_grid_editor.value,
-        qc_layouts_evosep_editor.value,
-        output_formats_editor.value,
-    )
+    # Store all editor values in ConfigStore
+    store.set_instruments(instruments_editor.value)
+    store.set_samples(samples_editor.value)
+    store.set_qc_layouts_grid(qc_layouts_grid_editor.value)
+    store.set_qc_layouts_evosep(qc_layouts_evosep_editor.value)
+    store.set_instrument_patterns(instrument_patterns_editor.value)
+    store.set_combinations(combinations_editor.value)
+    store.set_sampler_toml(sampler_editor.value)
+    store.set_queue_patterns_toml(patterns_editor.value)
+    store.set_output_formats_toml(output_formats_editor.value)
 
-    if save_errors:
+    # Store selected methods file if any
+    if methods_dropdown.value:
+        _methods_path = methods_options[methods_dropdown.value]
+        store.set_methods(_methods_path, methods_editor.value)
+
+    # Write all changes to disk (validates via ConfigBundle first)
+    try:
+        saved_files = store.save()
         save_result = mo.callout(
-            mo.md("**Cannot save: validation errors exist. Run Validate first.**"),
-            kind="danger",
-        )
-    else:
-        # Save core CSV files
-        instruments_editor.value.write_csv(CONFIG_DIR / "core" / "instruments.csv")
-        samples_editor.value.write_csv(CONFIG_DIR / "core" / "samples.csv")
-        qc_layouts_grid_editor.value.write_csv(CONFIG_DIR / "core" / "qc_layouts_grid.csv")
-        qc_layouts_evosep_editor.value.write_csv(CONFIG_DIR / "core" / "qc_layouts_evosep.csv")
-
-        # Save UI CSV files
-        instrument_patterns_editor.value.write_csv(CONFIG_DIR / "ui" / "instrument_patterns.csv")
-        combinations_editor.value.write_csv(CONFIG_DIR / "ui" / "combinations.csv")
-
-        # Save core TOML files
-        (CONFIG_DIR / "core" / "sampler.toml").write_text(sampler_editor.value)
-        (CONFIG_DIR / "core" / "queue_patterns.toml").write_text(patterns_editor.value)
-        (CONFIG_DIR / "core" / "output_formats.toml").write_text(output_formats_editor.value)
-
-        # Save selected methods file
-        if methods_dropdown.value:
-            methods_path = methods_options[methods_dropdown.value]
-            methods_editor.value.write_csv(methods_path)
-
-        save_result = mo.callout(
-            mo.md("**All files saved successfully!**"),
+            mo.md(f"**Saved {len(saved_files)} file(s) successfully!**"),
             kind="success",
+        )
+    except Exception as e:
+        save_result = mo.callout(
+            mo.vstack([
+                mo.md("**Cannot save: validation failed:**"),
+                mo.md(f"```\n{e}\n```"),
+            ]),
+            kind="danger",
         )
 
     save_result
