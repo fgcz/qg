@@ -12,6 +12,8 @@ with app.setup:
     import polars as pl
     import pydantic
     from bfabric import Bfabric
+    from bfabric.config import BfabricAuth, BfabricClientConfig
+    from bfabric.config.config_data import ConfigData
 
     from qg.bfabric_utils import get_plates, get_samples, samples_to_dataframe
     from qg.builder import QueueGeneratorBuilder
@@ -23,7 +25,15 @@ with app.setup:
 
 @app.cell
 def _():
-    client = Bfabric.connect(config_file_env="TEST")
+    _request = mo.app_meta().request
+    if _request.user and _request.user.is_authenticated and hasattr(_request.user, "get_bfabric_client"):
+        client = _request.user.get_bfabric_client()
+        _content = f"Authenticated user: {client.auth.login}"
+    else:
+        _content = "No user information in request. Using TEST configuration."
+        client = Bfabric.connect(config_file_env="TEST")
+
+    mo.md(_content)
     return (client,)
 
 
