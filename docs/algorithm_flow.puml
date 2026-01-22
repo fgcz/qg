@@ -52,7 +52,7 @@ note right
 end note
 
 if (requires polarity?) then (metabolomics/lipidomics)
-  :4. expand_polarities();
+  :4. _expand_polarities();
   note right
     **Input:** structure, ["pos", "neg"]
     **Output:** [(slot, polarity), ...]
@@ -109,7 +109,7 @@ legend right
   | validate_input | Config validation + resolution |
   | build_queue_structure | Pure QC interleaving |
   | generate_positions | Stateless position generation |
-  | expand_polarities | Polarity duplication |
+  | _expand_polarities | Polarity duplication |
   | populate_rows | Fill all row data |
   | format_output | Column mapping to CSV |
 endlegend

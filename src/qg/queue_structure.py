@@ -130,6 +130,7 @@ def _compute_extended_positions(num_middle_blocks: int, multiplier: int) -> set[
 def build_multi_container_queue_structure(
     groups: list[tuple[int, int]],  # (container_id, num_samples)
     pattern: QueuePattern,
+    qc_frequency_override: int | None = None,
 ) -> list[SlotEntry]:
     """Build queue structure for multiple groups with separation blocks.
 
@@ -141,12 +142,16 @@ def build_multi_container_queue_structure(
     Args:
         groups: List of (container_id, num_samples) tuples
         pattern: Queue pattern configuration
+        qc_frequency_override: If set, overrides pattern.run_QC_after_n_samples
 
     Returns:
         List of SlotEntry with container context
     """
     if not groups:
         return []
+
+    # Apply QC frequency override if specified
+    run_qc_after_n = qc_frequency_override if qc_frequency_override is not None else pattern.run_QC_after_n_samples
 
     separation_block = pattern.effective_separation
     structure: list[SlotEntry] = []
@@ -174,7 +179,7 @@ def build_multi_container_queue_structure(
 
         # Build group structure (user samples + middle QCs)
         if num_samples > 0:
-            middle_positions = set(_compute_middle_block_positions(num_samples, pattern.run_QC_after_n_samples))
+            middle_positions = set(_compute_middle_block_positions(num_samples, run_qc_after_n))
             extended_positions = _compute_extended_positions(
                 len(middle_positions), pattern.middle_extended_frequency_multiplier or 0
             )
