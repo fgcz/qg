@@ -17,8 +17,8 @@ with app.setup:
     logger = logging.getLogger(__name__)
 
     from qg.bfabric_utils import get_plates, get_samples, samples_to_dataframe
-    from qg.builder import QueueGeneratorBuilder
     from qg.config import qg_config
+    from qg.generator import QueueGenerator
     from qg.params_models import QueueInput, QueueParameters, SampleGroup, samples_from_dataframe, write_params
 
 
@@ -284,11 +284,12 @@ def _(available_methods_neg, polarity_group):
 
 
 @app.cell
-def _():
-    # Polarity selection - user chooses which polarities to run
+def _(tech_area_field):
+    # Polarity selection - proteomics uses single polarity (pos), metabolomics/lipidomics use both
+    _needs_both_polarities = tech_area_field.value in ("Metabolomics", "Lipidomics")
     polarity_group = mo.ui.batch(
         mo.md("**Polarity:** {pos} pos {neg} neg"),
-        {"pos": mo.ui.checkbox(value=True), "neg": mo.ui.checkbox(value=True)},
+        {"pos": mo.ui.checkbox(value=True), "neg": mo.ui.checkbox(value=_needs_both_polarities)},
     )
     return (polarity_group,)
 
@@ -566,34 +567,43 @@ def _(container_id, queue_parameters, queue_parameters_err, sample_df, save_butt
 def _(configs, container_id, queue_parameters, sample_df):
     # Generate queue from current parameters
     generated_queue_df = None
+    raw_queue_df = None
     generation_error = None
 
     if queue_parameters and container_id and sample_df is not None and not sample_df.is_empty():
         _samples = samples_from_dataframe(sample_df)
         _sample_group = SampleGroup(container_id=container_id, samples=_samples)
         _queue_input = QueueInput(parameters=queue_parameters, sample_groups=[_sample_group])
-        _builder = QueueGeneratorBuilder(configs)
         try:
-            _generator = _builder.build(_queue_input)
-            generated_queue_df = _generator.generate(_queue_input.get_all_samples())
+            _generator = QueueGenerator(configs, _queue_input)
+            generated_queue_df = _generator.generate()
+            raw_queue_df = _generator.build_rows().to_table()
         except ValueError as e:
             # Config errors (missing QC layout, etc.) - log and display to user
             logger.exception("Queue generation failed")
             generation_error = str(e)
 
-    return generated_queue_df, generation_error
+    return generated_queue_df, generation_error, raw_queue_df
 
 
 @app.cell
-def _(generated_queue_df, generation_error):
+def _():
+    formatted_ticket_toggle = mo.ui.checkbox(True, label="Formatted ticket")
+    return (formatted_ticket_toggle,)
+
+
+@app.cell
+def _(formatted_ticket_toggle, generated_queue_df, generation_error, raw_queue_df):
     # Queue Preview tab content
     if generation_error:
         queue_preview_content = mo.callout(mo.md(f"**Generation Error:** {generation_error}"), kind="danger")
     elif generated_queue_df is not None:
+        _display_df = generated_queue_df if formatted_ticket_toggle.value else raw_queue_df
         queue_preview_content = mo.vstack(
             [
-                mo.md(f"**{len(generated_queue_df)} rows**"),
-                generated_queue_df,
+                formatted_ticket_toggle,
+                mo.md(f"**{len(_display_df)} rows**"),
+                _display_df,
             ]
         )
     else:

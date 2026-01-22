@@ -91,7 +91,7 @@ QueueInput (JSON)
 1. validate_input(input, configs) -> ValidatedInput
 2. build_queue_structure(num_samples, pattern) -> list[str]  # ["QC01", "default", ...]
 3. generate_positions(num_samples, sampler) -> list[str]     # ["Y:A1", "Y:A2", ...]
-4. expand_polarities(structure, polarities) -> list[tuple]   # metabolomics/lipidomics
+4. _expand_polarities(structure, polarities) -> list[tuple]   # metabolomics/lipidomics
 5. populate_rows(...) -> list[QueueRow]
 6. format_output(rows, output_format) -> CSV string
     |
@@ -102,8 +102,7 @@ CSV Output
 
 | Module | Purpose |
 |--------|---------|
-| `generator.py` | Pipeline orchestration, `QueueGenerator` class, `QueueRow` dataclass |
-| `builder.py` | `QueueGeneratorBuilder` - config resolution and generator creation |
+| `generator.py` | `QueueGenerator` class (config resolution + pipeline execution), `QueueRow` dataclass |
 | `queue_structure.py` | `build_queue_structure()`, `compute_queue_counts()`, `SlotEntry` |
 | `positions.py` | `GridPositionGenerator`, `EvosepPositionGenerator`, `QCLayoutPattern`, factory function |
 | `config.py` | `ConfigBundle`, `qg_config()`, validation functions |

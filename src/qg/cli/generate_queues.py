@@ -9,8 +9,8 @@ from typing import Annotated
 
 import cyclopts
 
-from qg.builder import QueueGeneratorBuilder
 from qg.config import qg_config
+from qg.generator import QueueGenerator
 from qg.params_models import QueueInput
 
 
@@ -54,12 +54,9 @@ def cli_main() -> None:
             input_data = json.load(f)
         queue_input = QueueInput(**input_data)
 
-        # Create builder with loaded configs
-        builder = QueueGeneratorBuilder(configs)
-
-        # Build generator
-        generator = builder.build(queue_input)
-        df = generator.generate(queue_input.get_all_samples())
+        # Generate queue
+        generator = QueueGenerator(configs, queue_input)
+        df = generator.generate()
 
         # Output
         if output:

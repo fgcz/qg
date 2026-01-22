@@ -5,8 +5,8 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from qg.builder import QueueGeneratorBuilder
 from qg.config import ConfigBundle, qg_config
+from qg.generator import QueueGenerator
 from qg.params_models import InputSample, QueueInput, QueueParameters, SampleGroup
 
 CONFIG_DIR = Path(__file__).parent.parent / "qg_configs"
@@ -22,12 +22,6 @@ def configs():
 def ui_configs():
     """Load UI configs for all tests."""
     return qg_config(CONFIG_DIR)
-
-
-@pytest.fixture
-def builder(configs):
-    """Create a builder instance."""
-    return QueueGeneratorBuilder(configs)
 
 
 def make_samples(n: int) -> list[InputSample]:
@@ -82,7 +76,7 @@ class TestOutputFormats:
     """Tests for QueueGenerator output formats - columns and row counts."""
 
     @pytest.mark.parametrize("output_format", ["xcalibur", "chronos", "hystar"])
-    def test_output_format_has_expected_columns(self, configs, ui_configs, builder, output_format: str):
+    def test_output_format_has_expected_columns(self, configs, ui_configs, output_format: str):
         """Each output format produces a DataFrame with the configured columns."""
         tech_area, instrument, sampler = find_combination_for_format(configs, ui_configs, output_format)
         expected_columns = get_expected_columns(configs, output_format)
@@ -100,15 +94,15 @@ class TestOutputFormats:
         )
         queue_input = make_queue_input(params, samples)
 
-        generator = builder.build(queue_input)
-        result = generator.generate(samples)
+        generator = QueueGenerator(configs, queue_input)
+        result = generator.generate()
 
         assert isinstance(result, pl.DataFrame)
         missing = set(expected_columns) - set(result.columns)
         assert not missing, f"Missing columns for {output_format}: {missing}"
 
     @pytest.mark.parametrize("output_format", ["xcalibur", "chronos", "hystar"])
-    def test_output_format_single_sample_row_count(self, configs, ui_configs, builder, output_format: str):
+    def test_output_format_single_sample_row_count(self, configs, ui_configs, output_format: str):
         """Single sample with noqc pattern produces exactly 1 row."""
         tech_area, instrument, sampler = find_combination_for_format(configs, ui_configs, output_format)
         samples = make_samples(1)
@@ -125,8 +119,8 @@ class TestOutputFormats:
         )
         queue_input = make_queue_input(params, samples)
 
-        generator = builder.build(queue_input)
-        result = generator.generate(samples)
+        generator = QueueGenerator(configs, queue_input)
+        result = generator.generate()
 
         # All combinations found use Proteomics (no polarity), so expect 1 row
         assert len(result) == 1, f"{output_format}: expected 1 row, got {len(result)}"
@@ -146,7 +140,7 @@ class TestNoQCPattern:
     @pytest.mark.parametrize("num_samples", [1, 5])
     def test_noqc_row_count(
         self,
-        builder,
+        configs,
         tech_area: str,
         instrument: str,
         sampler: str,
@@ -169,8 +163,8 @@ class TestNoQCPattern:
         )
         queue_input = make_queue_input(params, samples)
 
-        generator = builder.build(queue_input)
-        result = generator.generate(samples)
+        generator = QueueGenerator(configs, queue_input)
+        result = generator.generate()
 
         expected = num_samples * expected_multiplier
         assert len(result) == expected, (
@@ -182,7 +176,7 @@ class TestQCOnlyPattern:
     """Tests for qc_only queue pattern - start/end QCs with user samples in middle."""
 
     @pytest.mark.parametrize("num_samples", [0, 5, 10])
-    def test_qc_only_row_count(self, builder, num_samples: int):
+    def test_qc_only_row_count(self, configs, num_samples: int):
         """qc_only pattern returns N + 6 rows (3 start + N samples + 3 end)."""
         samples = make_samples(num_samples)
         params = QueueParameters(
@@ -197,8 +191,8 @@ class TestQCOnlyPattern:
         )
         queue_input = make_queue_input(params, samples)
 
-        generator = builder.build(queue_input)
-        result = generator.generate(samples)
+        generator = QueueGenerator(configs, queue_input)
+        result = generator.generate()
 
         expected = num_samples + 6
         assert len(result) == expected, f"qc_only {num_samples} samples: expected {expected}, got {len(result)}"
@@ -208,7 +202,7 @@ class TestMetabolomicsBlankPattern:
     """Tests for Metabolomics.blank pattern with polarity expansion."""
 
     @pytest.mark.parametrize("num_samples", [0, 5, 10])
-    def test_blank_row_count_with_polarity(self, builder, num_samples: int):
+    def test_blank_row_count_with_polarity(self, configs, num_samples: int):
         """blank pattern returns (N + 6) * 2 rows (3 start + N samples + 3 end) * 2 polarities."""
         samples = make_samples(num_samples)
         params = QueueParameters(
@@ -223,8 +217,8 @@ class TestMetabolomicsBlankPattern:
         )
         queue_input = make_queue_input(params, samples)
 
-        generator = builder.build(queue_input)
-        result = generator.generate(samples)
+        generator = QueueGenerator(configs, queue_input)
+        result = generator.generate()
 
         expected = (num_samples + 6) * 2  # pos + neg polarity
         assert len(result) == expected, (
