@@ -68,20 +68,22 @@ class TestVanquishVialSamplerIntegration:
             "clean", "QC01", "QC03dia", "clean",  # end
         ]
 
-        # QC positions from qc_layouts.toml [Proteomics.Vanquish.vial] - now dicts
-        assert positions[0] == {"plate": "B", "row": "F", "col": 8}  # QC03dia
-        assert positions[1] == {"plate": "B", "row": "F", "col": 9}  # QC01
-        assert positions[7] == {"plate": "B", "row": "F", "col": 7}  # clean
-        assert positions[8] == {"plate": "B", "row": "F", "col": 9}  # QC01
-        assert positions[9] == {"plate": "B", "row": "F", "col": 8}  # QC03dia
-        assert positions[10] == {"plate": "B", "row": "F", "col": 7}  # clean
+        # QC positions from qc_layouts_grid.csv [Proteomics.Vanquish.vial]
+        # Unified format: {"tray": plate, "grid_position": "row+col"}
+        assert positions[0] == {"tray": "B", "grid_position": "F8"}  # QC03dia
+        assert positions[1] == {"tray": "B", "grid_position": "F9"}  # QC01
+        assert positions[7] == {"tray": "B", "grid_position": "F7"}  # clean
+        assert positions[8] == {"tray": "B", "grid_position": "F9"}  # QC01
+        assert positions[9] == {"tray": "B", "grid_position": "F8"}  # QC03dia
+        assert positions[10] == {"tray": "B", "grid_position": "F7"}  # clean
 
-        # User positions: Y plate, row A, row-major - now dicts
-        assert positions[2] == {"plate": "Y", "row": "A", "col": 1}
-        assert positions[3] == {"plate": "Y", "row": "A", "col": 2}
-        assert positions[4] == {"plate": "Y", "row": "A", "col": 3}
-        assert positions[5] == {"plate": "Y", "row": "A", "col": 4}
-        assert positions[6] == {"plate": "Y", "row": "A", "col": 5}
+        # User positions: Y plate, row A, row-major
+        # Unified format: {"tray": plate, "grid_position": "row+col"}
+        assert positions[2] == {"tray": "Y", "grid_position": "A1"}
+        assert positions[3] == {"tray": "Y", "grid_position": "A2"}
+        assert positions[4] == {"tray": "Y", "grid_position": "A3"}
+        assert positions[5] == {"tray": "Y", "grid_position": "A4"}
+        assert positions[6] == {"tray": "Y", "grid_position": "A5"}
 
 class TestVanquishVialSamplerMetabolomicsIntegration:
     """Integration test for VanquishVialSampler with Metabolomics config."""
@@ -132,31 +134,33 @@ class TestVanquishVialSamplerMetabolomicsIntegration:
             "108mix_AA", "pooledQC", "blank",
         ]
 
-        # QC positions from qc_layouts.toml [Metabolomics.Vanquish.vial] - now dicts
+        # QC positions from qc_layouts_grid.csv [Metabolomics.Vanquish.vial]
+        # Unified format: {"tray": plate, "grid_position": "row+col"}
         # Start block
-        assert positions[0] == {"plate": "Y", "row": "F", "col": 1}   # blank
-        assert positions[1] == {"plate": "Y", "row": "F", "col": 9}   # 108mix_AA
-        assert positions[2] == {"plate": "Y", "row": "F", "col": 8}   # pooledQC
-        assert positions[3] == {"plate": "Y", "row": "F", "col": 1}   # blank
-        assert positions[4] == {"plate": "Y", "row": "F", "col": 2}   # pooledQCDil1
-        assert positions[5] == {"plate": "Y", "row": "F", "col": 3}   # pooledQCDil2
-        assert positions[6] == {"plate": "Y", "row": "F", "col": 4}   # pooledQCDil3
-        assert positions[7] == {"plate": "Y", "row": "F", "col": 5}   # pooledQCDil4
-        assert positions[8] == {"plate": "Y", "row": "F", "col": 6}   # pooledQCDil5
-        assert positions[9] == {"plate": "Y", "row": "F", "col": 7}   # pooledQCDil6
-        assert positions[10] == {"plate": "Y", "row": "F", "col": 1}  # blank
+        assert positions[0] == {"tray": "Y", "grid_position": "F1"}   # blank
+        assert positions[1] == {"tray": "Y", "grid_position": "F9"}   # 108mix_AA
+        assert positions[2] == {"tray": "Y", "grid_position": "F8"}   # pooledQC
+        assert positions[3] == {"tray": "Y", "grid_position": "F1"}   # blank
+        assert positions[4] == {"tray": "Y", "grid_position": "F2"}   # pooledQCDil1
+        assert positions[5] == {"tray": "Y", "grid_position": "F3"}   # pooledQCDil2
+        assert positions[6] == {"tray": "Y", "grid_position": "F4"}   # pooledQCDil3
+        assert positions[7] == {"tray": "Y", "grid_position": "F5"}   # pooledQCDil4
+        assert positions[8] == {"tray": "Y", "grid_position": "F6"}   # pooledQCDil5
+        assert positions[9] == {"tray": "Y", "grid_position": "F7"}   # pooledQCDil6
+        assert positions[10] == {"tray": "Y", "grid_position": "F1"}  # blank
 
-        # User positions: Y plate, row A, row-major - now dicts
-        assert positions[11] == {"plate": "Y", "row": "A", "col": 1}
-        assert positions[12] == {"plate": "Y", "row": "A", "col": 2}
-        assert positions[13] == {"plate": "Y", "row": "A", "col": 3}
-        assert positions[14] == {"plate": "Y", "row": "A", "col": 4}
-        assert positions[15] == {"plate": "Y", "row": "A", "col": 5}
+        # User positions: Y plate, row A, row-major
+        # Unified format: {"tray": plate, "grid_position": "row+col"}
+        assert positions[11] == {"tray": "Y", "grid_position": "A1"}
+        assert positions[12] == {"tray": "Y", "grid_position": "A2"}
+        assert positions[13] == {"tray": "Y", "grid_position": "A3"}
+        assert positions[14] == {"tray": "Y", "grid_position": "A4"}
+        assert positions[15] == {"tray": "Y", "grid_position": "A5"}
 
         # End block
-        assert positions[16] == {"plate": "Y", "row": "F", "col": 9}  # 108mix_AA
-        assert positions[17] == {"plate": "Y", "row": "F", "col": 8}  # pooledQC
-        assert positions[18] == {"plate": "Y", "row": "F", "col": 1}  # blank
+        assert positions[16] == {"tray": "Y", "grid_position": "F9"}  # 108mix_AA
+        assert positions[17] == {"tray": "Y", "grid_position": "F8"}  # pooledQC
+        assert positions[18] == {"tray": "Y", "grid_position": "F1"}  # blank
 
 
 class TestEvosepVialSamplerIntegration:
@@ -212,26 +216,27 @@ class TestEvosepVialSamplerIntegration:
             "clean", "QC01", "QC03dia", "clean",  # end
         ]
 
-        # QC positions from qc_layouts.toml [Proteomics.Evosep]
+        # QC positions from qc_layouts_evosep.csv [Proteomics.Evosep]
         # Evosep uses SEQUENTIAL positions from range (consumable tips)
         # QC01 range: tray 5, positions 1-48
         # QC03dia range: tray 5, positions 49-96
         # clean range: tray 6, positions 1-96
+        # Unified format: {"tray": slot, "grid_position": position_number}
 
         # First QC03dia uses position 49, second uses 50
-        assert positions[0] == {"tray": 5, "position": 49}  # QC03dia #1
+        assert positions[0] == {"tray": 5, "grid_position": 49}  # QC03dia #1
         # First QC01 uses position 1, second uses 2
-        assert positions[1] == {"tray": 5, "position": 1}   # QC01 #1
+        assert positions[1] == {"tray": 5, "grid_position": 1}   # QC01 #1
 
         # User positions: sequential across slots
-        assert positions[2] == {"tray": 1, "position": 1}
-        assert positions[3] == {"tray": 1, "position": 2}
-        assert positions[4] == {"tray": 1, "position": 3}
-        assert positions[5] == {"tray": 1, "position": 4}
-        assert positions[6] == {"tray": 1, "position": 5}
+        assert positions[2] == {"tray": 1, "grid_position": 1}
+        assert positions[3] == {"tray": 1, "grid_position": 2}
+        assert positions[4] == {"tray": 1, "grid_position": 3}
+        assert positions[5] == {"tray": 1, "grid_position": 4}
+        assert positions[6] == {"tray": 1, "grid_position": 5}
 
         # End block QC positions - SEQUENTIAL from their ranges
-        assert positions[7] == {"tray": 6, "position": 1}   # clean #1
-        assert positions[8] == {"tray": 5, "position": 2}   # QC01 #2 (next in range!)
-        assert positions[9] == {"tray": 5, "position": 50}  # QC03dia #2 (next in range!)
-        assert positions[10] == {"tray": 6, "position": 2}  # clean #2 (next in range!)
+        assert positions[7] == {"tray": 6, "grid_position": 1}   # clean #1
+        assert positions[8] == {"tray": 5, "grid_position": 2}   # QC01 #2 (next in range!)
+        assert positions[9] == {"tray": 5, "grid_position": 50}  # QC03dia #2 (next in range!)
+        assert positions[10] == {"tray": 6, "grid_position": 2}  # clean #2 (next in range!)

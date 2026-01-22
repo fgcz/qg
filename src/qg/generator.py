@@ -8,18 +8,18 @@ Clean separation of concerns:
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Any, Literal
 
 import polars as pl
+from pydantic import BaseModel
 
-from qg.config_models import OutputFormat, QueuePattern, Sample
+from qg.config_models import MethodsConfig, OutputFormat, QueuePattern, Sample
 from qg.params_models import InputSample
 from qg.positions import Sampler
 from qg.queue_structure import build_multi_container_queue_structure
 
-# Type alias for position dict
+# Type alias for position dict (used by SlotInfo/ExpandedSlot internal dataclasses)
 PositionDict = dict[str, Any]
 
 # =============================================================================
@@ -27,21 +27,31 @@ PositionDict = dict[str, Any]
 # =============================================================================
 
 
-@dataclass(slots=True)
-class QueueRow:
+class QueueRow(BaseModel):
     """A single row in the generated queue."""
 
     run_number: int
     sample_type: Literal["user", "qc"]
     sample_id: str
     sample_name: str
-    position: PositionDict  # {"plate": str, "row": str, "col": int} or {"tray": int, "position": int}
+    tray: str | int  # First-class: plate letter or slot number
+    grid_position: str | int  # First-class: "A1" or position number
     inj_vol: float = 0.0
     method: str = ""
     file_name: str = ""
-    polarity: str | None = None
+    polarity: str = ""
     data_path: str = ""
     container_id: int = 0
+
+
+class QueueRowTable(BaseModel):
+    """Collection of queue rows (like CombinationsConfig pattern)."""
+
+    rows: list[QueueRow]
+
+    def to_table(self) -> pl.DataFrame:
+        """Convert rows to polars DataFrame."""
+        return pl.DataFrame([row.model_dump() for row in self.rows])
 
 
 @dataclass(slots=True)
@@ -61,14 +71,10 @@ class ExpandedSlot:
     """A slot after polarity expansion. Fields added progressively."""
 
     slot: SlotInfo
-    polarity: str | None
+    polarity: str
     run_number: int
     method: str = ""  # Added by resolve_methods()
     file_name: str = ""  # Added by format_file_names()
-
-
-# Type alias for method resolver
-MethodResolver = Callable[[str, str | None, str], str]
 
 
 # =============================================================================
@@ -119,7 +125,7 @@ def build_slots(
 
 def expand_polarities(
     slots: list[SlotInfo],
-    polarities: list[str | None],
+    polarities: list[str],
 ) -> list[ExpandedSlot]:
     """Loop over slots, duplicate for each polarity, assign run_number."""
     expanded: list[ExpandedSlot] = []
@@ -139,19 +145,23 @@ def expand_polarities(
 
 def resolve_methods(
     slots: list[ExpandedSlot],
-    method_resolver: MethodResolver,
+    methods_config: MethodsConfig,
+    tech_area: str,
+    instrument: str,
     method: dict[str, str],
 ) -> list[ExpandedSlot]:
     """Loop over slots, resolve method for each.
 
     Args:
         slots: Expanded slots with polarity
-        method_resolver: Function to resolve method path from sample_type/polarity/method_name
+        methods_config: Methods configuration
+        tech_area: Technology area (proteomics, metabolomics, lipidomics)
+        instrument: Instrument name
         method: Dict mapping polarity -> method_name (e.g., {"pos": "DIA_60min"})
     """
     for slot in slots:
         sample_id = slot.slot.sample_id
-        polarity = slot.polarity or "pos"  # Default to pos if no polarity
+        polarity = slot.polarity
 
         # Get method name for user samples
         if sample_id == "default":
@@ -160,7 +170,9 @@ def resolve_methods(
             # QC samples: method determined by sample_type, not user selection
             method_name = ""
 
-        slot.method = method_resolver(sample_id, slot.polarity, method_name)
+        slot.method = methods_config.get_method_path(
+            tech_area, instrument, sample_id, polarity, method_name
+        )
     return slots
 
 
@@ -177,7 +189,7 @@ def format_file_names(
             container=slot.slot.container_id,
             sample_id=str(user.sample_id) if user else "",
             sample_name=user.sample_name if user else "",
-            polarity=slot.polarity or "",
+            polarity=slot.polarity,
         )
     return slots
 
@@ -186,20 +198,22 @@ def build_queue_rows(
     slots: list[ExpandedSlot],
     data_path: str,
     inj_vol_override: float | None,
-) -> list[QueueRow]:
+) -> QueueRowTable:
     """Loop over slots, convert to QueueRow (uses slot.container_id)."""
     rows: list[QueueRow] = []
 
     for slot in slots:
         user = slot.slot.user_sample
         sample_cfg = slot.slot.sample_config
+        pos = slot.slot.position
 
         rows.append(QueueRow(
             run_number=slot.run_number,
             sample_type="user" if slot.slot.sample_id == "default" else "qc",
             sample_id=str(user.sample_id) if user else slot.slot.sample_id,
             sample_name=user.sample_name if user else sample_cfg.sample_name,
-            position=slot.slot.position,  # Keep as dict
+            tray=pos["tray"],
+            grid_position=pos["grid_position"],
             inj_vol=inj_vol_override or sample_cfg.inj_vol,
             file_name=slot.file_name,
             polarity=slot.polarity,
@@ -208,74 +222,37 @@ def build_queue_rows(
             container_id=slot.slot.container_id,
         ))
 
-    return rows
+    return QueueRowTable(rows=rows)
 
 # =============================================================================
 # Output Formatting (separate concern)
 # =============================================================================
 
 
-def _format_position(pos: PositionDict, position_format: str | None) -> dict[str, Any]:
-    """Format a position dict for output.
-
-    Args:
-        pos: Position dict (e.g., {"plate": "Y", "row": "A", "col": 1} or {"tray": 5, "position": 1})
-        position_format: Format string for grid positions (e.g., "{plate}:{row}{col}")
-                        None for Evosep positions (handled differently)
-
-    Returns:
-        Dict with formatted position and optionally tray field for Evosep
-    """
-    result: dict[str, Any] = {}
-
-    if "tray" in pos and "position" in pos:
-        # Evosep position - output tray and position separately
-        result["position"] = pos["position"]
-        result["tray"] = pos["tray"]
-    elif "grid_position" in pos:
-        # Plate mode - use grid_position directly with plate prefix
-        plate = pos.get("plate", "")
-        grid_pos = pos.get("grid_position", "")
-        if position_format and plate and grid_pos:
-            result["position"] = position_format.format(plate=plate, grid_position=grid_pos)
-        else:
-            result["position"] = grid_pos
-        result["tray"] = None
-    elif position_format:
-        # Grid position with format template
-        result["position"] = position_format.format(**pos)
-        result["tray"] = None
-    else:
-        # Fallback - convert dict to string
-        result["position"] = str(pos)
-        result["tray"] = None
-
-    return result
-
-
 def format_table(
-    rows: list[QueueRow],
+    queue_rows: QueueRowTable,
     output_format: OutputFormat,
-    position_format: str | None = None,
 ) -> pl.DataFrame:
     """Format queue rows as DataFrame for the given output format.
 
     Args:
-        rows: List of QueueRow objects
-        output_format: Output format specification with column mappings
-        position_format: Format string for grid positions (e.g., "{plate}:{row}{col}")
+        queue_rows: QueueRowTable containing rows to format
+        output_format: Output format specification with column mappings and position_format
     """
-    # Convert rows to dicts and format positions
-    row_dicts = []
-    for row in rows:
-        row_dict = asdict(row)
-        # Format position dict to position string and optional tray
-        pos_result = _format_position(row.position, position_format)
-        row_dict["position"] = pos_result["position"]
-        row_dict["tray"] = pos_result.get("tray")
-        row_dicts.append(row_dict)
+    # Convert to DataFrame using QueueRowTable.to_table()
+    df = queue_rows.to_table()
 
-    df = pl.DataFrame(row_dicts)
+    # Add formatted position column from tray and grid_position
+    df = df.with_columns(
+        pl.struct(["tray", "grid_position"])
+        .map_elements(
+            lambda s: output_format.position_format.format(
+                tray=s["tray"], grid_position=s["grid_position"]
+            ),
+            return_dtype=pl.Utf8,
+        )
+        .alias("position")
+    )
 
     # Select and rename columns per output format
     # columns maps: {"Output Name": "internal_field", ...}
@@ -299,20 +276,21 @@ class QueueGenerator:
     pattern: QueuePattern
     sampler: Sampler
     samples_config: dict[str, Sample]
-    method_resolver: MethodResolver
-    polarities: list[str | None]
+    methods_config: MethodsConfig
+    tech_area: str
+    instrument: str
+    polarities: list[str]
     date: str
     groups: list[tuple[int, int]]  # (container_id, num_samples) per group
     data_path: str
     method: dict[str, str]  # polarity -> method_name (e.g., {"pos": "DIA_60min"})
     inj_vol_override: float | None
-    output_format: OutputFormat
-    position_format: str | None = None  # Format template for grid positions
+    output_format: OutputFormat  # Includes position_format for formatting {tray, grid_position}
 
     def generate(self, samples: list[InputSample]) -> pl.DataFrame:
         """Execute the queue generation pipeline and return formatted DataFrame."""
         rows = self.build_rows(samples)
-        return format_table(rows, self.output_format, self.position_format)
+        return format_table(rows, self.output_format)
 
     def build_rows(self, samples: list[InputSample]) -> list[QueueRow]:
         """Execute the queue generation pipeline to build rows."""
@@ -330,7 +308,9 @@ class QueueGenerator:
         expanded = expand_polarities(slots, self.polarities)
 
         # Step 5: Resolve methods
-        expanded = resolve_methods(expanded, self.method_resolver, self.method)
+        expanded = resolve_methods(
+            expanded, self.methods_config, self.tech_area, self.instrument, self.method
+        )
 
         # Step 6: Format file names (uses slot.container_id)
         expanded = format_file_names(expanded, self.date)

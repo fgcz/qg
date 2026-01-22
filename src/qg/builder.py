@@ -9,11 +9,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-import polars as pl
-
 from qg.config import ConfigBundle
 from qg.config_models import QueuePattern, Sample
-from qg.generator import MethodResolver
 from qg.params_models import QueueInput
 from qg.positions import QCLayoutPattern, create_sampler
 from qg.queue_structure import _extract_groups
@@ -97,13 +94,8 @@ class QueueGeneratorBuilder:
         # Resolve data path (uses primary container)
         data_path = self._resolve_data_path(params, primary_container_id)
 
-        # Create method resolver
-        method_resolver = self._create_method_resolver(
-            params.tech_area, params.instrument
-        )
-
-        # Resolve polarities
-        polarities: list[str | None] = list(params.polarity) if params.polarity else [None]
+        # Resolve polarities (default to empty string for proteomics)
+        polarities: list[str] = list(params.polarity) if params.polarity else [""]
 
         # Resolve output format
         output_format = self.configs.output_formats.get_format(params.output_format)
@@ -137,14 +129,13 @@ class QueueGeneratorBuilder:
             groups,
         )
 
-        # Resolve position format from sampler container config
-        position_format = self._resolve_position_format(params.sampler)
-
         return QueueGenerator(
             pattern=pattern,
             sampler=sampler,
             samples_config=samples_config,
-            method_resolver=method_resolver,
+            methods_config=self.configs.methods,
+            tech_area=params.tech_area,
+            instrument=params.instrument,
             polarities=polarities,
             date=params.date,
             groups=groups,
@@ -152,7 +143,6 @@ class QueueGeneratorBuilder:
             method=params.method,
             inj_vol_override=params.inj_vol_override,
             output_format=output_format,
-            position_format=position_format,
         )
 
     def _resolve_samples_config(
@@ -189,73 +179,3 @@ class QueueGeneratorBuilder:
             user=params.user,
             date=params.date,
         )
-
-    def _resolve_position_format(self, sampler_name: str) -> str | None:
-        """Resolve the position format from sampler container config.
-
-        Args:
-            sampler_name: Sampler identifier like "Vanquish.vial"
-
-        Returns:
-            Position format string or None for Evosep
-        """
-        parts = sampler_name.split(".")
-        if len(parts) != 2:
-            return None
-
-        parent_name, container_type = parts
-
-        # Get parent sampler config
-        parent = getattr(self.configs.samplers, parent_name, None)
-        if parent is None:
-            return None
-
-        # Get container config
-        container = getattr(parent, container_type, None)
-        if container is None:
-            return None
-
-        # Return position_format if it exists (not on Evosep configs)
-        return getattr(container, "position_format", None)
-
-    def _create_method_resolver(
-        self, tech_area: str, instrument: str
-    ) -> MethodResolver:
-        """Create a method resolver function for the given tech_area/instrument."""
-        methods_df = self.configs.methods.to_table(tech_area, instrument)
-
-        def resolve_method(
-            sample_type: str,
-            polarity: str | None,
-            method_name: str,
-        ) -> str:
-            if methods_df.is_empty():
-                return ""
-
-            # Filter by sample_type
-            matches = methods_df.filter(pl.col("sample_type") == sample_type)
-
-            # Fallback to "default" if no match
-            if matches.is_empty() and sample_type != "default":
-                matches = methods_df.filter(pl.col("sample_type") == "default")
-
-            if matches.is_empty():
-                return ""
-
-            # Filter by polarity column (new approach)
-            if polarity and "polarity" in methods_df.columns:
-                polarity_matches = matches.filter(pl.col("polarity") == polarity)
-                if not polarity_matches.is_empty():
-                    matches = polarity_matches
-
-            # Filter by specific method_name if provided
-            if method_name:
-                name_matches = matches.filter(pl.col("method_name") == method_name)
-                if not name_matches.is_empty():
-                    matches = name_matches
-
-            if matches.is_empty():
-                return ""
-            return matches["method_path"][0]
-
-        return resolve_method

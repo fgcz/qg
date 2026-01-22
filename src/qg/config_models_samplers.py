@@ -21,7 +21,7 @@ class VanquishVialConfig(BaseModel):
     container_type: Literal["Vial"] = "Vial"
     position_source: Literal["generated"] = "generated"
     fill_order: Literal["row_major"] = "row_major"
-    position_format: str  # "{plate}:{row}{col}"
+    grid_position_format: str  # "{row}{col}" -> "A1"
     sample_rows: list[str]  # ["A", "B", "C", "D", "E"]
     cols: list[int]  # [1, 2, ..., 9]
 
@@ -31,7 +31,7 @@ class VanquishPlateConfig(BaseModel):
 
     container_type: Literal["Plate"] = "Plate"
     position_source: Literal["input"] = "input"
-    position_format: str  # "{plate}:{grid_position}"
+    grid_position_format: str  # "{row}{col}" - for QC samples from CSV
     sample_rows: list[str]  # ["A", "B", "C", "D", "E", "F", "G"]
     cols: list[int]  # [1, 2, ..., 12]
 
@@ -47,7 +47,7 @@ class MClass48VialConfig(BaseModel):
     container_type: Literal["Vial"] = "Vial"
     position_source: Literal["generated"] = "generated"
     fill_order: Literal["row_major"] = "row_major"
-    position_format: str  # "{plate}:{row},{col}"
+    grid_position_format: str  # "{row}{col}" -> "A1"
 
 
 class MClass48PlateConfig(BaseModel):
@@ -55,7 +55,7 @@ class MClass48PlateConfig(BaseModel):
 
     container_type: Literal["Plate"] = "Plate"
     position_source: Literal["input"] = "input"
-    position_format: str  # "{plate}:{grid_position}"
+    grid_position_format: str  # "{row}{col}" - for QC samples from CSV
 
 
 # =============================================================================
@@ -76,6 +76,7 @@ class EvosepPlateConfig(BaseModel):
 
     container_type: Literal["Plate"] = "Plate"
     position_source: Literal["input"] = "input"
+    grid_position_conversion: str
 
 
 # =============================================================================

@@ -413,6 +413,7 @@ class OutputFormat(BaseModel):
 
     description: str
     file_extension: str
+    position_format: str # How to format {tray, grid_position} into position string
     columns: dict[str, str]  # output_column_name -> internal_field_name
 
 
@@ -472,3 +473,40 @@ class MethodsConfig(BaseModel):
         if not methods:
             return pl.DataFrame()
         return pl.DataFrame([m.model_dump() for m in methods])
+
+    def get_method_path(
+        self,
+        tech_area: str,
+        instrument: str,
+        sample_type: str,
+        polarity: str,
+        method_name: str = "",
+    ) -> str:
+        """Get method path for given parameters.
+
+        Args:
+            tech_area: Technology area (proteomics, metabolomics, lipidomics)
+            instrument: Instrument name
+            sample_type: Sample type (default, QC03dda, etc.)
+            polarity: Polarity (pos, neg, or empty for proteomics)
+            method_name: Optional specific method name to match
+
+        Returns:
+            Method path, or empty string if not found.
+            Falls back to 'default' sample_type if specific type not found.
+        """
+        methods = self.get_methods(tech_area, instrument)
+        if not methods:
+            return ""
+
+        # Find matching method
+        for m in methods:
+            if m.sample_type == sample_type and m.polarity == polarity:
+                if not method_name or m.method_name == method_name:
+                    return m.method_path
+
+        # Fallback to "default" sample_type
+        if sample_type != "default":
+            return self.get_method_path(tech_area, instrument, "default", polarity, method_name)
+
+        return ""

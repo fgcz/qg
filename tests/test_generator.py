@@ -65,10 +65,10 @@ def get_expected_columns(configs: ConfigBundle, output_format: str) -> list[str]
     fmt = configs.output_formats.get_format(output_format)
     if not fmt:
         raise ValueError(f"Unknown output format: {output_format}")
-    # Only include columns that map to fields in QueueRow
+    # Only include columns that map to fields in QueueRow (or derived like position)
     queue_row_fields = {
         "run_number", "sample_type", "sample_id", "sample_name", "position",
-        "tray", "inj_vol", "method", "file_name", "polarity", "data_path", "container_id",
+        "tray", "grid_position", "inj_vol", "method", "file_name", "polarity", "data_path", "container_id",
     }
     return [col for col, field in fmt.columns.items() if field in queue_row_fields]
 

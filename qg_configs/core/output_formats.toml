@@ -5,6 +5,7 @@
 [xcalibur_sld]
 description = "Thermo XCalibur sequence format (SLD-compatible)"
 file_extension = ".csv"
+position_format = "{tray}:{grid_position}"  # e.g., "Y:A1"
 
 [xcalibur_sld.columns]
 "row" = "run_number"
@@ -17,6 +18,7 @@ file_extension = ".csv"
 [xcalibur]
 description = "Legacy queue generation format"
 file_extension = ".csv"
+position_format = "{tray}:{grid_position}"  # e.g., "Y:A1"
 
 [xcalibur.columns]
 "File Name" = "file_name"
@@ -30,10 +32,11 @@ file_extension = ".csv"
 [chronos]
 description = "Chronos autosampler format (Evosep)"
 file_extension = ".csv"
+position_format = "{grid_position}"  # Evosep: position is numeric (1-96), tray is separate column
 
 [chronos.columns]
 "Sample Name" = "sample_name"
-"Source Vial" = "position"
+"Source Vial" = "grid_position"
 "Source Tray" = "tray"
 "Method" = "method"
 "Data File" = "file_name"
@@ -47,6 +50,7 @@ file_extension = ".csv"
 [hystar]
 description = "Bruker Hystar sequence format"
 file_extension = ".csv"
+position_format = "{tray}:{grid_position}"  # e.g., "1:A1"
 
 [hystar.columns]
 "Sample Name" = "sample_name"

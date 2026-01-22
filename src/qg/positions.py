@@ -8,9 +8,10 @@
 Each sampler handles full position assignment including QC merging.
 Uses composition and duck typing (no inheritance hierarchy).
 
-Positions are returned as dicts:
-- Grid samplers: {"plate": str, "row": str, "col": int}
-- Evosep samplers: {"tray": int, "position": int}
+All positions are returned in unified format:
+- {"tray": str|int, "grid_position": str|int}
+- Grid samplers: tray="Y"|"R"|"B"|"G"|"1"|"2", grid_position="A1"|"B2"|...
+- Evosep samplers: tray=1|2|3|4, grid_position=1|2|...|96
 """
 
 from __future__ import annotations
@@ -137,6 +138,7 @@ class QCLayoutPattern:
     def get_position(self, qc_id: str) -> PositionDict:
         """Get position dict for a QC sample ID.
 
+        Returns unified format: {"tray": ..., "grid_position": ...}
         For Evosep, returns the next available position and increments counter.
         """
         pos = self.positions.get(qc_id)
@@ -153,10 +155,15 @@ class QCLayoutPattern:
                 )
             # Increment counter for next call
             self._evosep_counters[qc_id] = current + 1
-            return {"tray": pos.tray, "position": current}
+            return {"tray": pos.tray, "grid_position": current}
         else:
-            # Grid position - return as-is (copy to avoid mutation)
-            return dict(pos)
+            # Grid position from qc_layouts_grid.csv: {plate, row, col}
+            # Convert to unified format: {tray, grid_position}
+            plate = pos.get("plate", "")
+            row = pos.get("row", "")
+            col = pos.get("col", "")
+            grid_position = f"{row}{col}"
+            return {"tray": plate, "grid_position": grid_position}
 
 
 # =============================================================================
@@ -234,6 +241,8 @@ class VanquishVialSampler:
 
         Note: Sample rows (A-E) don't overlap with QC row (F), so we can
         safely use all plates including the one where QC samples are located.
+
+        Returns unified format: {"tray": plate, "grid_position": "A1"}
         """
         positions = []
         plate_idx, row_idx, col_idx = 0, 0, 0
@@ -242,10 +251,13 @@ class VanquishVialSampler:
             if plate_idx >= len(self._parent.plates):
                 raise ValueError(f"Not enough positions available (requested {n})")
 
+            row = self._container.sample_rows[row_idx]
+            col = self._container.cols[col_idx]
+            grid_position = self._container.grid_position_format.format(row=row, col=col)
+
             positions.append({
-                "plate": self._parent.plates[plate_idx],
-                "row": self._container.sample_rows[row_idx],
-                "col": self._container.cols[col_idx],
+                "tray": self._parent.plates[plate_idx],
+                "grid_position": grid_position,
             })
 
             # Advance (row-major order)
@@ -283,10 +295,10 @@ class VanquishPlateSampler:
             raise ValueError(
                 f"Not enough input samples ({len(samples)}) for {num_user} positions"
             )
-        # For plate mode, positions come from input samples with grid_position
-        # We store them as dicts with a special "grid_position" key for later formatting
+        # For plate mode, grid_position comes from input samples
+        # Unified format: {"tray": plate, "grid_position": from_input}
         user_positions = [
-            {"plate": "Y", "grid_position": s.grid_position or ""}
+            {"tray": "Y", "grid_position": s.grid_position or ""}
             for s in samples[:num_user]
         ]
         return _merge_positions(structure, user_positions, self._qc_positions)
@@ -323,6 +335,7 @@ class MClass48VialSampler:
         """Generate n positions row-major across all plates.
 
         Uses sample_rows and cols from parent config.
+        Returns unified format: {"tray": plate, "grid_position": "A1"}
         """
         positions = []
         plate_idx, row_idx, col_idx = 0, 0, 0
@@ -331,10 +344,13 @@ class MClass48VialSampler:
             if plate_idx >= len(self._parent.plates):
                 raise ValueError(f"Not enough positions available (requested {n})")
 
+            row = self._parent.sample_rows[row_idx]
+            col = self._parent.cols[col_idx]
+            grid_position = self._container.grid_position_format.format(row=row, col=col)
+
             positions.append({
-                "plate": self._parent.plates[plate_idx],
-                "row": self._parent.sample_rows[row_idx],
-                "col": self._parent.cols[col_idx],
+                "tray": self._parent.plates[plate_idx],
+                "grid_position": grid_position,
             })
 
             # Advance (row-major order)
@@ -372,9 +388,10 @@ class MClass48PlateSampler:
             raise ValueError(
                 f"Not enough input samples ({len(samples)}) for {num_user} positions"
             )
-        # For plate mode, positions come from input samples with grid_position
+        # For plate mode, grid_position comes from input samples
+        # Unified format: {"tray": plate, "grid_position": from_input}
         user_positions = [
-            {"plate": "1", "grid_position": s.grid_position or ""}
+            {"tray": "1", "grid_position": s.grid_position or ""}
             for s in samples[:num_user]
         ]
         return _merge_positions(structure, user_positions, self._qc_positions)
@@ -410,7 +427,7 @@ class EvosepVialSampler:
     def _generate_positions(self, n: int) -> list[PositionDict]:
         """Generate n positions sequentially across slots.
 
-        Returns dicts with tray and position (1-indexed).
+        Returns unified format: {"tray": slot, "grid_position": 1-96}
         """
         positions = []
         slot_idx = 0
@@ -423,7 +440,7 @@ class EvosepVialSampler:
             slot = self._parent.slots[slot_idx]
             positions.append({
                 "tray": slot,
-                "position": position_in_slot,
+                "grid_position": position_in_slot,
             })
 
             # Advance
@@ -433,6 +450,26 @@ class EvosepVialSampler:
                 slot_idx += 1
 
         return positions
+
+
+def _grid_to_number(grid_pos: str, cols: int = 12) -> int:
+    """Convert grid position like 'A1' to numeric position (1-based).
+
+    Standard 96-well plate layout: A1=1, A2=2, ..., A12=12, B1=13, ...
+    """
+    if not grid_pos:
+        return 0
+    grid_pos = grid_pos.strip().upper()
+    if not grid_pos:
+        return 0
+    row_letter = grid_pos[0]
+    col_str = grid_pos[1:]
+    try:
+        row_num = ord(row_letter) - ord("A")  # A=0, B=1, ...
+        col_num = int(col_str)  # 1-based
+        return row_num * cols + col_num
+    except (ValueError, IndexError):
+        return 0
 
 
 class EvosepPlateSampler:
@@ -458,12 +495,23 @@ class EvosepPlateSampler:
             raise ValueError(
                 f"Not enough input samples ({len(samples)}) for {num_user} positions"
             )
-        # For plate mode, positions come from input samples
-        # Assume grid_position contains "tray:position" format or similar
-        user_positions = [
-            {"tray": 1, "position": i + 1, "grid_position": s.grid_position or ""}
-            for i, s in enumerate(samples[:num_user])
-        ]
+        # For plate mode, convert grid_position (e.g., "A1") to numeric
+        # Unified format: {"tray": slot, "grid_position": 1-96}
+        user_positions = []
+        for s in samples[:num_user]:
+            grid_pos = s.grid_position or ""
+            if self._container.grid_position_conversion == "grid_to_number":
+                numeric_pos = _grid_to_number(grid_pos)
+            else:
+                # Try to parse as int, fallback to 0
+                try:
+                    numeric_pos = int(grid_pos) if grid_pos else 0
+                except ValueError:
+                    numeric_pos = 0
+            user_positions.append({
+                "tray": 1,  # Default to tray 1 for plate mode
+                "grid_position": numeric_pos,
+            })
         return _merge_positions(structure, user_positions, self._qc_positions)
 
 
