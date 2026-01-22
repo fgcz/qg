@@ -34,6 +34,8 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "pre-commit>=4.0.0",
+    "pyright>=1.1.390",
     "pytest>=9.0.2",
     "pytest-mock>=3.15.1",
     "ruff>=0.9.0",
@@ -57,7 +59,7 @@ filterwarnings = ["ignore::DeprecationWarning"]
 
 [tool.ruff]
 line-length = 120
-target-version = "py314"
+target-version = "py313"  # py314 not yet supported by ruff
 
 [tool.ruff.lint]
 select = [
@@ -77,3 +79,17 @@ select = [
 
 [tool.ruff.format]
 quote-style = "double"
+
+[tool.pyright]
+pythonVersion = "3.14"
+include = ["src/qg"]
+exclude = [
+    "src/qg/apps",         # marimo apps have looser typing
+    "src/qg/tools_apps",   # marimo apps have looser typing
+    "src/qg/tools",        # conversion tools have complex types
+    "src/qg/bfabric_utils.py",  # external API types
+]
+typeCheckingMode = "off"  # disable most checks, enable specific ones below
+reportUndefinedVariable = "error"
+reportMissingImports = "error"
+reportMissingModuleSource = "error"

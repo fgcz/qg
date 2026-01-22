@@ -15,8 +15,6 @@ with app.setup:
     from bfabric import Bfabric
 
     logger = logging.getLogger(__name__)
-    from bfabric.config import BfabricAuth, BfabricClientConfig
-    from bfabric.config.config_data import ConfigData
 
     from qg.bfabric_utils import get_plates, get_samples, samples_to_dataframe
     from qg.builder import QueueGeneratorBuilder
@@ -50,6 +48,7 @@ def _():
     # Load configs via qg_config() - uses default path
     configs = qg_config()
     return (configs,)
+
 
 @app.cell
 def _(configs):
@@ -89,10 +88,11 @@ def _(BFABRIC_CACHE_DIR):
         for order in project.get("order", [])
     ]
 
-    projects_df = pl.DataFrame(_orders).filter(
-        (pl.col("Samples") > 0)
-        & ~pl.col("Area").str.to_lowercase().is_in(["genomics", "administration"])
-    ).sort("Container ID", descending=True)
+    projects_df = (
+        pl.DataFrame(_orders)
+        .filter((pl.col("Samples") > 0) & ~pl.col("Area").str.to_lowercase().is_in(["genomics", "administration"]))
+        .sort("Container ID", descending=True)
+    )
     return (projects_df,)
 
 
@@ -129,9 +129,7 @@ def _(project_table):
 def _(instruments_df, selected_area):
     _options = sorted(instruments_df["tech_area"].unique().to_list())
     tech_area_field = mo.ui.dropdown(
-        options=_options,
-        value=selected_area if selected_area in _options else _options[0],
-        label="tech_area"
+        options=_options, value=selected_area if selected_area in _options else _options[0], label="tech_area"
     )
     return (tech_area_field,)
 
@@ -140,12 +138,7 @@ def _(instruments_df, selected_area):
 def _(instruments_df, tech_area_field):
     mo.stop(not tech_area_field.value)
     _options = (
-        instruments_df
-        .filter(pl.col("tech_area") == tech_area_field.value)
-        ["instrument"]
-        .unique()
-        .sort()
-        .to_list()
+        instruments_df.filter(pl.col("tech_area") == tech_area_field.value)["instrument"].unique().sort().to_list()
     )
     instrument_field = mo.ui.dropdown(
         options=_options,
@@ -161,11 +154,9 @@ def _(container_type, instrument_field, tech_area_field, valid_combinations_df):
     mo.stop(not instrument_field.value or not tech_area_field.value)
     _container_suffix = ".vial" if container_type == "Vials" else ".plate"
     _options = (
-        valid_combinations_df
-        .filter(pl.col("tech_area") == tech_area_field.value)
+        valid_combinations_df.filter(pl.col("tech_area") == tech_area_field.value)
         .filter(pl.col("instrument") == instrument_field.value)
-        .filter(pl.col("sampler").str.ends_with(_container_suffix))
-        ["sampler"]
+        .filter(pl.col("sampler").str.ends_with(_container_suffix))["sampler"]
         .unique()
         .sort()
         .to_list()
@@ -173,10 +164,8 @@ def _(container_type, instrument_field, tech_area_field, valid_combinations_df):
     # If no matching container type, show all valid for this tech_area+instrument
     if not _options:
         _options = (
-            valid_combinations_df
-            .filter(pl.col("tech_area") == tech_area_field.value)
-            .filter(pl.col("instrument") == instrument_field.value)
-            ["sampler"]
+            valid_combinations_df.filter(pl.col("tech_area") == tech_area_field.value)
+            .filter(pl.col("instrument") == instrument_field.value)["sampler"]
             .unique()
             .sort()
             .to_list()
@@ -194,9 +183,9 @@ def _(instrument_field, sampler_field, tech_area_field, valid_combinations_df):
     # Software is derived from valid_combinations_df
     mo.stop(not instrument_field.value or not sampler_field.value or not tech_area_field.value)
     _row = valid_combinations_df.filter(
-        (pl.col("tech_area") == tech_area_field.value) &
-        (pl.col("instrument") == instrument_field.value) &
-        (pl.col("sampler") == sampler_field.value)
+        (pl.col("tech_area") == tech_area_field.value)
+        & (pl.col("instrument") == instrument_field.value)
+        & (pl.col("sampler") == sampler_field.value)
     )
     output_format_value = _row["output_format"][0] if len(_row) > 0 else "xcalibur"
     return (output_format_value,)
@@ -206,14 +195,9 @@ def _(instrument_field, sampler_field, tech_area_field, valid_combinations_df):
 def _(instrument_field, instrument_patterns_df, tech_area_field):
     # Pattern dropdown filtered by tech_area + instrument
     mo.stop(not tech_area_field.value or not instrument_field.value)
-    _patterns_df = (
-        instrument_patterns_df
-        .filter(
-            (pl.col("tech_area") == tech_area_field.value) &
-            (pl.col("instrument") == instrument_field.value)
-        )
-        .sort("is_default", descending=True)
-    )
+    _patterns_df = instrument_patterns_df.filter(
+        (pl.col("tech_area") == tech_area_field.value) & (pl.col("instrument") == instrument_field.value)
+    ).sort("is_default", descending=True)
     _options = _patterns_df["queue_pattern"].to_list()
     pattern_field = mo.ui.dropdown(
         options=_options,
@@ -311,11 +295,7 @@ def _():
 
 @app.cell
 def _():
-    randomization_field = mo.ui.dropdown(
-        options=["no", "random", "blockrandom"],
-        value="no",
-        label="Randomization"
-    )
+    randomization_field = mo.ui.dropdown(options=["no", "random", "blockrandom"], value="no", label="Randomization")
     return (randomization_field,)
 
 
@@ -370,21 +350,23 @@ def _(
         if method_field_neg:
             _queue_items.append(method_field_neg)
 
-        _sidebar_items.extend([
-            mo.md("### Instrument"),
-            tech_area_field,
-            instrument_field,
-            sampler_field,
-            mo.md(f"**Output:** {output_format_value}"),
-            mo.md("### Queue"),
-            *_queue_items,
-            mo.md("### Options"),
-            randomization_field,
-            date_field,
-            user_field,
-            inj_vol_field,
-            qc_frequency_field,
-        ])
+        _sidebar_items.extend(
+            [
+                mo.md("### Instrument"),
+                tech_area_field,
+                instrument_field,
+                sampler_field,
+                mo.md(f"**Output:** {output_format_value}"),
+                mo.md("### Queue"),
+                *_queue_items,
+                mo.md("### Options"),
+                randomization_field,
+                date_field,
+                user_field,
+                inj_vol_field,
+                qc_frequency_field,
+            ]
+        )
 
     mo.sidebar(mo.vstack(_sidebar_items))
     return
@@ -472,11 +454,7 @@ def _(
 
         # Build method dict from per-polarity selections
         _method_fields = {"pos": method_field_pos, "neg": method_field_neg}
-        method_dict = {
-            pol: field.value
-            for pol, field in _method_fields.items()
-            if field is not None and field.value
-        }
+        method_dict = {pol: field.value for pol, field in _method_fields.items() if field is not None and field.value}
 
         queue_parameters = QueueParameters.model_validate(
             {
@@ -531,10 +509,12 @@ def _(container_id, queue_parameters, sample_df, save_button, save_folder):
 
 @app.cell
 def _(project_table):
-    mo.vstack([
-        mo.md("## Project Selection"),
-        project_table,
-    ])
+    mo.vstack(
+        [
+            mo.md("## Project Selection"),
+            project_table,
+        ]
+    )
     return
 
 
@@ -550,11 +530,13 @@ def _(container_id, container_type):
 @app.cell
 def _(plates, plates_select, sample_df, subset_samples_select, subset_samples_toggle):
     # Sample Selection tab content
-    sample_selection_content = mo.vstack([
-        plates_select if plates else None,
-        mo.hstack([subset_samples_toggle, mo.md(f"**{len(sample_df)} samples**")], justify="start"),
-        subset_samples_select if subset_samples_select else sample_df,
-    ])
+    sample_selection_content = mo.vstack(
+        [
+            plates_select if plates else None,
+            mo.hstack([subset_samples_toggle, mo.md(f"**{len(sample_df)} samples**")], justify="start"),
+            subset_samples_select if subset_samples_select else sample_df,
+        ]
+    )
     return (sample_selection_content,)
 
 
@@ -569,10 +551,14 @@ def _(container_id, queue_parameters, queue_parameters_err, sample_df, save_butt
     else:
         _output = None
 
-    parameters_content = mo.vstack([
-        mo.callout(_output, kind="info") if _output else mo.callout(str(queue_parameters_err) if queue_parameters_err else "Select a project", kind="danger"),
-        mo.hstack([save_folder, save_button], justify="start") if queue_parameters else None,
-    ])
+    parameters_content = mo.vstack(
+        [
+            mo.callout(_output, kind="info")
+            if _output
+            else mo.callout(str(queue_parameters_err) if queue_parameters_err else "Select a project", kind="danger"),
+            mo.hstack([save_folder, save_button], justify="start") if queue_parameters else None,
+        ]
+    )
     return (parameters_content,)
 
 
@@ -602,15 +588,14 @@ def _(configs, container_id, queue_parameters, sample_df):
 def _(generated_queue_df, generation_error):
     # Queue Preview tab content
     if generation_error:
-        queue_preview_content = mo.callout(
-            mo.md(f"**Generation Error:** {generation_error}"),
-            kind="danger"
-        )
+        queue_preview_content = mo.callout(mo.md(f"**Generation Error:** {generation_error}"), kind="danger")
     elif generated_queue_df is not None:
-        queue_preview_content = mo.vstack([
-            mo.md(f"**{len(generated_queue_df)} rows**"),
-            generated_queue_df,
-        ])
+        queue_preview_content = mo.vstack(
+            [
+                mo.md(f"**{len(generated_queue_df)} rows**"),
+                generated_queue_df,
+            ]
+        )
     else:
         queue_preview_content = mo.md("_Select a project and configure parameters to preview queue_")
     return (queue_preview_content,)
@@ -619,22 +604,26 @@ def _(generated_queue_df, generation_error):
 @app.cell
 def _(valid_combinations_df):
     # Valid Combinations tab content - shows all valid (tech_area, instrument, sampler) combos
-    valid_combinations_content = mo.vstack([
-        mo.md(f"**{len(valid_combinations_df)} valid combinations** (filtered by QC layout availability)"),
-        valid_combinations_df,
-    ])
+    valid_combinations_content = mo.vstack(
+        [
+            mo.md(f"**{len(valid_combinations_df)} valid combinations** (filtered by QC layout availability)"),
+            valid_combinations_df,
+        ]
+    )
     return (valid_combinations_content,)
 
 
 @app.cell
 def _(parameters_content, queue_preview_content, sample_selection_content, valid_combinations_content):
     # Tabbed interface for the right panel
-    right_panel_tabs = mo.ui.tabs({
-        "Queue Preview": queue_preview_content,
-        "Sample Selection": sample_selection_content,
-        "Parameters": parameters_content,
-        "Valid Combinations": valid_combinations_content,
-    })
+    right_panel_tabs = mo.ui.tabs(
+        {
+            "Queue Preview": queue_preview_content,
+            "Sample Selection": sample_selection_content,
+            "Parameters": parameters_content,
+            "Valid Combinations": valid_combinations_content,
+        }
+    )
     right_panel_tabs
     return (right_panel_tabs,)
 

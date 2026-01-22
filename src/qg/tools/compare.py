@@ -152,9 +152,7 @@ def compare_queues(generated_path: str | Path, original_path: str | Path, config
         result["status"] = "pass"
         if qc_mismatch:
             result["comparison_result"] = 5
-            result["warnings"].append(
-                f"QC count differs significantly: {gen_qc_count} vs {orig_qc_count}"
-            )
+            result["warnings"].append(f"QC count differs significantly: {gen_qc_count} vs {orig_qc_count}")
         else:
             result["comparison_result"] = 10
     elif gen_sample_ids.issubset(orig_sample_ids) or orig_sample_ids.issubset(gen_sample_ids):

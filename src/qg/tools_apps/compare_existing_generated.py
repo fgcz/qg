@@ -41,12 +41,14 @@ def _(pl, Path):
     if results_path.exists():
         df = pl.read_csv(results_path)
     else:
-        df = pl.DataFrame({
-            "queue_orig": [],
-            "queue_generated": [],
-            "qg_parameters": [],
-            "comparison_result": [],
-        })
+        df = pl.DataFrame(
+            {
+                "queue_orig": [],
+                "queue_generated": [],
+                "qg_parameters": [],
+                "comparison_result": [],
+            }
+        )
     return df, results_path
 
 
@@ -58,10 +60,12 @@ def _(df, mo, pl):
     qc_mismatch = len(df.filter(pl.col("comparison_result") == 5))
     failed = len(df.filter(pl.col("comparison_result") == 0))
 
-    summary_df = pl.DataFrame({
-        "Metric": ["Total", "Perfect (10)", "QC mismatch (5)", "Failed (0)"],
-        "Count": [total, perfect, qc_mismatch, failed],
-    })
+    summary_df = pl.DataFrame(
+        {
+            "Metric": ["Total", "Perfect (10)", "QC mismatch (5)", "Failed (0)"],
+            "Count": [total, perfect, qc_mismatch, failed],
+        }
+    )
 
     # Per-instrument breakdown
     instrument_df = None
@@ -134,12 +138,12 @@ def _(results_table, mo, pl, Path, read_queue_csv):
 
     if results_table.value is not None and len(results_table.value) > 0:
         _row = results_table.value[0]
-        _orig = str(_row['queue_orig'][0])
-        _gen = str(_row['queue_generated'][0])
-        _params = str(_row['qg_parameters'][0])
-        _score = _row['comparison_result'][0]
-        _instrument = str(_row['instrument'][0]) if 'instrument' in _row.columns else ""
-        _sampler = str(_row['sampler'][0]) if 'sampler' in _row.columns else ""
+        _orig = str(_row["queue_orig"][0])
+        _gen = str(_row["queue_generated"][0])
+        _params = str(_row["qg_parameters"][0])
+        _score = _row["comparison_result"][0]
+        _instrument = str(_row["instrument"][0]) if "instrument" in _row.columns else ""
+        _sampler = str(_row["sampler"][0]) if "sampler" in _row.columns else ""
 
         selected_info = {
             "orig_path": _orig,
@@ -183,17 +187,9 @@ def _(mo, orig_df, gen_df):
     if join_column_options:
         default_col = "filename" if "filename" in join_column_options else join_column_options[0]
 
-        join_column_dropdown = mo.ui.dropdown(
-            options=join_column_options,
-            value=default_col,
-            label="Join on"
-        )
+        join_column_dropdown = mo.ui.dropdown(options=join_column_options, value=default_col, label="Join on")
 
-        join_type_dropdown = mo.ui.dropdown(
-            options=join_type_options,
-            value="full",
-            label="Join type"
-        )
+        join_type_dropdown = mo.ui.dropdown(options=join_type_options, value="full", label="Join type")
 
         _dropdown_display = mo.hstack([join_column_dropdown, join_type_dropdown], justify="start")
 
@@ -209,7 +205,19 @@ def _(mo):
 
 
 @app.cell
-def _(results_table, selected_info, orig_df, gen_df, join_column_dropdown, join_type_dropdown, show_generated, mo, pl, json, Path):
+def _(
+    results_table,
+    selected_info,
+    orig_df,
+    gen_df,
+    join_column_dropdown,
+    join_type_dropdown,
+    show_generated,
+    mo,
+    pl,
+    json,
+    Path,
+):
     # Display comparison results
     _output = []
 
@@ -261,7 +269,7 @@ def _(results_table, selected_info, orig_df, gen_df, join_column_dropdown, join_
         _side_panel = []
 
         # Load parameters
-        _params_path = Path(selected_info['params_path'])
+        _params_path = Path(selected_info["params_path"])
         if _params_path.exists():
             with open(_params_path) as f:
                 _params_data = json.load(f)

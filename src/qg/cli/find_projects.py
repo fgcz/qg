@@ -50,18 +50,20 @@ def main():
     output_dir.mkdir(exist_ok=True)
 
     # CSV with key fields
-    df = pl.DataFrame([
-        {
-            "id": p["id"],
-            "name": p.get("name", ""),
-            "status": p.get("status", ""),
-            "countsamples": p.get("countsamples", 0),
-            "countorders": p.get("countorders", 0),
-            "tech_area": ", ".join(p.get("technology", [])),
-            "created": p.get("created", ""),
-        }
-        for p in projects
-    ])
+    df = pl.DataFrame(
+        [
+            {
+                "id": p["id"],
+                "name": p.get("name", ""),
+                "status": p.get("status", ""),
+                "countsamples": p.get("countsamples", 0),
+                "countorders": p.get("countorders", 0),
+                "tech_area": ", ".join(p.get("technology", [])),
+                "created": p.get("created", ""),
+            }
+            for p in projects
+        ]
+    )
     csv_path = output_dir / "proteomics_projects.csv"
     df.write_csv(csv_path)
     logger.info(f"Saved CSV to: {csv_path}")

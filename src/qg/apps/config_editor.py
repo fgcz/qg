@@ -5,7 +5,6 @@ app = marimo.App(width="full")
 
 with app.setup:
     import tomllib
-    from pathlib import Path
 
     import marimo as mo
     import polars as pl
@@ -28,6 +27,7 @@ def _():
     """)
     return
 
+
 @app.cell
 def _(store):
     # Core configs
@@ -35,13 +35,12 @@ def _(store):
     instruments_editor = mo.ui.data_editor(instruments_df, label="Instruments")
     return instruments_df, instruments_editor
 
+
 @app.cell
 def _(store):
     # UI configs
     instrument_patterns_df = store.get_instrument_patterns()
-    instrument_patterns_editor = mo.ui.data_editor(
-        instrument_patterns_df, label="Instrument Patterns"
-    )
+    instrument_patterns_editor = mo.ui.data_editor(instrument_patterns_df, label="Instrument Patterns")
     return instrument_patterns_df, instrument_patterns_editor
 
 
@@ -57,9 +56,7 @@ def _(store):
 def _(store):
     # Core configs
     sampler_content = store.get_sampler_toml()
-    sampler_editor = mo.ui.code_editor(
-        sampler_content, language="toml", min_height=400
-    )
+    sampler_editor = mo.ui.code_editor(sampler_content, language="toml", min_height=400)
     return (sampler_editor,)
 
 
@@ -75,9 +72,7 @@ def _(store):
 def _(store):
     # Core configs
     patterns_content = store.get_queue_patterns_toml()
-    patterns_editor = mo.ui.code_editor(
-        patterns_content, language="toml", min_height=400
-    )
+    patterns_editor = mo.ui.code_editor(patterns_content, language="toml", min_height=400)
     return (patterns_editor,)
 
 
@@ -85,18 +80,14 @@ def _(store):
 def _(store):
     # Core configs - QC layouts (two CSV files)
     qc_layouts_grid_df = store.get_qc_layouts_grid()
-    qc_layouts_grid_editor = mo.ui.data_editor(
-        qc_layouts_grid_df, label="QC Layouts - Grid (Vanquish, MClass48)"
-    )
+    qc_layouts_grid_editor = mo.ui.data_editor(qc_layouts_grid_df, label="QC Layouts - Grid (Vanquish, MClass48)")
     return qc_layouts_grid_df, qc_layouts_grid_editor
 
 
 @app.cell
 def _(store):
     qc_layouts_evosep_df = store.get_qc_layouts_evosep()
-    qc_layouts_evosep_editor = mo.ui.data_editor(
-        qc_layouts_evosep_df, label="QC Layouts - Evosep"
-    )
+    qc_layouts_evosep_editor = mo.ui.data_editor(qc_layouts_evosep_df, label="QC Layouts - Evosep")
     return qc_layouts_evosep_df, qc_layouts_evosep_editor
 
 
@@ -104,9 +95,7 @@ def _(store):
 def _(store):
     # Core configs
     output_formats_content = store.get_output_formats_toml()
-    output_formats_editor = mo.ui.code_editor(
-        output_formats_content, language="toml", min_height=400
-    )
+    output_formats_editor = mo.ui.code_editor(output_formats_content, language="toml", min_height=400)
     return (output_formats_editor,)
 
 
@@ -134,80 +123,96 @@ def _(methods_dropdown, methods_options, store):
 
 @app.cell
 def _(instrument_patterns_editor, instruments_editor):
-    instruments_tab = mo.vstack([
-        mo.md("### Instruments (instruments.csv)"),
-        instruments_editor,
-        mo.md("### Instrument Patterns (instrument_patterns.csv)"),
-        instrument_patterns_editor,
-    ])
+    instruments_tab = mo.vstack(
+        [
+            mo.md("### Instruments (instruments.csv)"),
+            instruments_editor,
+            mo.md("### Instrument Patterns (instrument_patterns.csv)"),
+            instrument_patterns_editor,
+        ]
+    )
     return (instruments_tab,)
 
 
 @app.cell
 def _(sampler_editor):
-    samplers_tab = mo.vstack([
-        mo.md("### Samplers (sampler.toml)"),
-        sampler_editor,
-    ])
+    samplers_tab = mo.vstack(
+        [
+            mo.md("### Samplers (sampler.toml)"),
+            sampler_editor,
+        ]
+    )
     return (samplers_tab,)
 
 
 @app.cell
 def _(samples_editor):
-    samples_tab = mo.vstack([
-        mo.md("### Samples (samples.csv)"),
-        samples_editor,
-    ])
+    samples_tab = mo.vstack(
+        [
+            mo.md("### Samples (samples.csv)"),
+            samples_editor,
+        ]
+    )
     return (samples_tab,)
 
 
 @app.cell
 def _(patterns_editor):
-    patterns_tab = mo.vstack([
-        mo.md("### Queue Patterns (queue_patterns.toml)"),
-        patterns_editor,
-    ])
+    patterns_tab = mo.vstack(
+        [
+            mo.md("### Queue Patterns (queue_patterns.toml)"),
+            patterns_editor,
+        ]
+    )
     return (patterns_tab,)
 
 
 @app.cell
 def _(qc_layouts_grid_editor, qc_layouts_evosep_editor):
-    qc_layouts_tab = mo.vstack([
-        mo.md("### QC Layouts - Grid Samplers (qc_layouts_grid.csv)"),
-        mo.md("_Vanquish and MClass48 positions: plate, row, col_"),
-        qc_layouts_grid_editor,
-        mo.md("### QC Layouts - Evosep (qc_layouts_evosep.csv)"),
-        mo.md("_Evosep tip ranges: tray, position_start, position_end_"),
-        qc_layouts_evosep_editor,
-    ])
+    qc_layouts_tab = mo.vstack(
+        [
+            mo.md("### QC Layouts - Grid Samplers (qc_layouts_grid.csv)"),
+            mo.md("_Vanquish and MClass48 positions: plate, row, col_"),
+            qc_layouts_grid_editor,
+            mo.md("### QC Layouts - Evosep (qc_layouts_evosep.csv)"),
+            mo.md("_Evosep tip ranges: tray, position_start, position_end_"),
+            qc_layouts_evosep_editor,
+        ]
+    )
     return (qc_layouts_tab,)
 
 
 @app.cell
 def _(combinations_editor):
-    combinations_tab = mo.vstack([
-        mo.md("### Combinations (combinations.csv)"),
-        combinations_editor,
-    ])
+    combinations_tab = mo.vstack(
+        [
+            mo.md("### Combinations (combinations.csv)"),
+            combinations_editor,
+        ]
+    )
     return (combinations_tab,)
 
 
 @app.cell
 def _(output_formats_editor):
-    output_formats_tab = mo.vstack([
-        mo.md("### Output Formats (output_formats.toml)"),
-        output_formats_editor,
-    ])
+    output_formats_tab = mo.vstack(
+        [
+            mo.md("### Output Formats (output_formats.toml)"),
+            output_formats_editor,
+        ]
+    )
     return (output_formats_tab,)
 
 
 @app.cell
 def _(methods_dropdown, methods_editor):
-    methods_tab = mo.vstack([
-        mo.md("### Methods Files"),
-        methods_dropdown,
-        methods_editor,
-    ])
+    methods_tab = mo.vstack(
+        [
+            mo.md("### Methods Files"),
+            methods_dropdown,
+            methods_editor,
+        ]
+    )
     return (methods_tab,)
 
 
@@ -217,7 +222,14 @@ def _(methods_dropdown, methods_editor):
 
 
 @app.cell
-def _(sampler_editor, samples_editor, patterns_editor, qc_layouts_grid_editor, qc_layouts_evosep_editor, output_formats_editor):
+def _(
+    sampler_editor,
+    samples_editor,
+    patterns_editor,
+    qc_layouts_grid_editor,
+    qc_layouts_evosep_editor,
+    output_formats_editor,
+):
     # Parse TOML content for visualization
     def safe_parse_toml(content: str) -> dict:
         try:
@@ -306,12 +318,7 @@ def _(tech_area_dropdown, instruments_df):
     # Step 2: Instrument dropdown (filtered by tech_area)
     mo.stop(not tech_area_dropdown.value)
     filtered_instruments = (
-        instruments_df
-        .filter(pl.col("tech_area") == tech_area_dropdown.value)
-        ["instrument"]
-        .unique()
-        .sort()
-        .to_list()
+        instruments_df.filter(pl.col("tech_area") == tech_area_dropdown.value)["instrument"].unique().sort().to_list()
     )
     instrument_dropdown = mo.ui.dropdown(
         options=filtered_instruments,
@@ -326,12 +333,7 @@ def _(instrument_dropdown, combinations_df):
     # Step 3: Sampler dropdown (filtered by instrument)
     mo.stop(not instrument_dropdown.value)
     filtered_samplers = (
-        combinations_df
-        .filter(pl.col("instrument") == instrument_dropdown.value)
-        ["sampler"]
-        .unique()
-        .sort()
-        .to_list()
+        combinations_df.filter(pl.col("instrument") == instrument_dropdown.value)["sampler"].unique().sort().to_list()
     )
     sampler_dropdown = mo.ui.dropdown(
         options=filtered_samplers,
@@ -346,13 +348,10 @@ def _(tech_area_dropdown, instrument_dropdown, instrument_patterns_df):
     # Step 4: Pattern dropdown (filtered by tech_area + instrument)
     mo.stop(not tech_area_dropdown.value or not instrument_dropdown.value)
     filtered_patterns = (
-        instrument_patterns_df
-        .filter(
-            (pl.col("tech_area") == tech_area_dropdown.value) &
-            (pl.col("instrument") == instrument_dropdown.value)
+        instrument_patterns_df.filter(
+            (pl.col("tech_area") == tech_area_dropdown.value) & (pl.col("instrument") == instrument_dropdown.value)
         )
-        .sort("is_default", descending=True)
-        ["queue_pattern"]
+        .sort("is_default", descending=True)["queue_pattern"]
         .to_list()
     )
     pattern_dropdown = mo.ui.dropdown(
@@ -393,11 +392,7 @@ def _(
     store,
 ):
     # Build the selected configuration view
-    mo.stop(
-        not tech_area_dropdown.value
-        or not instrument_dropdown.value
-        or not sampler_dropdown.value
-    )
+    mo.stop(not tech_area_dropdown.value or not instrument_dropdown.value or not sampler_dropdown.value)
 
     tech = tech_area_dropdown.value
     instr = instrument_dropdown.value
@@ -413,10 +408,7 @@ def _(
     base_config = sampler_data.get(sampler_base, {})
     container_config = base_config.get(container, {}) if container else {}
     # Merge: base properties + container overrides (excluding nested tables)
-    merged_sampler = {
-        k: v for k, v in base_config.items()
-        if not isinstance(v, dict)
-    }
+    merged_sampler = {k: v for k, v in base_config.items() if not isinstance(v, dict)}
     merged_sampler.update(container_config)
 
     # Get QC layout: navigate nested structure
@@ -436,9 +428,7 @@ def _(
         qc_layout = tech_qc_layouts.get(sampler_base, {})
 
     # Get output format from combinations
-    combo_row = combinations_df.filter(
-        (pl.col("instrument") == instr) & (pl.col("sampler") == sampler_key)
-    )
+    combo_row = combinations_df.filter((pl.col("instrument") == instr) & (pl.col("sampler") == sampler_key))
     output_format_key = combo_row["output_format"][0] if len(combo_row) > 0 else None
     output_format = output_formats_data.get(output_format_key, {}) if output_format_key else {}
 
@@ -449,9 +439,7 @@ def _(
     _tech_samples = samples_data.get(tech, {})
 
     # Get methods file
-    instr_row = instruments_df.filter(
-        (pl.col("tech_area") == tech) & (pl.col("instrument") == instr)
-    )
+    instr_row = instruments_df.filter((pl.col("tech_area") == tech) & (pl.col("instrument") == instr))
     _methods_file = instr_row["methods_file"][0] if len(instr_row) > 0 else None
     _methods_path = store.config_dir / _methods_file if _methods_file else None
     _methods_preview = None
@@ -505,7 +493,11 @@ def _(
     _qc_df = _dict_to_df(selected_config["qc_layout"], "Sample", "Position")
 
     # Pattern table - just convert the whole dict
-    _pattern_df = _dict_to_df(selected_config["pattern_config"], "Property", "Value") if selected_config["pattern_config"] else None
+    _pattern_df = (
+        _dict_to_df(selected_config["pattern_config"], "Property", "Value")
+        if selected_config["pattern_config"]
+        else None
+    )
 
     # Selected sample details
     _selected_sample = tech_samples.get(sample_dropdown.value, {}) if sample_dropdown.value else {}
@@ -516,45 +508,63 @@ def _(
     _output_df = _dict_to_df(_fmt.get("columns", {}), "Output Column", "Internal Field") if _fmt else None
 
     # Dropdowns row 1: main config
-    _dropdowns1 = mo.hstack([
-        tech_area_dropdown,
-        instrument_dropdown,
-        sampler_dropdown,
-        pattern_dropdown,
-    ], gap=1)
+    _dropdowns1 = mo.hstack(
+        [
+            tech_area_dropdown,
+            instrument_dropdown,
+            sampler_dropdown,
+            pattern_dropdown,
+        ],
+        gap=1,
+    )
 
     # Build view
     def _section(title, df):
-        return mo.vstack([
-            mo.md(f"### {title}"),
-            mo.ui.table(df, selection=None) if df is not None else mo.md("_None_")
-        ])
+        return mo.vstack(
+            [mo.md(f"### {title}"), mo.ui.table(df, selection=None) if df is not None else mo.md("_None_")]
+        )
 
     # Sample section with dropdown
-    _sample_section = mo.vstack([
-        mo.hstack([mo.md("### Sample"), sample_dropdown], justify="start", gap=1),
-        mo.ui.table(_sample_df, selection=None) if _sample_df is not None else mo.md("_Select a sample_"),
-    ])
+    _sample_section = mo.vstack(
+        [
+            mo.hstack([mo.md("### Sample"), sample_dropdown], justify="start", gap=1),
+            mo.ui.table(_sample_df, selection=None) if _sample_df is not None else mo.md("_Select a sample_"),
+        ]
+    )
 
-    viewer_content = mo.vstack([
-        mo.md("## Configuration Viewer"),
-        _dropdowns1,
-        mo.md("---"),
-        mo.hstack([
-            _section(f"Pattern: {selected_config['pattern_key']}", _pattern_df),
-            _section("QC Positions", _qc_df),
-        ], widths="equal", gap=2),
-        mo.md("---"),
-        mo.hstack([
-            _section(f"Sampler: {selected_config['sampler_key']}", _sampler_df),
-            _sample_section,
-        ], widths="equal", gap=2),
-        mo.md("---"),
-        mo.hstack([
-            _section(f"Output: {selected_config['output_format_key']}", _output_df),
-            _section(f"Methods: {selected_config['methods_file'] or '—'}", selected_config["methods_preview"]),
-        ], widths="equal", gap=2),
-    ])
+    viewer_content = mo.vstack(
+        [
+            mo.md("## Configuration Viewer"),
+            _dropdowns1,
+            mo.md("---"),
+            mo.hstack(
+                [
+                    _section(f"Pattern: {selected_config['pattern_key']}", _pattern_df),
+                    _section("QC Positions", _qc_df),
+                ],
+                widths="equal",
+                gap=2,
+            ),
+            mo.md("---"),
+            mo.hstack(
+                [
+                    _section(f"Sampler: {selected_config['sampler_key']}", _sampler_df),
+                    _sample_section,
+                ],
+                widths="equal",
+                gap=2,
+            ),
+            mo.md("---"),
+            mo.hstack(
+                [
+                    _section(f"Output: {selected_config['output_format_key']}", _output_df),
+                    _section(f"Methods: {selected_config['methods_file'] or '—'}", selected_config["methods_preview"]),
+                ],
+                widths="equal",
+                gap=2,
+            ),
+        ]
+    )
     return (viewer_content,)
 
 
@@ -576,17 +586,19 @@ def _(
     samples_tab,
     visualize_tab,
 ):
-    tabs = mo.ui.tabs({
-        "Overview": visualize_tab,
-        "Instruments": instruments_tab,
-        "Samplers": samplers_tab,
-        "Samples": samples_tab,
-        "Patterns": patterns_tab,
-        "QC Layouts": qc_layouts_tab,
-        "Combinations": combinations_tab,
-        "Output Formats": output_formats_tab,
-        "Methods": methods_tab,
-    })
+    tabs = mo.ui.tabs(
+        {
+            "Overview": visualize_tab,
+            "Instruments": instruments_tab,
+            "Samplers": samplers_tab,
+            "Samples": samples_tab,
+            "Patterns": patterns_tab,
+            "QC Layouts": qc_layouts_tab,
+            "Combinations": combinations_tab,
+            "Output Formats": output_formats_tab,
+            "Methods": methods_tab,
+        }
+    )
     return (tabs,)
 
 
@@ -594,8 +606,6 @@ def _(
 def _(tabs):
     tabs
     return
-
-
 
 
 @app.cell
@@ -653,10 +663,12 @@ def _(
         )
     except ConfigValidationError as e:
         validation_result = mo.callout(
-            mo.vstack([
-                mo.md("**Validation failed:**"),
-                mo.md(f"```\n{e}\n```"),
-            ]),
+            mo.vstack(
+                [
+                    mo.md("**Validation failed:**"),
+                    mo.md(f"```\n{e}\n```"),
+                ]
+            ),
             kind="danger",
         )
 
@@ -708,10 +720,12 @@ def _(
         )
     except (ConfigValidationError, OSError) as e:
         save_result = mo.callout(
-            mo.vstack([
-                mo.md("**Cannot save:**"),
-                mo.md(f"```\n{e}\n```"),
-            ]),
+            mo.vstack(
+                [
+                    mo.md("**Cannot save:**"),
+                    mo.md(f"```\n{e}\n```"),
+                ]
+            ),
             kind="danger",
         )
 

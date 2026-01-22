@@ -35,14 +35,16 @@ def aggregate_results(input_files: list[Path]) -> pl.DataFrame:
             result = json.load(f)
         config_file = result.get("config_file", "")
         instrument, sampler = extract_instrument_sampler(config_file)
-        rows.append({
-            "instrument": instrument,
-            "sampler": sampler,
-            "queue_orig": result.get("original_file", ""),
-            "queue_generated": result.get("generated_file", ""),
-            "qg_parameters": config_file,
-            "comparison_result": result.get("comparison_result", 0),
-        })
+        rows.append(
+            {
+                "instrument": instrument,
+                "sampler": sampler,
+                "queue_orig": result.get("original_file", ""),
+                "queue_generated": result.get("generated_file", ""),
+                "qg_parameters": config_file,
+                "comparison_result": result.get("comparison_result", 0),
+            }
+        )
 
     return pl.DataFrame(rows).sort(["instrument", "comparison_result"], descending=[False, True])
 

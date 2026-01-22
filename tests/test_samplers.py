@@ -51,10 +51,7 @@ class TestVanquishVialSamplerIntegration:
 
         # 6. Create user samples (vial mode: no grid_position needed)
         num_user_samples = structure.count("default")
-        samples = [
-            InputSample(sample_name=f"S{i}", sample_id=1000 + i)
-            for i in range(num_user_samples)
-        ]
+        samples = [InputSample(sample_name=f"S{i}", sample_id=1000 + i) for i in range(num_user_samples)]
 
         # 7. Assign positions
         positions = sampler.assign_positions(structure, samples)
@@ -63,9 +60,17 @@ class TestVanquishVialSamplerIntegration:
         # start = ["QC03dia", "QC01"], end = ["clean", "QC01", "QC03dia", "clean"]
         assert len(positions) == 11
         assert structure == [
-            "QC03dia", "QC01",  # start
-            "default", "default", "default", "default", "default",  # 5 samples
-            "clean", "QC01", "QC03dia", "clean",  # end
+            "QC03dia",
+            "QC01",  # start
+            "default",
+            "default",
+            "default",
+            "default",
+            "default",  # 5 samples
+            "clean",
+            "QC01",
+            "QC03dia",
+            "clean",  # end
         ]
 
         # QC positions from qc_layouts_grid.csv [Proteomics.Vanquish.vial]
@@ -84,6 +89,7 @@ class TestVanquishVialSamplerIntegration:
         assert positions[4] == {"tray": "Y", "grid_position": "A3"}
         assert positions[5] == {"tray": "Y", "grid_position": "A4"}
         assert positions[6] == {"tray": "Y", "grid_position": "A5"}
+
 
 class TestVanquishVialSamplerMetabolomicsIntegration:
     """Integration test for VanquishVialSampler with Metabolomics config."""
@@ -109,10 +115,7 @@ class TestVanquishVialSamplerMetabolomicsIntegration:
 
         # 6. Create user samples (vial mode: no grid_position needed)
         num_user_samples = structure.count("default")
-        samples = [
-            InputSample(sample_name=f"S{i}", sample_id=1000 + i)
-            for i in range(num_user_samples)
-        ]
+        samples = [InputSample(sample_name=f"S{i}", sample_id=1000 + i) for i in range(num_user_samples)]
 
         # 7. Assign positions
         positions = sampler.assign_positions(structure, samples)
@@ -124,29 +127,42 @@ class TestVanquishVialSamplerMetabolomicsIntegration:
         assert len(positions) == 19
         assert structure == [
             # start (11)
-            "blank", "108mix_AA", "pooledQC", "blank",
-            "pooledQCDil1", "pooledQCDil2", "pooledQCDil3",
-            "pooledQCDil4", "pooledQCDil5", "pooledQCDil6",
+            "blank",
+            "108mix_AA",
+            "pooledQC",
+            "blank",
+            "pooledQCDil1",
+            "pooledQCDil2",
+            "pooledQCDil3",
+            "pooledQCDil4",
+            "pooledQCDil5",
+            "pooledQCDil6",
             "blank",
             # 5 samples
-            "default", "default", "default", "default", "default",
+            "default",
+            "default",
+            "default",
+            "default",
+            "default",
             # end (3)
-            "108mix_AA", "pooledQC", "blank",
+            "108mix_AA",
+            "pooledQC",
+            "blank",
         ]
 
         # QC positions from qc_layouts_grid.csv [Metabolomics.Vanquish.vial]
         # Unified format: {"tray": plate, "grid_position": "row+col"}
         # Start block
-        assert positions[0] == {"tray": "Y", "grid_position": "F1"}   # blank
-        assert positions[1] == {"tray": "Y", "grid_position": "F9"}   # 108mix_AA
-        assert positions[2] == {"tray": "Y", "grid_position": "F8"}   # pooledQC
-        assert positions[3] == {"tray": "Y", "grid_position": "F1"}   # blank
-        assert positions[4] == {"tray": "Y", "grid_position": "F2"}   # pooledQCDil1
-        assert positions[5] == {"tray": "Y", "grid_position": "F3"}   # pooledQCDil2
-        assert positions[6] == {"tray": "Y", "grid_position": "F4"}   # pooledQCDil3
-        assert positions[7] == {"tray": "Y", "grid_position": "F5"}   # pooledQCDil4
-        assert positions[8] == {"tray": "Y", "grid_position": "F6"}   # pooledQCDil5
-        assert positions[9] == {"tray": "Y", "grid_position": "F7"}   # pooledQCDil6
+        assert positions[0] == {"tray": "Y", "grid_position": "F1"}  # blank
+        assert positions[1] == {"tray": "Y", "grid_position": "F9"}  # 108mix_AA
+        assert positions[2] == {"tray": "Y", "grid_position": "F8"}  # pooledQC
+        assert positions[3] == {"tray": "Y", "grid_position": "F1"}  # blank
+        assert positions[4] == {"tray": "Y", "grid_position": "F2"}  # pooledQCDil1
+        assert positions[5] == {"tray": "Y", "grid_position": "F3"}  # pooledQCDil2
+        assert positions[6] == {"tray": "Y", "grid_position": "F4"}  # pooledQCDil3
+        assert positions[7] == {"tray": "Y", "grid_position": "F5"}  # pooledQCDil4
+        assert positions[8] == {"tray": "Y", "grid_position": "F6"}  # pooledQCDil5
+        assert positions[9] == {"tray": "Y", "grid_position": "F7"}  # pooledQCDil6
         assert positions[10] == {"tray": "Y", "grid_position": "F1"}  # blank
 
         # User positions: Y plate, row A, row-major
@@ -199,10 +215,7 @@ class TestEvosepVialSamplerIntegration:
 
         # 6. Create user samples (vial mode: no grid_position needed)
         num_user_samples = structure.count("default")
-        samples = [
-            InputSample(sample_name=f"S{i}", sample_id=1000 + i)
-            for i in range(num_user_samples)
-        ]
+        samples = [InputSample(sample_name=f"S{i}", sample_id=1000 + i) for i in range(num_user_samples)]
 
         # 7. Assign positions
         positions = sampler.assign_positions(structure, samples)
@@ -211,9 +224,17 @@ class TestEvosepVialSamplerIntegration:
         # start = ["QC03dia", "QC01"], end = ["clean", "QC01", "QC03dia", "clean"]
         assert len(positions) == 11
         assert structure == [
-            "QC03dia", "QC01",  # start
-            "default", "default", "default", "default", "default",  # 5 samples
-            "clean", "QC01", "QC03dia", "clean",  # end
+            "QC03dia",
+            "QC01",  # start
+            "default",
+            "default",
+            "default",
+            "default",
+            "default",  # 5 samples
+            "clean",
+            "QC01",
+            "QC03dia",
+            "clean",  # end
         ]
 
         # QC positions from qc_layouts_evosep.csv [Proteomics.Evosep]
@@ -226,7 +247,7 @@ class TestEvosepVialSamplerIntegration:
         # First QC03dia uses position 49, second uses 50
         assert positions[0] == {"tray": 5, "grid_position": 49}  # QC03dia #1
         # First QC01 uses position 1, second uses 2
-        assert positions[1] == {"tray": 5, "grid_position": 1}   # QC01 #1
+        assert positions[1] == {"tray": 5, "grid_position": 1}  # QC01 #1
 
         # User positions: sequential across slots
         assert positions[2] == {"tray": 1, "grid_position": 1}
@@ -236,7 +257,7 @@ class TestEvosepVialSamplerIntegration:
         assert positions[6] == {"tray": 1, "grid_position": 5}
 
         # End block QC positions - SEQUENTIAL from their ranges
-        assert positions[7] == {"tray": 6, "grid_position": 1}   # clean #1
-        assert positions[8] == {"tray": 5, "grid_position": 2}   # QC01 #2 (next in range!)
+        assert positions[7] == {"tray": 6, "grid_position": 1}  # clean #1
+        assert positions[8] == {"tray": 5, "grid_position": 2}  # QC01 #2 (next in range!)
         assert positions[9] == {"tray": 5, "grid_position": 50}  # QC03dia #2 (next in range!)
         assert positions[10] == {"tray": 6, "grid_position": 2}  # clean #2 (next in range!)

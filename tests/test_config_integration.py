@@ -209,9 +209,7 @@ class TestCrossReferences:
     def test_instrument_patterns_reference_valid_instruments(self, config_bundle: ConfigBundle) -> None:
         """All instruments in instrument_patterns should exist in instruments.csv."""
         valid = {(i.tech_area, i.instrument) for i in config_bundle.instruments.instruments}
-        pattern_refs = {
-            (p.tech_area, p.instrument) for p in config_bundle.instrument_patterns.patterns
-        }
+        pattern_refs = {(p.tech_area, p.instrument) for p in config_bundle.instrument_patterns.patterns}
         unknown = pattern_refs - valid
         assert not unknown, f"Unknown instruments in patterns: {unknown}"
 

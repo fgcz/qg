@@ -443,10 +443,7 @@ def _validate_unique_positions(positions: dict[str, QCPosition]) -> None:
     for qc_id, pos in positions.items():
         key = _position_to_key(pos)
         if key in seen:
-            raise ValueError(
-                f"Position conflict: '{qc_id}' and '{seen[key]}' "
-                f"both map to position {pos}"
-            )
+            raise ValueError(f"Position conflict: '{qc_id}' and '{seen[key]}' both map to position {pos}")
         seen[key] = qc_id
 
 
@@ -546,7 +543,7 @@ class OutputFormat(BaseModel):
 
     description: str
     file_extension: str
-    position_format: str # How to format {tray, grid_position} into position string
+    position_format: str  # How to format {tray, grid_position} into position string
     columns: dict[str, str]  # output_column_name -> internal_field_name
 
 

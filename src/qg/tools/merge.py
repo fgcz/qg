@@ -46,10 +46,12 @@ def merge_all_csvs(base_path: Path) -> pl.DataFrame:
                     continue
 
                 # Add metadata columns
-                df = df.with_columns([
-                    pl.lit(instrument_id).alias("instrument"),
-                    pl.lit(csv_file.stem).alias("source_file"),
-                ])
+                df = df.with_columns(
+                    [
+                        pl.lit(instrument_id).alias("instrument"),
+                        pl.lit(csv_file.stem).alias("source_file"),
+                    ]
+                )
                 all_dfs.append(df)
             except (pl.exceptions.ComputeError, OSError) as e:
                 # Log and continue - don't let one bad file stop the merge
@@ -99,9 +101,9 @@ def main(
         return
 
     # Add sample_type classification
-    merged = merged.with_columns([
-        pl.col("filename").map_elements(classify_sample, return_dtype=pl.Utf8).alias("sample_type")
-    ])
+    merged = merged.with_columns(
+        [pl.col("filename").map_elements(classify_sample, return_dtype=pl.Utf8).alias("sample_type")]
+    )
 
     # Save to CSV
     output.parent.mkdir(parents=True, exist_ok=True)

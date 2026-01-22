@@ -9,7 +9,6 @@ from qg.builder import QueueGeneratorBuilder
 from qg.config import ConfigBundle, qg_config
 from qg.params_models import InputSample, QueueInput, QueueParameters, SampleGroup
 
-
 CONFIG_DIR = Path(__file__).parent.parent / "qg_configs"
 
 
@@ -33,10 +32,7 @@ def builder(configs):
 
 def make_samples(n: int) -> list[InputSample]:
     """Create a list of n InputSamples."""
-    return [
-        InputSample(sample_name=f"sample_{i}", sample_id=10000 + i)
-        for i in range(1, n + 1)
-    ]
+    return [InputSample(sample_name=f"sample_{i}", sample_id=10000 + i) for i in range(1, n + 1)]
 
 
 def make_queue_input(params: QueueParameters, samples: list[InputSample], container_id: int = 99999) -> QueueInput:
@@ -47,9 +43,7 @@ def make_queue_input(params: QueueParameters, samples: list[InputSample], contai
     )
 
 
-def find_combination_for_format(
-    configs: ConfigBundle, ui_configs, output_format: str
-) -> tuple[str, str, str]:
+def find_combination_for_format(configs: ConfigBundle, ui_configs, output_format: str) -> tuple[str, str, str]:
     """Find a valid (tech_area, instrument, sampler) for the given output format."""
     for combo in ui_configs.combinations.combinations:
         if combo.output_format == output_format:
@@ -67,8 +61,19 @@ def get_expected_columns(configs: ConfigBundle, output_format: str) -> list[str]
         raise ValueError(f"Unknown output format: {output_format}")
     # Only include columns that map to fields in QueueRow (or derived like position)
     queue_row_fields = {
-        "run_number", "sample_type", "sample_id", "sample_name", "position",
-        "tray", "grid_position", "inj_vol", "method", "file_name", "polarity", "data_path", "container_id",
+        "run_number",
+        "sample_type",
+        "sample_id",
+        "sample_name",
+        "position",
+        "tray",
+        "grid_position",
+        "inj_vol",
+        "method",
+        "file_name",
+        "polarity",
+        "data_path",
+        "container_id",
     }
     return [col for col, field in fmt.columns.items() if field in queue_row_fields]
 
@@ -196,9 +201,7 @@ class TestQCOnlyPattern:
         result = generator.generate(samples)
 
         expected = num_samples + 6
-        assert len(result) == expected, (
-            f"qc_only {num_samples} samples: expected {expected}, got {len(result)}"
-        )
+        assert len(result) == expected, f"qc_only {num_samples} samples: expected {expected}, got {len(result)}"
 
 
 class TestMetabolomicsBlankPattern:

@@ -104,15 +104,11 @@ class QueueParameters(BaseModel):
         """
         # Validate pattern exists
         if not configs.queue_patterns.get_pattern(tech_area, queue_pattern):
-            raise ValueError(
-                f"Pattern '{queue_pattern}' not found for {tech_area}"
-            )
+            raise ValueError(f"Pattern '{queue_pattern}' not found for {tech_area}")
 
         # Validate QC layout exists
         if not configs.qc_layouts.get_layout(tech_area, sampler):
-            raise ValueError(
-                f"QC layout not found for {tech_area}.{sampler}"
-            )
+            raise ValueError(f"QC layout not found for {tech_area}.{sampler}")
 
         # Validate output format exists
         if not configs.output_formats.get_format(output_format):
@@ -120,9 +116,7 @@ class QueueParameters(BaseModel):
 
         # Validate instrument exists
         if not configs.instruments.get_instrument(tech_area, instrument):
-            raise ValueError(
-                f"Instrument '{instrument}' not found for {tech_area}"
-            )
+            raise ValueError(f"Instrument '{instrument}' not found for {tech_area}")
 
         # Validate default sample exists
         if not configs.samples.get_sample(tech_area, "default"):
@@ -198,10 +192,7 @@ def write_params(queue_input: QueueInput, output_path: str | Path) -> Path:
             {
                 "container_id": group.container_id,
                 "group_name": group.group_name,
-                "samples": [
-                    sample.model_dump(by_alias=True, exclude_none=True)
-                    for sample in group.samples
-                ],
+                "samples": [sample.model_dump(by_alias=True, exclude_none=True) for sample in group.samples],
             }
             for group in queue_input.sample_groups
         ],

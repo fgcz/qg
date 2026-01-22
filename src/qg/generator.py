@@ -15,9 +15,9 @@ import polars as pl
 from pydantic import BaseModel
 
 from qg.config_models import MethodsConfig, OutputFormat, QueuePattern, Sample, SamplesConfig
-from qg.params_models import InputSample
+from qg.params_models import InputSample, QueueInput
 from qg.positions import Sampler
-from qg.queue_structure import build_multi_container_queue_structure
+from qg.queue_structure import _extract_groups, build_multi_container_queue_structure
 
 # Type alias for position dict (used by SlotInfo/ExpandedSlot internal dataclasses)
 PositionDict = dict[str, Any]
@@ -82,15 +82,6 @@ class ExpandedSlot:
 # =============================================================================
 
 
-def lookup_sample_config(
-    tech_area: str,
-    sample_id: str,
-    samples_config: SamplesConfig,
-) -> Sample | None:
-    """Get Sample config for a sample_id."""
-    return samples_config.get_sample(tech_area, sample_id)
-
-
 def build_slots(
     slot_entries: list,  # list[SlotEntry] from queue_structure
     positions: list[PositionDict],
@@ -103,7 +94,7 @@ def build_slots(
     user_iter = iter(samples)
 
     for idx, entry in enumerate(slot_entries):
-        sample_cfg = lookup_sample_config(tech_area, entry.sample_id, samples_config)
+        sample_cfg = samples_config.get_sample(tech_area, entry.sample_id)
         if not sample_cfg:
             continue
 
@@ -113,14 +104,16 @@ def build_slots(
             if not user:
                 continue
 
-        slots.append(SlotInfo(
-            idx=idx,
-            sample_id=entry.sample_id,
-            position=positions[idx],
-            sample_config=sample_cfg,
-            user_sample=user,
-            container_id=entry.container_id,
-        ))
+        slots.append(
+            SlotInfo(
+                idx=idx,
+                sample_id=entry.sample_id,
+                position=positions[idx],
+                sample_config=sample_cfg,
+                user_sample=user,
+                container_id=entry.container_id,
+            )
+        )
 
     return slots
 
@@ -135,11 +128,13 @@ def expand_polarities(
 
     for slot in slots:
         for polarity in polarities:
-            expanded.append(ExpandedSlot(
-                slot=slot,
-                polarity=polarity,
-                run_number=run,
-            ))
+            expanded.append(
+                ExpandedSlot(
+                    slot=slot,
+                    polarity=polarity,
+                    run_number=run,
+                )
+            )
             run += 1
 
     return expanded
@@ -172,9 +167,7 @@ def resolve_methods(
             # QC samples: method determined by sample_type, not user selection
             method_name = ""
 
-        slot.method = methods_config.get_method_path(
-            tech_area, instrument, sample_id, polarity, method_name
-        )
+        slot.method = methods_config.get_method_path(tech_area, instrument, sample_id, polarity, method_name)
     return slots
 
 
@@ -209,22 +202,25 @@ def build_queue_rows(
         sample_cfg = slot.slot.sample_config
         pos = slot.slot.position
 
-        rows.append(QueueRow(
-            run_number=slot.run_number,
-            sample_type="user" if slot.slot.sample_id == "default" else "qc",
-            sample_id=str(user.sample_id) if user else slot.slot.sample_id,
-            sample_name=user.sample_name if user else sample_cfg.sample_name,
-            tray=pos["tray"],
-            grid_position=pos["grid_position"],
-            inj_vol=inj_vol_override or sample_cfg.inj_vol,
-            file_name=slot.file_name,
-            polarity=slot.polarity,
-            data_path=data_path,
-            method=slot.method,
-            container_id=slot.slot.container_id,
-        ))
+        rows.append(
+            QueueRow(
+                run_number=slot.run_number,
+                sample_type="user" if slot.slot.sample_id == "default" else "qc",
+                sample_id=str(user.sample_id) if user else slot.slot.sample_id,
+                sample_name=user.sample_name if user else sample_cfg.sample_name,
+                tray=pos["tray"],
+                grid_position=pos["grid_position"],
+                inj_vol=inj_vol_override or sample_cfg.inj_vol,
+                file_name=slot.file_name,
+                polarity=slot.polarity,
+                data_path=data_path,
+                method=slot.method,
+                container_id=slot.slot.container_id,
+            )
+        )
 
     return QueueRowTable(rows=rows)
+
 
 # =============================================================================
 # Output Formatting (separate concern)
@@ -248,9 +244,7 @@ def format_table(
     df = df.with_columns(
         pl.struct(["tray", "grid_position"])
         .map_elements(
-            lambda s: output_format.position_format.format(
-                tray=s["tray"], grid_position=s["grid_position"]
-            ),
+            lambda s: output_format.position_format.format(tray=s["tray"], grid_position=s["grid_position"]),
             return_dtype=pl.Utf8,
         )
         .alias("position")
@@ -258,64 +252,79 @@ def format_table(
 
     # Select and rename columns per output format
     # columns maps: {"Output Name": "internal_field", ...}
-    df = df.select([
-        pl.col(internal).alias(output_name)
-        for output_name, internal in output_format.columns.items()
-        if internal in df.columns
-    ])
+    df = df.select(
+        [
+            pl.col(internal).alias(output_name)
+            for output_name, internal in output_format.columns.items()
+            if internal in df.columns
+        ]
+    )
 
     return df
+
 
 # =============================================================================
 # Queue Generator
 # =============================================================================
 
 
-@dataclass(frozen=True)
 class QueueGenerator:
     """Generates queue CSV. Created by QueueGeneratorBuilder."""
 
+    queue_input: QueueInput
     pattern: QueuePattern
     sampler: Sampler
     samples_config: SamplesConfig
     methods_config: MethodsConfig
-    tech_area: str
-    instrument: str
-    polarities: list[str]
-    date: str
-    groups: list[tuple[int, int]]  # (container_id, num_samples) per group
     data_path: str
-    method: dict[str, str]  # polarity -> method_name (e.g., {"pos": "DIA_60min"})
-    inj_vol_override: float | None
-    output_format: OutputFormat  # Includes position_format for formatting {tray, grid_position}
+    output_format: OutputFormat
+
+    def __init__(
+        self,
+        queue_input: QueueInput,
+        pattern: QueuePattern,
+        sampler: Sampler,
+        samples_config: SamplesConfig,
+        methods_config: MethodsConfig,
+        data_path: str,
+        output_format: OutputFormat,
+    ) -> None:
+        self.queue_input = queue_input
+        self.pattern = pattern
+        self.sampler = sampler
+        self.samples_config = samples_config
+        self.methods_config = methods_config
+        self.data_path = data_path
+        self.output_format = output_format
 
     def generate(self, samples: list[InputSample]) -> pl.DataFrame:
         """Execute the queue generation pipeline and return formatted DataFrame."""
         rows = self.build_rows(samples)
         return format_table(rows, self.output_format)
 
-    def build_rows(self, samples: list[InputSample]) -> list[QueueRow]:
+    def build_rows(self, samples: list[InputSample]) -> QueueRowTable:
         """Execute the queue generation pipeline to build rows."""
+        params = self.queue_input.parameters
+        groups = _extract_groups(self.queue_input)
+
         # Step 1: Build structure using groups
-        slot_entries = build_multi_container_queue_structure(self.groups, self.pattern)
+        slot_entries = build_multi_container_queue_structure(groups, self.pattern)
         structure = [s.sample_id for s in slot_entries]
 
         # Step 2: Assign all positions (user + QC) via sampler
         positions = self.sampler.assign_positions(structure, samples)
 
         # Step 3: Build slots (pass full slot_entries to preserve container_id)
-        slots = build_slots(slot_entries, positions, samples, self.samples_config, self.tech_area)
+        slots = build_slots(slot_entries, positions, samples, self.samples_config, params.tech_area)
 
         # Step 4: Expand polarities
-        expanded = expand_polarities(slots, self.polarities)
+        expanded = expand_polarities(slots, params.polarity)
 
         # Step 5: Resolve methods
-        expanded = resolve_methods(
-            expanded, self.methods_config, self.tech_area, self.instrument, self.method
-        )
+        expanded = resolve_methods(expanded, self.methods_config, params.tech_area, params.instrument, params.method)
 
         # Step 6: Format file names (uses slot.container_id)
-        expanded = format_file_names(expanded, self.date)
+        expanded = format_file_names(expanded, params.date)
 
         # Step 7: Build queue rows (uses slot.container_id)
-        return build_queue_rows(expanded, self.data_path, self.inj_vol_override)
+        return build_queue_rows(expanded, self.data_path, params.inj_vol_override)

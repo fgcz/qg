@@ -174,9 +174,7 @@ def build_multi_container_queue_structure(
 
         # Build group structure (user samples + middle QCs)
         if num_samples > 0:
-            middle_positions = set(
-                _compute_middle_block_positions(num_samples, pattern.run_QC_after_n_samples)
-            )
+            middle_positions = set(_compute_middle_block_positions(num_samples, pattern.run_QC_after_n_samples))
             extended_positions = _compute_extended_positions(
                 len(middle_positions), pattern.middle_extended_frequency_multiplier or 0
             )

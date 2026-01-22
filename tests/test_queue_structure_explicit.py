@@ -82,7 +82,7 @@ class TestMultiGroupQueueStructure:
         assert len(structure) == expected
 
     def test_both_ten_samples_with_middle(self, pattern):
-        """Both 10 samples, with run_QC_after_n_samples=5: start + samples + middle + separation + samples + middle + end."""
+        """Both 10 samples, with run_QC_after_n_samples=5: start + samples + middle + sep + samples + middle + end."""
         pattern.run_QC_after_n_samples = 5
 
         groups = [(1001, 10), (1002, 10)]
@@ -90,9 +90,11 @@ class TestMultiGroupQueueStructure:
 
         expected = (
             len(pattern.start)
-            + 10 + len(pattern.middle)
+            + 10
+            + len(pattern.middle)
             + len(pattern.separation)
-            + 10 + len(pattern.middle)
+            + 10
+            + len(pattern.middle)
             + len(pattern.end)
         )
         assert len(structure) == expected
@@ -126,5 +128,3 @@ class TestSingleContainerWithMultiGroupFunction:
 
         expected = len(pattern.start) + 10 + len(pattern.middle) + len(pattern.end)
         assert len(structure) == expected
-
-

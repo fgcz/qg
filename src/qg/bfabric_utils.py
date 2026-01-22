@@ -58,13 +58,15 @@ def _load_plate_samples(
             continue
         for s in plate.refs.sample:
             d = s.data_dict
-            samples.append(InputSample(
-                sample_name=d["name"],
-                sample_id=d["id"],
-                position=d.get("_position"),
-                grid_position=d.get("_gridposition"),
-                plate_id=plate_id,
-            ))
+            samples.append(
+                InputSample(
+                    sample_name=d["name"],
+                    sample_id=d["id"],
+                    position=d.get("_position"),
+                    grid_position=d.get("_gridposition"),
+                    plate_id=plate_id,
+                )
+            )
     return samples
 
 

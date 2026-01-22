@@ -85,7 +85,6 @@ def _merge_positions(
 # =============================================================================
 
 
-
 class VanquishVialSampler:
     """Vanquish vial - generates positions row-major across plates."""
 
@@ -127,10 +126,12 @@ class VanquishVialSampler:
             col = self._container.cols[col_idx]
             grid_position = self._container.grid_position_format.format(row=row, col=col)
 
-            positions.append({
-                "tray": self._parent.plates[plate_idx],
-                "grid_position": grid_position,
-            })
+            positions.append(
+                {
+                    "tray": self._parent.plates[plate_idx],
+                    "grid_position": grid_position,
+                }
+            )
 
             # Advance (row-major order)
             col_idx += 1
@@ -164,15 +165,10 @@ class VanquishPlateSampler:
     ) -> list[PositionDict]:
         num_user = structure.count("default")
         if len(samples) < num_user:
-            raise ValueError(
-                f"Not enough input samples ({len(samples)}) for {num_user} positions"
-            )
+            raise ValueError(f"Not enough input samples ({len(samples)}) for {num_user} positions")
         # For plate mode, grid_position comes from input samples
         # Unified format: {"tray": plate, "grid_position": from_input}
-        user_positions = [
-            {"tray": "Y", "grid_position": s.grid_position or ""}
-            for s in samples[:num_user]
-        ]
+        user_positions = [{"tray": "Y", "grid_position": s.grid_position or ""} for s in samples[:num_user]]
         return _merge_positions(structure, user_positions, self._qc_positions)
 
 
@@ -220,10 +216,12 @@ class MClass48VialSampler:
             col = self._parent.cols[col_idx]
             grid_position = self._container.grid_position_format.format(row=row, col=col)
 
-            positions.append({
-                "tray": self._parent.plates[plate_idx],
-                "grid_position": grid_position,
-            })
+            positions.append(
+                {
+                    "tray": self._parent.plates[plate_idx],
+                    "grid_position": grid_position,
+                }
+            )
 
             # Advance (row-major order)
             col_idx += 1
@@ -257,15 +255,10 @@ class MClass48PlateSampler:
     ) -> list[PositionDict]:
         num_user = structure.count("default")
         if len(samples) < num_user:
-            raise ValueError(
-                f"Not enough input samples ({len(samples)}) for {num_user} positions"
-            )
+            raise ValueError(f"Not enough input samples ({len(samples)}) for {num_user} positions")
         # For plate mode, grid_position comes from input samples
         # Unified format: {"tray": plate, "grid_position": from_input}
-        user_positions = [
-            {"tray": "1", "grid_position": s.grid_position or ""}
-            for s in samples[:num_user]
-        ]
+        user_positions = [{"tray": "1", "grid_position": s.grid_position or ""} for s in samples[:num_user]]
         return _merge_positions(structure, user_positions, self._qc_positions)
 
 
@@ -310,10 +303,12 @@ class EvosepVialSampler:
                 raise ValueError(f"Not enough positions available (requested {n})")
 
             slot = self._parent.slots[slot_idx]
-            positions.append({
-                "tray": slot,
-                "grid_position": position_in_slot,
-            })
+            positions.append(
+                {
+                    "tray": slot,
+                    "grid_position": position_in_slot,
+                }
+            )
 
             # Advance
             position_in_slot += 1
@@ -364,9 +359,7 @@ class EvosepPlateSampler:
     ) -> list[PositionDict]:
         num_user = structure.count("default")
         if len(samples) < num_user:
-            raise ValueError(
-                f"Not enough input samples ({len(samples)}) for {num_user} positions"
-            )
+            raise ValueError(f"Not enough input samples ({len(samples)}) for {num_user} positions")
         # For plate mode, convert grid_position (e.g., "A1") to numeric
         # Unified format: {"tray": slot, "grid_position": 1-96}
         user_positions = []
@@ -380,10 +373,12 @@ class EvosepPlateSampler:
                     numeric_pos = int(grid_pos) if grid_pos else 0
                 except ValueError:
                     numeric_pos = 0
-            user_positions.append({
-                "tray": 1,  # Default to tray 1 for plate mode
-                "grid_position": numeric_pos,
-            })
+            user_positions.append(
+                {
+                    "tray": 1,  # Default to tray 1 for plate mode
+                    "grid_position": numeric_pos,
+                }
+            )
         return _merge_positions(structure, user_positions, self._qc_positions)
 
 
@@ -422,28 +417,16 @@ def create_sampler(
     """
     match sampler_name:
         case "Vanquish.vial":
-            return VanquishVialSampler(
-                config.Vanquish, config.Vanquish.vial, qc_layout_pattern
-            )
+            return VanquishVialSampler(config.Vanquish, config.Vanquish.vial, qc_layout_pattern)
         case "Vanquish.plate":
-            return VanquishPlateSampler(
-                config.Vanquish, config.Vanquish.plate, qc_layout_pattern
-            )
+            return VanquishPlateSampler(config.Vanquish, config.Vanquish.plate, qc_layout_pattern)
         case "MClass48.vial":
-            return MClass48VialSampler(
-                config.MClass48, config.MClass48.vial, qc_layout_pattern
-            )
+            return MClass48VialSampler(config.MClass48, config.MClass48.vial, qc_layout_pattern)
         case "MClass48.plate":
-            return MClass48PlateSampler(
-                config.MClass48, config.MClass48.plate, qc_layout_pattern
-            )
+            return MClass48PlateSampler(config.MClass48, config.MClass48.plate, qc_layout_pattern)
         case "Evosep.vial":
-            return EvosepVialSampler(
-                config.Evosep, config.Evosep.vial, qc_layout_pattern
-            )
+            return EvosepVialSampler(config.Evosep, config.Evosep.vial, qc_layout_pattern)
         case "Evosep.plate":
-            return EvosepPlateSampler(
-                config.Evosep, config.Evosep.plate, qc_layout_pattern
-            )
+            return EvosepPlateSampler(config.Evosep, config.Evosep.plate, qc_layout_pattern)
         case _:
             raise ValueError(f"Unknown sampler: {sampler_name}")

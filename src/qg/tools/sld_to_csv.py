@@ -55,9 +55,7 @@ def _extract_run_number(filename: str, default: int) -> int:
     return default
 
 
-def _find_in_range(
-    items: list[tuple[int, str]], start: int, end: int
-) -> str | None:
+def _find_in_range(items: list[tuple[int, str]], start: int, end: int) -> str | None:
     """Find first item with position in the given range."""
     for pos, value in items:
         if start < pos < end:
@@ -65,9 +63,7 @@ def _find_in_range(
     return None
 
 
-def _find_closest_before(
-    items: list[tuple[int, str]], target_pos: int, min_pos: int
-) -> str | None:
+def _find_closest_before(items: list[tuple[int, str]], target_pos: int, min_pos: int) -> str | None:
     """Find the item closest to target_pos that falls between min_pos and target_pos."""
     closest_value = None
     closest_dist = float("inf")
@@ -135,12 +131,12 @@ def _update_filename_run_number(filename: str, new_run: int) -> str:
     match = RUN_NUMBER_PATTERN.match(filename)
     if match:
         # Replace just the run number portion (group 1)
-        return filename[:match.start(1)] + new_run_str + filename[match.end(1):]
+        return filename[: match.start(1)] + new_run_str + filename[match.end(1) :]
 
     # Try order pattern: 20YYMMDD_CXXXX_NNN_...
     match = RUN_NUMBER_ORDER_PATTERN.match(filename)
     if match:
-        return filename[:match.start(1)] + new_run_str + filename[match.end(1):]
+        return filename[: match.start(1)] + new_run_str + filename[match.end(1) :]
 
     return filename
 
@@ -186,18 +182,20 @@ def parse_sld_file_new_format(text: str) -> list[dict]:
             raw_filename = reinject_data.get("OriginalRawFileNameWithoutExtension", "")
             row_number = reinject_data.get("DisplayRowNumber", 0)
 
-            samples.append({
-                "row": row_number,
-                "run": _extract_run_number(raw_filename, row_number),
-                "filename": raw_filename,
-            })
+            samples.append(
+                {
+                    "row": row_number,
+                    "run": _extract_run_number(raw_filename, row_number),
+                    "filename": raw_filename,
+                }
+            )
         except json.JSONDecodeError:
             continue
 
     # Extract more details by finding text before each JSON block
     for i, match in enumerate(json_matches):
         start = json_matches[i - 1].end() if i > 0 else 0
-        chunk = text[start:match.start()]
+        chunk = text[start : match.start()]
 
         # Extract method and output BEFORE removing nulls (they are separators)
         method_match = re.search(r"(C:\\Xcalibur\\methods\\[^\x00-\x1f@]+)", chunk)
@@ -304,12 +302,7 @@ def print_queue_table(samples: list[dict], filename: str) -> None:
     print("-" * 80)
 
     for s in samples:
-        print(
-            f"{s.get('row', ''):<5} "
-            f"{s.get('run', ''):<5} "
-            f"{s.get('vial', 'N/A'):<8} "
-            f"{s.get('filename', ''):<50}"
-        )
+        print(f"{s.get('row', ''):<5} {s.get('run', ''):<5} {s.get('vial', 'N/A'):<8} {s.get('filename', ''):<50}")
 
     print(f"\nTotal samples: {len(samples)}")
 
@@ -418,15 +411,25 @@ def main(
         if csv_output is not None:
             raise ValueError("--csv cannot be used with directory input, use --output-dir")
         _process_directory(
-            input_path, output_dir, log_file,
-            check=check, sanitize=sanitize, min_length=min_length, verbose=verbose,
+            input_path,
+            output_dir,
+            log_file,
+            check=check,
+            sanitize=sanitize,
+            min_length=min_length,
+            verbose=verbose,
         )
     else:
         if output_dir is not None:
             raise ValueError("--output-dir cannot be used with single file input, use --csv")
         _process_single_file(
-            input_path, csv_output, log_file,
-            check=check, sanitize=sanitize, min_length=min_length, verbose=verbose,
+            input_path,
+            csv_output,
+            log_file,
+            check=check,
+            sanitize=sanitize,
+            min_length=min_length,
+            verbose=verbose,
         )
 
 
@@ -455,8 +458,13 @@ def _process_single_file(
         logger.add(sys.stderr, format="{level} | {message}")
 
     process_single_sld(
-        sld_file, csv_output, log_file,
-        check=check, sanitize=sanitize, min_length=min_length, verbose=verbose,
+        sld_file,
+        csv_output,
+        log_file,
+        check=check,
+        sanitize=sanitize,
+        min_length=min_length,
+        verbose=verbose,
     )
 
 
@@ -497,8 +505,13 @@ def _process_directory(
     for sld_file in sld_files:
         csv_output = output_dir / sld_file.with_suffix(".csv").name
         if process_single_sld(
-            sld_file, csv_output, log_file,
-            check=check, sanitize=sanitize, min_length=min_length, verbose=verbose,
+            sld_file,
+            csv_output,
+            log_file,
+            check=check,
+            sanitize=sanitize,
+            min_length=min_length,
+            verbose=verbose,
         ):
             processed += 1
         else:

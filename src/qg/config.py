@@ -37,8 +37,6 @@ from qg.config_models import (
 _core_dir: Path | None = None
 
 
-
-
 # =============================================================================
 # DataFrame/String Loaders (for ConfigStore validation)
 # =============================================================================
@@ -79,9 +77,7 @@ def _queue_patterns_from_toml_str(content: str) -> QueuePatternsConfig:
     raw_data = tomllib.loads(content)
     patterns: dict[str, dict[str, QueuePattern]] = {}
     for tech, tech_patterns in raw_data.items():
-        patterns[tech] = {
-            name: QueuePattern(**pattern_data) for name, pattern_data in tech_patterns.items()
-        }
+        patterns[tech] = {name: QueuePattern(**pattern_data) for name, pattern_data in tech_patterns.items()}
     return QueuePatternsConfig(patterns=patterns)
 
 
@@ -92,9 +88,7 @@ def _output_formats_from_toml_str(content: str) -> OutputFormatsConfig:
     return OutputFormatsConfig(formats=formats)
 
 
-def _qc_layouts_from_dfs(
-    grid_df: pl.DataFrame | None, evosep_df: pl.DataFrame | None
-) -> QCLayoutsConfig:
+def _qc_layouts_from_dfs(grid_df: pl.DataFrame | None, evosep_df: pl.DataFrame | None) -> QCLayoutsConfig:
     """Create QCLayoutsConfig from grid and evosep DataFrames."""
     layouts: dict[str, dict[str, dict[str, QCPosition]]] = {}
 
@@ -133,9 +127,7 @@ def _qc_layouts_from_dfs(
     return QCLayoutsConfig(layouts=layouts)
 
 
-def _methods_from_dfs(
-    methods_dfs: dict[Path, pl.DataFrame], instruments: InstrumentsConfig
-) -> MethodsConfig:
+def _methods_from_dfs(methods_dfs: dict[Path, pl.DataFrame], instruments: InstrumentsConfig) -> MethodsConfig:
     """Create MethodsConfig from dict of {path: DataFrame}.
 
     Args:
@@ -305,10 +297,9 @@ class ConfigBundle:
             DataFrame with columns: tech_area, instrument, sampler, output_format
         """
         # Build instruments DataFrame (tech_area, instrument)
-        instruments_df = pl.DataFrame([
-            {"tech_area": i.tech_area, "instrument": i.instrument}
-            for i in self.instruments.instruments
-        ])
+        instruments_df = pl.DataFrame(
+            [{"tech_area": i.tech_area, "instrument": i.instrument} for i in self.instruments.instruments]
+        )
 
         # Build combinations DataFrame (instrument, sampler, output_format)
         combinations_df = self.combinations.to_table()
@@ -320,11 +311,7 @@ class ConfigBundle:
         result = instruments_df.join(combinations_df, on="instrument", how="inner")
 
         # Filter by valid samplers (tech_area, sampler must exist in QC layouts)
-        result = result.join(
-            valid_samplers_df,
-            on=["tech_area", "sampler"],
-            how="inner"
-        )
+        result = result.join(valid_samplers_df, on=["tech_area", "sampler"], how="inner")
 
         return result.select(["tech_area", "instrument", "sampler", "output_format"]).sort(
             ["tech_area", "instrument", "sampler"]
@@ -547,17 +534,9 @@ def _validate_all_configs(bundle: ConfigBundle) -> list[str]:
     _print_config_summary(bundle)
 
     # Cross-validate references between configs
-    errors.extend(
-        _cross_validate_instrument_refs(
-            bundle.instruments, bundle.instrument_patterns, bundle.combinations
-        )
-    )
-    errors.extend(
-        _cross_validate_sampler_refs(bundle.samplers, bundle.combinations)
-    )
-    errors.extend(
-        _cross_validate_sample_refs(bundle.samples, bundle.queue_patterns, bundle.qc_layouts)
-    )
+    errors.extend(_cross_validate_instrument_refs(bundle.instruments, bundle.instrument_patterns, bundle.combinations))
+    errors.extend(_cross_validate_sampler_refs(bundle.samplers, bundle.combinations))
+    errors.extend(_cross_validate_sample_refs(bundle.samples, bundle.queue_patterns, bundle.qc_layouts))
     errors.extend(_cross_validate_qc_layout_patterns(bundle.queue_patterns, bundle.qc_layouts))
 
     # Summary
@@ -569,6 +548,7 @@ def _validate_all_configs(bundle: ConfigBundle) -> list[str]:
         logger.info("All validations passed!")
 
     return errors
+
 
 @lru_cache(maxsize=1)
 def qg_config(config_dir: Path | None = None) -> ConfigBundle:
@@ -605,5 +585,3 @@ def qg_config(config_dir: Path | None = None) -> ConfigBundle:
     if errors:
         raise ConfigValidationError(errors)
     return config_bundle
-
-

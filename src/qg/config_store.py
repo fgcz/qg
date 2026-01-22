@@ -22,8 +22,8 @@ from qg.config import (
     _output_formats_from_toml_str,
     _qc_layouts_from_dfs,
     _queue_patterns_from_toml_str,
-    _samples_from_df,
     _samplers_from_toml_str,
+    _samples_from_df,
     _validate_all_configs,
 )
 
@@ -397,9 +397,7 @@ class ConfigStore:
         samplers = _samplers_from_toml_str(self.get_sampler_toml())
         queue_patterns = _queue_patterns_from_toml_str(self.get_queue_patterns_toml())
         output_formats = _output_formats_from_toml_str(self.get_output_formats_toml())
-        qc_layouts = _qc_layouts_from_dfs(
-            self.get_qc_layouts_grid(), self.get_qc_layouts_evosep()
-        )
+        qc_layouts = _qc_layouts_from_dfs(self.get_qc_layouts_grid(), self.get_qc_layouts_evosep())
 
         # Build methods dict from all methods files (cached or disk)
         methods_dfs: dict[Path, pl.DataFrame] = {}

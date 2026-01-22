@@ -7,12 +7,11 @@ import pytest
 from qg.config import qg_config
 from qg.config_models import QueuePattern
 from qg.queue_structure import (
-    build_multi_container_queue_structure,
     _compute_extended_positions,
     _compute_middle_block_positions,
     _compute_queue_counts,
+    build_multi_container_queue_structure,
 )
-
 
 # =============================================================================
 # Fixtures
@@ -40,9 +39,7 @@ _bundle = qg_config(_config_dir)
 _patterns_config = _bundle.queue_patterns
 
 ALL_PATTERN_KEYS = [
-    (tech, pattern_name)
-    for tech, patterns in _patterns_config.patterns.items()
-    for pattern_name in patterns.keys()
+    (tech, pattern_name) for tech, patterns in _patterns_config.patterns.items() for pattern_name in patterns.keys()
 ]
 
 # Patterns with middle_extended
@@ -115,9 +112,7 @@ class TestComputeExtendedPositions:
             (5, 1, {0, 1, 2, 3, 4}),
         ],
     )
-    def test_extended_positions(
-        self, num_blocks: int, multiplier: int, expected: set[int]
-    ) -> None:
+    def test_extended_positions(self, num_blocks: int, multiplier: int, expected: set[int]) -> None:
         assert _compute_extended_positions(num_blocks, multiplier) == expected
 
 
@@ -323,16 +318,11 @@ class TestComputeQueueCountsConsistency:
 
         # total_qcs = start + middle + extended + end
         assert result["total_qcs"] == (
-            result["start_qcs"]
-            + result["middle_qcs"]
-            + result["extended_qcs"]
-            + result["end_qcs"]
+            result["start_qcs"] + result["middle_qcs"] + result["extended_qcs"] + result["end_qcs"]
         )
 
         # middle_blocks = regular + extended
-        assert result["middle_blocks"] == (
-            result["regular_middle_blocks"] + result["extended_blocks"]
-        )
+        assert result["middle_blocks"] == (result["regular_middle_blocks"] + result["extended_blocks"])
 
 
 # =============================================================================
