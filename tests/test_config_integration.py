@@ -228,3 +228,94 @@ class TestCrossReferences:
         combo_formats = {c.output_format for c in config_bundle.combinations.combinations}
         unknown = combo_formats - valid_formats
         assert not unknown, f"Unknown output formats in combinations: {unknown}"
+
+
+# =============================================================================
+# Test QueueParameters.create() Factory
+# =============================================================================
+
+
+class TestQueueParametersCreate:
+    """Tests for QueueParameters.create() factory method validation."""
+
+    def test_create_with_valid_params(self, config_bundle: ConfigBundle) -> None:
+        """Factory creates QueueParameters with valid config references."""
+        from qg.params_models import QueueParameters
+
+        params = QueueParameters.create(
+            config_bundle,
+            tech_area="Proteomics",
+            instrument="ASTRAL_1",
+            sampler="Vanquish.vial",
+            output_format="xcalibur",
+            queue_pattern="standard",
+            polarity=["pos"],
+            date="20260122",
+            user="testuser",
+        )
+        assert params.tech_area == "Proteomics"
+        assert params.instrument == "ASTRAL_1"
+
+    def test_create_rejects_invalid_pattern(self, config_bundle: ConfigBundle) -> None:
+        """Factory raises ValueError for non-existent pattern."""
+        from qg.params_models import QueueParameters
+
+        with pytest.raises(ValueError, match="Pattern 'nonexistent' not found"):
+            QueueParameters.create(
+                config_bundle,
+                tech_area="Proteomics",
+                instrument="ASTRAL_1",
+                sampler="Vanquish.vial",
+                output_format="xcalibur",
+                queue_pattern="nonexistent",
+                polarity=["pos"],
+                date="20260122",
+            )
+
+    def test_create_rejects_invalid_sampler(self, config_bundle: ConfigBundle) -> None:
+        """Factory raises ValueError for non-existent QC layout."""
+        from qg.params_models import QueueParameters
+
+        with pytest.raises(ValueError, match="QC layout not found"):
+            QueueParameters.create(
+                config_bundle,
+                tech_area="Proteomics",
+                instrument="ASTRAL_1",
+                sampler="NonexistentSampler.vial",
+                output_format="xcalibur",
+                queue_pattern="standard",
+                polarity=["pos"],
+                date="20260122",
+            )
+
+    def test_create_rejects_invalid_output_format(self, config_bundle: ConfigBundle) -> None:
+        """Factory raises ValueError for non-existent output format."""
+        from qg.params_models import QueueParameters
+
+        with pytest.raises(ValueError, match="Output format 'nonexistent' not found"):
+            QueueParameters.create(
+                config_bundle,
+                tech_area="Proteomics",
+                instrument="ASTRAL_1",
+                sampler="Vanquish.vial",
+                output_format="nonexistent",
+                queue_pattern="standard",
+                polarity=["pos"],
+                date="20260122",
+            )
+
+    def test_create_rejects_invalid_instrument(self, config_bundle: ConfigBundle) -> None:
+        """Factory raises ValueError for non-existent instrument."""
+        from qg.params_models import QueueParameters
+
+        with pytest.raises(ValueError, match="Instrument 'FAKE_INSTRUMENT' not found"):
+            QueueParameters.create(
+                config_bundle,
+                tech_area="Proteomics",
+                instrument="FAKE_INSTRUMENT",
+                sampler="Vanquish.vial",
+                output_format="xcalibur",
+                queue_pattern="standard",
+                polarity=["pos"],
+                date="20260122",
+            )

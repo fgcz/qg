@@ -1,13 +1,17 @@
 """Pydantic models for queue parameters (runtime input)."""
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
     import polars as pl
+
+    from qg.config import ConfigBundle
 
 
 class InputSample(BaseModel):
@@ -54,6 +58,90 @@ class QueueParameters(BaseModel):
     randomization: Literal["no", "random", "blockrandom"] = "no"
     inj_vol_override: float | None = None
     qc_frequency_override: int | None = None  # Override run_QC_after_n_samples
+
+    @classmethod
+    def create(
+        cls,
+        configs: ConfigBundle,
+        *,
+        tech_area: str,
+        instrument: str,
+        sampler: str,
+        output_format: str,
+        queue_pattern: str,
+        polarity: list[Literal["pos", "neg"]],
+        date: str,
+        user: str = "",
+        method: dict[str, str] | None = None,
+        randomization: Literal["no", "random", "blockrandom"] = "no",
+        inj_vol_override: float | None = None,
+        qc_frequency_override: int | None = None,
+    ) -> Self:
+        """Create validated QueueParameters.
+
+        Validates that all referenced configs exist before construction.
+
+        Args:
+            configs: Configuration bundle for validation.
+            tech_area: Technology area (Proteomics, Metabolomics, Lipidomics).
+            instrument: Instrument name.
+            sampler: Sampler name (e.g., "Vanquish.vial").
+            output_format: Output format identifier.
+            queue_pattern: Queue pattern name.
+            polarity: List of polarities to run.
+            date: Date string (YYYYMMDD).
+            user: Username for output path.
+            method: Method per polarity (e.g., {"pos": "DIA_60min"}).
+            randomization: Randomization mode.
+            inj_vol_override: Optional injection volume override.
+            qc_frequency_override: Optional QC frequency override.
+
+        Returns:
+            Validated QueueParameters instance.
+
+        Raises:
+            ValueError: If any referenced config doesn't exist.
+        """
+        # Validate pattern exists
+        if not configs.queue_patterns.get_pattern(tech_area, queue_pattern):
+            raise ValueError(
+                f"Pattern '{queue_pattern}' not found for {tech_area}"
+            )
+
+        # Validate QC layout exists
+        if not configs.qc_layouts.get_layout(tech_area, sampler):
+            raise ValueError(
+                f"QC layout not found for {tech_area}.{sampler}"
+            )
+
+        # Validate output format exists
+        if not configs.output_formats.get_format(output_format):
+            raise ValueError(f"Output format '{output_format}' not found")
+
+        # Validate instrument exists
+        if not configs.instruments.get_instrument(tech_area, instrument):
+            raise ValueError(
+                f"Instrument '{instrument}' not found for {tech_area}"
+            )
+
+        # Validate default sample exists
+        if not configs.samples.get_sample(tech_area, "default"):
+            raise ValueError(f"No 'default' sample definition for {tech_area}")
+
+        return cls(
+            tech_area=tech_area,
+            instrument=instrument,
+            sampler=sampler,
+            output_format=output_format,
+            queue_pattern=queue_pattern,
+            polarity=polarity,
+            date=date,
+            user=user,
+            method=method or {},
+            randomization=randomization,
+            inj_vol_override=inj_vol_override,
+            qc_frequency_override=qc_frequency_override,
+        )
 
 
 class QueueInput(BaseModel):

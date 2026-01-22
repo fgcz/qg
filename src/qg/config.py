@@ -20,6 +20,7 @@ from qg.config_models import (
     MethodsConfig,
     OutputFormat,
     OutputFormatsConfig,
+    QCLayoutPattern,
     QCLayoutsConfig,
     QCPosition,
     QueuePattern,
@@ -28,7 +29,6 @@ from qg.config_models import (
     SamplersConfig,
     SamplesConfig,
 )
-from qg.positions import QCLayoutPattern
 
 # =============================================================================
 # Module-level path cache (set by qg_config)

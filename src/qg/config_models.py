@@ -1,5 +1,7 @@
 """Pydantic models for queue generation configuration."""
 
+from __future__ import annotations
+
 import polars as pl
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -22,6 +24,7 @@ __all__ = [
     "EvosepPosition",
     "QCPosition",
     "QCLayoutsConfig",
+    "QCLayoutPattern",
     "OutputFormat",
     "OutputFormatsConfig",
     "Method",
@@ -359,7 +362,7 @@ class EvosepPosition(BaseModel):
     position_end: int = Field(..., gt=0)
 
     @model_validator(mode="after")
-    def validate_range(self) -> "EvosepPosition":
+    def validate_range(self) -> EvosepPosition:
         """End must be >= start."""
         if self.position_end < self.position_start:
             raise ValueError(f"position_end ({self.position_end}) < position_start ({self.position_start})")
@@ -401,6 +404,136 @@ class QCLayoutsConfig(BaseModel):
     def get_samplers_for_tech_area(self, tech: str) -> list[str]:
         """Get all sampler keys for a tech_area."""
         return list(self.layouts.get(tech, {}).keys())
+
+
+# =============================================================================
+# QC Layout Pattern (Validated)
+# =============================================================================
+
+
+def _collect_pattern_qc_ids(pattern: QueuePattern) -> set[str]:
+    """Collect all unique QC sample IDs from a pattern."""
+    qc_ids: set[str] = set()
+    qc_ids.update(pattern.start)
+    qc_ids.update(pattern.middle)
+    qc_ids.update(pattern.end)
+    if pattern.separation:
+        qc_ids.update(pattern.separation)
+    if pattern.middle_extended:
+        qc_ids.update(pattern.middle_extended)
+    return qc_ids
+
+
+def _position_to_key(pos: QCPosition) -> tuple:
+    """Convert position to a hashable key for uniqueness check."""
+    if isinstance(pos, EvosepPosition):
+        # For Evosep ranges, use tray + start as key
+        return ("tray", pos.tray, pos.position_start)
+    # Sort items for consistent key regardless of dict order
+    return tuple(sorted(pos.items()))
+
+
+def _validate_unique_positions(positions: dict[str, QCPosition]) -> None:
+    """Validate that all positions are unique.
+
+    Raises:
+        ValueError: If two different QC samples share the same position
+    """
+    seen: dict[tuple, str] = {}  # position_key -> qc_id
+    for qc_id, pos in positions.items():
+        key = _position_to_key(pos)
+        if key in seen:
+            raise ValueError(
+                f"Position conflict: '{qc_id}' and '{seen[key]}' "
+                f"both map to position {pos}"
+            )
+        seen[key] = qc_id
+
+
+class QCLayoutPattern:
+    """Validated QC layout for a specific queue pattern.
+
+    Ensures that QC samples used in the pattern have unique positions.
+    For Evosep, tracks position counters to allocate sequential positions.
+    """
+
+    def __init__(
+        self,
+        positions: dict[str, QCPosition],
+        evosep_counters: dict[str, int] | None = None,
+    ):
+        self.positions = positions
+        self._evosep_counters = evosep_counters or {}
+
+    @classmethod
+    def create(
+        cls,
+        pattern: QueuePattern,
+        qc_layout: dict[str, QCPosition],
+    ) -> QCLayoutPattern:
+        """Create and validate QC layout for a pattern.
+
+        Args:
+            pattern: Queue pattern with QC sample IDs
+            qc_layout: Raw QC positions from config
+
+        Returns:
+            Validated QCLayoutPattern
+
+        Raises:
+            ValueError: If a QC sample is missing from qc_layout or positions conflict
+        """
+        # 1. Collect unique QC IDs from pattern
+        qc_ids = _collect_pattern_qc_ids(pattern)
+
+        # 2. Map to positions
+        positions: dict[str, QCPosition] = {}
+        evosep_counters: dict[str, int] = {}
+
+        for qc_id in qc_ids:
+            if qc_id not in qc_layout:
+                raise ValueError(f"QC sample '{qc_id}' not in qc_layout")
+            pos = qc_layout[qc_id]
+            if isinstance(pos, EvosepPosition):
+                positions[qc_id] = pos
+                evosep_counters[qc_id] = pos.position_start
+            else:
+                positions[qc_id] = dict(pos)  # Copy grid dict
+
+        # 3. Validate uniqueness
+        _validate_unique_positions(positions)
+
+        return cls(positions=positions, evosep_counters=evosep_counters)
+
+    def get_position(self, qc_id: str) -> dict[str, str | int]:
+        """Get position dict for a QC sample ID.
+
+        Returns unified format: {"tray": ..., "grid_position": ...}
+        For Evosep, returns the next available position and increments counter.
+        """
+        pos = self.positions.get(qc_id)
+        if pos is None:
+            return {}
+
+        if isinstance(pos, EvosepPosition):
+            # Get next position in range
+            current = self._evosep_counters.get(qc_id, pos.position_start)
+            if current > pos.position_end:
+                raise ValueError(
+                    f"Evosep position range exhausted for '{qc_id}': "
+                    f"needed position {current}, range is {pos.position_start}-{pos.position_end}"
+                )
+            # Increment counter for next call
+            self._evosep_counters[qc_id] = current + 1
+            return {"tray": pos.tray, "grid_position": current}
+        else:
+            # Grid position from qc_layouts_grid.csv: {plate, row, col}
+            # Convert to unified format: {tray, grid_position}
+            plate = pos.get("plate", "")
+            row = pos.get("row", "")
+            col = pos.get("col", "")
+            grid_position = f"{row}{col}"
+            return {"tray": plate, "grid_position": grid_position}
 
 
 # =============================================================================

@@ -84,11 +84,12 @@ class TestOutputFormats:
         samples = make_samples(1)
 
         params = QueueParameters(
-                        tech_area=tech_area,
+            tech_area=tech_area,
             instrument=instrument,
             sampler=sampler,
             output_format=output_format,
             queue_pattern="noqc",
+            polarity=["pos"],
             date="20260116",
             user="test",
         )
@@ -103,16 +104,17 @@ class TestOutputFormats:
 
     @pytest.mark.parametrize("output_format", ["xcalibur", "chronos", "hystar"])
     def test_output_format_single_sample_row_count(self, configs, ui_configs, builder, output_format: str):
-        """Single sample with noqc pattern produces exactly 1 row (proteomics, no polarity)."""
+        """Single sample with noqc pattern produces exactly 1 row."""
         tech_area, instrument, sampler = find_combination_for_format(configs, ui_configs, output_format)
         samples = make_samples(1)
 
         params = QueueParameters(
-                        tech_area=tech_area,
+            tech_area=tech_area,
             instrument=instrument,
             sampler=sampler,
             output_format=output_format,
             queue_pattern="noqc",
+            polarity=["pos"],
             date="20260116",
             user="test",
         )
@@ -179,11 +181,12 @@ class TestQCOnlyPattern:
         """qc_only pattern returns N + 6 rows (3 start + N samples + 3 end)."""
         samples = make_samples(num_samples)
         params = QueueParameters(
-                        tech_area="Proteomics",
+            tech_area="Proteomics",
             instrument="ASTRAL_1",
             sampler="Vanquish.vial",
             output_format="xcalibur",
             queue_pattern="qc_only",
+            polarity=["pos"],
             date="20260116",
             user="test",
         )

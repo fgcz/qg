@@ -14,7 +14,7 @@ from typing import Any, Literal
 import polars as pl
 from pydantic import BaseModel
 
-from qg.config_models import MethodsConfig, OutputFormat, QueuePattern, Sample
+from qg.config_models import MethodsConfig, OutputFormat, QueuePattern, Sample, SamplesConfig
 from qg.params_models import InputSample
 from qg.positions import Sampler
 from qg.queue_structure import build_multi_container_queue_structure
@@ -83,25 +83,27 @@ class ExpandedSlot:
 
 
 def lookup_sample_config(
+    tech_area: str,
     sample_id: str,
-    samples_config: dict[str, Sample],
+    samples_config: SamplesConfig,
 ) -> Sample | None:
     """Get Sample config for a sample_id."""
-    return samples_config.get(sample_id)
+    return samples_config.get_sample(tech_area, sample_id)
 
 
 def build_slots(
     slot_entries: list,  # list[SlotEntry] from queue_structure
     positions: list[PositionDict],
     samples: list[InputSample],
-    samples_config: dict[str, Sample],
+    samples_config: SamplesConfig,
+    tech_area: str,
 ) -> list[SlotInfo]:
     """Build slots from SlotEntry list. Uses lookup_sample_config."""
     slots: list[SlotInfo] = []
     user_iter = iter(samples)
 
     for idx, entry in enumerate(slot_entries):
-        sample_cfg = lookup_sample_config(entry.sample_id, samples_config)
+        sample_cfg = lookup_sample_config(tech_area, entry.sample_id, samples_config)
         if not sample_cfg:
             continue
 
@@ -275,7 +277,7 @@ class QueueGenerator:
 
     pattern: QueuePattern
     sampler: Sampler
-    samples_config: dict[str, Sample]
+    samples_config: SamplesConfig
     methods_config: MethodsConfig
     tech_area: str
     instrument: str
@@ -302,7 +304,7 @@ class QueueGenerator:
         positions = self.sampler.assign_positions(structure, samples)
 
         # Step 3: Build slots (pass full slot_entries to preserve container_id)
-        slots = build_slots(slot_entries, positions, samples, self.samples_config)
+        slots = build_slots(slot_entries, positions, samples, self.samples_config, self.tech_area)
 
         # Step 4: Expand polarities
         expanded = expand_polarities(slots, self.polarities)

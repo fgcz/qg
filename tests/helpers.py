@@ -90,7 +90,7 @@ def make_queue_input(
         sampler=sampler,
         output_format=output_format,
         queue_pattern=queue_pattern,
-        polarity=[],
+        polarity=["pos"],
         date=date.today().strftime("%Y%m%d"),
         user="testuser",
         method={},
