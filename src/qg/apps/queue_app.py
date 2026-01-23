@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.18.4"
+__generated_with = "0.19.4"
 app = marimo.App(width="full", sql_output="polars")
 
 with app.setup:
@@ -30,8 +30,8 @@ def _():
         client = _request.user.get_bfabric_client()
         _content = f"Authenticated user: {client.auth.login}"
     else:
-        _content = "No user information in request. Using TEST configuration."
-        client = Bfabric.connect(config_file_env="TEST")
+        _content = "No user information in request. Using default configuration."
+        client = Bfabric.connect()
 
     mo.md(_content)
     return (client,)
@@ -59,41 +59,18 @@ def _(configs):
     instrument_patterns_df = configs.instrument_patterns.to_table()
     # Valid combinations filtered by QC layout availability
     valid_combinations_df = configs.get_valid_instruments_samplers()
-    return combinations_df, instrument_patterns_df, instruments_df, valid_combinations_df
-
-
-# =============================================================================
-# Project Data Loading
-# =============================================================================
+    return instrument_patterns_df, instruments_df, valid_combinations_df
 
 
 @app.cell
 def _(BFABRIC_CACHE_DIR):
-    # Load orders from cached proteomics_projects.json
-    with open(BFABRIC_CACHE_DIR / "proteomics_projects.json") as f:
-        _projects_data = json.load(f)
+    # Load orders and projects data
+    _orders_data = pl.read_csv(BFABRIC_CACHE_DIR / "bfabric_order.csv")
+    _projects_data = pl.read_csv(BFABRIC_CACHE_DIR / "bfabric_project.csv")
 
-    _orders = [
-        {
-            "Container ID": order["id"],
-            "Project ID": project["id"],
-            "Project Name": project.get("name", ""),
-            "PI": project.get("billingcustomer", ""),
-            "Samples": order.get("sample_count", 0),
-            "Type": "Plates" if order.get("plate_count", 0) > 0 else "Vials",
-            "Plates": order.get("plate_count", 0),
-            "Status": project.get("status", ""),
-            "Area": project.get("technology", [""])[0] if project.get("technology") else "",
-        }
-        for project in _projects_data
-        for order in project.get("order", [])
-    ]
-
-    projects_df = (
-        pl.DataFrame(_orders)
-        .filter((pl.col("Samples") > 0) & ~pl.col("Area").str.to_lowercase().is_in(["genomics", "administration"]))
-        .sort("Container ID", descending=True)
-    )
+    projects_df = pl.concat(
+        (_orders_data, _projects_data), how="diagonal_relaxed"
+    ).sort("Container ID", descending=True)
     return (projects_df,)
 
 
@@ -153,7 +130,12 @@ def _(instruments_df, tech_area_field):
 
 
 @app.cell
-def _(container_type, instrument_field, tech_area_field, valid_combinations_df):
+def _(
+    container_type,
+    instrument_field,
+    tech_area_field,
+    valid_combinations_df,
+):
     # Filter samplers by tech_area, instrument, container type, and QC layout availability
     mo.stop(not instrument_field.value or not tech_area_field.value)
     _container_suffix = ".vial" if container_type == "Vials" else ".plate"
@@ -468,12 +450,12 @@ def _(
     instrument_field,
     method_field_neg,
     method_field_pos,
+    output_format_value,
     pattern_field,
     polarity_group,
     qc_frequency_field,
     randomization_field,
     sampler_field,
-    output_format_value,
     tech_area_field,
     user_field,
 ):
@@ -517,7 +499,14 @@ def _():
 
 
 @app.cell
-def _(configs, queue_parameters, sample_df, save_button, save_folder, selected_orders):
+def _(
+    configs,
+    queue_parameters,
+    sample_df,
+    save_button,
+    save_folder,
+    selected_orders,
+):
     mo.stop(not save_button.value or queue_parameters is None or not selected_orders)
     _container_ids = [o[0] for o in selected_orders]
     try:
@@ -551,7 +540,7 @@ def _(configs, queue_parameters, sample_df, save_button, save_folder, selected_o
 def _(project_table):
     mo.vstack(
         [
-            mo.md("## Project Selection"),
+            mo.md("## Order Selection"),
             project_table,
         ]
     )
@@ -570,7 +559,14 @@ def _(container_type, selected_orders):
 
 
 @app.cell
-def _(all_plates, plates_select, sample_df, selected_orders, subset_samples_select, subset_samples_toggle):
+def _(
+    all_plates,
+    plates_select,
+    sample_df,
+    selected_orders,
+    subset_samples_select,
+    subset_samples_toggle,
+):
     # Sample Selection tab content
     _has_plates = any(all_plates.get(o[0]) for o in selected_orders) if selected_orders else False
     _order_count = len(selected_orders) if selected_orders else 0
@@ -591,7 +587,15 @@ def _(all_plates, plates_select, sample_df, selected_orders, subset_samples_sele
 
 
 @app.cell
-def _(configs, queue_parameters, queue_parameters_err, sample_df, save_button, save_folder, selected_orders):
+def _(
+    configs,
+    queue_parameters,
+    queue_parameters_err,
+    sample_df,
+    save_button,
+    save_folder,
+    selected_orders,
+):
     # Build full QueueInput for display (Parameters tab content)
     _output = None
     if queue_parameters and selected_orders and sample_df is not None and "container_id" in sample_df.columns:
@@ -641,7 +645,6 @@ def _(configs, queue_parameters, sample_df, selected_orders):
             # Config errors (missing QC layout, etc.) - log and display to user
             logger.exception("Queue generation failed")
             generation_error = str(e)
-
     return generated_queue_df, generation_error, raw_queue_df
 
 
@@ -652,7 +655,14 @@ def _():
 
 
 @app.cell
-def _(formatted_ticket_toggle, generated_queue_df, generation_error, queue_parameters, raw_queue_df, selected_orders):
+def _(
+    formatted_ticket_toggle,
+    generated_queue_df,
+    generation_error,
+    queue_parameters,
+    raw_queue_df,
+    selected_orders,
+):
     # Queue Preview tab content
     if generation_error:
         queue_preview_content = mo.callout(mo.md(f"**Generation Error:** {generation_error}"), kind="danger")
@@ -695,7 +705,12 @@ def _(valid_combinations_df):
 
 
 @app.cell
-def _(parameters_content, queue_preview_content, sample_selection_content, valid_combinations_content):
+def _(
+    parameters_content,
+    queue_preview_content,
+    sample_selection_content,
+    valid_combinations_content,
+):
     # Tabbed interface for the right panel
     right_panel_tabs = mo.ui.tabs(
         {
@@ -706,7 +721,7 @@ def _(parameters_content, queue_preview_content, sample_selection_content, valid
         }
     )
     right_panel_tabs
-    return (right_panel_tabs,)
+    return
 
 
 if __name__ == "__main__":
