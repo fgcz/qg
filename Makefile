@@ -28,3 +28,7 @@ validate:
 # Fetch projects from B-Fabric
 projects:
 	uv run qg-find-projects
+
+deploy-test:
+	docker compose -f docker-compose-test.yml build app
+	docker compose -f docker-compose-test.yml up -d --force-recreate

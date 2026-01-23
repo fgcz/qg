@@ -1,0 +1,13 @@
+image: ghcr.io/astral-sh/uv:python3.13-trixie
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible
+stages:
+  - test
+test:
+  stage: test
+  tags:
+    - linux
+  script:
+    - uv sync
+    - uv run pytest
