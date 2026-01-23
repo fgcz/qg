@@ -2,6 +2,18 @@
 
 Generate sample queues with QC injections for mass spectrometry instruments (XCalibur, Chronos, Hystar).
 
+## Deployment information
+
+The code is deployed on fgcz-r-039 in `/scratch/A401_queue_gen` as a test.
+
+To deploy
+
+```bash
+ssh bfabric@localhost
+cd /scratch/A401_queue_gen
+make deploy-test
+```
+
 ## Quick Start
 
 ### GUI (Marimo App)

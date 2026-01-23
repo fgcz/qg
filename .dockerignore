@@ -1,0 +1,23 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+__marimo__/
+.claude/
+queue_files/
+*.pdf
+*.svg
+.snakemake/
+*.html
+*_files/
+*.png
+plans/
+
+# actual data
+bfabric_cache
