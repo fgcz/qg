@@ -30,7 +30,7 @@ services:
     volumes:
       - caddy_data:/data
     depends_on:
-      - streamlit
+      - app
     restart: unless-stopped
 
 configs:

@@ -11,6 +11,7 @@ To deploy
 ```bash
 ssh bfabric@localhost
 cd /scratch/A401_queue_gen
+git pull
 make deploy-test
 ```
 
