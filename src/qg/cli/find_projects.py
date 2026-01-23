@@ -1,7 +1,7 @@
 """Find proteomics and metabolomics containers with samples in B-Fabric."""
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 import polars as pl
 from bfabric import Bfabric
@@ -94,13 +94,9 @@ def generate_bfabric_cache(
 
     dfs = {}
     if update_orders:
-        dfs["order"] = read_containers(
-            client, "order", max_results=None, technology_ids=technology_ids
-        )
+        dfs["order"] = read_containers(client, "order", max_results=None, technology_ids=technology_ids)
     if update_projects:
-        dfs["project"] = read_containers(
-            client, "project", max_results=None, technology_ids=technology_ids
-        )
+        dfs["project"] = read_containers(client, "project", max_results=None, technology_ids=technology_ids)
 
     outputs = {key: extract_output(df) for key, df in dfs.items()}
 

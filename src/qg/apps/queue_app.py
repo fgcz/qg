@@ -4,7 +4,6 @@ __generated_with = "0.19.4"
 app = marimo.App(width="full", sql_output="polars")
 
 with app.setup:
-    import json
     import logging
     from datetime import date
     from pathlib import Path
@@ -55,7 +54,6 @@ def _():
 def _(configs):
     # Get DataFrames for UI filtering from the loaded config bundle
     instruments_df = configs.instruments.to_table()
-    combinations_df = configs.combinations.to_table()
     instrument_patterns_df = configs.instrument_patterns.to_table()
     # Valid combinations filtered by QC layout availability
     valid_combinations_df = configs.get_valid_instruments_samplers()
@@ -68,9 +66,9 @@ def _(BFABRIC_CACHE_DIR):
     _orders_data = pl.read_csv(BFABRIC_CACHE_DIR / "bfabric_order.csv")
     _projects_data = pl.read_csv(BFABRIC_CACHE_DIR / "bfabric_project.csv")
 
-    projects_df = pl.concat(
-        (_orders_data, _projects_data), how="diagonal_relaxed"
-    ).sort("Container ID", descending=True)
+    projects_df = pl.concat((_orders_data, _projects_data), how="diagonal_relaxed").sort(
+        "Container ID", descending=True
+    )
     return (projects_df,)
 
 
@@ -491,46 +489,6 @@ def _(
     return queue_parameters, queue_parameters_err
 
 
-@app.cell
-def _():
-    save_folder = mo.ui.text(value=".", label="Save folder", full_width=True)
-    save_button = mo.ui.run_button(label="Save Params JSON")
-    return save_button, save_folder
-
-
-@app.cell
-def _(
-    configs,
-    queue_parameters,
-    sample_df,
-    save_button,
-    save_folder,
-    selected_orders,
-):
-    mo.stop(not save_button.value or queue_parameters is None or not selected_orders)
-    _container_ids = [o[0] for o in selected_orders]
-    try:
-        _queue_input = (
-            QueueBuilder(configs)
-            .with_parameters(queue_parameters)
-            .add_samples_from_dataframe(sample_df, _container_ids)
-            .build()
-        )
-    except ValueError as e:
-        mo.stop(True, mo.md(f"**Error:** {e}"))
-
-    _output_dir = Path(save_folder.value)
-    _output_dir.mkdir(exist_ok=True, parents=True)
-    _ids_str = "_".join(str(c) for c in _container_ids)
-    _filepath = (
-        _output_dir
-        / f"{queue_parameters.tech_area}_{queue_parameters.sampler.replace('.', '_')}_c{_ids_str}_n{len(sample_df)}.json"
-    )
-    _queue_input.write(_filepath)
-    mo.md(f"**Saved to `{_filepath.resolve()}`**")
-    return
-
-
 # =============================================================================
 # Main Content Layout
 # =============================================================================
@@ -592,12 +550,11 @@ def _(
     queue_parameters,
     queue_parameters_err,
     sample_df,
-    save_button,
-    save_folder,
     selected_orders,
 ):
     # Build full QueueInput for display (Parameters tab content)
     _output = None
+    _download_button = None
     if queue_parameters and selected_orders and sample_df is not None and "container_id" in sample_df.columns:
         _container_ids = [o[0] for o in selected_orders]
         try:
@@ -608,15 +565,27 @@ def _(
                 .build()
             )
             _output = _queue_input.model_dump(mode="json")
+
+            # Create download button for JSON
+            import json
+
+            _json_data = json.dumps(_output, indent=2)
+            _ids_str = "_".join(str(c) for c in _container_ids)
+            _filename = f"{queue_parameters.tech_area}_{queue_parameters.sampler.replace('.', '_')}_c{_ids_str}_n{len(sample_df)}.json"
+            _download_button = mo.download(
+                data=_json_data.encode("utf-8"),
+                filename=_filename,
+                label="Download Params JSON",
+            )
         except ValueError:
             pass  # Builder validation failed, show error state
 
     parameters_content = mo.vstack(
         [
+            _download_button if _download_button else None,
             mo.callout(_output, kind="info")
             if _output
             else mo.callout(str(queue_parameters_err) if queue_parameters_err else "Select orders", kind="danger"),
-            mo.hstack([save_folder, save_button], justify="start") if queue_parameters else None,
         ]
     )
     return (parameters_content,)
