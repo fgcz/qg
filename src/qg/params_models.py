@@ -9,8 +9,6 @@ from typing import TYPE_CHECKING, Literal, Self
 from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
-    import polars as pl
-
     from qg.config import ConfigBundle
 
 
@@ -152,53 +150,46 @@ class QueueInput(BaseModel):
         """Get the primary container ID (first group's container_id)."""
         return self.sample_groups[0].container_id
 
+    def write(self, output_path: str | Path) -> Path:
+        """Write queue input to JSON file.
 
-def samples_from_dataframe(df: pl.DataFrame) -> list[InputSample]:
-    """Convert a polars DataFrame to list of InputSample."""
-    return [InputSample(**row) for row in df.to_dicts()]
+        Args:
+            output_path: Path to write the JSON file.
 
+        Returns:
+            Path to the written file.
+        """
+        output_path = Path(output_path)
 
-def write_params(queue_input: QueueInput, output_path: str | Path) -> Path:
-    """Write queue parameters to JSON file.
+        # Build parameters dict
+        params = self.parameters
+        params_dict: dict = {
+            "tech_area": params.tech_area,
+            "instrument": params.instrument,
+            "sampler": params.sampler,
+            "output_format": params.output_format,
+            "queue_pattern": params.queue_pattern,
+            "polarity": params.polarity,
+            "date": params.date,
+            "user": params.user,
+            "method": params.method,
+            "randomization": params.randomization,
+            "inj_vol_override": params.inj_vol_override,
+        }
 
-    Args:
-        queue_input: The QueueInput object to serialize.
-        output_path: Path to write the JSON file.
+        output_dict: dict = {
+            "parameters": params_dict,
+            "sample_groups": [
+                {
+                    "container_id": group.container_id,
+                    "group_name": group.group_name,
+                    "samples": [sample.model_dump(by_alias=True, exclude_none=True) for sample in group.samples],
+                }
+                for group in self.sample_groups
+            ],
+        }
 
-    Returns:
-        Path to the written file.
-    """
-    output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(output_dict, indent=2))
 
-    # Build parameters dict
-    params = queue_input.parameters
-    params_dict: dict = {
-        "tech_area": params.tech_area,
-        "instrument": params.instrument,
-        "sampler": params.sampler,
-        "output_format": params.output_format,
-        "queue_pattern": params.queue_pattern,
-        "polarity": params.polarity,
-        "date": params.date,
-        "user": params.user,
-        "method": params.method,
-        "randomization": params.randomization,
-        "inj_vol_override": params.inj_vol_override,
-    }
-
-    output_dict: dict = {
-        "parameters": params_dict,
-        "sample_groups": [
-            {
-                "container_id": group.container_id,
-                "group_name": group.group_name,
-                "samples": [sample.model_dump(by_alias=True, exclude_none=True) for sample in group.samples],
-            }
-            for group in queue_input.sample_groups
-        ],
-    }
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(output_dict, indent=2))
-
-    return output_path
+        return output_path

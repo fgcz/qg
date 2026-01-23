@@ -19,7 +19,8 @@ with app.setup:
     from qg.bfabric_utils import get_plates, get_samples, samples_to_dataframe
     from qg.config import qg_config
     from qg.generator import QueueGenerator
-    from qg.params_models import QueueInput, QueueParameters, SampleGroup, samples_from_dataframe, write_params
+    from qg.params_models import QueueParameters
+    from qg.queue_builder import QueueBuilder
 
 
 @app.cell
@@ -100,24 +101,27 @@ def _(BFABRIC_CACHE_DIR):
 def _(projects_df):
     project_table = mo.ui.table(
         data=projects_df,
-        selection="single",
-        label="Select a project",
+        selection="multi",
+        label="Select orders (multi-select)",
     )
     return (project_table,)
 
 
 @app.cell
 def _(project_table):
-    # Provide defaults so sidebar shows immediately, update when project selected
+    # Provide defaults so sidebar shows immediately, update when orders selected
     if project_table.value.is_empty():
-        container_id = None
+        selected_orders = []  # List of (container_id, area, type) tuples
         selected_area = "Proteomics"  # Default tech_area
         container_type = "Vials"  # Default container type
     else:
-        container_id = int(project_table.value["Container ID"][0])
-        selected_area = project_table.value["Area"][0]
-        container_type = project_table.value["Type"][0]  # "Vials" or "Plates"
-    return container_id, container_type, selected_area
+        selected_orders = [
+            (int(row["Container ID"]), row["Area"], row["Type"]) for row in project_table.value.to_dicts()
+        ]
+        # Use first order's area and type for filtering (all should match for valid multi-queue)
+        selected_area = selected_orders[0][1]
+        container_type = selected_orders[0][2]
+    return container_type, selected_area, selected_orders
 
 
 # =============================================================================
@@ -296,7 +300,7 @@ def _(tech_area_field):
 
 @app.cell
 def _():
-    randomization_field = mo.ui.dropdown(options=["no", "random", "blockrandom"], value="no", label="Randomization")
+    randomization_field = mo.ui.dropdown(options=["no", "random", "blocked"], value="no", label="Randomization")
     return (randomization_field,)
 
 
@@ -325,7 +329,6 @@ def _():
 
 @app.cell
 def _(
-    container_id,
     date_field,
     inj_vol_field,
     instrument_field,
@@ -337,13 +340,14 @@ def _(
     qc_frequency_field,
     randomization_field,
     sampler_field,
+    selected_orders,
     tech_area_field,
     user_field,
 ):
     # Build sidebar content - show title always, inputs only after order selected
     _sidebar_items = [mo.md("# Queue Generator")]
 
-    if container_id is not None:
+    if selected_orders:
         # Build queue section items: pattern, polarity, then method per polarity
         _queue_items = [pattern_field, polarity_group]
         if method_field_pos:
@@ -379,27 +383,53 @@ def _(
 
 
 @app.cell
-def _(client, container_id):
-    mo.stop(container_id is None)
-    plates = get_plates(client, container_id)
-    return (plates,)
+def _(client, selected_orders):
+    # Load plates for all selected orders (only for plate-type containers)
+    mo.stop(not selected_orders)
+    all_plates = {}
+    for _container_id, *_ in selected_orders:
+        all_plates[_container_id] = get_plates(client, _container_id)
+    return (all_plates,)
 
 
 @app.cell
-def _(plates):
-    _plate_ids = sorted(_plate.id for _plate in plates.values())
-    plates_select = mo.ui.multiselect(_plate_ids, label="Plates")
+def _(all_plates, selected_orders):
+    # For now, plates_select only works with single order (first one)
+    # TODO: Support per-order plate selection for multi-order queues
+    if selected_orders and all_plates:
+        _first_container = selected_orders[0][0]
+        _first_plates = all_plates.get(_first_container, {})
+        _plate_ids = sorted(_plate.id for _plate in _first_plates.values())
+        plates_select = mo.ui.multiselect(_plate_ids, label="Plates (first order)")
+    else:
+        plates_select = mo.ui.multiselect([], label="Plates")
     return (plates_select,)
 
 
 @app.cell
-def _(client, container_id, container_type, plates, plates_select):
-    selected_plate_ids = plates_select.value if plates_select.value else None
-    sample_group = get_samples(client, container_id, container_type, plates, selected_plate_ids)
-    full_samples_df = samples_to_dataframe(sample_group)
+def _(all_plates, client, container_type, plates_select, selected_orders):
+    # Load samples from all selected orders
+    mo.stop(not selected_orders)
+    all_samples_dfs = []
+
+    for _container_id, *_ in selected_orders:
+        _plates = all_plates.get(_container_id, {})
+        # Only apply plate filter to first order (for now)
+        _selected_plate_ids = (
+            plates_select.value if _container_id == selected_orders[0][0] and plates_select.value else None
+        )
+        _sample_group = get_samples(client, _container_id, container_type, _plates, _selected_plate_ids)
+        _df = samples_to_dataframe(_sample_group)
+        if not _df.is_empty():
+            _df = _df.with_columns(pl.lit(_container_id).alias("container_id"))
+            all_samples_dfs.append(_df)
+
+    if all_samples_dfs:
+        full_samples_df = pl.concat(all_samples_dfs).sort(["container_id", "sample_id"])
+    else:
+        full_samples_df = pl.DataFrame()
     mo.stop(full_samples_df.is_empty(), mo.md("**No samples found**"))
-    full_samples_df = full_samples_df.sort("sample_id")
-    return full_samples_df, sample_group
+    return (full_samples_df,)
 
 
 @app.cell
@@ -487,18 +517,27 @@ def _():
 
 
 @app.cell
-def _(container_id, queue_parameters, sample_df, save_button, save_folder):
-    mo.stop(not save_button.value or queue_parameters is None)
-    _samples = samples_from_dataframe(sample_df)
-    _sample_group = SampleGroup(container_id=container_id, samples=_samples)
-    _queue_input = QueueInput(parameters=queue_parameters, sample_groups=[_sample_group])
+def _(configs, queue_parameters, sample_df, save_button, save_folder, selected_orders):
+    mo.stop(not save_button.value or queue_parameters is None or not selected_orders)
+    _container_ids = [o[0] for o in selected_orders]
+    try:
+        _queue_input = (
+            QueueBuilder(configs)
+            .with_parameters(queue_parameters)
+            .add_samples_from_dataframe(sample_df, _container_ids)
+            .build()
+        )
+    except ValueError as e:
+        mo.stop(True, mo.md(f"**Error:** {e}"))
+
     _output_dir = Path(save_folder.value)
     _output_dir.mkdir(exist_ok=True, parents=True)
-    _n_samples = len(sample_df)
-    _tech = queue_parameters.tech_area
-    _sampler = queue_parameters.sampler.replace(".", "_")
-    _filepath = _output_dir / f"{_tech}_{_sampler}_c{container_id}_n{_n_samples}.json"
-    write_params(_queue_input, _filepath)
+    _ids_str = "_".join(str(c) for c in _container_ids)
+    _filepath = (
+        _output_dir
+        / f"{queue_parameters.tech_area}_{queue_parameters.sampler.replace('.', '_')}_c{_ids_str}_n{len(sample_df)}.json"
+    )
+    _queue_input.write(_filepath)
     mo.md(f"**Saved to `{_filepath.resolve()}`**")
     return
 
@@ -520,21 +559,31 @@ def _(project_table):
 
 
 @app.cell
-def _(container_id, container_type):
-    if container_id is None:
-        mo.md("**Select a project from the table above**")
+def _(container_type, selected_orders):
+    if not selected_orders:
+        mo.md("**Select orders from the table above**")
     else:
-        mo.md(f"**Selected:** Container {container_id} ({container_type})")
+        _container_ids = [o[0] for o in selected_orders]
+        _ids_str = ", ".join(str(c) for c in _container_ids)
+        mo.md(f"**Selected:** {len(selected_orders)} order(s): {_ids_str} ({container_type})")
     return
 
 
 @app.cell
-def _(plates, plates_select, sample_df, subset_samples_select, subset_samples_toggle):
+def _(all_plates, plates_select, sample_df, selected_orders, subset_samples_select, subset_samples_toggle):
     # Sample Selection tab content
+    _has_plates = any(all_plates.get(o[0]) for o in selected_orders) if selected_orders else False
+    _order_count = len(selected_orders) if selected_orders else 0
     sample_selection_content = mo.vstack(
         [
-            plates_select if plates else None,
-            mo.hstack([subset_samples_toggle, mo.md(f"**{len(sample_df)} samples**")], justify="start"),
+            plates_select if _has_plates else None,
+            mo.hstack(
+                [
+                    subset_samples_toggle,
+                    mo.md(f"**{len(sample_df)} samples from {_order_count} order(s)**"),
+                ],
+                justify="start",
+            ),
             subset_samples_select if subset_samples_select else sample_df,
         ]
     )
@@ -542,21 +591,27 @@ def _(plates, plates_select, sample_df, subset_samples_select, subset_samples_to
 
 
 @app.cell
-def _(container_id, queue_parameters, queue_parameters_err, sample_df, save_button, save_folder):
+def _(configs, queue_parameters, queue_parameters_err, sample_df, save_button, save_folder, selected_orders):
     # Build full QueueInput for display (Parameters tab content)
-    if queue_parameters and container_id is not None and sample_df is not None:
-        _samples = samples_from_dataframe(sample_df)
-        _sample_group = SampleGroup(container_id=container_id, samples=_samples)
-        _queue_input = QueueInput(parameters=queue_parameters, sample_groups=[_sample_group])
-        _output = _queue_input.model_dump(mode="json")
-    else:
-        _output = None
+    _output = None
+    if queue_parameters and selected_orders and sample_df is not None and "container_id" in sample_df.columns:
+        _container_ids = [o[0] for o in selected_orders]
+        try:
+            _queue_input = (
+                QueueBuilder(configs)
+                .with_parameters(queue_parameters)
+                .add_samples_from_dataframe(sample_df, _container_ids)
+                .build()
+            )
+            _output = _queue_input.model_dump(mode="json")
+        except ValueError:
+            pass  # Builder validation failed, show error state
 
     parameters_content = mo.vstack(
         [
             mo.callout(_output, kind="info")
             if _output
-            else mo.callout(str(queue_parameters_err) if queue_parameters_err else "Select a project", kind="danger"),
+            else mo.callout(str(queue_parameters_err) if queue_parameters_err else "Select orders", kind="danger"),
             mo.hstack([save_folder, save_button], justify="start") if queue_parameters else None,
         ]
     )
@@ -564,17 +619,21 @@ def _(container_id, queue_parameters, queue_parameters_err, sample_df, save_butt
 
 
 @app.cell
-def _(configs, container_id, queue_parameters, sample_df):
-    # Generate queue from current parameters
+def _(configs, queue_parameters, sample_df, selected_orders):
+    # Generate queue from current parameters (multi-order support)
     generated_queue_df = None
     raw_queue_df = None
     generation_error = None
 
-    if queue_parameters and container_id and sample_df is not None and not sample_df.is_empty():
-        _samples = samples_from_dataframe(sample_df)
-        _sample_group = SampleGroup(container_id=container_id, samples=_samples)
-        _queue_input = QueueInput(parameters=queue_parameters, sample_groups=[_sample_group])
+    if queue_parameters and selected_orders and sample_df is not None and not sample_df.is_empty():
+        _container_ids = [o[0] for o in selected_orders]
         try:
+            _queue_input = (
+                QueueBuilder(configs)
+                .with_parameters(queue_parameters)
+                .add_samples_from_dataframe(sample_df, _container_ids)
+                .build()
+            )
             _generator = QueueGenerator(configs, _queue_input)
             generated_queue_df = _generator.generate()
             raw_queue_df = _generator.build_rows().to_table()
@@ -588,20 +647,32 @@ def _(configs, container_id, queue_parameters, sample_df):
 
 @app.cell
 def _():
-    formatted_ticket_toggle = mo.ui.checkbox(True, label="Formatted ticket")
+    formatted_ticket_toggle = mo.ui.checkbox(True, label="Formatted")
     return (formatted_ticket_toggle,)
 
 
 @app.cell
-def _(formatted_ticket_toggle, generated_queue_df, generation_error, raw_queue_df):
+def _(formatted_ticket_toggle, generated_queue_df, generation_error, queue_parameters, raw_queue_df, selected_orders):
     # Queue Preview tab content
     if generation_error:
         queue_preview_content = mo.callout(mo.md(f"**Generation Error:** {generation_error}"), kind="danger")
     elif generated_queue_df is not None:
         _display_df = generated_queue_df if formatted_ticket_toggle.value else raw_queue_df
+
+        # Create download button with CSV data
+        _csv_data = generated_queue_df.write_csv()
+        _container_ids = [o[0] for o in selected_orders] if selected_orders else []
+        _ids_str = "_".join(str(c) for c in _container_ids) if _container_ids else "queue"
+        _filename = f"{queue_parameters.date}_{queue_parameters.instrument}_{_ids_str}.csv"
+        _download_button = mo.download(
+            data=_csv_data.encode("utf-8"),
+            filename=_filename,
+            label="Download CSV",
+        )
+
         queue_preview_content = mo.vstack(
             [
-                formatted_ticket_toggle,
+                mo.hstack([formatted_ticket_toggle, _download_button], justify="start", gap=1),
                 mo.md(f"**{len(_display_df)} rows**"),
                 _display_df,
             ]
