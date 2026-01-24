@@ -1,9 +1,12 @@
 """Configuration loading functions for queue generation."""
 
+from __future__ import annotations
+
 import tomllib
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import polars as pl
 from loguru import logger
@@ -29,6 +32,9 @@ from qg.config_models import (
     SamplersConfig,
     SamplesConfig,
 )
+
+if TYPE_CHECKING:
+    from qg.params_models import QueueParameters
 
 # =============================================================================
 # Module-level path cache (set by qg_config)
@@ -258,7 +264,10 @@ def _load_methods(methods_dir: Path, instruments: InstrumentsConfig) -> MethodsC
 
 @dataclass(slots=True)
 class ConfigBundle:
-    """Consolidated container for all configuration files."""
+    """Consolidated container for all configuration files.
+
+    Use ConfigBundle.create() to construct validated instances.
+    """
 
     samples: SamplesConfig
     instruments: InstrumentsConfig
@@ -269,6 +278,47 @@ class ConfigBundle:
     qc_layouts: QCLayoutsConfig
     output_formats: OutputFormatsConfig
     methods: MethodsConfig
+
+    @staticmethod
+    def create(
+        samples: SamplesConfig,
+        instruments: InstrumentsConfig,
+        instrument_patterns: InstrumentPatternsConfig,
+        combinations: CombinationsConfig,
+        samplers: SamplersConfig,
+        queue_patterns: QueuePatternsConfig,
+        qc_layouts: QCLayoutsConfig,
+        output_formats: OutputFormatsConfig,
+        methods: MethodsConfig,
+    ) -> ConfigBundle:
+        """Create a validated ConfigBundle.
+
+        Validates all cross-references between configs before constructing the bundle.
+        Raises ConfigValidationError if validation fails.
+        """
+        errors = _validate_configs(
+            samples=samples,
+            instruments=instruments,
+            instrument_patterns=instrument_patterns,
+            combinations=combinations,
+            samplers=samplers,
+            queue_patterns=queue_patterns,
+            qc_layouts=qc_layouts,
+        )
+        if errors:
+            raise ConfigValidationError(errors)
+
+        return ConfigBundle(
+            samples=samples,
+            instruments=instruments,
+            instrument_patterns=instrument_patterns,
+            combinations=combinations,
+            samplers=samplers,
+            queue_patterns=queue_patterns,
+            qc_layouts=qc_layouts,
+            output_formats=output_formats,
+            methods=methods,
+        )
 
     def get_valid_samplers(self, tech_area: str | None = None) -> pl.DataFrame:
         """Get valid (tech_area, sampler) combinations from QC layouts.
@@ -316,6 +366,21 @@ class ConfigBundle:
         return result.select(["tech_area", "instrument", "sampler", "output_format"]).sort(
             ["tech_area", "instrument", "sampler"]
         )
+
+    def get_qc_layout_pattern(self, params: QueueParameters) -> QCLayoutPattern:
+        """Create a QCLayoutPattern for the given queue parameters.
+
+        Resolves the pattern and QC layout, validates them, and returns a QCLayoutPattern.
+
+        Args:
+            params: Queue parameters with tech_area, sampler (e.g., "Vanquish.vial"), queue_pattern.
+
+        Returns:
+            Validated QCLayoutPattern instance.
+        """
+        pattern = self.queue_patterns.get_pattern(params.tech_area, params.queue_pattern)
+        qc_layout = self.qc_layouts.get_layout(params.tech_area, params.sampler)
+        return QCLayoutPattern.create(pattern, qc_layout)
 
 
 # =============================================================================
@@ -457,50 +522,6 @@ def _cross_validate_qc_layout_patterns(
     return warnings
 
 
-def _print_config_summary(bundle: ConfigBundle) -> None:
-    """Print summary of loaded configs."""
-    logger.info("Validating samples.csv...")
-    logger.info(f"  OK: {len(bundle.samples.samples)} samples")
-    for tech in sorted({s.tech_area for s in bundle.samples.samples}):
-        count = len(bundle.samples.get_by_tech_area(tech))
-        logger.info(f"    - {tech}: {count} samples")
-
-    logger.info("Validating instruments.csv...")
-    logger.info(f"  OK: {len(bundle.instruments.instruments)} instruments")
-    for tech in sorted({i.tech_area for i in bundle.instruments.instruments}):
-        count = len(bundle.instruments.get_by_tech_area(tech))
-        logger.info(f"    - {tech}: {count} instruments")
-
-    logger.info("Validating instrument_patterns.csv...")
-    logger.info(f"  OK: {len(bundle.instrument_patterns.patterns)} instrument-pattern mappings")
-
-    logger.info("Validating combinations.csv...")
-    logger.info(f"  OK: {len(bundle.combinations.combinations)} valid combinations")
-
-    logger.info("Validating sampler.toml...")
-    logger.info(f"  OK: {len(bundle.samplers.get_sampler_names())} samplers")
-    for name in bundle.samplers.get_sampler_names():
-        sampler = getattr(bundle.samplers, name)
-        if hasattr(sampler, "plates"):
-            logger.info(f"    - {name}: grid sampler ({len(sampler.plates)} plates)")
-        else:
-            logger.info(f"    - {name}: tray sampler ({len(sampler.slots)} slots)")
-
-    logger.info("Validating queue_patterns.toml...")
-    for tech in bundle.queue_patterns.get_technologies():
-        tech_patterns = bundle.queue_patterns.get_patterns_for_tech_area(tech)
-        logger.info(f"  OK: {tech}: {len(tech_patterns)} patterns")
-
-    logger.info("Validating qc_layouts CSVs...")
-    for tech in bundle.qc_layouts.get_technologies():
-        sampler_count = len(bundle.qc_layouts.get_samplers_for_tech_area(tech))
-        logger.info(f"  OK: {tech}: {sampler_count} sampler layouts")
-
-    logger.info("Validating output_formats.toml...")
-    format_names = bundle.output_formats.get_format_names()
-    logger.info(f"  OK: {len(format_names)} output formats ({', '.join(format_names)})")
-
-
 # =============================================================================
 # Main Validation Entry Point
 # =============================================================================
@@ -519,25 +540,30 @@ class ConfigValidationError(Exception):
         super().__init__(message)
 
 
-def _validate_all_configs(bundle: ConfigBundle) -> list[str]:
-    """Validate ConfigBundle and return any validation errors.
+def _validate_configs(
+    *,
+    samples: SamplesConfig,
+    instruments: InstrumentsConfig,
+    instrument_patterns: InstrumentPatternsConfig,
+    combinations: CombinationsConfig,
+    samplers: SamplersConfig,
+    queue_patterns: QueuePatternsConfig,
+    qc_layouts: QCLayoutsConfig,
+) -> list[str]:
+    """Validate config components and return any validation errors.
 
-    Args:
-        bundle: Pre-loaded ConfigBundle from qg_config()
+    Cross-validates references between configs before they are bundled.
 
     Returns:
         List of validation error messages (empty if all pass)
     """
     errors: list[str] = []
 
-    # Print summary of loaded configs
-    _print_config_summary(bundle)
-
     # Cross-validate references between configs
-    errors.extend(_cross_validate_instrument_refs(bundle.instruments, bundle.instrument_patterns, bundle.combinations))
-    errors.extend(_cross_validate_sampler_refs(bundle.samplers, bundle.combinations))
-    errors.extend(_cross_validate_sample_refs(bundle.samples, bundle.queue_patterns, bundle.qc_layouts))
-    errors.extend(_cross_validate_qc_layout_patterns(bundle.queue_patterns, bundle.qc_layouts))
+    errors.extend(_cross_validate_instrument_refs(instruments, instrument_patterns, combinations))
+    errors.extend(_cross_validate_sampler_refs(samplers, combinations))
+    errors.extend(_cross_validate_sample_refs(samples, queue_patterns, qc_layouts))
+    errors.extend(_cross_validate_qc_layout_patterns(queue_patterns, qc_layouts))
 
     # Summary
     if errors:
@@ -568,20 +594,26 @@ def qg_config(config_dir: Path | None = None) -> ConfigBundle:
     core_dir = config_dir / "core"
     ui_dir = config_dir / "ui"
 
-    # Load and validate all configs
+    # Load all configs
     instruments = _load_instruments(core_dir / "instruments.csv")
-    config_bundle = ConfigBundle(
-        samples=_load_samples(core_dir / "samples.csv"),
+    samples = _load_samples(core_dir / "samples.csv")
+    instrument_patterns = _load_instrument_patterns(ui_dir / "instrument_patterns.csv")
+    combinations = _load_combinations(ui_dir / "combinations.csv")
+    samplers = _load_samplers(core_dir / "sampler.toml")
+    queue_patterns = _load_queue_patterns(core_dir / "queue_patterns.toml")
+    qc_layouts = _load_qc_layouts(core_dir)
+    output_formats = _load_output_formats(core_dir / "output_formats.toml")
+    methods = _load_methods(core_dir / "methods", instruments)
+
+    # Validate and create bundle
+    return ConfigBundle.create(
+        samples=samples,
         instruments=instruments,
-        instrument_patterns=_load_instrument_patterns(ui_dir / "instrument_patterns.csv"),
-        combinations=_load_combinations(ui_dir / "combinations.csv"),
-        samplers=_load_samplers(core_dir / "sampler.toml"),
-        queue_patterns=_load_queue_patterns(core_dir / "queue_patterns.toml"),
-        qc_layouts=_load_qc_layouts(core_dir),
-        output_formats=_load_output_formats(core_dir / "output_formats.toml"),
-        methods=_load_methods(core_dir / "methods", instruments),
+        instrument_patterns=instrument_patterns,
+        combinations=combinations,
+        samplers=samplers,
+        queue_patterns=queue_patterns,
+        qc_layouts=qc_layouts,
+        output_formats=output_formats,
+        methods=methods,
     )
-    errors = _validate_all_configs(config_bundle)
-    if errors:
-        raise ConfigValidationError(errors)
-    return config_bundle

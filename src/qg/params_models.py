@@ -19,7 +19,8 @@ class InputSample(BaseModel):
     sample_id: int
     tube_id: str | None = None
     position: str | None = None
-    grid_position: str | None = None
+    grid_position: str | int | None = None
+    tray: str | int | None = None  # Plate letter (Y/R/B/G) or slot number
     grouping_var: str | None = None
     plate_id: int | None = None  # Plate ID for plate samples
 
@@ -145,6 +146,54 @@ class QueueInput(BaseModel):
     def get_all_samples(self) -> list[InputSample]:
         """Get all samples flattened."""
         return [s for group in self.sample_groups for s in group.samples]
+
+    def get_sample_by_index(self, index: int) -> InputSample:
+        """Get sample by flat index across all groups.
+
+        Args:
+            index: Flat index into get_all_samples() ordering.
+
+        Returns:
+            The InputSample at that index.
+
+        Raises:
+            IndexError: If index is out of range.
+        """
+        all_samples = self.get_all_samples()
+        if index < 0 or index >= len(all_samples):
+            raise IndexError(f"Sample index {index} out of range (0-{len(all_samples) - 1})")
+        return all_samples[index]
+
+    def update_sample_position(
+        self,
+        index: int,
+        tray: str | int,
+        grid_position: str | int,
+    ) -> None:
+        """Update position fields for sample at flat index.
+
+        Mutates the sample in place.
+
+        Args:
+            index: Flat index into get_all_samples() ordering.
+            tray: Plate letter (Y/R/B/G) or slot number.
+            grid_position: Well position (A1/B2) or tip number (1-96).
+
+        Raises:
+            IndexError: If index is out of range.
+        """
+        # Find which group and local index
+        current_idx = 0
+        for group in self.sample_groups:
+            group_size = len(group.samples)
+            if current_idx + group_size > index:
+                local_idx = index - current_idx
+                sample = group.samples[local_idx]
+                sample.tray = tray
+                sample.grid_position = grid_position
+                return
+            current_idx += group_size
+        raise IndexError(f"Sample index {index} out of range")
 
     def get_primary_container_id(self) -> int:
         """Get the primary container ID (first group's container_id)."""
