@@ -295,6 +295,22 @@ except UnicodeDecodeError:
     text = data.decode("latin-1", errors="replace")
 ```
 
+### Testing
+
+**Test public interfaces, not private implementations.** Classes and functions prefixed with `_` are private implementation details. Write tests against the public API (e.g., `SamplerStrategy`, not `_VanquishVialSampler_prototype`).
+
+```python
+# BAD - testing private class directly
+def test_private_sampler():
+    sampler = _VanquishVialSampler_prototype(...)
+    sampler._generate_positions_default_samples(...)
+
+# GOOD - testing through public interface
+def test_sampler_strategy():
+    strategy = SamplerStrategy("Vanquish.vial", config, qc_layout)
+    strategy.assign_positions_user_samples(queue_input)
+```
+
 ## Documentation (`docs/`)
 
 | File | Purpose |
