@@ -305,6 +305,42 @@ class TestVanquishPlateSamplerPrototype:
         assert result is queue_input
         assert result.get_all_samples()[0].grid_position == "B1"
 
+    def test_assign_user_positions_raises_on_qc_collision(
+        self, vanquish_config, vanquish_plate_config, queue_parameters
+    ):
+        """assign_positions_user_samples raises ValueError if sample collides with QC."""
+        # QC01 is at B:F9
+        qc_layout = QCLayoutPattern({"QC01": {"plate": "B", "row": "F", "col": 9}})
+        sampler = _VanquishPlateSampler_prototype(vanquish_config, vanquish_plate_config, qc_layout)
+        # Create sample at same position as QC01
+        samples = [
+            InputSample(sample_name="Conflict", sample_id=1001, tray="B", grid_position="F9"),
+        ]
+        group = SampleGroup(container_id=12345, samples=samples)
+        queue_input = QueueInput(parameters=queue_parameters, sample_groups=[group])
+
+        with pytest.raises(ValueError, match="conflicts with reserved QC position"):
+            sampler.assign_positions_user_samples(queue_input)
+
+    def test_assign_user_positions_allows_non_conflicting(
+        self, vanquish_config, vanquish_plate_config, queue_parameters
+    ):
+        """assign_positions_user_samples allows positions not reserved for QC."""
+        # QC01 is at B:F9
+        qc_layout = QCLayoutPattern({"QC01": {"plate": "B", "row": "F", "col": 9}})
+        sampler = _VanquishPlateSampler_prototype(vanquish_config, vanquish_plate_config, qc_layout)
+        # Create samples at different positions
+        samples = [
+            InputSample(sample_name="S1", sample_id=1001, tray="Y", grid_position="A1"),
+            InputSample(sample_name="S2", sample_id=1002, tray="B", grid_position="F8"),  # Adjacent to QC
+        ]
+        group = SampleGroup(container_id=12345, samples=samples)
+        queue_input = QueueInput(parameters=queue_parameters, sample_groups=[group])
+
+        result = sampler.assign_positions_user_samples(queue_input)
+
+        assert result is queue_input
+
 
 # =============================================================================
 # Tests for create_sampler factory

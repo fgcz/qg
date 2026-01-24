@@ -139,8 +139,26 @@ class _VanquishPlateSampler_prototype:
         self._container = container
         self._qc_positions = qc_layout_pattern
 
-    def assign_positions_user_samples(self, input_queue: QueueInput) -> list[PositionDict]:
-        # TODO add code which checks that user samples positions do not collide with the qc_layout.
+    def _get_reserved_qc_positions(self) -> set[tuple[str, str]]:
+        """Get set of (tray, grid_position) tuples reserved for QC samples."""
+        reserved: set[tuple[str, str]] = set()
+        for qc_id in self._qc_positions.positions:
+            unified = self._qc_positions.get_position(qc_id)
+            reserved.add((str(unified["tray"]), str(unified["grid_position"])))
+        return reserved
+
+    def assign_positions_user_samples(self, input_queue: QueueInput) -> QueueInput:
+        """Validate that user sample positions don't collide with QC positions."""
+        reserved = self._get_reserved_qc_positions()
+
+        for sample in input_queue.get_all_samples():
+            tray = str(sample.tray) if sample.tray else ""
+            grid_pos = str(sample.grid_position) if sample.grid_position else ""
+            if (tray, grid_pos) in reserved:
+                raise ValueError(
+                    f"Sample '{sample.sample_name}' at {tray}:{grid_pos} conflicts with reserved QC position"
+                )
+
         return input_queue
 
     def get_qc_positions(self, sample_name: str) -> dict[str, str | int]:
