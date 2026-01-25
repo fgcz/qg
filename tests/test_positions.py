@@ -1,4 +1,4 @@
-"""Tests for positions_refactor.py - sampler position assignment."""
+"""Tests for positions.py - sampler position assignment."""
 
 import pytest
 
@@ -16,7 +16,7 @@ from qg.config_models_samplers import (
     VanquishVialConfig,
 )
 from qg.params_models import InputSample, QueueInput, QueueParameters, SampleGroup
-from qg.positions_refactor import SamplerStrategy
+from qg.positions import SamplerStrategy
 
 # =============================================================================
 # Fixtures

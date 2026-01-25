@@ -5,8 +5,9 @@ from pathlib import Path
 import pytest
 
 from qg.config import qg_config
-from qg.params_models import InputSample
-from qg.positions import QCLayoutPattern, create_sampler
+from qg.config_models import QCLayoutPattern
+from qg.params_models import InputSample, QueueInput, QueueParameters, SampleGroup
+from qg.positions import SamplerStrategy
 from qg.queue_structure import build_multi_container_queue_structure
 
 CONFIG_DIR = Path(__file__).parent.parent / "qg_configs"
@@ -19,15 +20,38 @@ def configs():
     return qg_config(CONFIG_DIR)
 
 
+def create_queue_input(
+    tech_area: str,
+    sampler: str,
+    layout_mode: str,
+    samples: list[InputSample],
+    container_id: int = 12345,
+) -> QueueInput:
+    """Helper to create QueueInput for tests."""
+    params = QueueParameters(
+        tech_area=tech_area,
+        instrument="ASTRAL_1",  # Not used by sampler
+        sampler=sampler,
+        layout_mode=layout_mode,
+        output_format="xcalibur",  # Not used by sampler
+        queue_pattern="standard",  # Not used by sampler
+        polarity=[],
+        date="20260125",
+        user="test",
+    )
+    group = SampleGroup(container_id=container_id, samples=samples)
+    return QueueInput(parameters=params, sample_groups=[group])
+
+
 class TestVanquishVialSamplerIntegration:
     """Integration test for VanquishVialSampler with real config.
 
     Demonstrates the full flow:
     1. Load pattern and qc_layout from config
     2. Create QCLayoutPattern (validates coverage + uniqueness)
-    3. Create sampler via factory
+    3. Create SamplerStrategy
     4. Build queue structure
-    5. Assign positions
+    5. Assign positions (two-phase: user first, then QC)
     """
 
     def test_standard_pattern_with_5_samples(self, configs):
@@ -41,8 +65,8 @@ class TestVanquishVialSamplerIntegration:
         # 3. Create validated QCLayoutPattern
         qc_layout_pattern = QCLayoutPattern.create(pattern, qc_layout)
 
-        # 4. Create sampler
-        sampler = create_sampler("Vanquish.vial", configs.samplers, qc_layout_pattern)
+        # 4. Create SamplerStrategy
+        strategy = SamplerStrategy("Vanquish", "vial", configs.samplers, qc_layout_pattern)
 
         # 5. Build queue structure: [(container_id, num_samples)]
         groups = [(12345, 5)]
@@ -52,9 +76,11 @@ class TestVanquishVialSamplerIntegration:
         # 6. Create user samples (vial mode: no grid_position needed)
         num_user_samples = structure.count("default")
         samples = [InputSample(sample_name=f"S{i}", sample_id=1000 + i) for i in range(num_user_samples)]
+        queue_input = create_queue_input("Proteomics", "Vanquish", "vial", samples)
 
-        # 7. Assign positions
-        positions = sampler.assign_positions(structure, samples)
+        # 7. Assign positions (two-phase)
+        strategy.assign_positions_user_samples(queue_input)
+        positions = strategy.assign_positions_qc_samples(structure, queue_input)
 
         # Structure: start(2) + 5 samples + end(4) = 11 slots
         # start = ["QC03dia", "QC01"], end = ["clean", "QC01", "QC03dia", "clean"]
@@ -105,8 +131,8 @@ class TestVanquishVialSamplerMetabolomicsIntegration:
         # 3. Create validated QCLayoutPattern
         qc_layout_pattern = QCLayoutPattern.create(pattern, qc_layout)
 
-        # 4. Create sampler
-        sampler = create_sampler("Vanquish.vial", configs.samplers, qc_layout_pattern)
+        # 4. Create SamplerStrategy
+        strategy = SamplerStrategy("Vanquish", "vial", configs.samplers, qc_layout_pattern)
 
         # 5. Build queue structure: [(container_id, num_samples)]
         groups = [(12345, 5)]
@@ -116,9 +142,11 @@ class TestVanquishVialSamplerMetabolomicsIntegration:
         # 6. Create user samples (vial mode: no grid_position needed)
         num_user_samples = structure.count("default")
         samples = [InputSample(sample_name=f"S{i}", sample_id=1000 + i) for i in range(num_user_samples)]
+        queue_input = create_queue_input("Metabolomics", "Vanquish", "vial", samples)
 
-        # 7. Assign positions
-        positions = sampler.assign_positions(structure, samples)
+        # 7. Assign positions (two-phase)
+        strategy.assign_positions_user_samples(queue_input)
+        positions = strategy.assign_positions_qc_samples(structure, queue_input)
 
         # Structure: start(11) + 5 samples + end(3) = 19 slots
         # start = ["blank", "108mix_AA", "pooledQC", "blank",
@@ -185,7 +213,7 @@ class TestEvosepVialSamplerIntegration:
     Demonstrates the full flow:
     1. Load pattern and qc_layout from config
     2. Create QCLayoutPattern (validates coverage + uniqueness)
-    3. Create sampler via factory
+    3. Create SamplerStrategy
     4. Build queue structure
     5. Assign positions
 
@@ -205,8 +233,8 @@ class TestEvosepVialSamplerIntegration:
         # 3. Create validated QCLayoutPattern
         qc_layout_pattern = QCLayoutPattern.create(pattern, qc_layout)
 
-        # 4. Create sampler
-        sampler = create_sampler("Evosep.vial", configs.samplers, qc_layout_pattern)
+        # 4. Create SamplerStrategy
+        strategy = SamplerStrategy("Evosep", "vial", configs.samplers, qc_layout_pattern)
 
         # 5. Build queue structure: [(container_id, num_samples)]
         groups = [(12345, 5)]
@@ -216,9 +244,11 @@ class TestEvosepVialSamplerIntegration:
         # 6. Create user samples (vial mode: no grid_position needed)
         num_user_samples = structure.count("default")
         samples = [InputSample(sample_name=f"S{i}", sample_id=1000 + i) for i in range(num_user_samples)]
+        queue_input = create_queue_input("Proteomics", "Evosep", "vial", samples)
 
-        # 7. Assign positions
-        positions = sampler.assign_positions(structure, samples)
+        # 7. Assign positions (two-phase)
+        strategy.assign_positions_user_samples(queue_input)
+        positions = strategy.assign_positions_qc_samples(structure, queue_input)
 
         # Structure: start(2) + 5 samples + end(4) = 11 slots
         # start = ["QC03dia", "QC01"], end = ["clean", "QC01", "QC03dia", "clean"]
@@ -277,8 +307,8 @@ class TestMClass48VialSamplerIntegration:
         # 3. Create validated QCLayoutPattern
         qc_layout_pattern = QCLayoutPattern.create(pattern, qc_layout)
 
-        # 4. Create sampler
-        sampler = create_sampler("MClass48.vial", configs.samplers, qc_layout_pattern)
+        # 4. Create SamplerStrategy
+        strategy = SamplerStrategy("MClass48", "vial", configs.samplers, qc_layout_pattern)
 
         # 5. Build queue structure
         groups = [(12345, 5)]
@@ -288,9 +318,11 @@ class TestMClass48VialSamplerIntegration:
         # 6. Create user samples (vial mode: no grid_position needed)
         num_user_samples = structure.count("default")
         samples = [InputSample(sample_name=f"S{i}", sample_id=1000 + i) for i in range(num_user_samples)]
+        queue_input = create_queue_input("Proteomics", "MClass48", "vial", samples)
 
-        # 7. Assign positions
-        positions = sampler.assign_positions(structure, samples)
+        # 7. Assign positions (two-phase)
+        strategy.assign_positions_user_samples(queue_input)
+        positions = strategy.assign_positions_qc_samples(structure, queue_input)
 
         # Structure: start(2) + 5 samples + end(4) = 11 slots
         assert len(positions) == 11
@@ -329,8 +361,8 @@ class TestVanquishPlateSamplerIntegration:
         # 3. Create validated QCLayoutPattern
         qc_layout_pattern = QCLayoutPattern.create(pattern, qc_layout)
 
-        # 4. Create sampler
-        sampler = create_sampler("Vanquish.plate", configs.samplers, qc_layout_pattern)
+        # 4. Create SamplerStrategy
+        strategy = SamplerStrategy("Vanquish", "plate", configs.samplers, qc_layout_pattern)
 
         # 5. Build queue structure
         groups = [(12345, 5)]
@@ -340,12 +372,14 @@ class TestVanquishPlateSamplerIntegration:
         # 6. Create user samples WITH pre-assigned grid_position (plate mode)
         num_user_samples = structure.count("default")
         samples = [
-            InputSample(sample_name=f"S{i}", sample_id=1000 + i, grid_position=f"B{i + 1}")
+            InputSample(sample_name=f"S{i}", sample_id=1000 + i, tray="Y", grid_position=f"B{i + 1}")
             for i in range(num_user_samples)
         ]
+        queue_input = create_queue_input("Proteomics", "Vanquish", "plate", samples)
 
-        # 7. Assign positions
-        positions = sampler.assign_positions(structure, samples)
+        # 7. Assign positions (two-phase)
+        strategy.assign_positions_user_samples(queue_input)
+        positions = strategy.assign_positions_qc_samples(structure, queue_input)
 
         # Structure: start(2) + 5 samples + end(4) = 11 slots
         assert len(positions) == 11
@@ -385,8 +419,8 @@ class TestEvosepPlateSamplerIntegration:
         # 3. Create validated QCLayoutPattern
         qc_layout_pattern = QCLayoutPattern.create(pattern, qc_layout)
 
-        # 4. Create sampler
-        sampler = create_sampler("Evosep.plate", configs.samplers, qc_layout_pattern)
+        # 4. Create SamplerStrategy
+        strategy = SamplerStrategy("Evosep", "plate", configs.samplers, qc_layout_pattern)
 
         # 5. Build queue structure
         groups = [(12345, 5)]
@@ -397,12 +431,14 @@ class TestEvosepPlateSamplerIntegration:
         # Grid positions like "A1", "A2" get converted to numeric (1, 2, ...)
         num_user_samples = structure.count("default")
         samples = [
-            InputSample(sample_name=f"S{i}", sample_id=1000 + i, grid_position=f"A{i + 1}")
+            InputSample(sample_name=f"S{i}", sample_id=1000 + i, tray=1, grid_position=f"A{i + 1}")
             for i in range(num_user_samples)
         ]
+        queue_input = create_queue_input("Proteomics", "Evosep", "plate", samples)
 
-        # 7. Assign positions
-        positions = sampler.assign_positions(structure, samples)
+        # 7. Assign positions (two-phase)
+        strategy.assign_positions_user_samples(queue_input)
+        positions = strategy.assign_positions_qc_samples(structure, queue_input)
 
         # Structure: start(2) + 5 samples + end(4) = 11 slots
         assert len(positions) == 11
@@ -439,8 +475,8 @@ class TestVanquishVialSamplerLipidomicsIntegration:
         # 3. Create validated QCLayoutPattern
         qc_layout_pattern = QCLayoutPattern.create(pattern, qc_layout)
 
-        # 4. Create sampler
-        sampler = create_sampler("Vanquish.vial", configs.samplers, qc_layout_pattern)
+        # 4. Create SamplerStrategy
+        strategy = SamplerStrategy("Vanquish", "vial", configs.samplers, qc_layout_pattern)
 
         # 5. Build queue structure
         groups = [(12345, 5)]
@@ -450,9 +486,11 @@ class TestVanquishVialSamplerLipidomicsIntegration:
         # 6. Create user samples
         num_user_samples = structure.count("default")
         samples = [InputSample(sample_name=f"S{i}", sample_id=1000 + i) for i in range(num_user_samples)]
+        queue_input = create_queue_input("Lipidomics", "Vanquish", "vial", samples)
 
-        # 7. Assign positions
-        positions = sampler.assign_positions(structure, samples)
+        # 7. Assign positions (two-phase)
+        strategy.assign_positions_user_samples(queue_input)
+        positions = strategy.assign_positions_qc_samples(structure, queue_input)
 
         # Structure: start(11) + 5 samples + end(3) = 19 slots
         # start = ["blank", "EquiSPLASH", "pooledQC", "blank",

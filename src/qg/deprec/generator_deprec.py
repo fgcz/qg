@@ -9,14 +9,15 @@ import polars as pl
 from pydantic import BaseModel
 
 from qg.config_models import QCLayoutPattern, Sample
+from qg.deprec.positions_deprec import create_sampler
 from qg.params_models import InputSample, QueueInput
-from qg.positions_refactor import SamplerStrategy
 from qg.queue_structure import _extract_groups, build_multi_container_queue_structure
 from qg.randomize import queue_randomization
 
 if TYPE_CHECKING:
     from qg.config import ConfigBundle
     from qg.config_models import MethodsConfig, OutputFormat, QueuePattern, SamplesConfig
+    from qg.deprec.positions_deprec import Sampler
 
 # Type alias for position dict (used by SlotInfo/ExpandedSlot internal dataclasses)
 PositionDict = dict[str, Any]
@@ -272,7 +273,7 @@ class QueueGenerator:
 
     queue_input: QueueInput
     pattern: QueuePattern
-    sampler_strategy: SamplerStrategy
+    sampler: Sampler
     samples_config: SamplesConfig
     methods_config: MethodsConfig
     data_path: str
@@ -290,14 +291,12 @@ class QueueGenerator:
 
         # Resolve pattern
         self.pattern = configs.queue_patterns.get_pattern(params.tech_area, params.queue_pattern)
-        # Resolve QC layout and create sampler strategy
+
+        # Resolve QC layout and create sampler (using full sampler key: sampler.layout_mode)
         sampler_key = f"{params.sampler}.{params.layout_mode}"
         qc_layout = configs.qc_layouts.get_layout(params.tech_area, sampler_key)
         qc_layout_pattern = QCLayoutPattern.create(self.pattern, qc_layout)
-        self.sampler_strategy = SamplerStrategy(params.sampler, params.layout_mode, configs.samplers, qc_layout_pattern)
-
-        # Assign physical positions to user samples (before randomization/build_rows)
-        self.sampler_strategy.assign_positions_user_samples(queue_input)
+        self.sampler = create_sampler(sampler_key, configs.samplers, qc_layout_pattern)
 
         # Store config references needed for generation
         self.samples_config = configs.samples
@@ -327,18 +326,17 @@ class QueueGenerator:
         queue_input = queue_randomization(self.queue_input)
         params = queue_input.parameters
 
+        samples = queue_input.get_all_samples()
         groups = _extract_groups(queue_input)
 
         # Step 1: Build structure using groups
         slot_entries = build_multi_container_queue_structure(groups, self.pattern, params.qc_frequency_override)
         structure = [s.sample_id for s in slot_entries]
 
-        # Step 2: Get all positions (user + QC) based on structure
-        # User positions were assigned in __init__, QC positions come from layout
-        positions = self.sampler_strategy.assign_positions_qc_samples(structure, queue_input)
+        # Step 2: Assign all positions (user + QC) via sampler
+        positions = self.sampler.assign_positions(structure, samples)
 
         # Step 3: Build slots (pass full slot_entries to preserve container_id)
-        samples = queue_input.get_all_samples()
         slots = _build_slots(slot_entries, positions, samples, self.samples_config, params.tech_area)
 
         # Step 4: Expand polarities
