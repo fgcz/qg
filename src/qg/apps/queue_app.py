@@ -129,31 +129,19 @@ def _(instruments_df, tech_area_field):
 
 @app.cell
 def _(
-    container_type,
     instrument_field,
     tech_area_field,
     valid_combinations_df,
 ):
-    # Filter samplers by tech_area, instrument, container type, and QC layout availability
+    # Filter samplers by tech_area and instrument (simplified names from combinations.csv)
     mo.stop(not instrument_field.value or not tech_area_field.value)
-    _container_suffix = ".vial" if container_type == "Vials" else ".plate"
     _options = (
         valid_combinations_df.filter(pl.col("tech_area") == tech_area_field.value)
-        .filter(pl.col("instrument") == instrument_field.value)
-        .filter(pl.col("sampler").str.ends_with(_container_suffix))["sampler"]
+        .filter(pl.col("instrument") == instrument_field.value)["sampler"]
         .unique()
         .sort()
         .to_list()
     )
-    # If no matching container type, show all valid for this tech_area+instrument
-    if not _options:
-        _options = (
-            valid_combinations_df.filter(pl.col("tech_area") == tech_area_field.value)
-            .filter(pl.col("instrument") == instrument_field.value)["sampler"]
-            .unique()
-            .sort()
-            .to_list()
-        )
     sampler_field = mo.ui.dropdown(
         options=_options,
         value=_options[0] if _options else None,
@@ -443,6 +431,7 @@ def _(full_samples_df, subset_samples_select):
 
 @app.cell
 def _(
+    container_type,
     date_field,
     inj_vol_field,
     instrument_field,
@@ -467,11 +456,15 @@ def _(
         _method_fields = {"pos": method_field_pos, "neg": method_field_neg}
         method_dict = {pol: field.value for pol, field in _method_fields.items() if field is not None and field.value}
 
+        # Derive layout_mode from container_type
+        _layout_mode = "vial" if container_type == "Vials" else "plate"
+
         queue_parameters = QueueParameters.model_validate(
             {
                 "tech_area": tech_area_field.value,
                 "instrument": instrument_field.value,
                 "sampler": sampler_field.value,
+                "layout_mode": _layout_mode,
                 "output_format": output_format_value,
                 "queue_pattern": pattern_field.value,
                 "polarity": _polarity,

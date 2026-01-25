@@ -45,7 +45,8 @@ class QueueParameters(BaseModel):
 
     tech_area: str = Field(..., min_length=1, description="tech_area identifier")
     instrument: str
-    sampler: str  # e.g., "Vanquish.vial"
+    sampler: str  # e.g., "Vanquish"
+    layout_mode: Literal["plate", "vial"]
     output_format: str = Field(..., min_length=1, description="Output format identifier")
     queue_pattern: str  # e.g., "standard"
     polarity: list[Literal["pos", "neg"]] = Field(default_factory=list)
@@ -66,6 +67,7 @@ class QueueParameters(BaseModel):
         tech_area: str,
         instrument: str,
         sampler: str,
+        layout_mode: Literal["plate", "vial"],
         output_format: str,
         queue_pattern: str,
         polarity: list[Literal["pos", "neg"]],
@@ -84,7 +86,8 @@ class QueueParameters(BaseModel):
             configs: Configuration bundle for validation.
             tech_area: Technology area (Proteomics, Metabolomics, Lipidomics).
             instrument: Instrument name.
-            sampler: Sampler name (e.g., "Vanquish.vial").
+            sampler: Sampler name (e.g., "Vanquish").
+            layout_mode: Layout mode ("plate" or "vial").
             output_format: Output format identifier.
             queue_pattern: Queue pattern name.
             polarity: List of polarities to run.
@@ -105,9 +108,10 @@ class QueueParameters(BaseModel):
         if not configs.queue_patterns.get_pattern(tech_area, queue_pattern):
             raise ValueError(f"Pattern '{queue_pattern}' not found for {tech_area}")
 
-        # Validate QC layout exists
-        if not configs.qc_layouts.get_layout(tech_area, sampler):
-            raise ValueError(f"QC layout not found for {tech_area}.{sampler}")
+        # Validate QC layout exists (using full sampler key: sampler.layout_mode)
+        sampler_key = f"{sampler}.{layout_mode}"
+        if not configs.qc_layouts.get_layout(tech_area, sampler_key):
+            raise ValueError(f"QC layout not found for {tech_area}.{sampler_key}")
 
         # Validate output format exists
         if not configs.output_formats.get_format(output_format):
@@ -125,6 +129,7 @@ class QueueParameters(BaseModel):
             tech_area=tech_area,
             instrument=instrument,
             sampler=sampler,
+            layout_mode=layout_mode,
             output_format=output_format,
             queue_pattern=queue_pattern,
             polarity=polarity,
@@ -216,6 +221,7 @@ class QueueInput(BaseModel):
             "tech_area": params.tech_area,
             "instrument": params.instrument,
             "sampler": params.sampler,
+            "layout_mode": params.layout_mode,
             "output_format": params.output_format,
             "queue_pattern": params.queue_pattern,
             "polarity": params.polarity,

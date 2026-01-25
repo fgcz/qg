@@ -49,7 +49,8 @@ def make_queue_input(
     params = QueueParameters(
         tech_area="Proteomics",
         instrument="ASTRAL_1",
-        sampler="Vanquish.vial",
+        sampler="Vanquish",
+        layout_mode="vial",
         output_format="xcalibur",
         queue_pattern="noqc",
         polarity=["pos"],
@@ -76,7 +77,8 @@ def make_multi_group_input(
     params = QueueParameters(
         tech_area="Proteomics",
         instrument="ASTRAL_1",
-        sampler="Vanquish.vial",
+        sampler="Vanquish",
+        layout_mode="vial",
         output_format="xcalibur",
         queue_pattern="noqc",
         polarity=["pos"],

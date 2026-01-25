@@ -121,7 +121,8 @@ def queue_parameters():
     return QueueParameters(
         tech_area="Proteomics",
         instrument="ASTRAL_1",
-        sampler="Vanquish.vial",
+        sampler="Vanquish",
+        layout_mode="vial",
         output_format="xcalibur",
         queue_pattern="standard",
         polarity=[],

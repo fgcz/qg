@@ -86,6 +86,7 @@ class TestOutputFormats:
             tech_area=tech_area,
             instrument=instrument,
             sampler=sampler,
+            layout_mode="vial",
             output_format=output_format,
             queue_pattern="noqc",
             polarity=["pos"],
@@ -111,6 +112,7 @@ class TestOutputFormats:
             tech_area=tech_area,
             instrument=instrument,
             sampler=sampler,
+            layout_mode="vial",
             output_format=output_format,
             queue_pattern="noqc",
             polarity=["pos"],
@@ -132,9 +134,9 @@ class TestNoQCPattern:
     @pytest.mark.parametrize(
         "tech_area,instrument,sampler,expected_multiplier",
         [
-            pytest.param("Proteomics", "ASTRAL_1", "Vanquish.vial", 1, id="Proteomics"),
-            pytest.param("Metabolomics", "EXPLORIS_3", "Vanquish.vial", 2, id="Metabolomics"),
-            pytest.param("Lipidomics", "EXPLORIS_3", "Vanquish.vial", 2, id="Lipidomics"),
+            pytest.param("Proteomics", "ASTRAL_1", "Vanquish", 1, id="Proteomics"),
+            pytest.param("Metabolomics", "EXPLORIS_3", "Vanquish", 2, id="Metabolomics"),
+            pytest.param("Lipidomics", "EXPLORIS_3", "Vanquish", 2, id="Lipidomics"),
         ],
     )
     @pytest.mark.parametrize("num_samples", [1, 5])
@@ -155,6 +157,7 @@ class TestNoQCPattern:
             tech_area=tech_area,
             instrument=instrument,
             sampler=sampler,
+            layout_mode="vial",
             output_format="xcalibur",
             queue_pattern="noqc",
             polarity=polarity,
@@ -182,7 +185,8 @@ class TestQCOnlyPattern:
         params = QueueParameters(
             tech_area="Proteomics",
             instrument="ASTRAL_1",
-            sampler="Vanquish.vial",
+            sampler="Vanquish",
+            layout_mode="vial",
             output_format="xcalibur",
             queue_pattern="qc_only",
             polarity=["pos"],
@@ -208,7 +212,8 @@ class TestMetabolomicsBlankPattern:
         params = QueueParameters(
             tech_area="Metabolomics",
             instrument="EXPLORIS_3",
-            sampler="Vanquish.vial",
+            sampler="Vanquish",
+            layout_mode="vial",
             output_format="xcalibur",
             queue_pattern="blank",
             polarity=["pos", "neg"],
@@ -242,7 +247,8 @@ class TestRandomization:
         params = QueueParameters(
             tech_area="Proteomics",
             instrument="ASTRAL_1",
-            sampler="Vanquish.vial",
+            sampler="Vanquish",
+            layout_mode="vial",
             output_format="xcalibur",
             queue_pattern="noqc",
             polarity=["pos"],
@@ -283,7 +289,8 @@ class TestRandomization:
         params = QueueParameters(
             tech_area="Proteomics",
             instrument="ASTRAL_1",
-            sampler="Vanquish.vial",
+            sampler="Vanquish",
+            layout_mode="vial",
             output_format="xcalibur",
             queue_pattern="noqc",
             polarity=["pos"],
@@ -328,7 +335,8 @@ class TestRandomization:
         params = QueueParameters(
             tech_area="Proteomics",
             instrument="ASTRAL_1",
-            sampler="Vanquish.vial",
+            sampler="Vanquish",
+            layout_mode="vial",
             output_format="xcalibur",
             queue_pattern="noqc",
             polarity=["pos"],
@@ -367,7 +375,8 @@ class TestRandomization:
         params = QueueParameters(
             tech_area="Proteomics",
             instrument="ASTRAL_1",
-            sampler="Vanquish.vial",
+            sampler="Vanquish",
+            layout_mode="vial",
             output_format="xcalibur",
             queue_pattern="noqc",
             polarity=["pos"],
@@ -395,7 +404,8 @@ class TestRandomization:
         params = QueueParameters(
             tech_area="Proteomics",
             instrument="ASTRAL_1",
-            sampler="Vanquish.vial",
+            sampler="Vanquish",
+            layout_mode="vial",
             output_format="xcalibur",
             queue_pattern="noqc",
             polarity=["pos"],

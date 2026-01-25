@@ -146,7 +146,8 @@ class TestConfigBundleCombinations:
 
     def test_combinations_have_valid_samplers(self, config_bundle: ConfigBundle) -> None:
         for combo in config_bundle.combinations.combinations:
-            assert "." in combo.sampler  # Should be Sampler.container format
+            # Sampler should be base name (e.g., "Vanquish", not "Vanquish.vial")
+            assert "." not in combo.sampler
 
 
 class TestConfigBundleInstrumentPatterns:
@@ -244,7 +245,8 @@ class TestQueueParametersCreate:
             config_bundle,
             tech_area="Proteomics",
             instrument="ASTRAL_1",
-            sampler="Vanquish.vial",
+            sampler="Vanquish",
+            layout_mode="vial",
             output_format="xcalibur",
             queue_pattern="standard",
             polarity=["pos"],
@@ -263,7 +265,8 @@ class TestQueueParametersCreate:
                 config_bundle,
                 tech_area="Proteomics",
                 instrument="ASTRAL_1",
-                sampler="Vanquish.vial",
+                sampler="Vanquish",
+                layout_mode="vial",
                 output_format="xcalibur",
                 queue_pattern="nonexistent",
                 polarity=["pos"],
@@ -279,7 +282,8 @@ class TestQueueParametersCreate:
                 config_bundle,
                 tech_area="Proteomics",
                 instrument="ASTRAL_1",
-                sampler="NonexistentSampler.vial",
+                sampler="NonexistentSampler",
+                layout_mode="vial",
                 output_format="xcalibur",
                 queue_pattern="standard",
                 polarity=["pos"],
@@ -295,7 +299,8 @@ class TestQueueParametersCreate:
                 config_bundle,
                 tech_area="Proteomics",
                 instrument="ASTRAL_1",
-                sampler="Vanquish.vial",
+                sampler="Vanquish",
+                layout_mode="vial",
                 output_format="nonexistent",
                 queue_pattern="standard",
                 polarity=["pos"],
@@ -311,7 +316,8 @@ class TestQueueParametersCreate:
                 config_bundle,
                 tech_area="Proteomics",
                 instrument="FAKE_INSTRUMENT",
-                sampler="Vanquish.vial",
+                sampler="Vanquish",
+                layout_mode="vial",
                 output_format="xcalibur",
                 queue_pattern="standard",
                 polarity=["pos"],

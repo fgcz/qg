@@ -60,7 +60,8 @@ def make_queue_input(
     num_samples: int = 5,
     tech_area: str = "Proteomics",
     instrument: str = "ASTRAL_1",
-    sampler: str = "Vanquish.vial",
+    sampler: str = "Vanquish",
+    layout_mode: str = "vial",
     queue_pattern: str = "standard",
     output_format: str = "xcalibur",
     container_id: int = 12345,
@@ -76,7 +77,8 @@ def make_queue_input(
         num_samples: Number of samples (single-group mode only).
         tech_area: Technology identifier.
         instrument: Instrument name.
-        sampler: Sampler name (e.g., "Vanquish.vial").
+        sampler: Sampler name (e.g., "Vanquish").
+        layout_mode: Layout mode ("vial" or "plate").
         queue_pattern: Queue pattern name.
         output_format: Output format name.
         container_id: Container ID (single-group mode only).
@@ -88,6 +90,7 @@ def make_queue_input(
         tech_area=tech_area,
         instrument=instrument,
         sampler=sampler,
+        layout_mode=layout_mode,
         output_format=output_format,
         queue_pattern=queue_pattern,
         polarity=["pos"],

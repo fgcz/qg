@@ -323,19 +323,24 @@ class ConfigBundle:
     def get_valid_samplers(self, tech_area: str | None = None) -> pl.DataFrame:
         """Get valid (tech_area, sampler) combinations from QC layouts.
 
+        Returns base sampler names (e.g., "Vanquish") extracted from QC layout keys
+        (e.g., "Vanquish.vial", "Vanquish.plate").
+
         Args:
             tech_area: Filter to specific tech_area, or None for all
 
         Returns:
-            DataFrame with columns: tech_area, sampler
+            DataFrame with columns: tech_area, sampler (base names, deduplicated)
         """
-        rows = []
+        rows: set[tuple[str, str]] = set()
         for tech in self.qc_layouts.get_technologies():
             if tech_area is not None and tech != tech_area:
                 continue
-            for sampler in self.qc_layouts.get_samplers_for_tech_area(tech):
-                rows.append({"tech_area": tech, "sampler": sampler})
-        return pl.DataFrame(rows)
+            for sampler_key in self.qc_layouts.get_samplers_for_tech_area(tech):
+                # Extract base sampler name (e.g., "Vanquish.vial" -> "Vanquish")
+                base_sampler = sampler_key.split(".")[0]
+                rows.add((tech, base_sampler))
+        return pl.DataFrame([{"tech_area": tech, "sampler": sampler} for tech, sampler in rows])
 
     def get_valid_instruments_samplers(self) -> pl.DataFrame:
         """Get valid (tech_area, instrument, sampler, output_format) combinations.
@@ -429,7 +434,7 @@ def _cross_validate_sampler_refs(
     warnings: list[str] = []
 
     logger.info("Cross-validating combinations against samplers...")
-    valid_samplers = samplers.get_valid_sampler_keys()
+    valid_samplers = set(samplers.get_sampler_names())
     combo_samplers = {c.sampler for c in combinations.combinations}
     unknown = combo_samplers - valid_samplers
     if unknown:

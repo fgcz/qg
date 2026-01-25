@@ -292,10 +292,11 @@ class QueueGenerator:
         # Resolve pattern
         self.pattern = configs.queue_patterns.get_pattern(params.tech_area, params.queue_pattern)
 
-        # Resolve QC layout and create sampler
-        qc_layout = configs.qc_layouts.get_layout(params.tech_area, params.sampler)
+        # Resolve QC layout and create sampler (using full sampler key: sampler.layout_mode)
+        sampler_key = f"{params.sampler}.{params.layout_mode}"
+        qc_layout = configs.qc_layouts.get_layout(params.tech_area, sampler_key)
         qc_layout_pattern = QCLayoutPattern.create(self.pattern, qc_layout)
-        self.sampler = create_sampler(params.sampler, configs.samplers, qc_layout_pattern)
+        self.sampler = create_sampler(sampler_key, configs.samplers, qc_layout_pattern)
 
         # Store config references needed for generation
         self.samples_config = configs.samples

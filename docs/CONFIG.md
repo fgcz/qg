@@ -283,17 +283,24 @@ Same instrument can appear under multiple technologies with different configs.
 **`combinations.csv`** - valid instrument+sampler+format combinations:
 ```csv
 instrument,sampler,output_format
-ASTRAL_1,Vanquish.vial,xcalibur
-ASTRAL_1,Vanquish.plate,xcalibur
-ASCEND_1,MClass48.vial,xcalibur
-ASCEND_1,MClass48.plate,xcalibur
-EXPLORIS_1,Evosep.vial,chronos
+ASTRAL_1,Vanquish,xcalibur
+ASTRAL_1,Evosep,chronos
+ASCEND_1,MClass48,xcalibur
+EXPLORIS_1,Evosep,chronos
 ```
 
 **Fields:**
 - `instrument` - instrument name (matches `instruments.csv`)
-- `sampler` - sampler.container key (e.g., `Vanquish.vial`)
+- `sampler` - sampler name only (e.g., `Vanquish`, `MClass48`, `Evosep`)
 - `output_format` - output format (e.g., `xcalibur`, `chronos`, `hystar`)
+
+**Design decision: Vial vs Plate is determined by input data, not configuration.**
+
+The `.vial` or `.plate` suffix is not stored in `combinations.csv` because:
+- **Vial mode**: Samples arrive in individual vials → positions are *generated* sequentially
+- **Plate mode**: Samples arrive in plates → positions come from *input* (pre-assigned grid positions)
+
+The system auto-detects the container type based on whether input samples have `grid_position` values. This avoids redundant configuration entries (no need for separate `Vanquish.vial` and `Vanquish.plate` rows when both use the same instrument+format).
 
 ## Adding New Configurations
 
