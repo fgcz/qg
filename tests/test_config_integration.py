@@ -323,3 +323,81 @@ class TestQueueParametersCreate:
                 polarity=["pos"],
                 date="20260122",
             )
+
+
+class TestQueueInputCreate:
+    """Tests for QueueInput.create() factory method validation."""
+
+    def test_create_plate_mode_requires_grid_position(self) -> None:
+        """Plate mode raises ValueError if samples lack grid_position."""
+        from qg.params_models import InputSample, QueueInput, QueueParameters, SampleGroup
+
+        params = QueueParameters(
+            tech_area="Proteomics",
+            instrument="ASTRAL_1",
+            sampler="Vanquish",
+            layout_mode="plate",
+            output_format="xcalibur",
+            queue_pattern="standard",
+            polarity=["pos"],
+            date="20260122",
+        )
+        # Samples without grid_position
+        samples = [
+            InputSample(sample_name="S1", sample_id=1001),
+            InputSample(sample_name="S2", sample_id=1002),
+        ]
+        groups = [SampleGroup(container_id=12345, samples=samples)]
+
+        with pytest.raises(ValueError, match="Plate mode requires grid_position"):
+            QueueInput.create(parameters=params, sample_groups=groups)
+
+    def test_create_plate_mode_with_positions_succeeds(self) -> None:
+        """Plate mode succeeds when all samples have grid_position."""
+        from qg.params_models import InputSample, QueueInput, QueueParameters, SampleGroup
+
+        params = QueueParameters(
+            tech_area="Proteomics",
+            instrument="ASTRAL_1",
+            sampler="Vanquish",
+            layout_mode="plate",
+            output_format="xcalibur",
+            queue_pattern="standard",
+            polarity=["pos"],
+            date="20260122",
+        )
+        # Samples with grid_position
+        samples = [
+            InputSample(sample_name="S1", sample_id=1001, grid_position="A1"),
+            InputSample(sample_name="S2", sample_id=1002, grid_position="A2"),
+        ]
+        groups = [SampleGroup(container_id=12345, samples=samples)]
+
+        queue_input = QueueInput.create(parameters=params, sample_groups=groups)
+        assert queue_input.parameters.layout_mode == "plate"
+        assert len(queue_input.get_all_samples()) == 2
+
+    def test_create_vial_mode_without_positions_succeeds(self) -> None:
+        """Vial mode succeeds without grid_position (positions are generated)."""
+        from qg.params_models import InputSample, QueueInput, QueueParameters, SampleGroup
+
+        params = QueueParameters(
+            tech_area="Proteomics",
+            instrument="ASTRAL_1",
+            sampler="Vanquish",
+            layout_mode="vial",
+            output_format="xcalibur",
+            queue_pattern="standard",
+            polarity=["pos"],
+            date="20260122",
+        )
+        # Samples without grid_position - OK for vial mode
+        samples = [
+            InputSample(sample_name="S1", sample_id=1001),
+            InputSample(sample_name="S2", sample_id=1002),
+        ]
+        groups = [SampleGroup(container_id=12345, samples=samples)]
+
+        queue_input = QueueInput.create(parameters=params, sample_groups=groups)
+        assert queue_input.parameters.layout_mode == "vial"
+        assert len(queue_input.get_all_samples()) == 2

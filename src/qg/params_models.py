@@ -148,6 +148,39 @@ class QueueInput(BaseModel):
     parameters: QueueParameters
     sample_groups: list[SampleGroup] = Field(..., min_length=1)
 
+    @classmethod
+    def create(
+        cls,
+        parameters: QueueParameters,
+        sample_groups: list[SampleGroup],
+    ) -> Self:
+        """Create validated QueueInput.
+
+        Validates that samples have required fields based on layout_mode:
+        - plate mode: all samples must have grid_position
+
+        Args:
+            parameters: Queue parameters.
+            sample_groups: Sample groups to include.
+
+        Returns:
+            Validated QueueInput instance.
+
+        Raises:
+            ValueError: If validation fails.
+        """
+        # In plate mode, all samples must have grid_position
+        if parameters.layout_mode == "plate":
+            all_samples = [s for group in sample_groups for s in group.samples]
+            missing = [s.sample_name for s in all_samples if s.grid_position is None or s.grid_position == ""]
+            if missing:
+                raise ValueError(
+                    f"Plate mode requires grid_position for all samples. "
+                    f"Missing positions for: {missing[:5]}{'...' if len(missing) > 5 else ''}"
+                )
+
+        return cls(parameters=parameters, sample_groups=sample_groups)
+
     def get_all_samples(self) -> list[InputSample]:
         """Get all samples flattened."""
         return [s for group in self.sample_groups for s in group.samples]
