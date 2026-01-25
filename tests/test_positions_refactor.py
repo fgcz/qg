@@ -154,7 +154,7 @@ class TestSamplerStrategy:
 
     def test_vial_sampler_assigns_positions(self, samplers_config, simple_qc_layout_pattern, queue_parameters):
         """Vial sampler assigns tray and grid_position to all samples."""
-        strategy = SamplerStrategy("Vanquish.vial", samplers_config, simple_qc_layout_pattern)
+        strategy = SamplerStrategy("Vanquish", "vial", samplers_config, simple_qc_layout_pattern)
         queue_input = create_queue_input(3, queue_parameters)
 
         result = strategy.assign_positions_user_samples(queue_input)
@@ -171,7 +171,7 @@ class TestSamplerStrategy:
 
     def test_vial_sampler_row_major_order(self, samplers_config, simple_qc_layout_pattern, queue_parameters):
         """Vial sampler generates positions in row-major order."""
-        strategy = SamplerStrategy("Vanquish.vial", samplers_config, simple_qc_layout_pattern)
+        strategy = SamplerStrategy("Vanquish", "vial", samplers_config, simple_qc_layout_pattern)
         queue_input = create_queue_input(15, queue_parameters)
 
         result = strategy.assign_positions_user_samples(queue_input)
@@ -187,7 +187,7 @@ class TestSamplerStrategy:
 
     def test_vial_sampler_spans_multiple_plates(self, samplers_config, simple_qc_layout_pattern, queue_parameters):
         """Vial sampler spans to next plate when current plate is full."""
-        strategy = SamplerStrategy("Vanquish.vial", samplers_config, simple_qc_layout_pattern)
+        strategy = SamplerStrategy("Vanquish", "vial", samplers_config, simple_qc_layout_pattern)
         # 5 rows x 12 cols = 60 positions per plate
         queue_input = create_queue_input(65, queue_parameters)
 
@@ -203,7 +203,7 @@ class TestSamplerStrategy:
     def test_vial_sampler_skips_qc_positions(self, samplers_config, queue_parameters):
         """Vial sampler skips positions reserved for QC samples."""
         qc_layout = QCLayoutPattern({"QC01": {"plate": "Y", "row": "A", "col": 1}})
-        strategy = SamplerStrategy("Vanquish.vial", samplers_config, qc_layout)
+        strategy = SamplerStrategy("Vanquish", "vial", samplers_config, qc_layout)
         queue_input = create_queue_input(3, queue_parameters)
 
         result = strategy.assign_positions_user_samples(queue_input)
@@ -222,7 +222,7 @@ class TestSamplerStrategy:
                 "QC02": {"plate": "Y", "row": "A", "col": 3},
             }
         )
-        strategy = SamplerStrategy("Vanquish.vial", samplers_config, qc_layout)
+        strategy = SamplerStrategy("Vanquish", "vial", samplers_config, qc_layout)
         queue_input = create_queue_input(4, queue_parameters)
 
         result = strategy.assign_positions_user_samples(queue_input)
@@ -236,7 +236,7 @@ class TestSamplerStrategy:
 
     def test_plate_sampler_passes_through_positions(self, samplers_config, simple_qc_layout_pattern, queue_parameters):
         """Plate sampler passes through pre-set positions from input."""
-        strategy = SamplerStrategy("Vanquish.plate", samplers_config, simple_qc_layout_pattern)
+        strategy = SamplerStrategy("Vanquish", "plate", samplers_config, simple_qc_layout_pattern)
         samples = [
             InputSample(sample_name="S1", sample_id=1001, grid_position="B1"),
             InputSample(sample_name="S2", sample_id=1002, grid_position="B2"),
@@ -252,7 +252,7 @@ class TestSamplerStrategy:
     def test_plate_sampler_raises_on_qc_collision(self, samplers_config, queue_parameters):
         """Plate sampler raises ValueError if user sample collides with QC position."""
         qc_layout = QCLayoutPattern({"QC01": {"plate": "B", "row": "F", "col": 9}})
-        strategy = SamplerStrategy("Vanquish.plate", samplers_config, qc_layout)
+        strategy = SamplerStrategy("Vanquish", "plate", samplers_config, qc_layout)
         samples = [
             InputSample(sample_name="Conflict", sample_id=1001, tray="B", grid_position="F9"),
         ]
@@ -265,7 +265,7 @@ class TestSamplerStrategy:
     def test_plate_sampler_allows_non_conflicting_positions(self, samplers_config, queue_parameters):
         """Plate sampler allows positions that don't conflict with QC."""
         qc_layout = QCLayoutPattern({"QC01": {"plate": "B", "row": "F", "col": 9}})
-        strategy = SamplerStrategy("Vanquish.plate", samplers_config, qc_layout)
+        strategy = SamplerStrategy("Vanquish", "plate", samplers_config, qc_layout)
         samples = [
             InputSample(sample_name="S1", sample_id=1001, tray="Y", grid_position="A1"),
             InputSample(sample_name="S2", sample_id=1002, tray="B", grid_position="F8"),
@@ -281,7 +281,7 @@ class TestSamplerStrategy:
         self, samplers_config, simple_qc_layout_pattern, queue_parameters
     ):
         """assign_positions_qc_samples returns positions for QC and user slots."""
-        strategy = SamplerStrategy("Vanquish.vial", samplers_config, simple_qc_layout_pattern)
+        strategy = SamplerStrategy("Vanquish", "vial", samplers_config, simple_qc_layout_pattern)
         queue_input = create_queue_input(3, queue_parameters)
         strategy.assign_positions_user_samples(queue_input)
 
@@ -297,7 +297,7 @@ class TestSamplerStrategy:
 
     def test_assign_positions_qc_samples_only_qc(self, samplers_config, simple_qc_layout_pattern, queue_parameters):
         """assign_positions_qc_samples handles structure with only QC slots."""
-        strategy = SamplerStrategy("Vanquish.vial", samplers_config, simple_qc_layout_pattern)
+        strategy = SamplerStrategy("Vanquish", "vial", samplers_config, simple_qc_layout_pattern)
         queue_input = create_queue_input(0, queue_parameters)
 
         structure = ["QC01", "clean", "QC03dia"]
@@ -312,7 +312,7 @@ class TestSamplerStrategy:
         self, samplers_config, simple_qc_layout_pattern, queue_parameters
     ):
         """assign_positions_qc_samples handles structure with only default slots."""
-        strategy = SamplerStrategy("Vanquish.vial", samplers_config, simple_qc_layout_pattern)
+        strategy = SamplerStrategy("Vanquish", "vial", samplers_config, simple_qc_layout_pattern)
         queue_input = create_queue_input(2, queue_parameters)
         strategy.assign_positions_user_samples(queue_input)
 
@@ -326,7 +326,7 @@ class TestSamplerStrategy:
     def test_unknown_sampler_raises(self, samplers_config, simple_qc_layout_pattern):
         """Unknown sampler name raises ValueError."""
         with pytest.raises(ValueError, match="Unknown sampler"):
-            SamplerStrategy("Unknown.sampler", samplers_config, simple_qc_layout_pattern)
+            SamplerStrategy("Unknown", "sampler", samplers_config, simple_qc_layout_pattern)
 
 
 # =============================================================================
@@ -349,7 +349,7 @@ class TestMClass48SamplerStrategy:
 
     def test_mclass48_vial_assigns_positions(self, samplers_config, mclass48_qc_layout_pattern, queue_parameters):
         """MClass48 vial sampler assigns tray and grid_position to all samples."""
-        strategy = SamplerStrategy("MClass48.vial", samplers_config, mclass48_qc_layout_pattern)
+        strategy = SamplerStrategy("MClass48", "vial", samplers_config, mclass48_qc_layout_pattern)
         queue_input = create_queue_input(3, queue_parameters)
 
         result = strategy.assign_positions_user_samples(queue_input)
@@ -367,7 +367,7 @@ class TestMClass48SamplerStrategy:
 
     def test_mclass48_vial_row_major_order(self, samplers_config, mclass48_qc_layout_pattern, queue_parameters):
         """MClass48 vial sampler generates positions in row-major order."""
-        strategy = SamplerStrategy("MClass48.vial", samplers_config, mclass48_qc_layout_pattern)
+        strategy = SamplerStrategy("MClass48", "vial", samplers_config, mclass48_qc_layout_pattern)
         # MClass48 has 8 columns per row
         queue_input = create_queue_input(10, queue_parameters)
 
@@ -383,7 +383,7 @@ class TestMClass48SamplerStrategy:
 
     def test_mclass48_vial_spans_multiple_plates(self, samplers_config, mclass48_qc_layout_pattern, queue_parameters):
         """MClass48 vial sampler spans to next plate when current plate is full."""
-        strategy = SamplerStrategy("MClass48.vial", samplers_config, mclass48_qc_layout_pattern)
+        strategy = SamplerStrategy("MClass48", "vial", samplers_config, mclass48_qc_layout_pattern)
         # MClass48: 5 rows x 8 cols = 40 positions per plate
         queue_input = create_queue_input(45, queue_parameters)
 
@@ -401,7 +401,7 @@ class TestMClass48SamplerStrategy:
     def test_mclass48_vial_skips_qc_positions(self, samplers_config, queue_parameters):
         """MClass48 vial sampler skips positions reserved for QC samples."""
         qc_layout = QCLayoutPattern({"QC01": {"plate": "1", "row": "A", "col": 1}})
-        strategy = SamplerStrategy("MClass48.vial", samplers_config, qc_layout)
+        strategy = SamplerStrategy("MClass48", "vial", samplers_config, qc_layout)
         queue_input = create_queue_input(3, queue_parameters)
 
         result = strategy.assign_positions_user_samples(queue_input)
@@ -414,7 +414,7 @@ class TestMClass48SamplerStrategy:
 
     def test_mclass48_plate_validates_positions(self, samplers_config, mclass48_qc_layout_pattern, queue_parameters):
         """MClass48 plate sampler validates positions from input."""
-        strategy = SamplerStrategy("MClass48.plate", samplers_config, mclass48_qc_layout_pattern)
+        strategy = SamplerStrategy("MClass48", "plate", samplers_config, mclass48_qc_layout_pattern)
         samples = [
             InputSample(sample_name="S1", sample_id=1001, tray="1", grid_position="A1"),
             InputSample(sample_name="S2", sample_id=1002, tray="1", grid_position="A2"),
@@ -430,7 +430,7 @@ class TestMClass48SamplerStrategy:
     def test_mclass48_plate_raises_on_qc_collision(self, samplers_config, queue_parameters):
         """MClass48 plate sampler raises ValueError if user sample collides with QC position."""
         qc_layout = QCLayoutPattern({"QC01": {"plate": "1", "row": "E", "col": 7}})
-        strategy = SamplerStrategy("MClass48.plate", samplers_config, qc_layout)
+        strategy = SamplerStrategy("MClass48", "plate", samplers_config, qc_layout)
         samples = [
             InputSample(sample_name="Conflict", sample_id=1001, tray="1", grid_position="E7"),
         ]
@@ -442,7 +442,7 @@ class TestMClass48SamplerStrategy:
 
     def test_mclass48_assign_qc_samples(self, samplers_config, mclass48_qc_layout_pattern, queue_parameters):
         """MClass48 assign_positions_qc_samples returns positions for QC and user slots."""
-        strategy = SamplerStrategy("MClass48.vial", samplers_config, mclass48_qc_layout_pattern)
+        strategy = SamplerStrategy("MClass48", "vial", samplers_config, mclass48_qc_layout_pattern)
         queue_input = create_queue_input(2, queue_parameters)
         strategy.assign_positions_user_samples(queue_input)
 
@@ -477,7 +477,7 @@ class TestEvosepSamplerStrategy:
 
     def test_evosep_vial_assigns_positions(self, samplers_config, evosep_qc_layout_pattern, queue_parameters):
         """Evosep vial sampler assigns tray and grid_position to all samples."""
-        strategy = SamplerStrategy("Evosep.vial", samplers_config, evosep_qc_layout_pattern)
+        strategy = SamplerStrategy("Evosep", "vial", samplers_config, evosep_qc_layout_pattern)
         queue_input = create_queue_input(3, queue_parameters)
 
         result = strategy.assign_positions_user_samples(queue_input)
@@ -495,7 +495,7 @@ class TestEvosepSamplerStrategy:
 
     def test_evosep_vial_sequential_order(self, samplers_config, evosep_qc_layout_pattern, queue_parameters):
         """Evosep vial sampler generates positions sequentially."""
-        strategy = SamplerStrategy("Evosep.vial", samplers_config, evosep_qc_layout_pattern)
+        strategy = SamplerStrategy("Evosep", "vial", samplers_config, evosep_qc_layout_pattern)
         # Test positions across a slot boundary
         queue_input = create_queue_input(100, queue_parameters)
 
@@ -514,7 +514,7 @@ class TestEvosepSamplerStrategy:
 
     def test_evosep_vial_spans_multiple_slots(self, samplers_config, evosep_qc_layout_pattern, queue_parameters):
         """Evosep vial sampler spans to next slot when current slot is full."""
-        strategy = SamplerStrategy("Evosep.vial", samplers_config, evosep_qc_layout_pattern)
+        strategy = SamplerStrategy("Evosep", "vial", samplers_config, evosep_qc_layout_pattern)
         # 4 slots x 96 positions = 384 total
         queue_input = create_queue_input(200, queue_parameters)
 
@@ -533,7 +533,7 @@ class TestEvosepSamplerStrategy:
 
     def test_evosep_vial_raises_when_full(self, samplers_config, evosep_qc_layout_pattern, queue_parameters):
         """Evosep vial sampler raises ValueError when all slots are full."""
-        strategy = SamplerStrategy("Evosep.vial", samplers_config, evosep_qc_layout_pattern)
+        strategy = SamplerStrategy("Evosep", "vial", samplers_config, evosep_qc_layout_pattern)
         # 4 slots x 96 = 384, request more
         queue_input = create_queue_input(400, queue_parameters)
 
@@ -542,7 +542,7 @@ class TestEvosepSamplerStrategy:
 
     def test_evosep_plate_converts_grid_to_numeric(self, samplers_config, evosep_qc_layout_pattern, queue_parameters):
         """Evosep plate sampler converts grid positions to numeric."""
-        strategy = SamplerStrategy("Evosep.plate", samplers_config, evosep_qc_layout_pattern)
+        strategy = SamplerStrategy("Evosep", "plate", samplers_config, evosep_qc_layout_pattern)
         samples = [
             InputSample(sample_name="S1", sample_id=1001, tray=1, grid_position="A1"),
             InputSample(sample_name="S2", sample_id=1002, tray=1, grid_position="A12"),
@@ -561,7 +561,7 @@ class TestEvosepSamplerStrategy:
 
     def test_evosep_plate_preserves_tray(self, samplers_config, evosep_qc_layout_pattern, queue_parameters):
         """Evosep plate sampler preserves tray from input."""
-        strategy = SamplerStrategy("Evosep.plate", samplers_config, evosep_qc_layout_pattern)
+        strategy = SamplerStrategy("Evosep", "plate", samplers_config, evosep_qc_layout_pattern)
         samples = [
             InputSample(sample_name="S1", sample_id=1001, tray=2, grid_position="A1"),
             InputSample(sample_name="S2", sample_id=1002, tray=3, grid_position="B1"),
@@ -577,7 +577,7 @@ class TestEvosepSamplerStrategy:
 
     def test_evosep_assign_qc_samples(self, samplers_config, evosep_qc_layout_pattern, queue_parameters):
         """Evosep assign_positions_qc_samples returns positions for QC and user slots."""
-        strategy = SamplerStrategy("Evosep.vial", samplers_config, evosep_qc_layout_pattern)
+        strategy = SamplerStrategy("Evosep", "vial", samplers_config, evosep_qc_layout_pattern)
         queue_input = create_queue_input(2, queue_parameters)
         strategy.assign_positions_user_samples(queue_input)
 

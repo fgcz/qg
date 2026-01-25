@@ -393,44 +393,46 @@ Sampler = (
 
 def create_sampler(
     sampler_name: str,
+    layout_mode: str,
     config: SamplersConfig,
     qc_layout_pattern: QCLayoutPattern,
 ) -> Sampler:
-    """Factory: 'Vanquish.vial' + config + qc_layout_pattern -> Sampler instance.
+    """Factory: sampler_name + layout_mode + config -> Sampler instance.
 
     Args:
-        sampler_name: Sampler identifier like "Vanquish.vial" or "Evosep.plate"
+        sampler_name: Sampler name (e.g., "Vanquish", "MClass48", "Evosep")
+        layout_mode: Layout mode ("vial" or "plate")
         config: Root samplers configuration from sampler.toml
         qc_layout_pattern: Validated QC layout for the pattern
 
     Returns:
-        Sampler instance for the given name
+        Sampler instance for the given name and layout mode
 
     Raises:
-        ValueError: If sampler name is unknown
+        ValueError: If sampler name or layout mode is unknown
     """
-    match sampler_name:
-        case "Vanquish.vial":
+    match (sampler_name, layout_mode):
+        case ("Vanquish", "vial"):
             return _VanquishVialSampler_prototype(config.Vanquish, config.Vanquish.vial, qc_layout_pattern)
-        case "Vanquish.plate":
+        case ("Vanquish", "plate"):
             return _VanquishPlateSampler_prototype(config.Vanquish, config.Vanquish.plate, qc_layout_pattern)
-        case "MClass48.vial":
+        case ("MClass48", "vial"):
             return _MClass48VialSampler_prototype(config.MClass48, config.MClass48.vial, qc_layout_pattern)
-        case "MClass48.plate":
+        case ("MClass48", "plate"):
             return _MClass48PlateSampler_prototype(config.MClass48, config.MClass48.plate, qc_layout_pattern)
-        case "Evosep.vial":
+        case ("Evosep", "vial"):
             return _EvosepVialSampler_prototype(config.Evosep, config.Evosep.vial, qc_layout_pattern)
-        case "Evosep.plate":
+        case ("Evosep", "plate"):
             return _EvosepPlateSampler_prototype(config.Evosep, config.Evosep.plate, qc_layout_pattern)
         case _:
-            raise ValueError(f"Unknown sampler: {sampler_name}")
+            raise ValueError(f"Unknown sampler: {sampler_name}.{layout_mode}")
 
 
 class SamplerStrategy:
     sampler: Sampler
 
-    def __init__(self, sampler_name: str, config: SamplersConfig, qc_layout_pattern: QCLayoutPattern):
-        self.sampler = create_sampler(sampler_name, config, qc_layout_pattern)
+    def __init__(self, sampler_name: str, layout_mode: str, config: SamplersConfig, qc_layout_pattern: QCLayoutPattern):
+        self.sampler = create_sampler(sampler_name, layout_mode, config, qc_layout_pattern)
 
     # TODO: implement get_positions for queue input -> just assign positions for user samples
     # this function is called before we call the generator!
