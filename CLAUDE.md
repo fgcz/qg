@@ -295,6 +295,42 @@ except UnicodeDecodeError:
     text = data.decode("latin-1", errors="replace")
 ```
 
+### Prefer Declarative Style
+
+**Use `itertools`, set operations, and comprehensions instead of imperative for loops.**
+
+```python
+# BAD - manual index tracking
+plate_idx, row_idx, col_idx = 0, 0, 0
+while len(positions) < n:
+    # ... manual advancement logic
+
+# GOOD - itertools.product
+all_positions = [
+    (plate, f"{row}{col}")
+    for plate, row, col in product(plates, rows, cols)
+]
+
+# BAD - iterating to check membership
+for sample in samples:
+    if sample.position in reserved:
+        raise ValueError(...)
+
+# GOOD - set intersection
+user_positions = {s.position for s in samples}
+collisions = user_positions & reserved
+if collisions:
+    raise ValueError(...)
+
+# BAD - building set with loop
+reserved = set()
+for qc_id in qc_positions:
+    reserved.add(get_position(qc_id))
+
+# GOOD - set comprehension
+reserved = {get_position(qc_id) for qc_id in qc_positions}
+```
+
 ### Testing
 
 **Test public interfaces, not private implementations.** Classes and functions prefixed with `_` are private implementation details. Write tests against the public API (e.g., `SamplerStrategy`, not `_VanquishVialSampler_prototype`).

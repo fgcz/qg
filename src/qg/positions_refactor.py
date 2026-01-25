@@ -78,11 +78,10 @@ class _VanquishVialSampler_prototype:
 
     def _get_reserved_qc_positions(self) -> set[tuple[str, str]]:
         """Get set of (tray, grid_position) tuples reserved for QC samples."""
-        reserved: set[tuple[str, str]] = set()
-        for qc_id in self._qc_positions.positions:
-            unified = self._qc_positions.get_position(qc_id)
-            reserved.add((str(unified["tray"]), str(unified["grid_position"])))
-        return reserved
+        return {
+            (str(p["tray"]), str(p["grid_position"]))
+            for p in (self._qc_positions.get_position(qc_id) for qc_id in self._qc_positions.positions)
+        }
 
     def _generate_positions_default_samples(self, input_queue: QueueInput) -> list[PositionDict]:
         """Generate n positions row-major across all plates, skipping QC positions."""
@@ -133,23 +132,25 @@ class _VanquishPlateSampler_prototype:
 
     def _get_reserved_qc_positions(self) -> set[tuple[str, str]]:
         """Get set of (tray, grid_position) tuples reserved for QC samples."""
-        reserved: set[tuple[str, str]] = set()
-        for qc_id in self._qc_positions.positions:
-            unified = self._qc_positions.get_position(qc_id)
-            reserved.add((str(unified["tray"]), str(unified["grid_position"])))
-        return reserved
+        return {
+            (str(p["tray"]), str(p["grid_position"]))
+            for p in (self._qc_positions.get_position(qc_id) for qc_id in self._qc_positions.positions)
+        }
 
     def assign_positions_user_samples(self, input_queue: QueueInput) -> QueueInput:
         """Validate that user sample positions don't collide with QC positions."""
         reserved = self._get_reserved_qc_positions()
 
-        for sample in input_queue.get_all_samples():
-            tray = str(sample.tray) if sample.tray else ""
-            grid_pos = str(sample.grid_position) if sample.grid_position else ""
-            if (tray, grid_pos) in reserved:
-                raise ValueError(
-                    f"Sample '{sample.sample_name}' at {tray}:{grid_pos} conflicts with reserved QC position"
-                )
+        # Map position -> sample for error reporting
+        samples = input_queue.get_all_samples()
+        pos_to_sample = {(str(s.tray or ""), str(s.grid_position or "")): s for s in samples}
+
+        # Set intersection to find collisions
+        collisions = set(pos_to_sample.keys()) & reserved
+        if collisions:
+            pos = next(iter(collisions))
+            sample = pos_to_sample[pos]
+            raise ValueError(f"Sample '{sample.sample_name}' at {pos[0]}:{pos[1]} conflicts with reserved QC position")
 
         return input_queue
 
