@@ -16,7 +16,7 @@ All positions are returned in unified format:
 
 from __future__ import annotations
 
-from itertools import islice, product
+from itertools import product
 from typing import Any
 
 from qg.config_models import QCLayoutPattern
@@ -89,25 +89,25 @@ class _VanquishVialSampler_prototype:
         reserved = self._get_reserved_qc_positions()
         n_samples = len(input_queue.get_all_samples())
 
-        # Generate all positions in row-major order: plates -> rows -> cols
-        all_positions = (
+        # All (tray, grid_position) tuples in row-major order: plates -> rows -> cols
+        all_positions = [
             (plate, self._container.grid_position_format.format(row=row, col=col))
             for plate, row, col in product(
                 self._parent.plates,
                 self._container.sample_rows,
                 self._container.cols,
             )
-        )
-
-        # Filter out reserved positions and take first n_samples
-        available = ((tray, pos) for tray, pos in all_positions if (tray, pos) not in reserved)
-        self._positions = [
-            {"tray": tray, "grid_position": grid_position} for tray, grid_position in islice(available, n_samples)
         ]
 
-        if len(self._positions) < n_samples:
+        # Set difference while preserving order (can't use set() - loses order)
+        available = [pos for pos in all_positions if pos not in reserved]
+
+        if len(available) < n_samples:
             raise ValueError(f"Not enough positions available (requested {n_samples})")
 
+        self._positions = [
+            {"tray": tray, "grid_position": grid_position} for tray, grid_position in available[:n_samples]
+        ]
         return self._positions
 
     def assign_positions_user_samples(self, input_queue: QueueInput) -> QueueInput:
