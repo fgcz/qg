@@ -16,6 +16,7 @@ All positions are returned in unified format:
 
 from __future__ import annotations
 
+from itertools import islice, product
 from typing import Any
 
 from qg.config_models import QCLayoutPattern
@@ -84,37 +85,28 @@ class _VanquishVialSampler_prototype:
         return reserved
 
     def _generate_positions_default_samples(self, input_queue: QueueInput) -> list[PositionDict]:
-        """Generate n positions row-major across all plates, skipping QC positions.
-
-        Returns unified format: {"tray": plate, "grid_position": "A1"}
-        """
-        # Build set of reserved QC positions
+        """Generate n positions row-major across all plates, skipping QC positions."""
         reserved = self._get_reserved_qc_positions()
-
         n_samples = len(input_queue.get_all_samples())
-        plate_idx, row_idx, col_idx = 0, 0, 0
 
-        while len(self._positions) < n_samples:
-            if plate_idx >= len(self._parent.plates):
-                raise ValueError(f"Not enough positions available (requested {n_samples})")
+        # Generate all positions in row-major order: plates -> rows -> cols
+        all_positions = (
+            (plate, self._container.grid_position_format.format(row=row, col=col))
+            for plate, row, col in product(
+                self._parent.plates,
+                self._container.sample_rows,
+                self._container.cols,
+            )
+        )
 
-            row = self._container.sample_rows[row_idx]
-            col = self._container.cols[col_idx]
-            grid_position = self._container.grid_position_format.format(row=row, col=col)
-            tray = self._parent.plates[plate_idx]
+        # Filter out reserved positions and take first n_samples
+        available = ((tray, pos) for tray, pos in all_positions if (tray, pos) not in reserved)
+        self._positions = [
+            {"tray": tray, "grid_position": grid_position} for tray, grid_position in islice(available, n_samples)
+        ]
 
-            # Skip if this position is reserved for QC
-            if (tray, grid_position) not in reserved:
-                self._positions.append({"tray": tray, "grid_position": grid_position})
-
-            # Advance (row-major order) regardless of skip
-            col_idx += 1
-            if col_idx >= len(self._container.cols):
-                col_idx = 0
-                row_idx += 1
-                if row_idx >= len(self._container.sample_rows):
-                    row_idx = 0
-                    plate_idx += 1
+        if len(self._positions) < n_samples:
+            raise ValueError(f"Not enough positions available (requested {n_samples})")
 
         return self._positions
 
