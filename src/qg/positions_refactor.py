@@ -429,25 +429,40 @@ def create_sampler(
 
 
 class SamplerStrategy:
+    """Strategy for assigning positions to samples in a queue.
+
+    Usage (two-phase position assignment):
+        1. Call assign_positions_user_samples() BEFORE generator.build_rows()
+           - Assigns physical positions (tray, grid_position) to user samples
+           - For vial mode: generates positions row-major (A1, A2, ...)
+           - For plate mode: validates input positions don't conflict with QC
+
+        2. Generator calls assign_positions_qc_samples() during build_rows()
+           - Returns position list for full queue structure (user + QC)
+           - User positions come from samples (already assigned in step 1)
+           - QC positions come from qc_layout_pattern
+    """
+
     sampler: Sampler
 
     def __init__(self, sampler_name: str, layout_mode: str, config: SamplersConfig, qc_layout_pattern: QCLayoutPattern):
         self.sampler = create_sampler(sampler_name, layout_mode, config, qc_layout_pattern)
 
-    # TODO: implement get_positions for queue input -> just assign positions for user samples
-    # this function is called before we call the generator!
     def assign_positions_user_samples(self, queue_input: QueueInput) -> QueueInput:
-        # you implement it int terms of
-        # Todo we do not wan to loose the sample groups
-        # Todo for plate samplers i validates the Queue, if sample positions do not collide with the
-        # layout
-        self.sampler.assign_positions_user_samples(queue_input)
+        """Assign physical positions to user samples. Call BEFORE generator.build_rows().
 
+        For vial mode: Generates positions row-major across plates, skipping QC positions.
+        For plate mode: Validates that input positions don't conflict with QC positions.
+
+        Args:
+            queue_input: QueueInput with samples to assign positions to.
+
+        Returns:
+            Same QueueInput with sample positions updated (mutates in place).
+        """
+        self.sampler.assign_positions_user_samples(queue_input)
         return queue_input
 
-    # TODO: implement a function which assigns positions to the qc samples only in a queue input,
-    # you must not touch user samples however.
-    # this function is used in the generator
     def assign_positions_qc_samples(self, structure: list[str], queue_input: QueueInput) -> list[PositionDict]:
         """Assign positions to all slots in queue structure.
 
