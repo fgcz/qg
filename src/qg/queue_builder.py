@@ -28,12 +28,12 @@ class QueueBuilder:
         self._parameters = parameters
         return self
 
-    def add_samples_from_dataframe(self, df: pl.DataFrame, container_ids: list[int]) -> Self:
+    def add_samples_from_dataframe(self, df: pl.DataFrame) -> Self:
         """Add sample groups from DataFrame with container_id column.
 
         Args:
             df: DataFrame with samples. Must have a 'container_id' column.
-            container_ids: List of container IDs to extract groups for.
+                Container IDs are extracted from the DataFrame.
 
         Returns:
             Self for method chaining.
@@ -47,6 +47,7 @@ class QueueBuilder:
         if "container_id" not in df.columns:
             raise ValueError("DataFrame must have 'container_id' column")
 
+        container_ids = df["container_id"].unique().sort().to_list()
         for container_id in container_ids:
             container_samples = df.filter(pl.col("container_id") == container_id).drop("container_id")
             if not container_samples.is_empty():
@@ -81,4 +82,4 @@ class QueueBuilder:
                 )
 
         self._built = True
-        return QueueInput(parameters=self._parameters, sample_groups=self._sample_groups)
+        return QueueInput.create(parameters=self._parameters, sample_groups=self._sample_groups)

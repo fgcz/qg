@@ -549,13 +549,9 @@ def _(
     _output = None
     _download_button = None
     if queue_parameters and selected_orders and sample_df is not None and "container_id" in sample_df.columns:
-        _container_ids = [o[0] for o in selected_orders]
         try:
             _queue_input = (
-                QueueBuilder(configs)
-                .with_parameters(queue_parameters)
-                .add_samples_from_dataframe(sample_df, _container_ids)
-                .build()
+                QueueBuilder(configs).with_parameters(queue_parameters).add_samples_from_dataframe(sample_df).build()
             )
             _output = _queue_input.model_dump(mode="json")
 
@@ -563,7 +559,7 @@ def _(
             import json
 
             _json_data = json.dumps(_output, indent=2)
-            _ids_str = "_".join(str(c) for c in _container_ids)
+            _ids_str = "_".join(str(c) for c in sample_df["container_id"].unique().sort().to_list())
             _filename = f"{queue_parameters.tech_area}_{queue_parameters.sampler.replace('.', '_')}_c{_ids_str}_n{len(sample_df)}.json"
             _download_button = mo.download(
                 data=_json_data.encode("utf-8"),
@@ -592,13 +588,9 @@ def _(configs, queue_parameters, sample_df, selected_orders):
     generation_error = None
 
     if queue_parameters and selected_orders and sample_df is not None and not sample_df.is_empty():
-        _container_ids = [o[0] for o in selected_orders]
         try:
             _queue_input = (
-                QueueBuilder(configs)
-                .with_parameters(queue_parameters)
-                .add_samples_from_dataframe(sample_df, _container_ids)
-                .build()
+                QueueBuilder(configs).with_parameters(queue_parameters).add_samples_from_dataframe(sample_df).build()
             )
             _generator = QueueGenerator(configs, _queue_input)
             generated_queue_df = _generator.generate()
