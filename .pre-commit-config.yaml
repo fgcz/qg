@@ -14,3 +14,10 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+
+      - id: pytest
+        name: pytest
+        entry: uv run pytest -x -q
+        language: system
+        types: [python]
+        pass_filenames: false
