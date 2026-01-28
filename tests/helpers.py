@@ -2,56 +2,58 @@
 
 from datetime import date
 
-from qg.params_models import InputSample, QueueInput, QueueParameters, SampleGroup
+from qg.params_models import ContainerBatch, QueueParameters, VialQueue, VialQueueInput, VialSample
 
 
 def make_samples(
     num_samples: int,
     container_id: int,
     start_sample_id: int = 1000001,
-) -> list[InputSample]:
-    """Create a list of InputSample objects for testing.
+) -> list[VialSample]:
+    """Create a list of VialSample objects for testing.
 
     Args:
         num_samples: Number of samples to create.
-        container_id: Container ID for tube_id field.
+        container_id: Container ID for each sample.
         start_sample_id: Starting sample ID.
 
     Returns:
-        List of InputSample objects.
+        List of VialSample objects.
     """
     return [
-        InputSample(
+        VialSample(
             sample_name=f"Sample_{i + 1}",
             sample_id=start_sample_id + i,
             tube_id=f"{container_id}/{i + 1}",
+            container_id=container_id,
         )
         for i in range(num_samples)
     ]
 
 
-def make_sample_groups(groups: list[tuple[int, int]]) -> list[SampleGroup]:
-    """Create SampleGroup list from (container_id, num_samples) tuples.
+def make_sample_groups(
+    groups: list[tuple[int, int]],
+) -> tuple[dict[int, ContainerBatch], list[VialSample]]:
+    """Create batches dict and flat sample list from (container_id, num_samples) tuples.
 
     Args:
         groups: List of (container_id, num_samples) tuples.
 
     Returns:
-        List of SampleGroup objects.
+        Tuple of (batches dict, flat sample list).
     """
-    sample_groups = []
+    batches: dict[int, ContainerBatch] = {}
+    all_samples: list[VialSample] = []
     start_id = 1000001
     for container_id, num_samples in groups:
-        samples = make_samples(num_samples, container_id, start_id)
-        sample_groups.append(
-            SampleGroup(
-                container_id=container_id,
-                group_name=f"Project_{container_id}",
-                samples=samples,
-            )
+        batches[container_id] = ContainerBatch(
+            container_id=container_id,
+            container_name=f"Project_{container_id}",
         )
+        samples = make_samples(num_samples, container_id, start_id)
+        all_samples.extend(samples)
         start_id += num_samples
-    return sample_groups
+    return batches, all_samples
 
 
 def make_queue_input(
@@ -61,12 +63,11 @@ def make_queue_input(
     tech_area: str = "Proteomics",
     instrument: str = "ASTRAL_1",
     sampler: str = "Vanquish",
-    layout_mode: str = "vial",
     queue_pattern: str = "standard",
     output_format: str = "xcalibur",
     container_id: int = 12345,
-) -> QueueInput:
-    """Create a QueueInput for testing.
+) -> VialQueueInput:
+    """Create a VialQueueInput for testing.
 
     Can be called two ways:
     1. With `groups` parameter: creates multi-group input
@@ -78,19 +79,17 @@ def make_queue_input(
         tech_area: Technology identifier.
         instrument: Instrument name.
         sampler: Sampler name (e.g., "Vanquish").
-        layout_mode: Layout mode ("vial" or "plate").
         queue_pattern: Queue pattern name.
         output_format: Output format name.
         container_id: Container ID (single-group mode only).
 
     Returns:
-        QueueInput object for testing.
+        VialQueueInput object for testing.
     """
     params = QueueParameters(
         tech_area=tech_area,
         instrument=instrument,
         sampler=sampler,
-        layout_mode=layout_mode,
         output_format=output_format,
         queue_pattern=queue_pattern,
         polarity=["pos"],
@@ -102,14 +101,15 @@ def make_queue_input(
     )
 
     if groups is not None:
-        sample_groups = make_sample_groups(groups)
+        batches, all_samples = make_sample_groups(groups)
     else:
-        sample_groups = [
-            SampleGroup(
+        batches = {
+            container_id: ContainerBatch(
                 container_id=container_id,
-                group_name=f"Project_{container_id}",
-                samples=make_samples(num_samples, container_id),
+                container_name=f"Project_{container_id}",
             )
-        ]
+        }
+        all_samples = make_samples(num_samples, container_id)
 
-    return QueueInput(parameters=params, sample_groups=sample_groups)
+    queue = VialQueue(batches=batches, samples=all_samples)
+    return VialQueueInput(parameters=params, queue=queue)

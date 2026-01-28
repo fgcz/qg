@@ -140,7 +140,7 @@ checkpoint params:
     shell:
         """
         mkdir -p {output}
-        qg-tools csv-to-params {input.csv_dir}/ -o {output}/
+        uv run qg-tools csv-to-params {input.csv_dir}/ -o {output}/
         """
 
 
@@ -159,7 +159,7 @@ rule generate_queue:
     shell:
         """
         mkdir -p {GENERATED_DIR} {LOGS_DIR}
-        cd .. && qg test_data/{input.params} -o test_data/{output.csv} 2>test_data/{log} || touch test_data/{output.csv}
+        cd .. && uv run qg test_data/{input.params} -o test_data/{output.csv} 2>test_data/{log} || touch test_data/{output.csv}
         """
 
 
@@ -175,7 +175,7 @@ rule compare:
     shell:
         """
         mkdir -p {RESULTS_DIR}
-        qg-tools compare {input.generated} {params.original} {input.config} {output.result}
+        uv run qg-tools compare {input.generated} {params.original} {input.config} {output.result}
         """
 
 
@@ -186,7 +186,7 @@ rule summary:
     output:
         RESULTS_DIR / "test_results.csv"
     shell:
-        "qg-tools summarize {output} {input}"
+        "uv run qg-tools summarize {output} {input}"
 
 
 # =============================================================================
@@ -198,7 +198,7 @@ rule marimo_app:
     input:
         RESULTS_DIR / "test_results.csv"
     shell:
-        "marimo run ../src/qg/tools_apps/compare_existing_generated.py"
+        "uv run marimo run ../src/qg/tools_apps/compare_existing_generated.py"
 
 
 # =============================================================================

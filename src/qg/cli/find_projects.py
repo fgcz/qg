@@ -34,15 +34,15 @@ def read_containers(
         endpoint,
         {
             "technologyid": technology_ids,
-            "status": [
-                "running",
-                "accepted",
-                "arrived",
-                "submitted",
-                "processing",
-                "analyzing",
-                "running",
-            ],
+            # "status": [
+            #     "running",
+            #     "accepted",
+            #     "arrived",
+            #     "submitted",
+            #     "processing",
+            #     "analyzing",
+            #     "running",
+            # ],
         },
         max_results=max_results,
     )

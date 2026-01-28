@@ -162,10 +162,6 @@ class InstrumentsConfig(BaseModel):
             raise ValueError(f"Duplicate (tech_area, instrument) pairs: {set(duplicates)}")
         return self
 
-    def get_by_tech_area(self, tech: str) -> list[Instrument]:
-        """Get all instruments for a tech_area."""
-        return [i for i in self.instruments if i.tech_area == tech]
-
     def get_instrument(self, tech: str, instrument: str) -> Instrument | None:
         """Get a specific instrument by tech_area and name."""
         for i in self.instruments:
@@ -229,17 +225,6 @@ class InstrumentPatternsConfig(BaseModel):
 
         return self
 
-    def get_patterns_for_instrument(self, tech: str, instrument: str) -> list[InstrumentPattern]:
-        """Get all patterns for a specific instrument."""
-        return [p for p in self.patterns if p.tech_area == tech and p.instrument == instrument]
-
-    def get_default_pattern(self, tech: str, instrument: str) -> InstrumentPattern | None:
-        """Get the default pattern for an instrument."""
-        for p in self.patterns:
-            if p.tech_area == tech and p.instrument == instrument and p.is_default:
-                return p
-        return None
-
     def to_table(self) -> pl.DataFrame:
         """Convert instrument patterns to a polars DataFrame."""
         return pl.DataFrame([p.model_dump() for p in self.patterns])
@@ -271,17 +256,6 @@ class CombinationsConfig(BaseModel):
             duplicates = [k for k in keys if keys.count(k) > 1]
             raise ValueError(f"Duplicate (instrument, sampler) pairs: {set(duplicates)}")
         return self
-
-    def get_samplers_for_instrument(self, instrument: str) -> list[str]:
-        """Get all valid samplers for an instrument."""
-        return [c.sampler for c in self.combinations if c.instrument == instrument]
-
-    def get_combination(self, instrument: str, sampler: str) -> Combination | None:
-        """Get the combination for a specific instrument+sampler."""
-        for c in self.combinations:
-            if c.instrument == instrument and c.sampler == sampler:
-                return c
-        return None
 
     def to_table(self) -> pl.DataFrame:
         """Convert combinations to a polars DataFrame."""

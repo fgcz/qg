@@ -25,6 +25,17 @@ Metabolomics,Vanquish.vial,pooledQCDil6,Y,F,7
 Metabolomics,Vanquish.vial,pooledQC,Y,F,8
 Metabolomics,Vanquish.vial,108mix_AA,Y,F,9
 Metabolomics,Vanquish.vial,108mix_OAP,Y,E,9
+# Metabolomics - Vanquish plate (QC row H, plate Y)
+Metabolomics,Vanquish.plate,blank,Y,H,1
+Metabolomics,Vanquish.plate,pooledQCDil1,Y,H,2
+Metabolomics,Vanquish.plate,pooledQCDil2,Y,H,3
+Metabolomics,Vanquish.plate,pooledQCDil3,Y,H,4
+Metabolomics,Vanquish.plate,pooledQCDil4,Y,H,5
+Metabolomics,Vanquish.plate,pooledQCDil5,Y,H,6
+Metabolomics,Vanquish.plate,pooledQCDil6,Y,H,7
+Metabolomics,Vanquish.plate,pooledQC,Y,H,8
+Metabolomics,Vanquish.plate,108mix_AA,Y,H,9
+Metabolomics,Vanquish.plate,108mix_OAP,Y,H,10
 # Lipidomics - Vanquish vial (QC row F, plate Y)
 Lipidomics,Vanquish.vial,blank,Y,F,1
 Lipidomics,Vanquish.vial,pooledQCDil1,Y,F,2
@@ -35,3 +46,13 @@ Lipidomics,Vanquish.vial,pooledQCDil5,Y,F,6
 Lipidomics,Vanquish.vial,pooledQCDil6,Y,F,7
 Lipidomics,Vanquish.vial,pooledQC,Y,F,8
 Lipidomics,Vanquish.vial,EquiSPLASH,Y,F,9
+# Lipidomics - Vanquish plate (QC row H, plate Y)
+Lipidomics,Vanquish.plate,blank,Y,H,1
+Lipidomics,Vanquish.plate,pooledQCDil1,Y,H,2
+Lipidomics,Vanquish.plate,pooledQCDil2,Y,H,3
+Lipidomics,Vanquish.plate,pooledQCDil3,Y,H,4
+Lipidomics,Vanquish.plate,pooledQCDil4,Y,H,5
+Lipidomics,Vanquish.plate,pooledQCDil5,Y,H,6
+Lipidomics,Vanquish.plate,pooledQCDil6,Y,H,7
+Lipidomics,Vanquish.plate,pooledQC,Y,H,8
+Lipidomics,Vanquish.plate,EquiSPLASH,Y,H,9

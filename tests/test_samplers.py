@@ -6,11 +6,13 @@ import pytest
 
 from qg.config import qg_config
 from qg.config_models import QCLayoutPattern
-from qg.params_models import InputSample, QueueInput, QueueParameters, SampleGroup
+from qg.params_models import ContainerBatch, Plate, PlateCell, PlateQueue, VialQueue, VialSample
 from qg.positions import SamplerStrategy
 from qg.queue_structure import build_multi_container_queue_structure
 
 CONFIG_DIR = Path(__file__).parent.parent / "qg_configs"
+
+CONTAINER_ID = 12345
 
 
 @pytest.fixture
@@ -20,71 +22,74 @@ def configs():
     return qg_config(CONFIG_DIR)
 
 
-def create_queue_input(
-    tech_area: str,
-    sampler: str,
-    layout_mode: str,
-    samples: list[InputSample],
-    container_id: int = 12345,
-) -> QueueInput:
-    """Helper to create QueueInput for tests."""
-    params = QueueParameters(
-        tech_area=tech_area,
-        instrument="ASTRAL_1",  # Not used by sampler
-        sampler=sampler,
-        layout_mode=layout_mode,
-        output_format="xcalibur",  # Not used by sampler
-        queue_pattern="standard",  # Not used by sampler
-        polarity=[],
-        date="20260125",
-        user="test",
-    )
-    group = SampleGroup(container_id=container_id, samples=samples)
-    return QueueInput(parameters=params, sample_groups=[group])
+def create_vial_queue(num_samples: int, container_id: int = CONTAINER_ID) -> VialQueue:
+    """Create a VialQueue with the given number of samples."""
+    samples = [
+        VialSample(sample_name=f"S{i}", sample_id=1000 + i, container_id=container_id) for i in range(num_samples)
+    ]
+    batches = {container_id: ContainerBatch(container_id=container_id)}
+    return VialQueue(batches=batches, samples=samples)
+
+
+def create_plate_queue(
+    samples_with_positions: list[dict],
+    container_id: int = CONTAINER_ID,
+) -> PlateQueue:
+    """Create a PlateQueue with pre-assigned positions.
+
+    Each dict: {"sample_name", "sample_id", "tray", "grid_position"}.
+    """
+    batches = {container_id: ContainerBatch(container_id=container_id)}
+    plates: dict[int, Plate] = {}
+    cells: list[PlateCell] = []
+
+    for i, data in enumerate(samples_with_positions):
+        tray = data["tray"]
+        plate_id = hash(tray) & 0xFFFFFFFF
+        if plate_id not in plates:
+            plates[plate_id] = Plate(plate_id=plate_id, tray=tray, nr_samples=0)
+        sample = VialSample(
+            sample_name=data["sample_name"],
+            sample_id=data["sample_id"],
+            container_id=container_id,
+        )
+        cells.append(
+            PlateCell(
+                sample=sample,
+                position=i + 1,
+                grid_position=data["grid_position"],
+                plate_id=plate_id,
+            )
+        )
+
+    for plate_id in plates:
+        plates[plate_id] = Plate(
+            plate_id=plate_id,
+            tray=plates[plate_id].tray,
+            nr_samples=sum(1 for c in cells if c.plate_id == plate_id),
+        )
+
+    return PlateQueue(batches=batches, plates=plates, cells=cells)
 
 
 class TestVanquishVialSamplerIntegration:
     """Integration test for VanquishVialSampler with real config.
 
-    Demonstrates the full flow:
-    1. Load pattern and qc_layout from config
-    2. Create QCLayoutPattern (validates coverage + uniqueness)
-    3. Create SamplerStrategy
-    4. Build queue structure
-    5. Assign positions (two-phase: user first, then QC)
+    Flow: load config → build queue structure → assign positions → verify.
     """
 
     def test_standard_pattern_with_5_samples(self, configs):
         """VanquishVialSampler generates correct positions for standard pattern."""
-        # 1. Load pattern
         pattern = configs.queue_patterns.get_pattern("Proteomics", "standard")
-
-        # 2. Load QC layout for Vanquish.vial
         qc_layout = configs.qc_layouts.get_layout("Proteomics", "Vanquish.vial")
-
-        # 3. Create validated QCLayoutPattern
         qc_layout_pattern = QCLayoutPattern.create(pattern, qc_layout)
-
-        # 4. Create SamplerStrategy
         strategy = SamplerStrategy("Vanquish", "vial", configs.samplers, qc_layout_pattern)
 
-        # 5. Build queue structure: [(container_id, num_samples)]
-        groups = [(12345, 5)]
+        # Build queue structure
+        groups = [(CONTAINER_ID, 5)]
         slot_entries = build_multi_container_queue_structure(groups, pattern)
         structure = [s.sample_id for s in slot_entries]
 
-        # 6. Create user samples (vial mode: no grid_position needed)
-        num_user_samples = structure.count("default")
-        samples = [InputSample(sample_name=f"S{i}", sample_id=1000 + i) for i in range(num_user_samples)]
-        queue_input = create_queue_input("Proteomics", "Vanquish", "vial", samples)
-
-        # 7. Assign positions (two-phase)
-        strategy.assign_positions_user_samples(queue_input)
-        positions = strategy.assign_positions_qc_samples(structure, queue_input)
-
-        # Structure: start(2) + 5 samples + end(4) = 11 slots
-        # start = ["QC03dia", "QC01"], end = ["clean", "QC01", "QC03dia", "clean"]
-        assert len(positions) == 11
         assert structure == [
             "QC03dia",
             "QC01",  # start
@@ -99,22 +104,25 @@ class TestVanquishVialSamplerIntegration:
             "clean",  # end
         ]
 
-        # QC positions from qc_layouts_grid.csv [Proteomics.Vanquish.vial]
-        # Unified format: {"tray": plate, "grid_position": "row+col"}
-        assert positions[0] == {"tray": "B", "grid_position": "F8"}  # QC03dia
-        assert positions[1] == {"tray": "B", "grid_position": "F9"}  # QC01
-        assert positions[7] == {"tray": "B", "grid_position": "F7"}  # clean
-        assert positions[8] == {"tray": "B", "grid_position": "F9"}  # QC01
-        assert positions[9] == {"tray": "B", "grid_position": "F8"}  # QC03dia
-        assert positions[10] == {"tray": "B", "grid_position": "F7"}  # clean
+        # Assign user positions
+        num_user_samples = structure.count("default")
+        queue = create_vial_queue(num_user_samples)
+        result = strategy.assign_positions(queue)
 
+        assert len(result.cells) == 5
         # User positions: Y plate, row A, row-major
-        # Unified format: {"tray": plate, "grid_position": "row+col"}
-        assert positions[2] == {"tray": "Y", "grid_position": "A1"}
-        assert positions[3] == {"tray": "Y", "grid_position": "A2"}
-        assert positions[4] == {"tray": "Y", "grid_position": "A3"}
-        assert positions[5] == {"tray": "Y", "grid_position": "A4"}
-        assert positions[6] == {"tray": "Y", "grid_position": "A5"}
+        trays = [result.plates[c.plate_id].tray for c in result.cells]
+        assert all(t == "Y" for t in trays)
+        assert result.cells[0].grid_position == "A1"
+        assert result.cells[1].grid_position == "A2"
+        assert result.cells[2].grid_position == "A3"
+        assert result.cells[3].grid_position == "A4"
+        assert result.cells[4].grid_position == "A5"
+
+        # QC positions from qc_layouts_grid.csv [Proteomics.Vanquish.vial]
+        assert strategy.get_qc_position("QC03dia") == {"tray": "B", "grid_position": "F8"}
+        assert strategy.get_qc_position("QC01") == {"tray": "B", "grid_position": "F9"}
+        assert strategy.get_qc_position("clean") == {"tray": "B", "grid_position": "F7"}
 
 
 class TestVanquishVialSamplerMetabolomicsIntegration:
@@ -122,37 +130,15 @@ class TestVanquishVialSamplerMetabolomicsIntegration:
 
     def test_standard_pattern_with_5_samples(self, configs):
         """VanquishVialSampler generates correct positions for Metabolomics.standard."""
-        # 1. Load pattern
         pattern = configs.queue_patterns.get_pattern("Metabolomics", "standard")
-
-        # 2. Load QC layout for Vanquish.vial
         qc_layout = configs.qc_layouts.get_layout("Metabolomics", "Vanquish.vial")
-
-        # 3. Create validated QCLayoutPattern
         qc_layout_pattern = QCLayoutPattern.create(pattern, qc_layout)
-
-        # 4. Create SamplerStrategy
         strategy = SamplerStrategy("Vanquish", "vial", configs.samplers, qc_layout_pattern)
 
-        # 5. Build queue structure: [(container_id, num_samples)]
-        groups = [(12345, 5)]
+        groups = [(CONTAINER_ID, 5)]
         slot_entries = build_multi_container_queue_structure(groups, pattern)
         structure = [s.sample_id for s in slot_entries]
 
-        # 6. Create user samples (vial mode: no grid_position needed)
-        num_user_samples = structure.count("default")
-        samples = [InputSample(sample_name=f"S{i}", sample_id=1000 + i) for i in range(num_user_samples)]
-        queue_input = create_queue_input("Metabolomics", "Vanquish", "vial", samples)
-
-        # 7. Assign positions (two-phase)
-        strategy.assign_positions_user_samples(queue_input)
-        positions = strategy.assign_positions_qc_samples(structure, queue_input)
-
-        # Structure: start(11) + 5 samples + end(3) = 19 slots
-        # start = ["blank", "108mix_AA", "pooledQC", "blank",
-        #          "pooledQCDil1-6", "blank"]
-        # end = ["108mix_AA", "pooledQC", "blank"]
-        assert len(positions) == 19
         assert structure == [
             # start (11)
             "blank",
@@ -178,81 +164,49 @@ class TestVanquishVialSamplerMetabolomicsIntegration:
             "blank",
         ]
 
+        num_user_samples = structure.count("default")
+        queue = create_vial_queue(num_user_samples)
+        result = strategy.assign_positions(queue)
+
+        assert len(result.cells) == 5
+        trays = [result.plates[c.plate_id].tray for c in result.cells]
+        assert all(t == "Y" for t in trays)
+        assert result.cells[0].grid_position == "A1"
+        assert result.cells[1].grid_position == "A2"
+        assert result.cells[2].grid_position == "A3"
+        assert result.cells[3].grid_position == "A4"
+        assert result.cells[4].grid_position == "A5"
+
         # QC positions from qc_layouts_grid.csv [Metabolomics.Vanquish.vial]
-        # Unified format: {"tray": plate, "grid_position": "row+col"}
-        # Start block
-        assert positions[0] == {"tray": "Y", "grid_position": "F1"}  # blank
-        assert positions[1] == {"tray": "Y", "grid_position": "F9"}  # 108mix_AA
-        assert positions[2] == {"tray": "Y", "grid_position": "F8"}  # pooledQC
-        assert positions[3] == {"tray": "Y", "grid_position": "F1"}  # blank
-        assert positions[4] == {"tray": "Y", "grid_position": "F2"}  # pooledQCDil1
-        assert positions[5] == {"tray": "Y", "grid_position": "F3"}  # pooledQCDil2
-        assert positions[6] == {"tray": "Y", "grid_position": "F4"}  # pooledQCDil3
-        assert positions[7] == {"tray": "Y", "grid_position": "F5"}  # pooledQCDil4
-        assert positions[8] == {"tray": "Y", "grid_position": "F6"}  # pooledQCDil5
-        assert positions[9] == {"tray": "Y", "grid_position": "F7"}  # pooledQCDil6
-        assert positions[10] == {"tray": "Y", "grid_position": "F1"}  # blank
-
-        # User positions: Y plate, row A, row-major
-        # Unified format: {"tray": plate, "grid_position": "row+col"}
-        assert positions[11] == {"tray": "Y", "grid_position": "A1"}
-        assert positions[12] == {"tray": "Y", "grid_position": "A2"}
-        assert positions[13] == {"tray": "Y", "grid_position": "A3"}
-        assert positions[14] == {"tray": "Y", "grid_position": "A4"}
-        assert positions[15] == {"tray": "Y", "grid_position": "A5"}
-
-        # End block
-        assert positions[16] == {"tray": "Y", "grid_position": "F9"}  # 108mix_AA
-        assert positions[17] == {"tray": "Y", "grid_position": "F8"}  # pooledQC
-        assert positions[18] == {"tray": "Y", "grid_position": "F1"}  # blank
+        assert strategy.get_qc_position("blank") == {"tray": "Y", "grid_position": "F1"}
+        assert strategy.get_qc_position("108mix_AA") == {"tray": "Y", "grid_position": "F9"}
+        assert strategy.get_qc_position("pooledQC") == {"tray": "Y", "grid_position": "F8"}
+        assert strategy.get_qc_position("pooledQCDil1") == {"tray": "Y", "grid_position": "F2"}
+        assert strategy.get_qc_position("pooledQCDil2") == {"tray": "Y", "grid_position": "F3"}
+        assert strategy.get_qc_position("pooledQCDil3") == {"tray": "Y", "grid_position": "F4"}
+        assert strategy.get_qc_position("pooledQCDil4") == {"tray": "Y", "grid_position": "F5"}
+        assert strategy.get_qc_position("pooledQCDil5") == {"tray": "Y", "grid_position": "F6"}
+        assert strategy.get_qc_position("pooledQCDil6") == {"tray": "Y", "grid_position": "F7"}
 
 
 class TestEvosepVialSamplerIntegration:
     """Integration test for EvosepVialSampler with real config.
 
-    Demonstrates the full flow:
-    1. Load pattern and qc_layout from config
-    2. Create QCLayoutPattern (validates coverage + uniqueness)
-    3. Create SamplerStrategy
-    4. Build queue structure
-    5. Assign positions
-
-    Key insight: Evosep uses consumable tips, so each QC injection consumes
-    the next position in the range. Multiple QC01 injections use positions
-    1, 2, 3, etc. (not repeating position 1).
+    Evosep uses consumable tips, so each QC injection consumes
+    the next position in the range (sequential counters).
     """
 
     def test_standard_pattern_with_5_samples(self, configs):
         """EvosepVialSampler generates correct positions for standard pattern."""
-        # 1. Load pattern
         pattern = configs.queue_patterns.get_pattern("Proteomics", "standard")
-
-        # 2. Load QC layout for Evosep.vial
         qc_layout = configs.qc_layouts.get_layout("Proteomics", "Evosep.vial")
-
-        # 3. Create validated QCLayoutPattern
         qc_layout_pattern = QCLayoutPattern.create(pattern, qc_layout)
-
-        # 4. Create SamplerStrategy
         strategy = SamplerStrategy("Evosep", "vial", configs.samplers, qc_layout_pattern)
 
-        # 5. Build queue structure: [(container_id, num_samples)]
-        groups = [(12345, 5)]
+        groups = [(CONTAINER_ID, 5)]
         slot_entries = build_multi_container_queue_structure(groups, pattern)
         structure = [s.sample_id for s in slot_entries]
 
-        # 6. Create user samples (vial mode: no grid_position needed)
-        num_user_samples = structure.count("default")
-        samples = [InputSample(sample_name=f"S{i}", sample_id=1000 + i) for i in range(num_user_samples)]
-        queue_input = create_queue_input("Proteomics", "Evosep", "vial", samples)
-
-        # 7. Assign positions (two-phase)
-        strategy.assign_positions_user_samples(queue_input)
-        positions = strategy.assign_positions_qc_samples(structure, queue_input)
-
-        # Structure: start(2) + 5 samples + end(4) = 11 slots
-        # start = ["QC03dia", "QC01"], end = ["clean", "QC01", "QC03dia", "clean"]
-        assert len(positions) == 11
         assert structure == [
             "QC03dia",
             "QC01",  # start
@@ -267,30 +221,27 @@ class TestEvosepVialSamplerIntegration:
             "clean",  # end
         ]
 
-        # QC positions from qc_layouts_evosep.csv [Proteomics.Evosep]
-        # Evosep uses SEQUENTIAL positions from range (consumable tips)
-        # QC01 range: tray 5, positions 1-48
-        # QC03dia range: tray 5, positions 49-96
+        # Assign user positions
+        num_user_samples = structure.count("default")
+        queue = create_vial_queue(num_user_samples)
+        result = strategy.assign_positions(queue)
+
+        assert len(result.cells) == 5
+        # User positions: sequential on tray 1
+        for i, cell in enumerate(result.cells):
+            assert result.plates[cell.plate_id].tray == 1
+            assert cell.grid_position == i + 1
+
+        # QC positions: sequential counters from ranges
+        # QC03dia range: tray 5, positions 49-96 → first call returns 49, second 50
+        assert strategy.get_qc_position("QC03dia") == {"tray": 5, "grid_position": 49}
+        assert strategy.get_qc_position("QC03dia") == {"tray": 5, "grid_position": 50}
+        # QC01 range: tray 5, positions 1-48 → first call returns 1, second 2
+        assert strategy.get_qc_position("QC01") == {"tray": 5, "grid_position": 1}
+        assert strategy.get_qc_position("QC01") == {"tray": 5, "grid_position": 2}
         # clean range: tray 6, positions 1-96
-        # Unified format: {"tray": slot, "grid_position": position_number}
-
-        # First QC03dia uses position 49, second uses 50
-        assert positions[0] == {"tray": 5, "grid_position": 49}  # QC03dia #1
-        # First QC01 uses position 1, second uses 2
-        assert positions[1] == {"tray": 5, "grid_position": 1}  # QC01 #1
-
-        # User positions: sequential across slots
-        assert positions[2] == {"tray": 1, "grid_position": 1}
-        assert positions[3] == {"tray": 1, "grid_position": 2}
-        assert positions[4] == {"tray": 1, "grid_position": 3}
-        assert positions[5] == {"tray": 1, "grid_position": 4}
-        assert positions[6] == {"tray": 1, "grid_position": 5}
-
-        # End block QC positions - SEQUENTIAL from their ranges
-        assert positions[7] == {"tray": 6, "grid_position": 1}  # clean #1
-        assert positions[8] == {"tray": 5, "grid_position": 2}  # QC01 #2 (next in range!)
-        assert positions[9] == {"tray": 5, "grid_position": 50}  # QC03dia #2 (next in range!)
-        assert positions[10] == {"tray": 6, "grid_position": 2}  # clean #2 (next in range!)
+        assert strategy.get_qc_position("clean") == {"tray": 6, "grid_position": 1}
+        assert strategy.get_qc_position("clean") == {"tray": 6, "grid_position": 2}
 
 
 class TestMClass48VialSamplerIntegration:
@@ -298,50 +249,35 @@ class TestMClass48VialSamplerIntegration:
 
     def test_standard_pattern_with_5_samples(self, configs):
         """MClass48VialSampler generates correct positions for standard pattern."""
-        # 1. Load pattern
         pattern = configs.queue_patterns.get_pattern("Proteomics", "standard")
-
-        # 2. Load QC layout for MClass48.vial
         qc_layout = configs.qc_layouts.get_layout("Proteomics", "MClass48.vial")
-
-        # 3. Create validated QCLayoutPattern
         qc_layout_pattern = QCLayoutPattern.create(pattern, qc_layout)
-
-        # 4. Create SamplerStrategy
         strategy = SamplerStrategy("MClass48", "vial", configs.samplers, qc_layout_pattern)
 
-        # 5. Build queue structure
-        groups = [(12345, 5)]
+        groups = [(CONTAINER_ID, 5)]
         slot_entries = build_multi_container_queue_structure(groups, pattern)
         structure = [s.sample_id for s in slot_entries]
 
-        # 6. Create user samples (vial mode: no grid_position needed)
+        assert len(structure) == 11  # start(2) + 5 samples + end(4)
+
         num_user_samples = structure.count("default")
-        samples = [InputSample(sample_name=f"S{i}", sample_id=1000 + i) for i in range(num_user_samples)]
-        queue_input = create_queue_input("Proteomics", "MClass48", "vial", samples)
+        queue = create_vial_queue(num_user_samples)
+        result = strategy.assign_positions(queue)
 
-        # 7. Assign positions (two-phase)
-        strategy.assign_positions_user_samples(queue_input)
-        positions = strategy.assign_positions_qc_samples(structure, queue_input)
-
-        # Structure: start(2) + 5 samples + end(4) = 11 slots
-        assert len(positions) == 11
+        assert len(result.cells) == 5
+        # User positions: plate "1", row A, row-major
+        trays = [result.plates[c.plate_id].tray for c in result.cells]
+        assert all(t == "1" for t in trays)
+        assert result.cells[0].grid_position == "A1"
+        assert result.cells[1].grid_position == "A2"
+        assert result.cells[2].grid_position == "A3"
+        assert result.cells[3].grid_position == "A4"
+        assert result.cells[4].grid_position == "A5"
 
         # QC positions from qc_layouts_grid.csv [Proteomics.MClass48.vial]
-        # MClass48 uses plate "1" instead of "B", QC in row F
-        assert positions[0] == {"tray": "1", "grid_position": "F7"}  # QC03dia
-        assert positions[1] == {"tray": "1", "grid_position": "F8"}  # QC01
-        assert positions[7] == {"tray": "1", "grid_position": "F6"}  # clean
-        assert positions[8] == {"tray": "1", "grid_position": "F8"}  # QC01
-        assert positions[9] == {"tray": "1", "grid_position": "F7"}  # QC03dia
-        assert positions[10] == {"tray": "1", "grid_position": "F6"}  # clean
-
-        # User positions: plate "1", row A, row-major
-        assert positions[2] == {"tray": "1", "grid_position": "A1"}
-        assert positions[3] == {"tray": "1", "grid_position": "A2"}
-        assert positions[4] == {"tray": "1", "grid_position": "A3"}
-        assert positions[5] == {"tray": "1", "grid_position": "A4"}
-        assert positions[6] == {"tray": "1", "grid_position": "A5"}
+        assert strategy.get_qc_position("QC03dia") == {"tray": "1", "grid_position": "F7"}
+        assert strategy.get_qc_position("QC01") == {"tray": "1", "grid_position": "F8"}
+        assert strategy.get_qc_position("clean") == {"tray": "1", "grid_position": "F6"}
 
 
 class TestVanquishPlateSamplerIntegration:
@@ -351,114 +287,81 @@ class TestVanquishPlateSamplerIntegration:
     """
 
     def test_standard_pattern_with_5_samples(self, configs):
-        """VanquishPlateSampler uses input positions for user samples."""
-        # 1. Load pattern
+        """VanquishPlateSampler validates input positions for user samples."""
         pattern = configs.queue_patterns.get_pattern("Proteomics", "standard")
-
-        # 2. Load QC layout for Vanquish.plate
         qc_layout = configs.qc_layouts.get_layout("Proteomics", "Vanquish.plate")
-
-        # 3. Create validated QCLayoutPattern
         qc_layout_pattern = QCLayoutPattern.create(pattern, qc_layout)
-
-        # 4. Create SamplerStrategy
         strategy = SamplerStrategy("Vanquish", "plate", configs.samplers, qc_layout_pattern)
 
-        # 5. Build queue structure
-        groups = [(12345, 5)]
+        groups = [(CONTAINER_ID, 5)]
         slot_entries = build_multi_container_queue_structure(groups, pattern)
         structure = [s.sample_id for s in slot_entries]
 
-        # 6. Create user samples WITH pre-assigned grid_position (plate mode)
+        assert len(structure) == 11
+
         num_user_samples = structure.count("default")
-        samples = [
-            InputSample(sample_name=f"S{i}", sample_id=1000 + i, tray="Y", grid_position=f"B{i + 1}")
-            for i in range(num_user_samples)
-        ]
-        queue_input = create_queue_input("Proteomics", "Vanquish", "plate", samples)
+        queue = create_plate_queue(
+            [
+                {"sample_name": f"S{i}", "sample_id": 1000 + i, "tray": "Y", "grid_position": f"B{i + 1}"}
+                for i in range(num_user_samples)
+            ]
+        )
+        result = strategy.assign_positions(queue)
 
-        # 7. Assign positions (two-phase)
-        strategy.assign_positions_user_samples(queue_input)
-        positions = strategy.assign_positions_qc_samples(structure, queue_input)
-
-        # Structure: start(2) + 5 samples + end(4) = 11 slots
-        assert len(positions) == 11
+        # Plate mode passes through positions unchanged
+        assert len(result.cells) == 5
+        assert result.cells[0].grid_position == "B1"
+        assert result.cells[1].grid_position == "B2"
+        assert result.cells[2].grid_position == "B3"
+        assert result.cells[3].grid_position == "B4"
+        assert result.cells[4].grid_position == "B5"
 
         # QC positions from qc_layouts_grid.csv [Proteomics.Vanquish.plate]
-        # Vanquish.plate uses QC in row H, plate B
-        assert positions[0] == {"tray": "B", "grid_position": "H10"}  # QC03dia
-        assert positions[1] == {"tray": "B", "grid_position": "H9"}  # QC01
-        assert positions[7] == {"tray": "B", "grid_position": "H1"}  # clean
-        assert positions[8] == {"tray": "B", "grid_position": "H9"}  # QC01
-        assert positions[9] == {"tray": "B", "grid_position": "H10"}  # QC03dia
-        assert positions[10] == {"tray": "B", "grid_position": "H1"}  # clean
-
-        # User positions: from input grid_position (plate mode reads from samples)
-        assert positions[2] == {"tray": "Y", "grid_position": "B1"}
-        assert positions[3] == {"tray": "Y", "grid_position": "B2"}
-        assert positions[4] == {"tray": "Y", "grid_position": "B3"}
-        assert positions[5] == {"tray": "Y", "grid_position": "B4"}
-        assert positions[6] == {"tray": "Y", "grid_position": "B5"}
+        assert strategy.get_qc_position("QC03dia") == {"tray": "B", "grid_position": "H10"}
+        assert strategy.get_qc_position("QC01") == {"tray": "B", "grid_position": "H9"}
+        assert strategy.get_qc_position("clean") == {"tray": "B", "grid_position": "H1"}
 
 
 class TestEvosepPlateSamplerIntegration:
     """Integration test for EvosepPlateSampler with real config.
 
-    Plate mode: user samples have pre-assigned grid_position from input,
-    which gets converted to numeric position.
+    Plate mode: grid positions get converted to numeric.
     """
 
     def test_standard_pattern_with_5_samples(self, configs):
         """EvosepPlateSampler converts grid positions to numeric."""
-        # 1. Load pattern
         pattern = configs.queue_patterns.get_pattern("Proteomics", "standard")
-
-        # 2. Load QC layout for Evosep.plate
         qc_layout = configs.qc_layouts.get_layout("Proteomics", "Evosep.plate")
-
-        # 3. Create validated QCLayoutPattern
         qc_layout_pattern = QCLayoutPattern.create(pattern, qc_layout)
-
-        # 4. Create SamplerStrategy
         strategy = SamplerStrategy("Evosep", "plate", configs.samplers, qc_layout_pattern)
 
-        # 5. Build queue structure
-        groups = [(12345, 5)]
+        groups = [(CONTAINER_ID, 5)]
         slot_entries = build_multi_container_queue_structure(groups, pattern)
         structure = [s.sample_id for s in slot_entries]
 
-        # 6. Create user samples WITH pre-assigned grid_position (plate mode)
-        # Grid positions like "A1", "A2" get converted to numeric (1, 2, ...)
+        assert len(structure) == 11
+
         num_user_samples = structure.count("default")
-        samples = [
-            InputSample(sample_name=f"S{i}", sample_id=1000 + i, tray=1, grid_position=f"A{i + 1}")
-            for i in range(num_user_samples)
-        ]
-        queue_input = create_queue_input("Proteomics", "Evosep", "plate", samples)
+        queue = create_plate_queue(
+            [
+                {"sample_name": f"S{i}", "sample_id": 1000 + i, "tray": 1, "grid_position": f"A{i + 1}"}
+                for i in range(num_user_samples)
+            ]
+        )
+        result = strategy.assign_positions(queue)
 
-        # 7. Assign positions (two-phase)
-        strategy.assign_positions_user_samples(queue_input)
-        positions = strategy.assign_positions_qc_samples(structure, queue_input)
-
-        # Structure: start(2) + 5 samples + end(4) = 11 slots
-        assert len(positions) == 11
+        # Grid positions converted to numeric: A1=1, A2=2, ...
+        assert len(result.cells) == 5
+        assert result.cells[0].grid_position == 1
+        assert result.cells[1].grid_position == 2
+        assert result.cells[2].grid_position == 3
+        assert result.cells[3].grid_position == 4
+        assert result.cells[4].grid_position == 5
 
         # QC positions from qc_layouts_evosep.csv [Proteomics.Evosep.plate]
-        # Same ranges as vial mode
-        assert positions[0] == {"tray": 5, "grid_position": 49}  # QC03dia #1
-        assert positions[1] == {"tray": 5, "grid_position": 1}  # QC01 #1
-        assert positions[7] == {"tray": 6, "grid_position": 1}  # clean #1
-        assert positions[8] == {"tray": 5, "grid_position": 2}  # QC01 #2
-        assert positions[9] == {"tray": 5, "grid_position": 50}  # QC03dia #2
-        assert positions[10] == {"tray": 6, "grid_position": 2}  # clean #2
-
-        # User positions: grid_position converted to numeric
-        # A1=1, A2=2, A3=3, A4=4, A5=5
-        assert positions[2] == {"tray": 1, "grid_position": 1}
-        assert positions[3] == {"tray": 1, "grid_position": 2}
-        assert positions[4] == {"tray": 1, "grid_position": 3}
-        assert positions[5] == {"tray": 1, "grid_position": 4}
-        assert positions[6] == {"tray": 1, "grid_position": 5}
+        assert strategy.get_qc_position("QC03dia") == {"tray": 5, "grid_position": 49}
+        assert strategy.get_qc_position("QC01") == {"tray": 5, "grid_position": 1}
+        assert strategy.get_qc_position("clean") == {"tray": 6, "grid_position": 1}
 
 
 class TestVanquishVialSamplerLipidomicsIntegration:
@@ -466,37 +369,15 @@ class TestVanquishVialSamplerLipidomicsIntegration:
 
     def test_standard_pattern_with_5_samples(self, configs):
         """VanquishVialSampler generates correct positions for Lipidomics.standard."""
-        # 1. Load pattern
         pattern = configs.queue_patterns.get_pattern("Lipidomics", "standard")
-
-        # 2. Load QC layout for Vanquish.vial
         qc_layout = configs.qc_layouts.get_layout("Lipidomics", "Vanquish.vial")
-
-        # 3. Create validated QCLayoutPattern
         qc_layout_pattern = QCLayoutPattern.create(pattern, qc_layout)
-
-        # 4. Create SamplerStrategy
         strategy = SamplerStrategy("Vanquish", "vial", configs.samplers, qc_layout_pattern)
 
-        # 5. Build queue structure
-        groups = [(12345, 5)]
+        groups = [(CONTAINER_ID, 5)]
         slot_entries = build_multi_container_queue_structure(groups, pattern)
         structure = [s.sample_id for s in slot_entries]
 
-        # 6. Create user samples
-        num_user_samples = structure.count("default")
-        samples = [InputSample(sample_name=f"S{i}", sample_id=1000 + i) for i in range(num_user_samples)]
-        queue_input = create_queue_input("Lipidomics", "Vanquish", "vial", samples)
-
-        # 7. Assign positions (two-phase)
-        strategy.assign_positions_user_samples(queue_input)
-        positions = strategy.assign_positions_qc_samples(structure, queue_input)
-
-        # Structure: start(11) + 5 samples + end(3) = 19 slots
-        # start = ["blank", "EquiSPLASH", "pooledQC", "blank",
-        #          "pooledQCDil1-6", "blank"]
-        # end = ["EquiSPLASH", "pooledQC", "blank"]
-        assert len(positions) == 19
         assert structure == [
             # start (11)
             "blank",
@@ -522,28 +403,26 @@ class TestVanquishVialSamplerLipidomicsIntegration:
             "blank",
         ]
 
+        num_user_samples = structure.count("default")
+        queue = create_vial_queue(num_user_samples)
+        result = strategy.assign_positions(queue)
+
+        assert len(result.cells) == 5
+        trays = [result.plates[c.plate_id].tray for c in result.cells]
+        assert all(t == "Y" for t in trays)
+        assert result.cells[0].grid_position == "A1"
+        assert result.cells[1].grid_position == "A2"
+        assert result.cells[2].grid_position == "A3"
+        assert result.cells[3].grid_position == "A4"
+        assert result.cells[4].grid_position == "A5"
+
         # QC positions from qc_layouts_grid.csv [Lipidomics.Vanquish.vial]
-        # Start block
-        assert positions[0] == {"tray": "Y", "grid_position": "F1"}  # blank
-        assert positions[1] == {"tray": "Y", "grid_position": "F9"}  # EquiSPLASH
-        assert positions[2] == {"tray": "Y", "grid_position": "F8"}  # pooledQC
-        assert positions[3] == {"tray": "Y", "grid_position": "F1"}  # blank
-        assert positions[4] == {"tray": "Y", "grid_position": "F2"}  # pooledQCDil1
-        assert positions[5] == {"tray": "Y", "grid_position": "F3"}  # pooledQCDil2
-        assert positions[6] == {"tray": "Y", "grid_position": "F4"}  # pooledQCDil3
-        assert positions[7] == {"tray": "Y", "grid_position": "F5"}  # pooledQCDil4
-        assert positions[8] == {"tray": "Y", "grid_position": "F6"}  # pooledQCDil5
-        assert positions[9] == {"tray": "Y", "grid_position": "F7"}  # pooledQCDil6
-        assert positions[10] == {"tray": "Y", "grid_position": "F1"}  # blank
-
-        # User positions: Y plate, row A, row-major
-        assert positions[11] == {"tray": "Y", "grid_position": "A1"}
-        assert positions[12] == {"tray": "Y", "grid_position": "A2"}
-        assert positions[13] == {"tray": "Y", "grid_position": "A3"}
-        assert positions[14] == {"tray": "Y", "grid_position": "A4"}
-        assert positions[15] == {"tray": "Y", "grid_position": "A5"}
-
-        # End block
-        assert positions[16] == {"tray": "Y", "grid_position": "F9"}  # EquiSPLASH
-        assert positions[17] == {"tray": "Y", "grid_position": "F8"}  # pooledQC
-        assert positions[18] == {"tray": "Y", "grid_position": "F1"}  # blank
+        assert strategy.get_qc_position("blank") == {"tray": "Y", "grid_position": "F1"}
+        assert strategy.get_qc_position("EquiSPLASH") == {"tray": "Y", "grid_position": "F9"}
+        assert strategy.get_qc_position("pooledQC") == {"tray": "Y", "grid_position": "F8"}
+        assert strategy.get_qc_position("pooledQCDil1") == {"tray": "Y", "grid_position": "F2"}
+        assert strategy.get_qc_position("pooledQCDil2") == {"tray": "Y", "grid_position": "F3"}
+        assert strategy.get_qc_position("pooledQCDil3") == {"tray": "Y", "grid_position": "F4"}
+        assert strategy.get_qc_position("pooledQCDil4") == {"tray": "Y", "grid_position": "F5"}
+        assert strategy.get_qc_position("pooledQCDil5") == {"tray": "Y", "grid_position": "F6"}
+        assert strategy.get_qc_position("pooledQCDil6") == {"tray": "Y", "grid_position": "F7"}

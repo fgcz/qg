@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
 from typing import Annotated
@@ -11,7 +10,7 @@ import cyclopts
 
 from qg.config import qg_config
 from qg.generator import QueueGenerator
-from qg.params_models import QueueInput
+from qg.params_models import PlateQueueInput, read_queue_input
 
 
 def cli_main() -> None:
@@ -50,12 +49,11 @@ def cli_main() -> None:
 
         configs = qg_config(config_dir)
 
-        with open(input_json) as f:
-            input_data = json.load(f)
-        queue_input = QueueInput(**input_data)
+        queue_input = read_queue_input(input_json)
 
         # Generate queue
-        generator = QueueGenerator(configs, queue_input)
+        layout_mode = "plate" if isinstance(queue_input, PlateQueueInput) else "vial"
+        generator = QueueGenerator(configs, queue_input, layout_mode)
         df = generator.generate()
 
         # Output

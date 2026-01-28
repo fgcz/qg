@@ -24,7 +24,7 @@ from qg.config import (
     _queue_patterns_from_toml_str,
     _samplers_from_toml_str,
     _samples_from_df,
-    _validate_all_configs,
+    _validate_configs,
 )
 
 
@@ -419,7 +419,15 @@ class ConfigStore:
         )
 
         # Validate cross-references
-        errors = _validate_all_configs(bundle)
+        errors = _validate_configs(
+            samples=samples,
+            instruments=instruments,
+            instrument_patterns=instrument_patterns,
+            combinations=combinations,
+            samplers=samplers,
+            queue_patterns=queue_patterns,
+            qc_layouts=qc_layouts,
+        )
         if errors:
             raise ConfigValidationError(errors)
 

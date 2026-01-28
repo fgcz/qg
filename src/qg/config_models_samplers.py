@@ -130,14 +130,3 @@ class SamplersConfig(BaseModel):
     def get_sampler_names(self) -> list[str]:
         """Get names of all defined samplers."""
         return ["Vanquish", "MClass48", "Evosep"]
-
-    def get_valid_sampler_keys(self) -> set[str]:
-        """Get valid sampler.container keys (e.g., 'Vanquish.vial')."""
-        keys: set[str] = set()
-        for name in self.get_sampler_names():
-            sampler = getattr(self, name)
-            if hasattr(sampler, "vial") and sampler.vial is not None:
-                keys.add(f"{name}.vial")
-            if hasattr(sampler, "plate") and sampler.plate is not None:
-                keys.add(f"{name}.plate")
-        return keys

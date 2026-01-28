@@ -1,81 +1,104 @@
-"""Utilities for loading B-Fabric data."""
+"""Utilities for loading B-Fabric data into typed DataFrames."""
+
+import logging
+from pathlib import Path
 
 import polars as pl
 from bfabric import Bfabric
 
-from qg.params_models import InputSample, SampleGroup
+from qg.sample_rows import PlateSampleRow, VialSampleRow
+
+logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Public API
+# =============================================================================
 
 
-def get_samples(
-    client: Bfabric,
-    container_id: int,
-    container_type: str,
-    plates: dict | None = None,
-    plate_ids: list[int] | None = None,
-) -> SampleGroup:
-    """Get samples for a container as a SampleGroup.
+class BfabricHelper:
+    def __init__(self, client: Bfabric) -> None:
+        self.client = client
 
-    Args:
-        client: B-Fabric client
-        container_id: Container ID
-        container_type: "Vials" or "Plates"
-        plates: Pre-queried plates dict (for Plates type)
-        plate_ids: Filter to specific plates (only for Plates type)
+    def get_samples(
+        self,
+        container_id: int,
+        container_type: str,
+        plate_ids: list[int] | None = None,
+        dump_dir: Path | None = None,
+    ) -> pl.DataFrame:
+        """Load samples from B-Fabric as a typed DataFrame.
 
-    Returns:
-        SampleGroup with container_id and list of InputSample
-    """
-    if container_type == "Plates" and plates:
-        samples = _load_plate_samples(plates, plate_ids)
-    else:
-        samples = _load_vial_samples(client, container_id)
+        Args:
+            container_id: Container ID.
+            container_type: "Vials" or "Plates".
+            plate_ids: Filter to specific plates (only for Plates type).
+            dump_dir: If set, write the DataFrame to a CSV in this directory.
 
-    return SampleGroup(container_id=container_id, samples=samples)
+        Returns:
+            DataFrame with VialSampleRow or PlateSampleRow schema.
+        """
+        if container_type == "Plates":
+            plates = self.get_plates(container_id)
+            rows = self._load_plate_samples(plates, container_id, plate_ids)
+        else:
+            rows = self._load_vial_samples(container_id)
 
+        if not rows:
+            return pl.DataFrame()
+        df = pl.DataFrame([r.model_dump() for r in rows])
 
-def _load_vial_samples(client: Bfabric, container_id: int) -> list[InputSample]:
-    """Load samples for vial container."""
-    df = client.read("sample", {"containerid": container_id}, max_results=None).to_polars()
-    return [
-        InputSample(
-            sample_name=row["name"],
-            sample_id=row["id"],
-            tube_id=row.get("tubeid"),
-        )
-        for row in df.iter_rows(named=True)
-    ]
+        if dump_dir is not None:
+            dump_dir = Path(dump_dir)
+            dump_dir.mkdir(parents=True, exist_ok=True)
+            path = dump_dir / f"samples_{container_id}_{container_type}.csv"
+            df.write_csv(path)
+            logger.info("Dumped %d samples to %s", len(df), path)
 
+        return df
 
-def _load_plate_samples(
-    plates: dict,
-    plate_ids: list[int] | None = None,
-) -> list[InputSample]:
-    """Load samples from plates with plate_id tracking."""
-    samples = []
-    for uri, plate in plates.items():
-        plate_id = uri.components.entity_id
-        if plate_ids and plate_id not in plate_ids:
-            continue
-        for sample in plate.refs.sample:
-            samples.append(
-                InputSample(
-                    sample_name=sample["name"],
-                    sample_id=sample["id"],
-                    position=sample.get("_position"),
-                    grid_position=sample.get("_gridposition"),
-                    plate_id=plate_id,
-                )
+    def get_plates(self, container_id: int) -> dict:
+        """Query plates for a container."""
+        return self.client.reader.query("plate", {"containerid": container_id})
+
+    def _load_vial_samples(self, container_id: int) -> list[VialSampleRow]:
+        """Load samples for a vial container."""
+        df = self.client.read("sample", {"containerid": container_id}, max_results=None).to_polars(flatten=True)
+        return [
+            VialSampleRow(
+                sample_name=row["name"],
+                sample_id=row["id"],
+                tube_id=row.get("tubeid"),
+                container_id=container_id,
+                grouping_var=row.get("groupingvar_name"),
             )
-    return samples
+            for row in df.iter_rows(named=True)
+        ]
 
-
-def get_plates(client: Bfabric, container_id: int) -> dict:
-    """Query plates for a container."""
-    return client.reader.query("plate", {"containerid": container_id})
-
-
-def samples_to_dataframe(sample_group: SampleGroup) -> pl.DataFrame:
-    """Convert SampleGroup to polars DataFrame for display."""
-    if not sample_group.samples:
-        return pl.DataFrame()
-    return pl.DataFrame([s.model_dump() for s in sample_group.samples])
+    @staticmethod
+    def _load_plate_samples(
+        plates: dict,
+        container_id: int,
+        plate_ids: list[int] | None = None,
+    ) -> list[PlateSampleRow]:
+        """Load samples from plates."""
+        rows: list[PlateSampleRow] = []
+        for uri, plate in plates.items():
+            plate_id = uri.components.entity_id
+            if plate_ids and plate_id not in plate_ids:
+                continue
+            for sample in plate.refs.sample:
+                _gv = sample.get("groupingvar")
+                if isinstance(_gv, dict):
+                    _gv = _gv.get("name")
+                rows.append(
+                    PlateSampleRow(
+                        sample_name=sample["name"],
+                        sample_id=sample["id"],
+                        container_id=container_id,
+                        position=sample.get("_position"),
+                        grid_position=sample.get("_gridposition"),
+                        plate_id=plate_id,
+                        grouping_var=_gv,
+                    )
+                )
+        return rows
