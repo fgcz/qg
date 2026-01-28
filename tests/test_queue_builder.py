@@ -198,7 +198,8 @@ class TestBuilderErrors:
 
 
 class TestRandomizationValidation:
-    def test_blocked_without_grouping_var_raises(self, configs, sample_df):
+    def test_blocked_without_grouping_var_succeeds(self, configs, sample_df):
+        """Blocked randomization falls back to shuffle when no grouping_var."""
         params = QueueParameters.create(
             configs,
             tech_area="Proteomics",
@@ -210,13 +211,14 @@ class TestRandomizationValidation:
             date="20260123",
             randomization="blocked",
         )
-        with pytest.raises(ValueError, match="grouping_var"):
-            (
-                QueueBuilder(configs)
-                .with_parameters(params, layout_mode="vial")
-                .add_samples_from_dataframe(sample_df)
-                .build()
-            )
+        result = (
+            QueueBuilder(configs)
+            .with_parameters(params, layout_mode="vial")
+            .add_samples_from_dataframe(sample_df)
+            .build()
+        )
+        assert result.parameters.randomization == "blocked"
+        assert len(result.queue.samples) == 5
 
     def test_blocked_with_grouping_var_succeeds(self, configs):
         df = pl.DataFrame(
