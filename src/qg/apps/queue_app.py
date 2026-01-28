@@ -389,7 +389,7 @@ def _(BFABRIC_CACHE_DIR, bfabric, container_type, plates_select, selected_orders
             all_samples_dfs.append(_df)
 
     if all_samples_dfs:
-        full_samples_df = pl.concat(all_samples_dfs).sort(["container_id", "sample_id"])
+        full_samples_df = pl.concat(all_samples_dfs, how="vertical_relaxed").sort(["container_id", "sample_id"])
     else:
         full_samples_df = pl.DataFrame()
     mo.stop(full_samples_df.is_empty(), mo.md("**No samples found**"))
