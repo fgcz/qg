@@ -77,6 +77,10 @@ def _block_randomize(cells: list[PlateCell]) -> list[PlateCell]:
             by_group[key] = []
         by_group[key].append(cell)
 
+    # Shuffle within each group before assigning to blocks
+    for group_cells in by_group.values():
+        random.shuffle(group_cells)
+
     # Create blocks
     max_size = max(len(g) for g in by_group.values())
     blocks: list[list[PlateCell]] = []

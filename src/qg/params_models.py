@@ -28,7 +28,7 @@ class PlateCell(BaseModel):
     sample: VialSample
     position: int
     grid_position: str | int
-    plate_id: int  # FK to Plate
+    plate_id: int | None  # FK to Plate
 
 
 class ContainerBatch(BaseModel):

@@ -108,7 +108,6 @@ class QueueBuilder:
         if not samples:
             raise ValueError("No samples added.")
 
-        self._validate_randomization(samples)
         self._built = True
 
         if self._layout_mode == "plate":
@@ -120,12 +119,3 @@ class QueueBuilder:
             parameters=self._parameters,
             queue=VialQueue(batches=self._batches, samples=self._vial_samples),
         )
-
-    def _validate_randomization(self, samples: list) -> None:
-        if self._parameters and self._parameters.randomization == "blocked":
-            if self._layout_mode == "plate":
-                has_grouping = any(c.sample.grouping_var is not None for c in samples)
-            else:
-                has_grouping = any(s.grouping_var is not None for s in samples)
-            if not has_grouping:
-                raise ValueError("randomization='blocked' requires grouping_var.")

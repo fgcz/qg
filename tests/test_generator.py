@@ -196,11 +196,16 @@ class TestRandomization:
 
         result_ids = [int(row.sample_id) for row in result.rows if row.sample_type == "user"]
 
+        # Each block has exactly one sample from each group
+        group_ids = {"A": {1, 2}, "B": {3, 4}, "C": {5, 6}}
         block1 = set(result_ids[:3])
         block2 = set(result_ids[3:])
 
-        assert block1 == {1, 3, 5}
-        assert block2 == {2, 4, 6}
+        for group_name, ids in group_ids.items():
+            assert len(block1 & ids) == 1, f"Block 1 should have exactly 1 from group {group_name}"
+            assert len(block2 & ids) == 1, f"Block 2 should have exactly 1 from group {group_name}"
+
+        assert set(result_ids) == {1, 2, 3, 4, 5, 6}
 
     def test_no_randomization_preserves_order(self, configs):
         samples = make_vial_samples(5)
@@ -294,3 +299,79 @@ class TestPlateMode:
         rows = generator.build_rows()
         user_rows = [r for r in rows.rows if r.sample_type == "user"]
         assert all(r.tray is not None for r in user_rows), "Plate sampler should assign tray to plates with tray=None"
+
+
+class TestMixedGroupingVar:
+    """Tests for mixed grouping_var schemas (String + Null) across containers."""
+
+    def test_concat_mixed_grouping_var_schemas(self):
+        """pl.concat with vertical_relaxed resolves Null + String mismatch."""
+        df_a = pl.DataFrame(
+            {
+                "container_id": [99901, 99901, 99901],
+                "sample_name": ["s1", "s2", "s3"],
+                "sample_id": [1, 2, 3],
+                "grouping_var": ["GroupA", "GroupA", "GroupB"],
+            }
+        )
+        df_b = pl.DataFrame(
+            {
+                "container_id": [99902, 99902],
+                "sample_name": ["s4", "s5"],
+                "sample_id": [4, 5],
+                "grouping_var": [None, None],
+            }
+        )
+
+        result = pl.concat([df_a, df_b], how="vertical_relaxed")
+        assert result.shape == (5, 4)
+        assert result["grouping_var"].dtype == pl.String
+
+    def test_blocked_randomization_mixed_grouping_var(self, configs):
+        """End-to-end: blocked randomization with mixed grouping_var across containers."""
+        import random as py_random
+
+        py_random.seed(42)
+
+        # Container A: samples with grouping_var set
+        samples_a = [
+            VialSample(sample_name=f"a{i}", sample_id=100 + i, grouping_var=g, container_id=99901)
+            for i, g in enumerate(["GroupA", "GroupA", "GroupA", "GroupB", "GroupB", "GroupB"], 1)
+        ]
+        # Container B: samples with grouping_var=None
+        samples_b = [VialSample(sample_name=f"b{i}", sample_id=200 + i, container_id=99902) for i in range(1, 5)]
+
+        # Build a concat'd DataFrame (exercises the concat path from the GUI)
+        df_a = pl.DataFrame([s.model_dump() for s in samples_a])
+        df_b = pl.DataFrame([s.model_dump() for s in samples_b])
+        combined_df = pl.concat([df_a, df_b], how="vertical_relaxed")
+
+        params = QueueParameters(
+            tech_area="Proteomics",
+            instrument="ASTRAL_1",
+            sampler="Vanquish",
+            output_format="xcalibur",
+            queue_pattern="noqc",
+            polarity=["pos"],
+            date="20260128",
+            user="test",
+            randomization="blocked",
+        )
+
+        queue_input = (
+            QueueBuilder(configs)
+            .with_parameters(params, layout_mode="vial")
+            .add_samples_from_dataframe(combined_df)
+            .build()
+        )
+
+        generator = QueueGenerator(configs, queue_input, layout_mode="vial")
+        result = generator.generate()
+
+        assert isinstance(result, pl.DataFrame)
+        # All 10 samples should be present
+        assert len(result) == 10
+        rows = generator.build_rows()
+        user_ids = {int(r.sample_id) for r in rows.rows if r.sample_type == "user"}
+        expected_ids = {100 + i for i in range(1, 7)} | {200 + i for i in range(1, 5)}
+        assert user_ids == expected_ids

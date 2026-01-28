@@ -168,33 +168,61 @@ class TestRandomShuffle:
 class TestBlockedRandomization:
     def test_equal_groups_creates_balanced_blocks(self):
         py_random.seed(42)
+        # A: ids 1,2  B: ids 3,4  C: ids 5,6
         queue = make_grouped_plate_queue({"A": 2, "B": 2, "C": 2})
 
         result = randomize_plate_queue(queue, "blocked")
         result_ids = get_sample_ids(result)
 
-        # Block 1: one from each group (ids 1, 3, 5)
-        # Block 2: one from each group (ids 2, 4, 6)
+        # Each block has exactly one sample from each group
+        group_ids = {"A": {1, 2}, "B": {3, 4}, "C": {5, 6}}
         block1 = set(result_ids[:3])
         block2 = set(result_ids[3:])
 
-        assert block1 == {1, 3, 5}
-        assert block2 == {2, 4, 6}
+        for group_name, ids in group_ids.items():
+            assert len(block1 & ids) == 1, f"Block 1 should have exactly 1 from group {group_name}"
+            assert len(block2 & ids) == 1, f"Block 2 should have exactly 1 from group {group_name}"
+
+        assert set(result_ids) == {1, 2, 3, 4, 5, 6}
 
     def test_unequal_groups_handles_incomplete_blocks(self):
         py_random.seed(42)
+        # A: ids 1,2,3  B: ids 4,5  C: ids 6
         queue = make_grouped_plate_queue({"A": 3, "B": 2, "C": 1})
 
         result = randomize_plate_queue(queue, "blocked")
         result_ids = get_sample_ids(result)
 
-        block1 = set(result_ids[:3])
-        block2 = set(result_ids[3:5])
-        block3 = set(result_ids[5:])
+        group_ids = {"A": {1, 2, 3}, "B": {4, 5}, "C": {6}}
 
-        assert block1 == {1, 4, 6}
-        assert block2 == {2, 5}
-        assert block3 == {3}
+        # Block 1: one from each group (3 samples)
+        block1 = set(result_ids[:3])
+        assert len(block1 & group_ids["A"]) == 1
+        assert len(block1 & group_ids["B"]) == 1
+        assert len(block1 & group_ids["C"]) == 1
+
+        # Block 2: one from A, one from B (2 samples, C exhausted)
+        block2 = set(result_ids[3:5])
+        assert len(block2 & group_ids["A"]) == 1
+        assert len(block2 & group_ids["B"]) == 1
+
+        # Block 3: one from A (1 sample, B and C exhausted)
+        block3 = set(result_ids[5:])
+        assert len(block3 & group_ids["A"]) == 1
+
+        assert set(result_ids) == {1, 2, 3, 4, 5, 6}
+
+    def test_single_group_shuffles_order(self):
+        """Single grouping_var group: blocked mode should still shuffle order."""
+        py_random.seed(42)
+        queue = make_grouped_plate_queue({"A": 10})
+        original_ids = get_sample_ids(queue)
+
+        result = randomize_plate_queue(queue, "blocked")
+        result_ids = get_sample_ids(result)
+
+        assert set(result_ids) == set(original_ids), "All sample IDs must be preserved"
+        assert result_ids != original_ids, "Single group should be shuffled, not left in input order"
 
     def test_no_grouping_var_falls_back_to_shuffle(self):
         py_random.seed(42)
