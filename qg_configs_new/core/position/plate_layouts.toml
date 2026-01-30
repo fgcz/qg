@@ -1,0 +1,24 @@
+# Plate Layouts
+# Unified plate layout for all sampler types.
+# Evosep is also a grid: rows are starting positions, cols are offsets.
+
+[Vanquish_54]
+# Vial mode: 6 rows x 9 cols = 54 positions
+rows = ["A", "B", "C", "D", "E", "F"]
+cols = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+[Vanquish_96]
+# Plate mode: 8 rows x 12 cols = 96 positions
+rows = ["A", "B", "C", "D", "E", "F", "G", "H"]
+cols = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+
+[MClass_48]
+# 6 rows x 8 cols = 48 positions
+rows = ["A", "B", "C", "D", "E", "F"]
+cols = [1, 2, 3, 4, 5, 6, 7, 8]
+
+[Evosep_96]
+# 8 starting positions x 12 offsets = 96 positions
+# position = row + col (e.g., 1 + 0 = 1, 1 + 11 = 12, 13 + 0 = 13)
+rows = [1, 13, 25, 37, 49, 61, 73, 85]
+cols = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]

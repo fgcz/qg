@@ -1,0 +1,21 @@
+# Sampler Configurations
+# One structure, three instances. No .vial/.plate sub-tables. No fill_order.
+#
+# position_fun: How to combine row and col into a position
+#   "string_concat" = f"{row}{col}" -> "A1", "B2", etc.
+#   "int_add"       = row + col     -> 1, 14, etc. (for Evosep)
+
+[Vanquish]
+description = "Thermo Vanquish autosampler"
+trays = ["Y", "R", "B", "G"]
+position_fun = "string_concat"
+
+[MClass]
+description = "Waters M-class 48-well autosampler"
+trays = ["1", "2"]
+position_fun = "string_concat"
+
+[Evosep]
+description = "Evosep One autosampler"
+trays = [1, 2, 3, 4]
+position_fun = "int_add"

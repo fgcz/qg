@@ -1,0 +1,6 @@
+tech_area,qc_layout_name,plate_layout,sample_id,tray,position_start,position_end
+# Proteomics - Evosep_96 (Tray 5: QC samples, Tray 6: clean/wash)
+Proteomics,standard,Evosep_96,QC01,5,1,48
+Proteomics,standard,Evosep_96,QC03dia,5,49,96
+Proteomics,standard,Evosep_96,QC03dda,5,49,96
+Proteomics,standard,Evosep_96,clean,6,1,96
