@@ -4,142 +4,205 @@ __generated_with = "0.18.4"
 app = marimo.App(width="full")
 
 with app.setup:
+    import re
     import tomllib
+    from pathlib import Path
 
     import marimo as mo
     import polars as pl
+    import tomli_w
 
-    from qg.config import ConfigValidationError
-    from qg.config_store import config_store
+    from qg.config_model_formatting_new import (
+        InstrumentsConfig,
+        OutputFormatsConfig,
+        SamplesConfig,
+    )
+    from qg.config_model_position_new import (
+        PlateLayoutsConfig,
+        QCLayoutsEvosepConfig,
+        QCLayoutsGridConfig,
+        SamplerPlateLayoutsConfig,
+        SamplersConfig,
+    )
+    from qg.config_model_structure_new import QueuePatternsConfig
+    from qg.config_model_ui_new import InstrumentConfigsConfig
+    from qg.config_new import (
+        ConfigValidationError,
+        QGConfiguration,
+        qg_configuration,
+    )
+
+    def compact_toml(toml_str: str) -> str:
+        """Convert multiline arrays to inline format for readability."""
+        # Match arrays that span multiple lines
+        pattern = r"(\w+)\s*=\s*\[\s*\n((?:\s+[^\]]+,?\s*\n)+)\s*\]"
+
+        def replace_array(match):
+            key = match.group(1)
+            items_block = match.group(2)
+            # Extract items, strip whitespace
+            items = [item.strip().rstrip(",") for item in items_block.strip().split("\n") if item.strip()]
+            return f"{key} = [{', '.join(items)}]"
+
+        return re.sub(pattern, replace_array, toml_str)
 
 
 @app.cell
 def _():
-    # Create ConfigStore instance for reading/writing config files
-    store = config_store()
-    return (store,)
+    # Config directory
+    config_dir = Path(__file__).parent.parent.parent.parent / "qg_configs_new"
+    cfg = qg_configuration(config_dir)
+    return cfg, config_dir
 
 
 @app.cell
 def _():
     mo.md("""
-    # Queue Generation Config Editor
+    # Queue Generation Config Editor (New Config)
     """)
     return
 
 
+# =============================================================================
+# CSV Editors
+# =============================================================================
+
+
 @app.cell
-def _(store):
-    # Core configs
-    instruments_df = store.get_instruments()
+def _(cfg):
+    instruments_df = cfg.instruments.to_table()
     instruments_editor = mo.ui.data_editor(instruments_df, label="Instruments")
     return instruments_df, instruments_editor
 
 
 @app.cell
-def _(store):
-    # UI configs
-    instrument_patterns_df = store.get_instrument_patterns()
-    instrument_patterns_editor = mo.ui.data_editor(instrument_patterns_df, label="Instrument Patterns")
-    return instrument_patterns_df, instrument_patterns_editor
-
-
-@app.cell
-def _(store):
-    # UI configs
-    combinations_df = store.get_combinations()
-    combinations_editor = mo.ui.data_editor(combinations_df, label="Combinations")
-    return combinations_df, combinations_editor
-
-
-@app.cell
-def _(store):
-    # Core configs
-    sampler_content = store.get_sampler_toml()
-    sampler_editor = mo.ui.code_editor(sampler_content, language="toml", min_height=400)
-    return (sampler_editor,)
-
-
-@app.cell
-def _(store):
-    # Core configs
-    samples_df = store.get_samples()
+def _(cfg):
+    samples_df = cfg.samples.to_table()
     samples_editor = mo.ui.data_editor(samples_df, label="Samples")
     return samples_df, samples_editor
 
 
 @app.cell
-def _(store):
-    # Core configs
-    patterns_content = store.get_queue_patterns_toml()
-    patterns_editor = mo.ui.code_editor(patterns_content, language="toml", min_height=400)
-    return (patterns_editor,)
-
-
-@app.cell
-def _(store):
-    # Core configs - QC layouts (two CSV files)
-    qc_layouts_grid_df = store.get_qc_layouts_grid()
-    qc_layouts_grid_editor = mo.ui.data_editor(qc_layouts_grid_df, label="QC Layouts - Grid (Vanquish, MClass48)")
+def _(cfg):
+    qc_layouts_grid_df = cfg.qc_layouts_grid.to_table()
+    qc_layouts_grid_editor = mo.ui.data_editor(qc_layouts_grid_df, label="QC Layouts - Grid")
     return qc_layouts_grid_df, qc_layouts_grid_editor
 
 
 @app.cell
-def _(store):
-    qc_layouts_evosep_df = store.get_qc_layouts_evosep()
+def _(cfg):
+    qc_layouts_evosep_df = cfg.qc_layouts_evosep.to_table()
     qc_layouts_evosep_editor = mo.ui.data_editor(qc_layouts_evosep_df, label="QC Layouts - Evosep")
     return qc_layouts_evosep_df, qc_layouts_evosep_editor
 
 
 @app.cell
-def _(store):
-    # Core configs
-    output_formats_content = store.get_output_formats_toml()
-    output_formats_editor = mo.ui.code_editor(output_formats_content, language="toml", min_height=400)
-    return (output_formats_editor,)
+def _(cfg):
+    instrument_configs_df = cfg.instrument_configs.to_table()
+    instrument_configs_editor = mo.ui.data_editor(instrument_configs_df, label="Instrument Configs")
+    return instrument_configs_df, instrument_configs_editor
 
 
 @app.cell
-def _(store):
-    # Core configs - methods
-    methods_files = store.list_methods_files()
-    methods_options = {store.get_methods_relative_path(f): f for f in methods_files}
+def _(cfg):
+    sampler_plate_layouts_df = cfg.sampler_plate_layouts.to_table()
+    sampler_plate_layouts_editor = mo.ui.data_editor(sampler_plate_layouts_df, label="Sampler Plate Layouts")
+    return sampler_plate_layouts_df, sampler_plate_layouts_editor
+
+
+# =============================================================================
+# TOML Editors
+# =============================================================================
+
+
+@app.cell
+def _(cfg, compact_toml):
+    samplers_toml = compact_toml(tomli_w.dumps(cfg.samplers.to_dict()))
+    samplers_editor = mo.ui.code_editor(samplers_toml, language="toml", min_height=200)
+    return (samplers_editor,)
+
+
+@app.cell
+def _(cfg, compact_toml):
+    plate_layouts_toml = compact_toml(tomli_w.dumps(cfg.plate_layouts.to_dict()))
+    plate_layouts_editor = mo.ui.code_editor(plate_layouts_toml, language="toml", min_height=200)
+    return (plate_layouts_editor,)
+
+
+@app.cell
+def _(cfg, compact_toml):
+    queue_patterns_toml = compact_toml(tomli_w.dumps(cfg.queue_patterns.to_dict()))
+    queue_patterns_editor = mo.ui.code_editor(queue_patterns_toml, language="toml", min_height=400)
+    return (queue_patterns_editor,)
+
+
+@app.cell
+def _(cfg, compact_toml):
+    output_formats_toml = compact_toml(tomli_w.dumps(cfg.output_formats.to_dict()))
+    output_formats_editor = mo.ui.code_editor(output_formats_toml, language="toml", min_height=400)
+    return (output_formats_editor,)
+
+
+# =============================================================================
+# Methods Editor
+# =============================================================================
+
+
+@app.cell
+def _(cfg):
+    # Build dropdown options from instruments
+    methods_options = {}
+    for instr in cfg.instruments.instruments:
+        key = f"{instr.tech_area}/{instr.instrument}"
+        methods_options[key] = (instr.tech_area, instr.instrument)
+
     methods_dropdown = mo.ui.dropdown(
         options=list(methods_options.keys()),
         value=list(methods_options.keys())[0] if methods_options else None,
-        label="Select methods file",
+        label="Select instrument",
     )
     return methods_dropdown, methods_options
 
 
 @app.cell
-def _(methods_dropdown, methods_options, store):
+def _(cfg, methods_dropdown, methods_options):
     mo.stop(not methods_dropdown.value)
-    selected_methods_path = methods_options[methods_dropdown.value]
-    methods_df = store.get_methods(selected_methods_path)
+    tech_area, instrument = methods_options[methods_dropdown.value]
+    instr_methods = cfg.methods.get_methods(tech_area, instrument)
+    methods_df = instr_methods.to_table() if instr_methods else pl.DataFrame()
     methods_editor = mo.ui.data_editor(methods_df, label="Methods")
-    return (methods_editor,)
+    return methods_editor, tech_area, instrument
+
+
+# =============================================================================
+# Tabs
+# =============================================================================
 
 
 @app.cell
-def _(instrument_patterns_editor, instruments_editor):
+def _(instruments_editor, instrument_configs_editor):
     instruments_tab = mo.vstack(
         [
             mo.md("### Instruments (instruments.csv)"),
             instruments_editor,
-            mo.md("### Instrument Patterns (instrument_patterns.csv)"),
-            instrument_patterns_editor,
+            mo.md("### Instrument Configs (instrument_config.csv)"),
+            mo.md("_UI config: valid (instrument, sampler, output_format, default_pattern) combinations_"),
+            instrument_configs_editor,
         ]
     )
     return (instruments_tab,)
 
 
 @app.cell
-def _(sampler_editor):
+def _(samplers_editor, plate_layouts_editor, sampler_plate_layouts_editor):
     samplers_tab = mo.vstack(
         [
             mo.md("### Samplers (sampler.toml)"),
-            sampler_editor,
+            samplers_editor,
+            mo.md("### Plate Layouts (plate_layouts.toml)"),
+            plate_layouts_editor,
+            mo.md("### Sampler Plate Layouts (sampler_plate_layouts.csv)"),
+            sampler_plate_layouts_editor,
         ]
     )
     return (samplers_tab,)
@@ -157,11 +220,11 @@ def _(samples_editor):
 
 
 @app.cell
-def _(patterns_editor):
+def _(queue_patterns_editor):
     patterns_tab = mo.vstack(
         [
             mo.md("### Queue Patterns (queue_patterns.toml)"),
-            patterns_editor,
+            queue_patterns_editor,
         ]
     )
     return (patterns_tab,)
@@ -172,25 +235,14 @@ def _(qc_layouts_grid_editor, qc_layouts_evosep_editor):
     qc_layouts_tab = mo.vstack(
         [
             mo.md("### QC Layouts - Grid Samplers (qc_layouts_grid.csv)"),
-            mo.md("_Vanquish and MClass48 positions: plate, row, col_"),
+            mo.md("_Columns: tech_area, qc_layout_name, plate_layout, sample_id, plate, row, col_"),
             qc_layouts_grid_editor,
             mo.md("### QC Layouts - Evosep (qc_layouts_evosep.csv)"),
-            mo.md("_Evosep tip ranges: tray, position_start, position_end_"),
+            mo.md("_Columns: tech_area, qc_layout_name, plate_layout, sample_id, tray, position_start, position_end_"),
             qc_layouts_evosep_editor,
         ]
     )
     return (qc_layouts_tab,)
-
-
-@app.cell
-def _(combinations_editor):
-    combinations_tab = mo.vstack(
-        [
-            mo.md("### Combinations (combinations.csv)"),
-            combinations_editor,
-        ]
-    )
-    return (combinations_tab,)
 
 
 @app.cell
@@ -217,366 +269,230 @@ def _(methods_dropdown, methods_editor):
 
 
 # =============================================================================
-# Interactive Viewer Tab - Cascading selection
+# Overview Tab - Cascading Selection using Denormalized Table
 # =============================================================================
 
 
 @app.cell
-def _(
-    sampler_editor,
-    samples_editor,
-    patterns_editor,
-    qc_layouts_grid_editor,
-    qc_layouts_evosep_editor,
-    output_formats_editor,
-):
-    # Parse TOML content for visualization
-    def safe_parse_toml(content: str) -> dict:
-        try:
-            return tomllib.loads(content)
-        except tomllib.TOMLDecodeError as e:
-            return {"error": f"Failed to parse TOML: {e}"}
-
-    # Convert samples DataFrame to dict: {tech_area: {sample_id: {...}}}
-    def samples_df_to_dict(df) -> dict:
-        result = {}
-        for row in df.iter_rows(named=True):
-            tech = row["tech_area"]
-            sid = row["sample_id"]
-            if tech not in result:
-                result[tech] = {}
-            result[tech][sid] = {
-                "sample_name": row.get("sample_name", ""),
-                "description": row.get("description", ""),
-                "inj_vol": row.get("inj_vol", 0),
-                "file_name_template": row.get("file_name_template", ""),
-            }
-        return result
-
-    # Convert QC layout CSVs to nested dict: {tech: {sampler: {sample_id: position}}}
-    def qc_layouts_df_to_dict(grid_df, evosep_df) -> dict:
-        result = {}
-        # Process grid positions
-        for row in grid_df.iter_rows(named=True):
-            tech = row["tech_area"]
-            sampler = row["sampler"]
-            sample_id = row["sample_id"]
-            if tech not in result:
-                result[tech] = {}
-            # Parse sampler (e.g., "Vanquish.vial" -> nested dict)
-            parts = sampler.split(".")
-            if len(parts) == 2:
-                base, container = parts
-                if base not in result[tech]:
-                    result[tech][base] = {}
-                if container not in result[tech][base]:
-                    result[tech][base][container] = {}
-                result[tech][base][container][sample_id] = f"{row['plate']}:{row['row']}{row['col']}"
-            else:
-                if sampler not in result[tech]:
-                    result[tech][sampler] = {}
-                result[tech][sampler][sample_id] = f"{row['plate']}:{row['row']}{row['col']}"
-        # Process Evosep positions
-        for row in evosep_df.iter_rows(named=True):
-            tech = row["tech_area"]
-            sampler = row["sampler"]
-            sample_id = row["sample_id"]
-            if tech not in result:
-                result[tech] = {}
-            if sampler not in result[tech]:
-                result[tech][sampler] = {}
-            result[tech][sampler][sample_id] = {
-                "tray": row["tray"],
-                "position_start": row["position_start"],
-                "position_end": row["position_end"],
-            }
-        return result
-
-    sampler_data = safe_parse_toml(sampler_editor.value)
-    samples_data = samples_df_to_dict(samples_editor.value)
-    patterns_data = safe_parse_toml(patterns_editor.value)
-    qc_layouts_data = qc_layouts_df_to_dict(qc_layouts_grid_editor.value, qc_layouts_evosep_editor.value)
-    output_formats_data = safe_parse_toml(output_formats_editor.value)
-
-    return sampler_data, samples_data, patterns_data, qc_layouts_data, output_formats_data, safe_parse_toml
+def _(cfg):
+    # Get denormalized overview table
+    overview_df = cfg.to_overview_table()
+    return (overview_df,)
 
 
 @app.cell
-def _(instruments_df):
+def _(overview_df):
     # Step 1: tech_area dropdown
-    technologies = sorted(instruments_df["tech_area"].unique().to_list())
-    tech_area_dropdown = mo.ui.dropdown(
-        options=technologies,
-        value=technologies[0] if technologies else None,
-        label="tech_area",
+    tech_options = overview_df["tech_area"].unique().sort().to_list()
+    tech_dropdown = mo.ui.dropdown(
+        options=tech_options,
+        value=tech_options[0] if tech_options else None,
+        label="Technology",
     )
-    return (tech_area_dropdown,)
+    return (tech_dropdown,)
 
 
 @app.cell
-def _(tech_area_dropdown, instruments_df):
-    # Step 2: Instrument dropdown (filtered by tech_area)
-    mo.stop(not tech_area_dropdown.value)
-    filtered_instruments = (
-        instruments_df.filter(pl.col("tech_area") == tech_area_dropdown.value)["instrument"].unique().sort().to_list()
-    )
-    instrument_dropdown = mo.ui.dropdown(
-        options=filtered_instruments,
-        value=filtered_instruments[0] if filtered_instruments else None,
+def _(tech_dropdown, overview_df):
+    # Step 2: instrument dropdown (filtered by tech_area)
+    mo.stop(not tech_dropdown.value)
+    filtered_overview = overview_df.filter(pl.col("tech_area") == tech_dropdown.value)
+    instr_options = filtered_overview["instrument"].unique().sort().to_list()
+    instr_dropdown = mo.ui.dropdown(
+        options=instr_options,
+        value=instr_options[0] if instr_options else None,
         label="Instrument",
     )
-    return (instrument_dropdown,)
+    return instr_dropdown, filtered_overview
 
 
 @app.cell
-def _(instrument_dropdown, combinations_df):
-    # Step 3: Sampler dropdown (filtered by instrument)
-    mo.stop(not instrument_dropdown.value)
-    filtered_samplers = (
-        combinations_df.filter(pl.col("instrument") == instrument_dropdown.value)["sampler"].unique().sort().to_list()
-    )
+def _(instr_dropdown, filtered_overview):
+    # Step 3: sampler dropdown (filtered by instrument)
+    mo.stop(not instr_dropdown.value)
+    filtered_by_instr = filtered_overview.filter(pl.col("instrument") == instr_dropdown.value)
+    sampler_options = filtered_by_instr["sampler"].unique().sort().to_list()
     sampler_dropdown = mo.ui.dropdown(
-        options=filtered_samplers,
-        value=filtered_samplers[0] if filtered_samplers else None,
+        options=sampler_options,
+        value=sampler_options[0] if sampler_options else None,
         label="Sampler",
     )
-    return (sampler_dropdown,)
+    return sampler_dropdown, filtered_by_instr
 
 
 @app.cell
-def _(tech_area_dropdown, instrument_dropdown, instrument_patterns_df):
-    # Step 4: Pattern dropdown (filtered by tech_area + instrument)
-    mo.stop(not tech_area_dropdown.value or not instrument_dropdown.value)
-    filtered_patterns = (
-        instrument_patterns_df.filter(
-            (pl.col("tech_area") == tech_area_dropdown.value) & (pl.col("instrument") == instrument_dropdown.value)
-        )
-        .sort("is_default", descending=True)["queue_pattern"]
-        .to_list()
+def _(sampler_dropdown, filtered_by_instr):
+    # Step 4: plate_layout dropdown (filtered by sampler)
+    mo.stop(not sampler_dropdown.value)
+    filtered_by_sampler = filtered_by_instr.filter(pl.col("sampler") == sampler_dropdown.value)
+    # Create options as "plate_layout (queue_type)"
+    layout_rows = filtered_by_sampler.select(["plate_layout", "queue_type"]).unique().sort("plate_layout")
+    layout_options = [f"{row['plate_layout']} ({row['queue_type']})" for row in layout_rows.iter_rows(named=True)]
+    plate_layout_dropdown = mo.ui.dropdown(
+        options=layout_options,
+        value=layout_options[0] if layout_options else None,
+        label="Plate Layout",
     )
+    return plate_layout_dropdown, filtered_by_sampler
+
+
+@app.cell
+def _(filtered_by_sampler):
+    # Step 5: pattern dropdown (filtered by sampler selection)
+    pattern_options = filtered_by_sampler["pattern_name"].unique().sort().to_list()
     pattern_dropdown = mo.ui.dropdown(
-        options=filtered_patterns,
-        value=filtered_patterns[0] if filtered_patterns else None,
+        options=pattern_options,
+        value=pattern_options[0] if pattern_options else None,
         label="Pattern",
     )
     return (pattern_dropdown,)
 
 
 @app.cell
-def _(tech_area_dropdown, samples_data):
-    # Step 5: Sample dropdown (filtered by tech_area)
-    mo.stop(not tech_area_dropdown.value)
-    tech_samples = samples_data.get(tech_area_dropdown.value, {})
-    sample_ids = [sid for sid in tech_samples.keys() if isinstance(tech_samples[sid], dict)]
-    sample_dropdown = mo.ui.dropdown(
-        options=sample_ids,
-        value=sample_ids[0] if sample_ids else None,
-        label="Sample",
-    )
-    return sample_dropdown, tech_samples
-
-
-@app.cell
 def _(
-    tech_area_dropdown,
-    instrument_dropdown,
+    tech_dropdown,
+    instr_dropdown,
     sampler_dropdown,
     pattern_dropdown,
-    sampler_data,
-    samples_data,
-    patterns_data,
-    qc_layouts_data,
-    output_formats_data,
-    combinations_df,
-    instruments_df,
-    store,
+    cfg,
 ):
-    # Build the selected configuration view
-    mo.stop(not tech_area_dropdown.value or not instrument_dropdown.value or not sampler_dropdown.value)
+    # Build selected config view
+    mo.stop(not all([tech_dropdown.value, instr_dropdown.value, sampler_dropdown.value]))
 
-    tech = tech_area_dropdown.value
-    instr = instrument_dropdown.value
-    sampler_key = sampler_dropdown.value  # e.g., "Vanquish.vial"
-    pattern_key = pattern_dropdown.value if pattern_dropdown.value else None
+    _tech = tech_dropdown.value
+    _instr = instr_dropdown.value
+    _sampler = sampler_dropdown.value
+    _pattern_name = pattern_dropdown.value
 
-    # Parse sampler key
-    sampler_parts = sampler_key.split(".")
-    sampler_base = sampler_parts[0]  # e.g., "Vanquish"
-    container = sampler_parts[1] if len(sampler_parts) > 1 else None  # e.g., "vial"
-
-    # Get sampler config (merge base + container)
-    base_config = sampler_data.get(sampler_base, {})
-    container_config = base_config.get(container, {}) if container else {}
-    # Merge: base properties + container overrides (excluding nested tables)
-    merged_sampler = {k: v for k, v in base_config.items() if not isinstance(v, dict)}
-    merged_sampler.update(container_config)
-
-    # Get QC layout: navigate nested structure
-    # TOML [proteomics.Vanquish.vial] becomes qc_layouts["proteomics"]["Vanquish"]["vial"]
-    tech_qc_layouts = qc_layouts_data.get(tech, {})
-    if container:
-        # Try nested: tech -> sampler_base -> container (e.g., Vanquish.vial)
-        qc_layout = tech_qc_layouts.get(sampler_base, {}).get(container, {})
-        # Fall back to sampler_base if container-specific doesn't exist
-        if not qc_layout:
-            base_layout = tech_qc_layouts.get(sampler_base, {})
-            # Check if it's a nested structure (has vial/plate sub-keys) vs actual QC positions
-            # Evosep dicts have 'tray' key, nested structures have 'vial'/'plate' keys
-            if base_layout and not any(k in base_layout for k in ["vial", "plate"]):
-                qc_layout = base_layout  # It's actual QC positions (like Evosep, MClass48)
-    else:
-        qc_layout = tech_qc_layouts.get(sampler_base, {})
-
-    # Get output format from combinations
-    combo_row = combinations_df.filter((pl.col("instrument") == instr) & (pl.col("sampler") == sampler_key))
-    output_format_key = combo_row["output_format"][0] if len(combo_row) > 0 else None
-    output_format = output_formats_data.get(output_format_key, {}) if output_format_key else {}
+    # Get sampler config
+    _sampler_cfg = cfg.samplers.get_sampler(_sampler)
+    _sampler_info = {
+        "trays": _sampler_cfg.trays if _sampler_cfg else [],
+        "position_fun": _sampler_cfg.position_fun if _sampler_cfg else "",
+    }
 
     # Get pattern config
-    pattern_config = patterns_data.get(tech, {}).get(pattern_key, {}) if pattern_key else {}
+    _pattern_cfg = cfg.queue_patterns.get_pattern(_tech, _pattern_name) if _pattern_name else None
+    _pattern_info = {}
+    if _pattern_cfg:
+        _pattern_info = {
+            "qc_layout_name": _pattern_cfg.qc_layout_name,
+            "run_QC_after_n_samples": _pattern_cfg.run_QC_after_n_samples,
+            "start": _pattern_cfg.start,
+            "middle": _pattern_cfg.middle,
+            "end": _pattern_cfg.end,
+        }
 
-    # Get samples for this tech_area (private, used only in selected_config)
-    _tech_samples = samples_data.get(tech, {})
+    # Get instrument config
+    _instr_cfg = cfg.instrument_configs.get_config(_instr, _sampler)
+    _instr_info = {
+        "output_format": _instr_cfg.output_format if _instr_cfg else "",
+        "default_pattern": _instr_cfg.default_pattern if _instr_cfg else "",
+    }
 
-    # Get methods file
-    instr_row = instruments_df.filter((pl.col("tech_area") == tech) & (pl.col("instrument") == instr))
-    _methods_file = instr_row["methods_file"][0] if len(instr_row) > 0 else None
-    _methods_path = store.config_dir / _methods_file if _methods_file else None
-    _methods_preview = None
-    if _methods_path and _methods_path.exists():
-        _methods_df = store.get_methods(_methods_path)
-        _methods_preview = _methods_df.head(10)
+    # Get methods
+    _methods = cfg.methods.get_methods(_tech, _instr)
+    _methods_preview = _methods.to_table().head(5) if _methods else None
 
-    selected_config = {
-        "tech": tech,
-        "instr": instr,
-        "sampler_key": sampler_key,
-        "pattern_key": pattern_key,
-        "merged_sampler": merged_sampler,
-        "qc_layout": qc_layout,
-        "output_format_key": output_format_key,
-        "output_format": output_format,
-        "pattern_config": pattern_config,
-        "tech_samples": _tech_samples,
-        "methods_file": _methods_file,
+    selected_cfg = {
+        "tech": _tech,
+        "instrument": _instr,
+        "sampler": _sampler,
+        "pattern": _pattern_name,
+        "sampler_info": _sampler_info,
+        "pattern_info": _pattern_info,
+        "instr_info": _instr_info,
         "methods_preview": _methods_preview,
     }
-    return (selected_config,)
+    return (selected_cfg,)
 
 
 @app.cell
 def _(
-    tech_area_dropdown,
-    instrument_dropdown,
+    tech_dropdown,
+    instr_dropdown,
     sampler_dropdown,
     pattern_dropdown,
-    sample_dropdown,
-    tech_samples,
-    selected_config,
+    selected_cfg,
 ):
-    # Helper: dict to DataFrame for table display
-    def _dict_to_df(d, key_col="Key", val_col="Value"):
+    def _dict_to_table(d, key_col="Property", val_col="Value"):
         rows = []
         for k, v in d.items():
-            if isinstance(v, dict):
-                # Evosep-style: {tray, position_start, position_end}
-                v = f"tray {v.get('tray')}: {v.get('position_start')}-{v.get('position_end')}"
-            elif isinstance(v, list):
+            if isinstance(v, list):
                 v = ", ".join(str(x) for x in v)
             rows.append({key_col: k, val_col: str(v)})
         return pl.DataFrame(rows) if rows else None
 
-    # Sampler table
-    _sampler_df = _dict_to_df(selected_config["merged_sampler"], "Property", "Value")
-
-    # QC positions table
-    _qc_df = _dict_to_df(selected_config["qc_layout"], "Sample", "Position")
-
-    # Pattern table - just convert the whole dict
-    _pattern_df = (
-        _dict_to_df(selected_config["pattern_config"], "Property", "Value")
-        if selected_config["pattern_config"]
-        else None
-    )
-
-    # Selected sample details
-    _selected_sample = tech_samples.get(sample_dropdown.value, {}) if sample_dropdown.value else {}
-    _sample_df = _dict_to_df(_selected_sample, "Property", "Value") if _selected_sample else None
-
-    # Output format as table
-    _fmt = selected_config["output_format"]
-    _output_df = _dict_to_df(_fmt.get("columns", {}), "Output Column", "Internal Field") if _fmt else None
-
-    # Dropdowns row 1: main config
-    _dropdowns1 = mo.hstack(
-        [
-            tech_area_dropdown,
-            instrument_dropdown,
-            sampler_dropdown,
-            pattern_dropdown,
-        ],
+    _dropdowns = mo.hstack(
+        [tech_dropdown, instr_dropdown, sampler_dropdown, pattern_dropdown],
         gap=1,
     )
 
-    # Build view
+    _sampler_df = _dict_to_table(selected_cfg["sampler_info"])
+    _pattern_df = _dict_to_table(selected_cfg["pattern_info"])
+    _instr_df = _dict_to_table(selected_cfg["instr_info"])
+
     def _section(title, df):
         return mo.vstack(
-            [mo.md(f"### {title}"), mo.ui.table(df, selection=None) if df is not None else mo.md("_None_")]
+            [
+                mo.md(f"**{title}**"),
+                mo.ui.table(df, selection=None) if df is not None else mo.md("_None_"),
+            ]
         )
 
-    # Sample section with dropdown
-    _sample_section = mo.vstack(
+    overview_tab = mo.vstack(
         [
-            mo.hstack([mo.md("### Sample"), sample_dropdown], justify="start", gap=1),
-            mo.ui.table(_sample_df, selection=None) if _sample_df is not None else mo.md("_Select a sample_"),
+            mo.md("## Configuration Overview"),
+            _dropdowns,
+            mo.md("---"),
+            mo.hstack(
+                [
+                    _section(f"Sampler: {selected_cfg['sampler']}", _sampler_df),
+                    _section(f"Pattern: {selected_cfg['pattern']}", _pattern_df),
+                ],
+                widths="equal",
+                gap=2,
+            ),
+            mo.md("---"),
+            mo.hstack(
+                [
+                    _section("Instrument Config", _instr_df),
+                    _section("Methods (first 5)", selected_cfg["methods_preview"]),
+                ],
+                widths="equal",
+                gap=2,
+            ),
         ]
     )
+    return (overview_tab,)
 
-    viewer_content = mo.vstack(
-        [
-            mo.md("## Configuration Viewer"),
-            _dropdowns1,
-            mo.md("---"),
-            mo.hstack(
-                [
-                    _section(f"Pattern: {selected_config['pattern_key']}", _pattern_df),
-                    _section("QC Positions", _qc_df),
-                ],
-                widths="equal",
-                gap=2,
-            ),
-            mo.md("---"),
-            mo.hstack(
-                [
-                    _section(f"Sampler: {selected_config['sampler_key']}", _sampler_df),
-                    _sample_section,
-                ],
-                widths="equal",
-                gap=2,
-            ),
-            mo.md("---"),
-            mo.hstack(
-                [
-                    _section(f"Output: {selected_config['output_format_key']}", _output_df),
-                    _section(f"Methods: {selected_config['methods_file'] or '—'}", selected_config["methods_preview"]),
-                ],
-                widths="equal",
-                gap=2,
-            ),
-        ]
-    )
-    return (viewer_content,)
+
+# =============================================================================
+# All Combinations Tab - Full Overview Table
+# =============================================================================
 
 
 @app.cell
-def _(viewer_content):
-    visualize_tab = viewer_content
-    return (visualize_tab,)
+def _(overview_df):
+    all_combinations_tab = mo.vstack(
+        [
+            mo.md("## All Valid Configuration Combinations"),
+            mo.md(f"_Denormalized view: {overview_df.shape[0]} rows × {overview_df.shape[1]} columns_"),
+            mo.ui.table(overview_df, selection=None, page_size=20),
+        ]
+    )
+    return (all_combinations_tab,)
+
+
+# =============================================================================
+# Main Tabs UI
+# =============================================================================
 
 
 @app.cell
 def _(
-    combinations_tab,
+    overview_tab,
+    all_combinations_tab,
     instruments_tab,
     methods_tab,
     output_formats_tab,
@@ -584,17 +500,16 @@ def _(
     qc_layouts_tab,
     samplers_tab,
     samples_tab,
-    visualize_tab,
 ):
     tabs = mo.ui.tabs(
         {
-            "Overview": visualize_tab,
+            "Overview": overview_tab,
+            "All Combinations": all_combinations_tab,
             "Instruments": instruments_tab,
             "Samplers": samplers_tab,
             "Samples": samples_tab,
             "Patterns": patterns_tab,
             "QC Layouts": qc_layouts_tab,
-            "Combinations": combinations_tab,
             "Output Formats": output_formats_tab,
             "Methods": methods_tab,
         }
@@ -606,6 +521,11 @@ def _(
 def _(tabs):
     tabs
     return
+
+
+# =============================================================================
+# Save/Validate Buttons
+# =============================================================================
 
 
 @app.cell
@@ -621,47 +541,48 @@ def _(save_button, validate_button):
     return
 
 
+# =============================================================================
+# Validation Logic
+# =============================================================================
+
+
 @app.cell
 def _(
-    combinations_editor,
-    instrument_patterns_editor,
+    cfg,
     instruments_editor,
-    methods_dropdown,
-    methods_editor,
-    methods_options,
-    output_formats_editor,
-    patterns_editor,
+    samples_editor,
     qc_layouts_grid_editor,
     qc_layouts_evosep_editor,
-    sampler_editor,
-    samples_editor,
-    store,
+    instrument_configs_editor,
+    sampler_plate_layouts_editor,
+    samplers_editor,
+    plate_layouts_editor,
+    queue_patterns_editor,
+    output_formats_editor,
     validate_button,
 ):
     mo.stop(not validate_button.value)
 
-    # Store all editor values in ConfigStore for validation
-    store.set_instruments(instruments_editor.value)
-    store.set_samples(samples_editor.value)
-    store.set_qc_layouts_grid(qc_layouts_grid_editor.value)
-    store.set_qc_layouts_evosep(qc_layouts_evosep_editor.value)
-    store.set_instrument_patterns(instrument_patterns_editor.value)
-    store.set_combinations(combinations_editor.value)
-    store.set_sampler_toml(sampler_editor.value)
-    store.set_queue_patterns_toml(patterns_editor.value)
-    store.set_output_formats_toml(output_formats_editor.value)
-    if methods_dropdown.value:
-        _methods_path = methods_options[methods_dropdown.value]
-        store.set_methods(_methods_path, methods_editor.value)
-
-    # Validate using ConfigBundle
     try:
-        store.validate()
+        # Rebuild configs from editor values (validation happens in create())
+        QGConfiguration.create(
+            instruments=InstrumentsConfig.from_table(instruments_editor.value),
+            samples=SamplesConfig.from_table(samples_editor.value),
+            qc_layouts_grid=QCLayoutsGridConfig.from_table(qc_layouts_grid_editor.value),
+            qc_layouts_evosep=QCLayoutsEvosepConfig.from_table(qc_layouts_evosep_editor.value),
+            instrument_configs=InstrumentConfigsConfig.from_table(instrument_configs_editor.value),
+            sampler_plate_layouts=SamplerPlateLayoutsConfig.from_table(sampler_plate_layouts_editor.value),
+            samplers=SamplersConfig.from_dict(tomllib.loads(samplers_editor.value)),
+            plate_layouts=PlateLayoutsConfig.from_dict(tomllib.loads(plate_layouts_editor.value)),
+            queue_patterns=QueuePatternsConfig.from_dict(tomllib.loads(queue_patterns_editor.value)),
+            output_formats=OutputFormatsConfig.from_dict(tomllib.loads(output_formats_editor.value)),
+            methods=cfg.methods,  # Keep existing methods (edited separately)
+        )
         validation_result = mo.callout(
             mo.md("**All validations passed!**"),
             kind="success",
         )
-    except ConfigValidationError as e:
+    except (ConfigValidationError, Exception) as e:
         validation_result = mo.callout(
             mo.vstack(
                 [
@@ -676,49 +597,52 @@ def _(
     return
 
 
+# =============================================================================
+# Save Logic
+# =============================================================================
+
+
 @app.cell
 def _(
-    combinations_editor,
-    instrument_patterns_editor,
+    cfg,
+    config_dir,
     instruments_editor,
-    methods_dropdown,
-    methods_editor,
-    methods_options,
-    output_formats_editor,
-    patterns_editor,
+    samples_editor,
     qc_layouts_grid_editor,
     qc_layouts_evosep_editor,
-    sampler_editor,
-    samples_editor,
+    instrument_configs_editor,
+    sampler_plate_layouts_editor,
+    samplers_editor,
+    plate_layouts_editor,
+    queue_patterns_editor,
+    output_formats_editor,
     save_button,
-    store,
 ):
     mo.stop(not save_button.value)
 
-    # Store all editor values in ConfigStore
-    store.set_instruments(instruments_editor.value)
-    store.set_samples(samples_editor.value)
-    store.set_qc_layouts_grid(qc_layouts_grid_editor.value)
-    store.set_qc_layouts_evosep(qc_layouts_evosep_editor.value)
-    store.set_instrument_patterns(instrument_patterns_editor.value)
-    store.set_combinations(combinations_editor.value)
-    store.set_sampler_toml(sampler_editor.value)
-    store.set_queue_patterns_toml(patterns_editor.value)
-    store.set_output_formats_toml(output_formats_editor.value)
-
-    # Store selected methods file if any
-    if methods_dropdown.value:
-        _methods_path = methods_options[methods_dropdown.value]
-        store.set_methods(_methods_path, methods_editor.value)
-
-    # Write all changes to disk (validates via ConfigBundle first)
     try:
-        saved_files = store.save()
+        # Rebuild configs from editor values
+        cfg_to_save = QGConfiguration.create(
+            instruments=InstrumentsConfig.from_table(instruments_editor.value),
+            samples=SamplesConfig.from_table(samples_editor.value),
+            qc_layouts_grid=QCLayoutsGridConfig.from_table(qc_layouts_grid_editor.value),
+            qc_layouts_evosep=QCLayoutsEvosepConfig.from_table(qc_layouts_evosep_editor.value),
+            instrument_configs=InstrumentConfigsConfig.from_table(instrument_configs_editor.value),
+            sampler_plate_layouts=SamplerPlateLayoutsConfig.from_table(sampler_plate_layouts_editor.value),
+            samplers=SamplersConfig.from_dict(tomllib.loads(samplers_editor.value)),
+            plate_layouts=PlateLayoutsConfig.from_dict(tomllib.loads(plate_layouts_editor.value)),
+            queue_patterns=QueuePatternsConfig.from_dict(tomllib.loads(queue_patterns_editor.value)),
+            output_formats=OutputFormatsConfig.from_dict(tomllib.loads(output_formats_editor.value)),
+            methods=cfg.methods,  # Keep existing methods
+        )
+
+        # Write all configs to disk
+        written = cfg_to_save.write_all(config_dir)
         save_result = mo.callout(
-            mo.md(f"**Saved {len(saved_files)} file(s) successfully!**"),
+            mo.md(f"**Saved {len(written)} file(s) successfully!**"),
             kind="success",
         )
-    except (ConfigValidationError, OSError) as e:
+    except (ConfigValidationError, Exception) as e:
         save_result = mo.callout(
             mo.vstack(
                 [

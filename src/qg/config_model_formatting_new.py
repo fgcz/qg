@@ -3,7 +3,9 @@
 # =============================================================================
 
 
-from typing import Self
+import tomllib
+from pathlib import Path
+from typing import ClassVar, Self
 
 import polars as pl
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -30,6 +32,8 @@ class Instrument(BaseModel):
 
 class InstrumentsConfig(BaseModel):
     """Collection of all instruments."""
+
+    config_path: ClassVar[Path] = Path("core/formatting/instruments.csv")
 
     instruments: list[Instrument]
 
@@ -66,6 +70,20 @@ class InstrumentsConfig(BaseModel):
         instruments = [Instrument(**row) for row in df.to_dicts()]
         return cls(instruments=instruments)
 
+    @classmethod
+    def load(cls, config_dir: Path) -> Self:
+        """Load instruments from config directory.
+
+        Args:
+            config_dir: Root config directory (e.g., qg_configs_new/)
+
+        Returns:
+            InstrumentsConfig with all instruments loaded
+        """
+        path = config_dir / cls.config_path
+        df = pl.read_csv(path)
+        return cls.from_table(df)
+
 
 # =============================================================================
 # Output Format Models (TOML)
@@ -87,6 +105,8 @@ class OutputFormatsConfig(BaseModel):
     Structure: format_name (software) -> OutputFormat
     """
 
+    config_path: ClassVar[Path] = Path("core/formatting/output_formats.toml")
+
     formats: dict[str, OutputFormat] = Field(default_factory=dict)
 
     def get_format_names(self) -> list[str]:
@@ -96,6 +116,10 @@ class OutputFormatsConfig(BaseModel):
     def get_format(self, format_id: str) -> OutputFormat | None:
         """Get an output format by ID."""
         return self.formats.get(format_id)
+
+    def to_dict(self) -> dict:
+        """Convert to dict for TOML serialization."""
+        return {name: fmt.model_dump() for name, fmt in self.formats.items()}
 
     @classmethod
     def from_dict(cls, data: dict) -> Self:
@@ -116,6 +140,21 @@ class OutputFormatsConfig(BaseModel):
                 columns=format_data.get("columns", {}),
             )
         return cls(formats=formats)
+
+    @classmethod
+    def load(cls, config_dir: Path) -> Self:
+        """Load output formats from config directory.
+
+        Args:
+            config_dir: Root config directory (e.g., qg_configs_new/)
+
+        Returns:
+            OutputFormatsConfig with all formats loaded
+        """
+        path = config_dir / cls.config_path
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+        return cls.from_dict(data)
 
 
 # =============================================================================
@@ -173,6 +212,8 @@ class Sample(BaseModel):
 class SamplesConfig(BaseModel):
     """Collection of all samples."""
 
+    config_path: ClassVar[Path] = Path("core/formatting/samples.csv")
+
     samples: list[Sample]
 
     @model_validator(mode="after")
@@ -205,6 +246,10 @@ class SamplesConfig(BaseModel):
                 return s
         return None
 
+    def to_table(self) -> pl.DataFrame:
+        """Convert samples to a polars DataFrame."""
+        return pl.DataFrame([s.model_dump() for s in self.samples])
+
     @classmethod
     def from_table(cls, df: pl.DataFrame) -> Self:
         """Create SamplesConfig from a DataFrame.
@@ -217,3 +262,17 @@ class SamplesConfig(BaseModel):
         """
         samples = [Sample(**row) for row in df.to_dicts()]
         return cls(samples=samples)
+
+    @classmethod
+    def load(cls, config_dir: Path) -> Self:
+        """Load samples from config directory.
+
+        Args:
+            config_dir: Root config directory (e.g., qg_configs_new/)
+
+        Returns:
+            SamplesConfig with all samples loaded
+        """
+        path = config_dir / cls.config_path
+        df = pl.read_csv(path)
+        return cls.from_table(df)

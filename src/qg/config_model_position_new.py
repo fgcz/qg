@@ -5,7 +5,9 @@
 # Minimal validation, just load data from config files.
 # Domain logic is in positions_new.py (Layer 2).
 
-from typing import Self
+import tomllib
+from pathlib import Path
+from typing import ClassVar, Self
 
 import polars as pl
 from pydantic import BaseModel, Field
@@ -31,6 +33,8 @@ class PlateLayout(BaseModel):
 class PlateLayoutsConfig(BaseModel):
     """All plate layouts."""
 
+    config_path: ClassVar[Path] = Path("core/position/plate_layouts.toml")
+
     layouts: dict[str, PlateLayout] = Field(default_factory=dict)
 
     def get_layout(self, name: str) -> PlateLayout | None:
@@ -41,6 +45,10 @@ class PlateLayoutsConfig(BaseModel):
         """Get all layout names."""
         return list(self.layouts.keys())
 
+    def to_dict(self) -> dict:
+        """Convert to dict for TOML serialization."""
+        return {name: {"rows": layout.rows, "cols": layout.cols} for name, layout in self.layouts.items()}
+
     @classmethod
     def from_dict(cls, data: dict) -> Self:
         """Create PlateLayoutsConfig from parsed TOML data.
@@ -50,6 +58,21 @@ class PlateLayoutsConfig(BaseModel):
         """
         layouts = {name: PlateLayout(name=name, **layout_data) for name, layout_data in data.items()}
         return cls(layouts=layouts)
+
+    @classmethod
+    def load(cls, config_dir: Path) -> Self:
+        """Load plate layouts from config directory.
+
+        Args:
+            config_dir: Root config directory (e.g., qg_configs_new/)
+
+        Returns:
+            PlateLayoutsConfig with all layouts loaded
+        """
+        path = config_dir / cls.config_path
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+        return cls.from_dict(data)
 
 
 # =============================================================================
@@ -69,6 +92,8 @@ class Sampler(BaseModel):
 class SamplersConfig(BaseModel):
     """All sampler definitions."""
 
+    config_path: ClassVar[Path] = Path("core/position/sampler.toml")
+
     samplers: dict[str, Sampler] = Field(default_factory=dict)
 
     def get_sampler(self, name: str) -> Sampler | None:
@@ -79,6 +104,13 @@ class SamplersConfig(BaseModel):
         """Get all sampler names."""
         return list(self.samplers.keys())
 
+    def to_dict(self) -> dict:
+        """Convert to dict for TOML serialization."""
+        return {
+            name: {"description": s.description, "trays": s.trays, "position_fun": s.position_fun}
+            for name, s in self.samplers.items()
+        }
+
     @classmethod
     def from_dict(cls, data: dict) -> Self:
         """Create SamplersConfig from parsed TOML data.
@@ -88,6 +120,21 @@ class SamplersConfig(BaseModel):
         """
         samplers = {name: Sampler(name=name, **sampler_data) for name, sampler_data in data.items()}
         return cls(samplers=samplers)
+
+    @classmethod
+    def load(cls, config_dir: Path) -> Self:
+        """Load samplers from config directory.
+
+        Args:
+            config_dir: Root config directory (e.g., qg_configs_new/)
+
+        Returns:
+            SamplersConfig with all samplers loaded
+        """
+        path = config_dir / cls.config_path
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+        return cls.from_dict(data)
 
 
 # =============================================================================
@@ -105,6 +152,8 @@ class SamplerPlateLayout(BaseModel):
 
 class SamplerPlateLayoutsConfig(BaseModel):
     """All sampler to plate_layout mappings."""
+
+    config_path: ClassVar[Path] = Path("core/position/sampler_plate_layouts.csv")
 
     mappings: list[SamplerPlateLayout]
 
@@ -131,6 +180,20 @@ class SamplerPlateLayoutsConfig(BaseModel):
         mappings = [SamplerPlateLayout(**row) for row in df.to_dicts()]
         return cls(mappings=mappings)
 
+    @classmethod
+    def load(cls, config_dir: Path) -> Self:
+        """Load sampler plate layouts from config directory.
+
+        Args:
+            config_dir: Root config directory (e.g., qg_configs_new/)
+
+        Returns:
+            SamplerPlateLayoutsConfig with all mappings loaded
+        """
+        path = config_dir / cls.config_path
+        df = pl.read_csv(path)
+        return cls.from_table(df)
+
 
 # =============================================================================
 # QCSampleGrid - from qc_layouts_grid.csv
@@ -151,6 +214,8 @@ class QCSampleGrid(BaseModel):
 
 class QCLayoutsGridConfig(BaseModel):
     """All QC sample positions for grid samplers."""
+
+    config_path: ClassVar[Path] = Path("core/position/qc_layouts_grid.csv")
 
     samples: list[QCSampleGrid]
 
@@ -177,6 +242,20 @@ class QCLayoutsGridConfig(BaseModel):
         samples = [QCSampleGrid(**row) for row in df.to_dicts()]
         return cls(samples=samples)
 
+    @classmethod
+    def load(cls, config_dir: Path) -> Self:
+        """Load QC layouts for grid samplers from config directory.
+
+        Args:
+            config_dir: Root config directory (e.g., qg_configs_new/)
+
+        Returns:
+            QCLayoutsGridConfig with all samples loaded
+        """
+        path = config_dir / cls.config_path
+        df = pl.read_csv(path, comment_prefix="#")
+        return cls.from_table(df)
+
 
 # =============================================================================
 # QCSampleEvosep - from qc_layouts_evosep.csv
@@ -197,6 +276,8 @@ class QCSampleEvosep(BaseModel):
 
 class QCLayoutsEvosepConfig(BaseModel):
     """All QC sample position ranges for Evosep."""
+
+    config_path: ClassVar[Path] = Path("core/position/qc_layouts_evosep.csv")
 
     samples: list[QCSampleEvosep]
 
@@ -222,3 +303,17 @@ class QCLayoutsEvosepConfig(BaseModel):
         """Create QCLayoutsEvosepConfig from a DataFrame."""
         samples = [QCSampleEvosep(**row) for row in df.to_dicts()]
         return cls(samples=samples)
+
+    @classmethod
+    def load(cls, config_dir: Path) -> Self:
+        """Load QC layouts for Evosep from config directory.
+
+        Args:
+            config_dir: Root config directory (e.g., qg_configs_new/)
+
+        Returns:
+            QCLayoutsEvosepConfig with all samples loaded
+        """
+        path = config_dir / cls.config_path
+        df = pl.read_csv(path, comment_prefix="#")
+        return cls.from_table(df)

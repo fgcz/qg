@@ -2,7 +2,8 @@
 # UI Config Models (Layer 1: Pydantic - Load from files)
 # =============================================================================
 
-from typing import Self
+from pathlib import Path
+from typing import ClassVar, Self
 
 import polars as pl
 from pydantic import BaseModel, Field
@@ -24,6 +25,8 @@ class InstrumentConfig(BaseModel):
 
 class InstrumentConfigsConfig(BaseModel):
     """All instrument configurations."""
+
+    config_path: ClassVar[Path] = Path("ui/instrument_config.csv")
 
     configs: list[InstrumentConfig]
 
@@ -65,3 +68,17 @@ class InstrumentConfigsConfig(BaseModel):
         """Create InstrumentConfigsConfig from a DataFrame."""
         configs = [InstrumentConfig(**row) for row in df.to_dicts()]
         return cls(configs=configs)
+
+    @classmethod
+    def load(cls, config_dir: Path) -> Self:
+        """Load instrument configs from config directory.
+
+        Args:
+            config_dir: Root config directory (e.g., qg_configs_new/)
+
+        Returns:
+            InstrumentConfigsConfig with all configs loaded
+        """
+        path = config_dir / cls.config_path
+        df = pl.read_csv(path)
+        return cls.from_table(df)

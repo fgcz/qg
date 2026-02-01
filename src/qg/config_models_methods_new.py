@@ -2,10 +2,15 @@
 # Method Models
 # =============================================================================
 
-from typing import Self
+from pathlib import Path
+from typing import TYPE_CHECKING, ClassVar, Self
 
 import polars as pl
+from loguru import logger
 from pydantic import BaseModel, Field, field_validator
+
+if TYPE_CHECKING:
+    from qg.config_model_formatting_new import InstrumentsConfig
 
 
 class Method(BaseModel):
@@ -95,6 +100,8 @@ class MethodsConfig(BaseModel):
     Structure: tech_area -> instrument -> MethodsForInstrument
     """
 
+    config_folder: ClassVar[Path] = Path("core/methods")
+
     methods: dict[str, dict[str, MethodsForInstrument]] = Field(default_factory=dict)
 
     def get_methods(self, tech_area: str, instrument: str) -> MethodsForInstrument | None:
@@ -131,6 +138,18 @@ class MethodsConfig(BaseModel):
             self.methods[tech_area] = {}
         self.methods[tech_area][instrument] = methods
 
+    def to_tables(self) -> dict[tuple[str, str], pl.DataFrame]:
+        """Convert to dict of DataFrames for CSV serialization.
+
+        Returns:
+            Dict mapping (tech_area, instrument) -> DataFrame
+        """
+        tables: dict[tuple[str, str], pl.DataFrame] = {}
+        for tech_area, tech_methods in self.methods.items():
+            for instrument, instr_methods in tech_methods.items():
+                tables[(tech_area, instrument)] = instr_methods.to_table()
+        return tables
+
     @classmethod
     def from_tables(cls, tables: dict[tuple[str, str], pl.DataFrame]) -> Self:
         """Create MethodsConfig from a dict of DataFrames.
@@ -146,3 +165,35 @@ class MethodsConfig(BaseModel):
             methods = MethodsForInstrument.from_table(df)
             config.add_instrument_methods(tech_area, instrument, methods)
         return config
+
+    @classmethod
+    def load(cls, config_dir: Path, instruments: "InstrumentsConfig") -> Self:
+        """Load all methods CSVs based on instruments config.
+
+        Discovers methods files from instruments.methods_file paths and loads them
+        into a MethodsConfig keyed by (tech_area, instrument).
+
+        Args:
+            config_dir: Root config directory (e.g., qg_configs_new/)
+            instruments: InstrumentsConfig to determine which methods files to load
+
+        Returns:
+            MethodsConfig with all methods loaded
+        """
+        methods_dir = config_dir / cls.config_folder
+        tables: dict[tuple[str, str], pl.DataFrame] = {}
+
+        for instr in instruments.instruments:
+            # methods_file is like "methods/proteomics/ASTRAL_1_methods.csv"
+            # Remove the "methods/" prefix to get relative path from methods_dir
+            relative_path = instr.methods_file.removeprefix("methods/")
+            methods_file = methods_dir / relative_path
+
+            if not methods_file.exists():
+                logger.warning(f"Methods file not found: {methods_file}")
+                continue
+
+            df = pl.read_csv(methods_file)
+            tables[(instr.tech_area, instr.instrument)] = df
+
+        return cls.from_tables(tables)

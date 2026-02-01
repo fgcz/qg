@@ -5,12 +5,12 @@ This module provides the QGConfiguration class that loads configs from qg_config
 
 from __future__ import annotations
 
-import tomllib
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
 import polars as pl
+import tomli_w
 from loguru import logger
 
 from qg.config_model_formatting_new import (
@@ -45,116 +45,6 @@ class ConfigValidationError(Exception):
         self.errors = errors
         message = f"{len(errors)} validation error(s):\n" + "\n".join(f"  - {e}" for e in errors)
         super().__init__(message)
-
-
-# =============================================================================
-# Private CSV Loaders
-# =============================================================================
-
-
-def _load_samples(path: Path) -> SamplesConfig:
-    """Load samples from CSV file."""
-    df = pl.read_csv(path)
-    return SamplesConfig.from_table(df)
-
-
-def _load_instruments(path: Path) -> InstrumentsConfig:
-    """Load instruments from CSV file."""
-    df = pl.read_csv(path)
-    return InstrumentsConfig.from_table(df)
-
-
-def _load_sampler_plate_layouts(path: Path) -> SamplerPlateLayoutsConfig:
-    """Load sampler to plate_layout mappings from CSV file."""
-    df = pl.read_csv(path)
-    return SamplerPlateLayoutsConfig.from_table(df)
-
-
-def _load_qc_layouts_grid(path: Path) -> QCLayoutsGridConfig:
-    """Load QC layouts for grid samplers from CSV file."""
-    df = pl.read_csv(path, comment_prefix="#")
-    return QCLayoutsGridConfig.from_table(df)
-
-
-def _load_qc_layouts_evosep(path: Path) -> QCLayoutsEvosepConfig:
-    """Load QC layouts for Evosep from CSV file."""
-    df = pl.read_csv(path, comment_prefix="#")
-    return QCLayoutsEvosepConfig.from_table(df)
-
-
-def _load_instrument_configs(path: Path) -> InstrumentConfigsConfig:
-    """Load instrument configurations from CSV file."""
-    df = pl.read_csv(path)
-    return InstrumentConfigsConfig.from_table(df)
-
-
-# =============================================================================
-# Private TOML Loaders
-# =============================================================================
-
-
-def _load_output_formats(path: Path) -> OutputFormatsConfig:
-    """Load output formats from TOML file."""
-    with open(path, "rb") as f:
-        data = tomllib.load(f)
-    return OutputFormatsConfig.from_dict(data)
-
-
-def _load_plate_layouts(path: Path) -> PlateLayoutsConfig:
-    """Load plate layouts from TOML file."""
-    with open(path, "rb") as f:
-        data = tomllib.load(f)
-    return PlateLayoutsConfig.from_dict(data)
-
-
-def _load_samplers(path: Path) -> SamplersConfig:
-    """Load samplers from TOML file."""
-    with open(path, "rb") as f:
-        data = tomllib.load(f)
-    return SamplersConfig.from_dict(data)
-
-
-def _load_queue_patterns(path: Path) -> QueuePatternsConfig:
-    """Load queue patterns from TOML file."""
-    with open(path, "rb") as f:
-        data = tomllib.load(f)
-    return QueuePatternsConfig.from_dict(data)
-
-
-# =============================================================================
-# Private Methods Loader (Multiple CSVs)
-# =============================================================================
-
-
-def _load_methods(methods_dir: Path, instruments: InstrumentsConfig) -> MethodsConfig:
-    """Load all methods CSVs based on instruments config.
-
-    Discovers methods files from instruments.methods_file paths and loads them
-    into a MethodsConfig keyed by (tech_area, instrument).
-
-    Args:
-        methods_dir: Base directory for methods files (e.g., core/methods/)
-        instruments: InstrumentsConfig to determine which methods files to load
-
-    Returns:
-        MethodsConfig with all methods loaded
-    """
-    tables: dict[tuple[str, str], pl.DataFrame] = {}
-
-    for instr in instruments.instruments:
-        # methods_file is like "methods/proteomics/ASTRAL_1_methods.csv"
-        # Remove the "methods/" prefix to get relative path from methods_dir
-        relative_path = instr.methods_file.removeprefix("methods/")
-        methods_file = methods_dir / relative_path
-
-        if not methods_file.exists():
-            logger.warning(f"Methods file not found: {methods_file}")
-            continue
-
-        df = pl.read_csv(methods_file)
-        tables[(instr.tech_area, instr.instrument)] = df
-
-    return MethodsConfig.from_tables(tables)
 
 
 # =============================================================================
@@ -335,6 +225,55 @@ class QGConfiguration:
     # ui/
     instrument_configs: InstrumentConfigsConfig
 
+    def to_overview_table(self) -> pl.DataFrame:
+        """Return denormalized table of all valid config combinations.
+
+        Joins: instrument_configs → sampler_plate_layouts → queue_patterns (all patterns)
+
+        Each (instrument, sampler, plate_layout) combination appears multiple times -
+        once per available pattern for that tech_area.
+
+        Returns:
+            DataFrame with columns: tech_area, instrument, sampler, plate_layout,
+            queue_type, output_format, default_pattern, pattern_name, qc_layout_name
+        """
+        # Start with instrument_configs
+        df = self.instrument_configs.to_table()
+
+        # Join sampler_plate_layouts on sampler
+        spl = self.sampler_plate_layouts.to_table()
+        df = df.join(spl, on="sampler", how="left")
+
+        # Build patterns table: (tech_area, pattern_name, qc_layout_name)
+        patterns_rows = [
+            {
+                "tech_area": tech,
+                "pattern_name": name,
+                "qc_layout_name": pattern.qc_layout_name,
+            }
+            for tech, patterns in self.queue_patterns.patterns.items()
+            for name, pattern in patterns.items()
+        ]
+        patterns_df = pl.DataFrame(patterns_rows)
+
+        # Cross join: each instrument config gets ALL patterns for its tech_area
+        df = df.join(patterns_df, on="tech_area", how="left")
+
+        # Select final columns
+        return df.select(
+            [
+                "tech_area",
+                "instrument",
+                "sampler",
+                "plate_layout",
+                "queue_type",
+                "output_format",
+                "default_pattern",
+                "pattern_name",
+                "qc_layout_name",
+            ]
+        )
+
     @staticmethod
     def create(
         *,
@@ -378,6 +317,74 @@ class QGConfiguration:
             instrument_configs=instrument_configs,
         )
 
+    def write_all(self, config_dir: Path) -> list[str]:
+        """Write all configs to disk after validation.
+
+        Args:
+            config_dir: Directory to write configs to.
+
+        Returns:
+            List of written file paths (relative to config_dir).
+
+        Raises:
+            ConfigValidationError: If cross-validation fails.
+        """
+        errors = _validate_configs(
+            samples=self.samples,
+            queue_patterns=self.queue_patterns,
+            qc_layouts_grid=self.qc_layouts_grid,
+            qc_layouts_evosep=self.qc_layouts_evosep,
+        )
+        if errors:
+            raise ConfigValidationError(errors)
+
+        written: list[str] = []
+
+        # CSV configs (use config_path ClassVar as single source of truth)
+        csv_configs = [
+            self.instruments,
+            self.samples,
+            self.sampler_plate_layouts,
+            self.qc_layouts_grid,
+            self.qc_layouts_evosep,
+            self.instrument_configs,
+        ]
+        for cfg in csv_configs:
+            path = config_dir / cfg.config_path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            cfg.to_table().write_csv(path)
+            written.append(str(cfg.config_path))
+
+        # TOML configs (use config_path ClassVar as single source of truth)
+        toml_configs = [
+            self.output_formats,
+            self.plate_layouts,
+            self.samplers,
+            self.queue_patterns,
+        ]
+        for cfg in toml_configs:
+            path = config_dir / cfg.config_path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(tomli_w.dumps(cfg.to_dict()).encode())
+            written.append(str(cfg.config_path))
+
+        # Methods (multiple CSV files, use config_folder ClassVar)
+        methods_base = MethodsConfig.config_folder
+        for (tech_area, instrument), df in self.methods.to_tables().items():
+            instr = self.instruments.get_instrument(tech_area, instrument)
+            if instr is None:
+                continue
+            # methods_file is like "methods/proteomics/ASTRAL_1_methods.csv"
+            # Remove the "methods/" prefix to get relative path from methods_base
+            relative_path = instr.methods_file.removeprefix("methods/")
+            path = config_dir / methods_base / relative_path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            df.write_csv(path)
+            written.append(str(methods_base / relative_path))
+
+        logger.info("Wrote {} config files to {}", len(written), config_dir)
+        return written
+
 
 # =============================================================================
 # Public Loader Function
@@ -405,29 +412,27 @@ def qg_configuration(config_dir: Path | None = None) -> QGConfiguration:
         config_dir = Path(__file__).parent.parent.parent / "qg_configs_new"
     config_dir = Path(config_dir)
 
-    core_dir = config_dir / "core"
-    ui_dir = config_dir / "ui"
-
+    # Load configs using ClassVar paths as single source of truth
     # formatting/
-    samples = _load_samples(core_dir / "formatting" / "samples.csv")
-    instruments = _load_instruments(core_dir / "formatting" / "instruments.csv")
-    output_formats = _load_output_formats(core_dir / "formatting" / "output_formats.toml")
+    samples = SamplesConfig.load(config_dir)
+    instruments = InstrumentsConfig.load(config_dir)
+    output_formats = OutputFormatsConfig.load(config_dir)
 
     # position/
-    plate_layouts = _load_plate_layouts(core_dir / "position" / "plate_layouts.toml")
-    samplers = _load_samplers(core_dir / "position" / "sampler.toml")
-    sampler_plate_layouts = _load_sampler_plate_layouts(core_dir / "position" / "sampler_plate_layouts.csv")
-    qc_layouts_grid = _load_qc_layouts_grid(core_dir / "position" / "qc_layouts_grid.csv")
-    qc_layouts_evosep = _load_qc_layouts_evosep(core_dir / "position" / "qc_layouts_evosep.csv")
+    plate_layouts = PlateLayoutsConfig.load(config_dir)
+    samplers = SamplersConfig.load(config_dir)
+    sampler_plate_layouts = SamplerPlateLayoutsConfig.load(config_dir)
+    qc_layouts_grid = QCLayoutsGridConfig.load(config_dir)
+    qc_layouts_evosep = QCLayoutsEvosepConfig.load(config_dir)
 
     # structure/
-    queue_patterns = _load_queue_patterns(core_dir / "structure" / "queue_patterns.toml")
+    queue_patterns = QueuePatternsConfig.load(config_dir)
 
-    # methods/
-    methods = _load_methods(core_dir / "methods", instruments)
+    # methods/ (requires instruments for dynamic loading)
+    methods = MethodsConfig.load(config_dir, instruments)
 
     # ui/
-    instrument_configs = _load_instrument_configs(ui_dir / "instrument_config.csv")
+    instrument_configs = InstrumentConfigsConfig.load(config_dir)
 
     # Validate and create configuration
     return QGConfiguration.create(

@@ -2,7 +2,9 @@
 # Queue Pattern Models
 # =============================================================================
 
-from typing import Self
+import tomllib
+from pathlib import Path
+from typing import ClassVar, Self
 
 from pydantic import BaseModel, Field
 
@@ -46,6 +48,8 @@ class QueuePatternsConfig(BaseModel):
     Structure: tech_area -> pattern_name -> QueuePattern
     """
 
+    config_path: ClassVar[Path] = Path("core/structure/queue_patterns.toml")
+
     patterns: dict[str, dict[str, QueuePattern]] = Field(default_factory=dict)
 
     def get_technologies(self) -> list[str]:
@@ -72,6 +76,15 @@ class QueuePatternsConfig(BaseModel):
             sample_ids.update(pattern.get_all_sample_ids())
         return sample_ids
 
+    def to_dict(self) -> dict:
+        """Convert to dict for TOML serialization."""
+        result: dict = {}
+        for tech_area, tech_patterns in self.patterns.items():
+            result[tech_area] = {}
+            for pattern_name, pattern in tech_patterns.items():
+                result[tech_area][pattern_name] = pattern.model_dump(exclude_none=True)
+        return result
+
     @classmethod
     def from_dict(cls, data: dict) -> Self:
         """Create QueuePatternsConfig from parsed TOML data.
@@ -91,3 +104,18 @@ class QueuePatternsConfig(BaseModel):
                 patterns[tech_area][pattern_name] = QueuePattern(**pattern_data)
 
         return cls(patterns=patterns)
+
+    @classmethod
+    def load(cls, config_dir: Path) -> Self:
+        """Load queue patterns from config directory.
+
+        Args:
+            config_dir: Root config directory (e.g., qg_configs_new/)
+
+        Returns:
+            QueuePatternsConfig with all patterns loaded
+        """
+        path = config_dir / cls.config_path
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+        return cls.from_dict(data)
