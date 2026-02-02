@@ -337,11 +337,13 @@ def _(
 
 
 @app.cell
-def _(config, pattern_field, get_tech_area):
-    # Get default QC frequency from selected pattern
-    mo.stop(not get_tech_area() or not pattern_field.value)
-    _pattern = config.queue_patterns.get_pattern(get_tech_area(), pattern_field.value)
-    default_qc_frequency = _pattern.run_QC_after_n_samples if _pattern else 16
+def _(config, get_pattern, get_tech_area):
+    # Get default QC frequency from selected pattern (fallback to 16 if not yet selected)
+    if get_tech_area() and get_pattern():
+        _pattern = config.queue_patterns.get_pattern(get_tech_area(), get_pattern())
+        default_qc_frequency = _pattern.run_QC_after_n_samples if _pattern else 16
+    else:
+        default_qc_frequency = 16
     return (default_qc_frequency,)
 
 
@@ -356,11 +358,13 @@ def _(default_qc_frequency):
 
 
 @app.cell
-def _(config, instrument_field, get_tech_area):
-    # Load available methods from config
-    mo.stop(not get_tech_area() or not instrument_field.value)
-    _methods = config.methods.get_methods(get_tech_area(), instrument_field.value)
-    methods_df = _methods.to_table() if _methods else pl.DataFrame()
+def _(config, get_instrument, get_tech_area):
+    # Load available methods from config (empty DataFrame if not yet selected)
+    if get_tech_area() and get_instrument():
+        _methods = config.methods.get_methods(get_tech_area(), get_instrument())
+        methods_df = _methods.to_table() if _methods else pl.DataFrame()
+    else:
+        methods_df = pl.DataFrame()
     return (methods_df,)
 
 
@@ -576,27 +580,26 @@ def _(all_plates, selected_orders):
 
 @app.cell
 def _(BFABRIC_CACHE_DIR, bfabric, container_type, plates_select, selected_orders):
-    # Load samples from all selected orders
-    mo.stop(not selected_orders)
+    # Load samples from all selected orders (empty DataFrame if no orders selected)
     all_samples_dfs = []
 
-    for _container_id, *_ in selected_orders:
-        # Only apply plate filter to first order (for now)
-        _selected_plate_ids = (
-            plates_select.value if _container_id == selected_orders[0][0] and plates_select.value else None
-        )
-        _df = bfabric.get_samples(
-            _container_id, container_type, _selected_plate_ids, dump_dir=BFABRIC_CACHE_DIR / "debug"
-        )
-        if not _df.is_empty():
-            _df = _df.with_columns(pl.lit(_container_id).alias("container_id"))
-            all_samples_dfs.append(_df)
+    if selected_orders:
+        for _container_id, *_ in selected_orders:
+            # Only apply plate filter to first order (for now)
+            _selected_plate_ids = (
+                plates_select.value if _container_id == selected_orders[0][0] and plates_select.value else None
+            )
+            _df = bfabric.get_samples(
+                _container_id, container_type, _selected_plate_ids, dump_dir=BFABRIC_CACHE_DIR / "debug"
+            )
+            if not _df.is_empty():
+                _df = _df.with_columns(pl.lit(_container_id).alias("container_id"))
+                all_samples_dfs.append(_df)
 
     if all_samples_dfs:
         full_samples_df = pl.concat(all_samples_dfs, how="vertical_relaxed").sort(["container_id", "sample_id"])
     else:
         full_samples_df = pl.DataFrame()
-    mo.stop(full_samples_df.is_empty(), mo.md("**No samples found**"))
     return (full_samples_df,)
 
 
