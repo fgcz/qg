@@ -158,15 +158,13 @@ def _(
     get_tech_area,
 ):
     # Instrument dropdown - options from filtered table
-    mo.stop(not get_tech_area())
-    _options = sorted(filtered_table["instrument"].unique().to_list())
+    _options = sorted(filtered_table["instrument"].unique().to_list()) if get_tech_area() else []
     _current = get_instrument()
 
     # Initialize state if not set or invalid
-    if _current is None or _current not in _options:
-        _initial = _options[0] if _options else None
-        if _initial:
-            set_instrument(_initial)
+    if _options and (_current is None or _current not in _options):
+        _initial = _options[0]
+        set_instrument(_initial)
         _current = _initial
 
     def _on_instrument_change(value):
@@ -176,7 +174,7 @@ def _(
 
     instrument_field = mo.ui.dropdown(
         options=_options,
-        value=_current,
+        value=_current if _current in _options else None,
         label="Instrument",
         on_change=_on_instrument_change,
     )
@@ -192,15 +190,13 @@ def _(
     set_sampler,
 ):
     # Sampler dropdown - options from filtered table
-    mo.stop(not get_instrument())
-    _options = sorted(filtered_table["sampler"].unique().to_list())
+    _options = sorted(filtered_table["sampler"].unique().to_list()) if get_instrument() else []
     _current = get_sampler()
 
     # Initialize state if not set or invalid
-    if _current is None or _current not in _options:
-        _initial = _options[0] if _options else None
-        if _initial:
-            set_sampler(_initial)
+    if _options and (_current is None or _current not in _options):
+        _initial = _options[0]
+        set_sampler(_initial)
         _current = _initial
 
     def _on_sampler_change(value):
@@ -209,7 +205,7 @@ def _(
 
     sampler_field = mo.ui.dropdown(
         options=_options,
-        value=_current,
+        value=_current if _current in _options else None,
         label="Sampler",
         on_change=_on_sampler_change,
     )
@@ -219,25 +215,27 @@ def _(
 @app.cell
 def _(filtered_table, get_pattern, get_sampler, set_pattern):
     # Pattern dropdown - options from filtered table, sorted with default first
-    mo.stop(not get_sampler())
-
-    # Get patterns and sort so default_pattern comes first
-    _df = filtered_table.select(["pattern_name", "default_pattern"]).unique()
-    _default = _df.filter(pl.col("pattern_name") == pl.col("default_pattern"))["pattern_name"].to_list()
-    _others = _df.filter(pl.col("pattern_name") != pl.col("default_pattern"))["pattern_name"].unique().sort().to_list()
-    _options = _default + _others
+    if get_sampler():
+        # Get patterns and sort so default_pattern comes first
+        _df = filtered_table.select(["pattern_name", "default_pattern"]).unique()
+        _default = _df.filter(pl.col("pattern_name") == pl.col("default_pattern"))["pattern_name"].to_list()
+        _others = (
+            _df.filter(pl.col("pattern_name") != pl.col("default_pattern"))["pattern_name"].unique().sort().to_list()
+        )
+        _options = _default + _others
+    else:
+        _options = []
     _current = get_pattern()
 
     # Initialize state if not set or invalid
-    if _current is None or _current not in _options:
-        _initial = _options[0] if _options else None
-        if _initial:
-            set_pattern(_initial)
+    if _options and (_current is None or _current not in _options):
+        _initial = _options[0]
+        set_pattern(_initial)
         _current = _initial
 
     pattern_field = mo.ui.dropdown(
         options=_options,
-        value=_current,
+        value=_current if _current in _options else None,
         label="Pattern",
         on_change=set_pattern,
     )
@@ -247,9 +245,11 @@ def _(filtered_table, get_pattern, get_sampler, set_pattern):
 @app.cell
 def _(filtered_table, get_sampler):
     # Output format is derived from the filtered table (determined by instrument+sampler)
-    mo.stop(not get_sampler())
-    _formats = filtered_table["output_format"].unique().to_list()
-    output_format_value = _formats[0] if _formats else "xcalibur"
+    if get_sampler():
+        _formats = filtered_table["output_format"].unique().to_list()
+        output_format_value = _formats[0] if _formats else "xcalibur"
+    else:
+        output_format_value = "xcalibur"
     return (output_format_value,)
 
 
