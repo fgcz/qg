@@ -12,25 +12,25 @@ with app.setup:
     import polars as pl
     import tomli_w
 
-    from qg.config_model_formatting_new import (
+    from qg.config_models_new.formatting import (
         InstrumentsConfig,
         OutputFormatsConfig,
         SamplesConfig,
     )
-    from qg.config_model_position_new import (
+    from qg.config_models_new.loader import (
+        ConfigValidationError,
+        QGConfiguration,
+        qg_configuration,
+    )
+    from qg.config_models_new.positions import (
         PlateLayoutsConfig,
         QCLayoutsEvosepConfig,
         QCLayoutsGridConfig,
         SamplerPlateLayoutsConfig,
         SamplersConfig,
     )
-    from qg.config_model_structure_new import QueuePatternsConfig
-    from qg.config_model_ui_new import InstrumentConfigsConfig
-    from qg.config_new import (
-        ConfigValidationError,
-        QGConfiguration,
-        qg_configuration,
-    )
+    from qg.config_models_new.structure import QueuePatternsConfig
+    from qg.config_models_new.ui import InstrumentConfigsConfig
 
     def compact_toml(toml_str: str) -> str:
         """Convert multiline arrays to inline format for readability."""
@@ -175,65 +175,45 @@ def _(cfg, methods_dropdown, methods_options):
 
 
 # =============================================================================
-# Tabs
+# Tabs (organized by config folder structure)
 # =============================================================================
 
 
 @app.cell
-def _(instruments_editor, instrument_configs_editor):
-    instruments_tab = mo.vstack(
+def _(instruments_editor, samples_editor, output_formats_editor):
+    # core/formatting/ - instruments.csv, samples.csv, output_formats.toml
+    formatting_tab = mo.vstack(
         [
+            mo.md("## core/formatting/"),
             mo.md("### Instruments (instruments.csv)"),
             instruments_editor,
-            mo.md("### Instrument Configs (instrument_config.csv)"),
-            mo.md("_UI config: valid (instrument, sampler, output_format, default_pattern) combinations_"),
-            instrument_configs_editor,
+            mo.md("### Samples (samples.csv)"),
+            samples_editor,
+            mo.md("### Output Formats (output_formats.toml)"),
+            output_formats_editor,
         ]
     )
-    return (instruments_tab,)
+    return (formatting_tab,)
 
 
 @app.cell
-def _(samplers_editor, plate_layouts_editor, sampler_plate_layouts_editor):
-    samplers_tab = mo.vstack(
+def _(
+    samplers_editor,
+    plate_layouts_editor,
+    sampler_plate_layouts_editor,
+    qc_layouts_grid_editor,
+    qc_layouts_evosep_editor,
+):
+    # core/position/ - sampler.toml, plate_layouts.toml, sampler_plate_layouts.csv, qc_layouts_*.csv
+    position_tab = mo.vstack(
         [
+            mo.md("## core/position/"),
             mo.md("### Samplers (sampler.toml)"),
             samplers_editor,
             mo.md("### Plate Layouts (plate_layouts.toml)"),
             plate_layouts_editor,
             mo.md("### Sampler Plate Layouts (sampler_plate_layouts.csv)"),
             sampler_plate_layouts_editor,
-        ]
-    )
-    return (samplers_tab,)
-
-
-@app.cell
-def _(samples_editor):
-    samples_tab = mo.vstack(
-        [
-            mo.md("### Samples (samples.csv)"),
-            samples_editor,
-        ]
-    )
-    return (samples_tab,)
-
-
-@app.cell
-def _(queue_patterns_editor):
-    patterns_tab = mo.vstack(
-        [
-            mo.md("### Queue Patterns (queue_patterns.toml)"),
-            queue_patterns_editor,
-        ]
-    )
-    return (patterns_tab,)
-
-
-@app.cell
-def _(qc_layouts_grid_editor, qc_layouts_evosep_editor):
-    qc_layouts_tab = mo.vstack(
-        [
             mo.md("### QC Layouts - Grid Samplers (qc_layouts_grid.csv)"),
             mo.md("_Columns: tech_area, qc_layout_name, plate_layout, sample_id, plate, row, col_"),
             qc_layouts_grid_editor,
@@ -242,30 +222,48 @@ def _(qc_layouts_grid_editor, qc_layouts_evosep_editor):
             qc_layouts_evosep_editor,
         ]
     )
-    return (qc_layouts_tab,)
+    return (position_tab,)
 
 
 @app.cell
-def _(output_formats_editor):
-    output_formats_tab = mo.vstack(
+def _(queue_patterns_editor):
+    # core/structure/ - queue_patterns.toml
+    structure_tab = mo.vstack(
         [
-            mo.md("### Output Formats (output_formats.toml)"),
-            output_formats_editor,
+            mo.md("## core/structure/"),
+            mo.md("### Queue Patterns (queue_patterns.toml)"),
+            queue_patterns_editor,
         ]
     )
-    return (output_formats_tab,)
+    return (structure_tab,)
 
 
 @app.cell
 def _(methods_dropdown, methods_editor):
+    # core/methods/ - per-instrument method CSV files
     methods_tab = mo.vstack(
         [
+            mo.md("## core/methods/"),
             mo.md("### Methods Files"),
             methods_dropdown,
             methods_editor,
         ]
     )
     return (methods_tab,)
+
+
+@app.cell
+def _(instrument_configs_editor):
+    # ui/ - instrument_config.csv
+    ui_tab = mo.vstack(
+        [
+            mo.md("## ui/"),
+            mo.md("### Instrument Configs (instrument_config.csv)"),
+            mo.md("_Valid (instrument, sampler, output_format, default_pattern) combinations for the UI_"),
+            instrument_configs_editor,
+        ]
+    )
+    return (ui_tab,)
 
 
 # =============================================================================
@@ -493,25 +491,21 @@ def _(overview_df):
 def _(
     overview_tab,
     all_combinations_tab,
-    instruments_tab,
+    formatting_tab,
+    position_tab,
+    structure_tab,
     methods_tab,
-    output_formats_tab,
-    patterns_tab,
-    qc_layouts_tab,
-    samplers_tab,
-    samples_tab,
+    ui_tab,
 ):
     tabs = mo.ui.tabs(
         {
             "Overview": overview_tab,
             "All Combinations": all_combinations_tab,
-            "Instruments": instruments_tab,
-            "Samplers": samplers_tab,
-            "Samples": samples_tab,
-            "Patterns": patterns_tab,
-            "QC Layouts": qc_layouts_tab,
-            "Output Formats": output_formats_tab,
+            "Formatting": formatting_tab,
+            "Position": position_tab,
+            "Structure": structure_tab,
             "Methods": methods_tab,
+            "UI": ui_tab,
         }
     )
     return (tabs,)

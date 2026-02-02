@@ -19,7 +19,7 @@ class TestFormattingConfigs:
 
     def test_load_instruments(self):
         """Load instruments.csv into InstrumentsConfig."""
-        from qg.config_model_formatting_new import InstrumentsConfig
+        from qg.config_models_new.formatting import InstrumentsConfig
 
         path = CONFIG_ROOT / "core" / "formatting" / "instruments.csv"
         df = pl.read_csv(path)
@@ -33,7 +33,7 @@ class TestFormattingConfigs:
 
     def test_load_samples(self):
         """Load samples.csv into SamplesConfig."""
-        from qg.config_model_formatting_new import SamplesConfig
+        from qg.config_models_new.formatting import SamplesConfig
 
         path = CONFIG_ROOT / "core" / "formatting" / "samples.csv"
         df = pl.read_csv(path)
@@ -47,7 +47,7 @@ class TestFormattingConfigs:
 
     def test_load_output_formats(self):
         """Load output_formats.toml into OutputFormatsConfig."""
-        from qg.config_model_formatting_new import OutputFormatsConfig
+        from qg.config_models_new.formatting import OutputFormatsConfig
 
         path = CONFIG_ROOT / "core" / "formatting" / "output_formats.toml"
         with open(path, "rb") as f:
@@ -70,7 +70,7 @@ class TestStructureConfigs:
 
     def test_load_queue_patterns(self):
         """Load queue_patterns.toml into QueuePatternsConfig."""
-        from qg.config_model_structure_new import QueuePatternsConfig
+        from qg.config_models_new.structure import QueuePatternsConfig
 
         path = CONFIG_ROOT / "core" / "structure" / "queue_patterns.toml"
         with open(path, "rb") as f:
@@ -100,7 +100,7 @@ class TestPositionConfigs:
 
     def test_load_plate_layouts(self):
         """Load plate_layouts.toml into PlateLayoutsConfig."""
-        from qg.config_model_position_new import PlateLayoutsConfig
+        from qg.config_models_new.positions import PlateLayoutsConfig
 
         path = CONFIG_ROOT / "core" / "position" / "plate_layouts.toml"
         with open(path, "rb") as f:
@@ -115,7 +115,7 @@ class TestPositionConfigs:
 
     def test_load_samplers(self):
         """Load sampler.toml into SamplersConfig."""
-        from qg.config_model_position_new import SamplersConfig
+        from qg.config_models_new.positions import SamplersConfig
 
         path = CONFIG_ROOT / "core" / "position" / "sampler.toml"
         with open(path, "rb") as f:
@@ -131,7 +131,7 @@ class TestPositionConfigs:
 
     def test_load_sampler_plate_layouts(self):
         """Load sampler_plate_layouts.csv into SamplerPlateLayoutsConfig."""
-        from qg.config_model_position_new import SamplerPlateLayoutsConfig
+        from qg.config_models_new.positions import SamplerPlateLayoutsConfig
 
         path = CONFIG_ROOT / "core" / "position" / "sampler_plate_layouts.csv"
         df = pl.read_csv(path)
@@ -145,7 +145,7 @@ class TestPositionConfigs:
 
     def test_load_qc_layouts_grid(self):
         """Load qc_layouts_grid.csv into QCLayoutsGridConfig."""
-        from qg.config_model_position_new import QCLayoutsGridConfig
+        from qg.config_models_new.positions import QCLayoutsGridConfig
 
         path = CONFIG_ROOT / "core" / "position" / "qc_layouts_grid.csv"
         df = pl.read_csv(path, comment_prefix="#")
@@ -159,7 +159,7 @@ class TestPositionConfigs:
 
     def test_load_qc_layouts_evosep(self):
         """Load qc_layouts_evosep.csv into QCLayoutsEvosepConfig."""
-        from qg.config_model_position_new import QCLayoutsEvosepConfig
+        from qg.config_models_new.positions import QCLayoutsEvosepConfig
 
         path = CONFIG_ROOT / "core" / "position" / "qc_layouts_evosep.csv"
         df = pl.read_csv(path, comment_prefix="#")
@@ -181,7 +181,7 @@ class TestMethodsConfigs:
 
     def test_load_single_methods_file(self):
         """Load a single methods CSV into MethodsForInstrument."""
-        from qg.config_models_methods_new import MethodsForInstrument
+        from qg.config_models_new.methods import MethodsForInstrument
 
         path = CONFIG_ROOT / "core" / "methods" / "proteomics" / "ASTRAL_1_methods.csv"
         df = pl.read_csv(path)
@@ -194,7 +194,7 @@ class TestMethodsConfigs:
 
     def test_load_all_methods(self):
         """Load all methods into MethodsConfig."""
-        from qg.config_models_methods_new import MethodsConfig
+        from qg.config_models_new.methods import MethodsConfig
 
         methods_root = CONFIG_ROOT / "core" / "methods"
         tables: dict[tuple[str, str], pl.DataFrame] = {}
@@ -226,7 +226,7 @@ class TestUIConfigs:
 
     def test_load_instrument_config(self):
         """Load instrument_config.csv into InstrumentConfigsConfig."""
-        from qg.config_model_ui_new import InstrumentConfigsConfig
+        from qg.config_models_new.ui import InstrumentConfigsConfig
 
         path = CONFIG_ROOT / "ui" / "instrument_config.csv"
         df = pl.read_csv(path)

@@ -13,21 +13,21 @@ import polars as pl
 import tomli_w
 from loguru import logger
 
-from qg.config_model_formatting_new import (
+from .formatting import (
     InstrumentsConfig,
     OutputFormatsConfig,
     SamplesConfig,
 )
-from qg.config_model_position_new import (
+from .methods import MethodsConfig
+from .positions import (
     PlateLayoutsConfig,
     QCLayoutsEvosepConfig,
     QCLayoutsGridConfig,
     SamplerPlateLayoutsConfig,
     SamplersConfig,
 )
-from qg.config_model_structure_new import QueuePatternsConfig
-from qg.config_model_ui_new import InstrumentConfigsConfig
-from qg.config_models_methods_new import MethodsConfig
+from .structure import QueuePatternsConfig
+from .ui import InstrumentConfigsConfig
 
 # =============================================================================
 # Exception Class

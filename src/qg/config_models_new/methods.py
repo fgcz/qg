@@ -10,7 +10,7 @@ from loguru import logger
 from pydantic import BaseModel, Field, field_validator
 
 if TYPE_CHECKING:
-    from qg.config_model_formatting_new import InstrumentsConfig
+    from .formatting import InstrumentsConfig
 
 
 class Method(BaseModel):

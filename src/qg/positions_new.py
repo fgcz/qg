@@ -21,7 +21,7 @@ from itertools import product
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
-    from qg.config_model_position_new import (
+    from qg.config_models_new.positions import (
         PlateLayout,
         QCSampleEvosep,
         QCSampleGrid,

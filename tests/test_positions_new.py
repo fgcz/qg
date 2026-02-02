@@ -4,7 +4,7 @@
 
 import pytest
 
-from qg.config_model_position_new import PlateLayout, QCSampleEvosep, QCSampleGrid, Sampler
+from qg.config_models_new.positions import PlateLayout, QCSampleEvosep, QCSampleGrid, Sampler
 from qg.positions_new import (
     POSITION_FUNCTIONS,
     PositionGenerator,
