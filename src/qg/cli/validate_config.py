@@ -2,7 +2,9 @@
 
 import sys
 
-from qg.config import ConfigValidationError, qg_config
+import pydantic
+
+from qg.config_models_new.loader import qg_configuration
 
 
 def cli_main() -> None:
@@ -12,9 +14,9 @@ def cli_main() -> None:
         uv run qg-validate
     """
     try:
-        qg_config()  # Loads and validates, prints output, raises on failure
+        qg_configuration()  # Loads and validates, raises on failure
         print("\nValidation complete.")
         sys.exit(0)
-    except (ValueError, ConfigValidationError) as e:
+    except (ValueError, pydantic.ValidationError) as e:
         print(f"\n{e}")
         sys.exit(1)

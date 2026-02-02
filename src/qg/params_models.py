@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Literal, Self
 from pydantic import AliasChoices, BaseModel, Field
 
 if TYPE_CHECKING:
-    from qg.config import ConfigBundle
+    from qg.config_models_new.loader import QGConfiguration
 
 
 class VialSample(BaseModel):
@@ -84,7 +84,7 @@ class QueueParameters(BaseModel):
     @classmethod
     def create(
         cls,
-        configs: ConfigBundle,
+        configs: QGConfiguration,
         *,
         tech_area: str,
         instrument: str,

@@ -8,20 +8,20 @@ from pathlib import Path
 
 import pytest
 
-from qg.config import qg_config
+from qg.config_models_new.loader import qg_configuration
 from qg.queue_structure import build_multi_container_queue_structure
 
 
 @pytest.fixture
-def configs():
+def config():
     """Load all configs for testing."""
-    return qg_config(Path("qg_configs"))
+    return qg_configuration(Path(__file__).parent.parent / "qg_configs_new")
 
 
 @pytest.fixture
-def pattern(configs):
+def pattern(config):
     """Get Proteomics.standard pattern from actual config."""
-    return configs.queue_patterns.get_pattern("Proteomics", "standard")
+    return config.queue_patterns.get_pattern("Proteomics", "standard")
 
 
 class TestMultiGroupQueueStructure:

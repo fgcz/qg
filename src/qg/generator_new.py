@@ -1,4 +1,8 @@
-"""Queue file generator for mass spectrometry instruments (new models)."""
+"""Queue file generator for mass spectrometry instruments (new models).
+
+This module uses the new config_models_new architecture with NO dependencies
+on old config_models.py or config.py.
+"""
 
 from __future__ import annotations
 
@@ -8,15 +12,17 @@ from typing import TYPE_CHECKING, Any, Literal
 import polars as pl
 from pydantic import BaseModel
 
-from qg.config_models import QCLayoutPattern, Sample
+from qg.config_models_new.formatting import Sample
+from qg.config_models_new.loader import QGConfiguration
+from qg.config_models_new.methods import MethodsConfig
+from qg.config_models_new.structure import QueuePattern
 from qg.params_models import PlateCell, PlateQueue, QueueInput, VialQueueInput
-from qg.positions import SamplerStrategy
+from qg.positions_new import SamplerStrategyV2
 from qg.queue_structure import SlotEntry, build_multi_container_queue_structure
 from qg.randomize import randomize_plate_queue
 
 if TYPE_CHECKING:
-    from qg.config import ConfigBundle
-    from qg.config_models import MethodsConfig, OutputFormat, QueuePattern, SamplesConfig
+    from qg.config_models_new.formatting import OutputFormat, SamplesConfig
 
 PositionDict = dict[str, Any]
 
@@ -75,7 +81,7 @@ class ExpandedSlot:
 def _build_slots(
     slot_entries: list[SlotEntry],
     plate_queue: PlateQueue,
-    sampler: SamplerStrategy,
+    sampler: SamplerStrategyV2,
     samples_config: SamplesConfig,
     tech_area: str,
 ) -> list[SlotInfo]:
@@ -209,23 +215,31 @@ def format_table(queue_rows: QueueRowTable, output_format: OutputFormat) -> pl.D
 
 
 class QueueGenerator:
-    """Generates queue CSV from configs and input parameters."""
+    """Generates queue CSV from configs and input parameters.
 
-    def __init__(self, configs: ConfigBundle, queue_input: QueueInput, layout_mode: Literal["vial", "plate"]) -> None:
+    Uses QGConfiguration (new config bundle) with NO dependencies on old config.py.
+    """
+
+    def __init__(self, config: QGConfiguration, queue_input: QueueInput, layout_mode: Literal["vial", "plate"]) -> None:
         self.queue_input = queue_input
         self._layout_mode = layout_mode
         params = queue_input.parameters
 
         # Resolve pattern
-        self.pattern: QueuePattern = configs.queue_patterns.get_pattern(params.tech_area, params.queue_pattern)
+        pattern = config.queue_patterns.get_pattern(params.tech_area, params.queue_pattern)
+        if pattern is None:
+            raise ValueError(f"No pattern found for tech_area='{params.tech_area}', pattern='{params.queue_pattern}'")
+        self.pattern: QueuePattern = pattern
 
-        # Resolve QC layout and create sampler strategy
-        sampler_key = f"{params.sampler}.{layout_mode}"
-        qc_layout = configs.qc_layouts.get_layout(params.tech_area, sampler_key)
-        if qc_layout is None:
-            raise ValueError(f"No QC layout found for tech_area='{params.tech_area}', sampler='{sampler_key}'")
-        qc_layout_pattern = QCLayoutPattern.create(self.pattern, qc_layout)
-        self.sampler = SamplerStrategy(params.sampler, layout_mode, configs.samplers, qc_layout_pattern)
+        # Create sampler strategy using new SamplerStrategyV2
+        # The strategy internally resolves sampler, plate_layout, and QC samples from config
+        self.sampler = SamplerStrategyV2(
+            sampler_name=params.sampler,
+            layout_mode=layout_mode,
+            config=config,
+            tech_area=params.tech_area,
+            qc_layout_name=self.pattern.qc_layout_name,
+        )
 
         # Transform/validate queue to get PlateQueue
         if isinstance(queue_input, VialQueueInput):
@@ -234,11 +248,11 @@ class QueueGenerator:
             self.plate_queue = self.sampler.assign_positions(queue_input.queue)
 
         # Store config references
-        self.samples_config: SamplesConfig = configs.samples
-        self.methods_config: MethodsConfig = configs.methods
+        self.samples_config = config.samples
+        self.methods_config = config.methods
 
         # Resolve data path
-        instr = configs.instruments.get_instrument(params.tech_area, params.instrument)
+        instr = config.instruments.get_instrument(params.tech_area, params.instrument)
         self.data_path = ""
         if instr and instr.path_template:
             first_batch = next(iter(queue_input.queue.batches.values()), None)
@@ -250,7 +264,10 @@ class QueueGenerator:
             )
 
         # Resolve output format
-        self.output_format: OutputFormat = configs.output_formats.get_format(params.output_format)
+        output_format = config.output_formats.get_format(params.output_format)
+        if output_format is None:
+            raise ValueError(f"Unknown output format: {params.output_format}")
+        self.output_format = output_format
 
     def generate(self) -> pl.DataFrame:
         """Execute pipeline and return formatted DataFrame."""

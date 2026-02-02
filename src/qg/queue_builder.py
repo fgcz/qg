@@ -20,14 +20,14 @@ from qg.params_models import (
 )
 
 if TYPE_CHECKING:
-    from qg.config import ConfigBundle
+    from qg.config_models_new.loader import QGConfiguration
 
 
 class QueueBuilder:
     """Fluent builder for QueueInput. Single-use."""
 
-    def __init__(self, configs: ConfigBundle) -> None:
-        self.configs = configs
+    def __init__(self, config: QGConfiguration) -> None:
+        self.config = config
         self._parameters: QueueParameters | None = None
         self._layout_mode: Literal["vial", "plate"] | None = None
         self._batches: dict[int, ContainerBatch] = {}

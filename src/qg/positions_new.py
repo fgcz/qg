@@ -10,16 +10,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from itertools import product
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
-    from qg.config_models_new.positions import (
-        PlateLayout,
-        QCSampleEvosep,
-        QCSampleGrid,
-        Sampler,
-    )
-
+from qg.config_models_new.loader import QGConfiguration
+from qg.config_models_new.positions import QCSampleEvosep, QCSampleGrid
 from qg.params_models import (
     Plate,
     PlateCell,
@@ -213,12 +207,36 @@ class SamplerStrategyV2:
 
     def __init__(
         self,
-        sampler: Sampler,
-        plate_layout: PlateLayout,
-        qc_samples: list[QCSampleGrid] | list[QCSampleEvosep],
-        layout_mode: str = "vial",
+        sampler_name: str,
+        layout_mode: str,
+        config: QGConfiguration,
+        tech_area: str,
+        qc_layout_name: str = "standard",
     ) -> None:
         self._layout_mode = layout_mode
+
+        # Resolve sampler
+        sampler = config.samplers.get_sampler(sampler_name)
+        if not sampler:
+            raise ValueError(f"Unknown sampler: {sampler_name}")
+
+        # Resolve plate_layout via sampler_plate_layouts
+        queue_type = "Vial" if layout_mode == "vial" else "Plate"
+        plate_layout_names = config.sampler_plate_layouts.get_plate_layouts_for_sampler(sampler_name, queue_type)
+        if not plate_layout_names:
+            raise ValueError(f"No {queue_type} layout for {sampler_name}")
+        plate_layout = config.plate_layouts.get_layout(plate_layout_names[0])
+        if not plate_layout:
+            raise ValueError(f"Unknown plate layout: {plate_layout_names[0]}")
+
+        # Resolve QC samples based on sampler type
+        if sampler_name == "Evosep":
+            qc_samples: list[QCSampleGrid] | list[QCSampleEvosep] = config.qc_layouts_evosep.get_samples(
+                tech_area, qc_layout_name, plate_layout.name
+            )
+        else:
+            qc_samples = config.qc_layouts_grid.get_samples(tech_area, qc_layout_name, plate_layout.name)
+
         position_fun = _PositionFunctions.get(sampler.position_fun)
 
         # Create QC layout based on sample type

@@ -347,6 +347,27 @@ def test_sampler_strategy():
     strategy.assign_positions_user_samples(queue_input)
 ```
 
+**NEVER add methods to the public interface just to make tests pass.** If changing a class interface breaks tests, update the tests to use the new interface properly. Do not add factory methods, alternative constructors, or compatibility shims solely for test convenience.
+
+```python
+# BAD - adding a factory method just to keep old tests working
+class SamplerStrategy:
+    def __init__(self, name, config, tech_area, qc_layout_name):
+        # new interface
+        ...
+
+    @classmethod
+    def from_components(cls, sampler, plate_layout, qc_samples):
+        # WRONG: added only because tests used old signature
+        ...
+
+# GOOD - update the tests to use the new interface
+def test_sampler_strategy():
+    config = qg_configuration()  # load real config
+    strategy = SamplerStrategy("Vanquish", "vial", config, "Proteomics", "standard")
+    ...
+```
+
 ## Documentation (`docs/`)
 
 | File | Purpose |

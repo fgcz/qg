@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from loguru import logger
 
-from qg.config_models import QueuePattern
+from qg.config_models_new.structure import QueuePattern
 
 if TYPE_CHECKING:
     from qg.params_models import QueueInput, SampleGroup

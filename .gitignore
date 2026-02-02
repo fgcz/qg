@@ -19,3 +19,4 @@ queue_files/
 *.png
 plans/
 bfabric_cache/
+deprecated/

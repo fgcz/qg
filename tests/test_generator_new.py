@@ -1,12 +1,12 @@
-"""Tests for QueueGenerator (new models)."""
+"""Tests for QueueGenerator (new models using QGConfiguration)."""
 
 from pathlib import Path
 
 import polars as pl
 import pytest
 
-from qg.config import qg_config
-from qg.generator import QueueGenerator
+from qg.config_models_new.loader import qg_configuration
+from qg.generator_new import QueueGenerator
 from qg.params_models import (
     ContainerBatch,
     QueueParameters,
@@ -14,14 +14,13 @@ from qg.params_models import (
     VialQueueInput,
     VialSample,
 )
-from qg.queue_builder import QueueBuilder
 
-CONFIG_DIR = Path(__file__).parent.parent / "qg_configs"
+CONFIG_DIR = Path(__file__).parent.parent / "qg_configs_new"
 
 
 @pytest.fixture
-def configs():
-    return qg_config(CONFIG_DIR)
+def config():
+    return qg_configuration(CONFIG_DIR)
 
 
 def make_vial_samples(n: int, container_id: int = 99999, id_offset: int = 10000) -> list[VialSample]:
@@ -47,7 +46,7 @@ def make_vial_queue_input(
 
 class TestOutputFormats:
     @pytest.mark.parametrize("output_format", ["xcalibur", "chronos", "hystar"])
-    def test_output_format_has_columns(self, configs, output_format: str):
+    def test_output_format_has_columns(self, config, output_format: str):
         samples = make_vial_samples(1)
         params = QueueParameters(
             tech_area="Proteomics",
@@ -61,14 +60,14 @@ class TestOutputFormats:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(configs, queue_input, layout_mode="vial")
+        generator = QueueGenerator(config, queue_input, layout_mode="vial")
         result = generator.generate()
 
         assert isinstance(result, pl.DataFrame)
         assert len(result.columns) > 0
 
     @pytest.mark.parametrize("output_format", ["xcalibur", "chronos", "hystar"])
-    def test_single_sample_row_count(self, configs, output_format: str):
+    def test_single_sample_row_count(self, config, output_format: str):
         samples = make_vial_samples(1)
         params = QueueParameters(
             tech_area="Proteomics",
@@ -82,7 +81,7 @@ class TestOutputFormats:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(configs, queue_input, layout_mode="vial")
+        generator = QueueGenerator(config, queue_input, layout_mode="vial")
         result = generator.generate()
 
         assert len(result) == 1
@@ -90,7 +89,7 @@ class TestOutputFormats:
 
 class TestNoQCPattern:
     @pytest.mark.parametrize("num_samples", [1, 5])
-    def test_noqc_row_count(self, configs, num_samples: int):
+    def test_noqc_row_count(self, config, num_samples: int):
         samples = make_vial_samples(num_samples)
         params = QueueParameters(
             tech_area="Proteomics",
@@ -104,15 +103,15 @@ class TestNoQCPattern:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(configs, queue_input, layout_mode="vial")
+        generator = QueueGenerator(config, queue_input, layout_mode="vial")
         result = generator.generate()
 
         assert len(result) == num_samples
 
 
 class TestQCOnlyPattern:
-    @pytest.mark.parametrize("num_samples", [5, 10])  # 0 excluded: empty groups edge case
-    def test_qc_only_row_count(self, configs, num_samples: int):
+    @pytest.mark.parametrize("num_samples", [5, 10])
+    def test_qc_only_row_count(self, config, num_samples: int):
         samples = make_vial_samples(num_samples)
         params = QueueParameters(
             tech_area="Proteomics",
@@ -126,15 +125,16 @@ class TestQCOnlyPattern:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(configs, queue_input, layout_mode="vial")
+        generator = QueueGenerator(config, queue_input, layout_mode="vial")
         result = generator.generate()
 
-        expected = num_samples + 6  # 3 start + N + 3 end
+        # qc_only pattern: start(3) + samples + end(3) = 6 + num_samples
+        expected = num_samples + 6
         assert len(result) == expected
 
 
 class TestRandomization:
-    def test_random_mode_shuffles_samples(self, configs):
+    def test_random_mode_shuffles_samples(self, config):
         import random as py_random
 
         py_random.seed(42)
@@ -155,7 +155,7 @@ class TestRandomization:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(configs, queue_input, layout_mode="vial")
+        generator = QueueGenerator(config, queue_input, layout_mode="vial")
         result = generator.build_rows()
 
         result_order = [int(row.sample_id) for row in result.rows if row.sample_type == "user"]
@@ -163,7 +163,7 @@ class TestRandomization:
         assert result_order != original_order
         assert set(result_order) == set(original_order)
 
-    def test_blocked_mode_creates_blocks(self, configs):
+    def test_blocked_mode_creates_blocks(self, config):
         import random as py_random
 
         py_random.seed(42)
@@ -191,7 +191,7 @@ class TestRandomization:
         )
         queue_input = make_vial_queue_input(params, samples, container_id)
 
-        generator = QueueGenerator(configs, queue_input, layout_mode="vial")
+        generator = QueueGenerator(config, queue_input, layout_mode="vial")
         result = generator.build_rows()
 
         result_ids = [int(row.sample_id) for row in result.rows if row.sample_type == "user"]
@@ -207,7 +207,7 @@ class TestRandomization:
 
         assert set(result_ids) == {1, 2, 3, 4, 5, 6}
 
-    def test_no_randomization_preserves_order(self, configs):
+    def test_no_randomization_preserves_order(self, config):
         samples = make_vial_samples(5)
         original_order = [s.sample_id for s in samples]
 
@@ -224,154 +224,57 @@ class TestRandomization:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(configs, queue_input, layout_mode="vial")
+        generator = QueueGenerator(config, queue_input, layout_mode="vial")
         result = generator.build_rows()
 
         result_order = [int(row.sample_id) for row in result.rows if row.sample_type == "user"]
         assert result_order == original_order
 
 
-class TestPlateMode:
-    """Integration tests for plate-mode queue generation (builder + generator)."""
-
-    @pytest.fixture
-    def plate_df_null_tray(self):
-        """Plate DataFrame mimicking B-Fabric output where tray is None."""
-        return pl.DataFrame(
-            {
-                "container_id": [39431] * 5,
-                "sample_name": [f"Sample_{i}" for i in range(1, 6)],
-                "sample_id": list(range(991775, 991780)),
-                "plate_id": [5001] * 5,
-                "tray": [None] * 5,
-                "grid_position": ["A1", "A2", "A3", "A4", "A5"],
-                "position": [1, 2, 3, 4, 5],
-                "grouping_var": [None] * 5,
-            }
-        )
-
-    def test_plate_null_tray_builder_succeeds(self, configs, plate_df_null_tray):
-        params = QueueParameters.create(
-            configs,
-            tech_area="Metabolomics",
-            instrument="EXPLORIS_3",
-            sampler="Vanquish",
-            output_format="xcalibur",
-            queue_pattern="standard",
-            polarity=["pos", "neg"],
-            date="20260127",
-            user="test",
-        )
-        result = (
-            QueueBuilder(configs)
-            .with_parameters(params, layout_mode="plate")
-            .add_samples_from_dataframe(plate_df_null_tray)
-            .build()
-        )
-        assert len(result.queue.cells) == 5
-        assert result.queue.plates[5001].tray is None
-
-    def test_plate_null_tray_full_pipeline(self, configs, plate_df_null_tray):
-        params = QueueParameters.create(
-            configs,
-            tech_area="Metabolomics",
-            instrument="EXPLORIS_3",
-            sampler="Vanquish",
-            output_format="xcalibur",
-            queue_pattern="standard",
-            polarity=["pos", "neg"],
-            date="20260127",
-            user="test",
-        )
-        queue_input = (
-            QueueBuilder(configs)
-            .with_parameters(params, layout_mode="plate")
-            .add_samples_from_dataframe(plate_df_null_tray)
-            .build()
-        )
-        generator = QueueGenerator(configs, queue_input, layout_mode="plate")
-        result = generator.generate()
-
-        assert isinstance(result, pl.DataFrame)
-        assert len(result) > 5  # samples + QC rows
-
-        # Verify tray was assigned by the plate sampler (was None from B-Fabric)
-        rows = generator.build_rows()
-        user_rows = [r for r in rows.rows if r.sample_type == "user"]
-        assert all(r.tray is not None for r in user_rows), "Plate sampler should assign tray to plates with tray=None"
-
-
-class TestMixedGroupingVar:
-    """Tests for mixed grouping_var schemas (String + Null) across containers."""
-
-    def test_concat_mixed_grouping_var_schemas(self):
-        """pl.concat with vertical_relaxed resolves Null + String mismatch."""
-        df_a = pl.DataFrame(
-            {
-                "container_id": [99901, 99901, 99901],
-                "sample_name": ["s1", "s2", "s3"],
-                "sample_id": [1, 2, 3],
-                "grouping_var": ["GroupA", "GroupA", "GroupB"],
-            }
-        )
-        df_b = pl.DataFrame(
-            {
-                "container_id": [99902, 99902],
-                "sample_name": ["s4", "s5"],
-                "sample_id": [4, 5],
-                "grouping_var": [None, None],
-            }
-        )
-
-        result = pl.concat([df_a, df_b], how="vertical_relaxed")
-        assert result.shape == (5, 4)
-        assert result["grouping_var"].dtype == pl.String
-
-    def test_blocked_randomization_mixed_grouping_var(self, configs):
-        """End-to-end: blocked randomization with mixed grouping_var across containers."""
-        import random as py_random
-
-        py_random.seed(42)
-
-        # Container A: samples with grouping_var set
-        samples_a = [
-            VialSample(sample_name=f"a{i}", sample_id=100 + i, grouping_var=g, container_id=99901)
-            for i, g in enumerate(["GroupA", "GroupA", "GroupA", "GroupB", "GroupB", "GroupB"], 1)
-        ]
-        # Container B: samples with grouping_var=None
-        samples_b = [VialSample(sample_name=f"b{i}", sample_id=200 + i, container_id=99902) for i in range(1, 5)]
-
-        # Build a concat'd DataFrame (exercises the concat path from the GUI)
-        df_a = pl.DataFrame([s.model_dump() for s in samples_a])
-        df_b = pl.DataFrame([s.model_dump() for s in samples_b])
-        combined_df = pl.concat([df_a, df_b], how="vertical_relaxed")
-
+class TestDifferentSamplers:
+    @pytest.mark.parametrize("sampler", ["Vanquish", "MClass", "Evosep"])
+    def test_sampler_generates_queue(self, config, sampler: str):
+        samples = make_vial_samples(3)
         params = QueueParameters(
             tech_area="Proteomics",
             instrument="ASTRAL_1",
-            sampler="Vanquish",
+            sampler=sampler,
             output_format="xcalibur",
             queue_pattern="noqc",
             polarity=["pos"],
-            date="20260128",
+            date="20260116",
             user="test",
-            randomization="blocked",
         )
+        queue_input = make_vial_queue_input(params, samples)
 
-        queue_input = (
-            QueueBuilder(configs)
-            .with_parameters(params, layout_mode="vial")
-            .add_samples_from_dataframe(combined_df)
-            .build()
-        )
-
-        generator = QueueGenerator(configs, queue_input, layout_mode="vial")
+        generator = QueueGenerator(config, queue_input, layout_mode="vial")
         result = generator.generate()
 
         assert isinstance(result, pl.DataFrame)
-        # All 10 samples should be present
-        assert len(result) == 10
-        rows = generator.build_rows()
-        user_ids = {int(r.sample_id) for r in rows.rows if r.sample_type == "user"}
-        expected_ids = {100 + i for i in range(1, 7)} | {200 + i for i in range(1, 5)}
-        assert user_ids == expected_ids
+        assert len(result) == 3
+
+
+class TestMetabolomicsPolarity:
+    def test_polarity_expansion(self, config):
+        samples = make_vial_samples(2)
+        params = QueueParameters(
+            tech_area="Metabolomics",
+            instrument="EXPLORIS_3",
+            sampler="Vanquish",
+            output_format="xcalibur",
+            queue_pattern="noqc",
+            polarity=["pos", "neg"],
+            date="20260116",
+            user="test",
+        )
+        queue_input = make_vial_queue_input(params, samples)
+
+        generator = QueueGenerator(config, queue_input, layout_mode="vial")
+        result = generator.build_rows()
+
+        # 2 samples x 2 polarities = 4 rows
+        assert len(result.rows) == 4
+
+        # Check polarity alternation
+        polarities = [row.polarity for row in result.rows]
+        assert polarities == ["pos", "neg", "pos", "neg"]

@@ -409,7 +409,8 @@ def qg_configuration(config_dir: Path | None = None) -> QGConfiguration:
         pydantic.ValidationError: If config data doesn't match schema
     """
     if config_dir is None:
-        config_dir = Path(__file__).parent.parent.parent / "qg_configs_new"
+        # Navigate from loader.py up to project root: src/qg/config_models_new/ -> qg_configs_new/
+        config_dir = Path(__file__).parent.parent.parent.parent / "qg_configs_new"
     config_dir = Path(config_dir)
 
     # Load configs using ClassVar paths as single source of truth
