@@ -5,20 +5,17 @@
 # This module implements position generation using pure functions and minimal
 # state classes. No Pydantic/dataclasses - this is the algorithmic layer.
 #
-# Architecture:
-#   - Position functions: Registry of (row, col) -> position formatters
-#   - generate_all_positions(): Pure function for grid enumeration
-#   - QCLayoutGrid: Stateless - fixed well positions
-#   - QCLayoutEvosep: Stateful - consumable tips with counters
-#   - assign_user_positions(): Pure function for position assignment
-#   - PositionGenerator: Orchestrator class
+# Public API:
+#   - SamplerStrategyV2: Main strategy class for position assignment
+#
+# All other functions and classes are private implementation details.
 #
 
 from __future__ import annotations
 
 from collections.abc import Callable
 from itertools import product
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from qg.config_models_new.positions import (
@@ -28,194 +25,123 @@ if TYPE_CHECKING:
         Sampler,
     )
 
+from qg.params_models import (
+    Plate,
+    PlateCell,
+    PlateQueue,
+    VialQueue,
+)
+
+PositionDict = dict[str, Any]  # {"tray": plate, "grid_position": grid_position}
+
+
 # =============================================================================
-# Position Functions (Registry)
+# Private: Helper Functions
 # =============================================================================
 
 
-def string_concat(row: str | int, col: int) -> str:
+def _assign_trays_if_missing(queue: PlateQueue, available_trays: list[str] | list[int]) -> PlateQueue:
+    """Assign trays to plates that don't have one, using available tray positions in order."""
+    plates_needing_tray = [p for p in queue.plates.values() if p.tray is None]
+    if not plates_needing_tray:
+        return queue
+
+    if len(plates_needing_tray) > len(available_trays):
+        raise ValueError(f"Not enough tray positions ({len(available_trays)}) for {len(plates_needing_tray)} plates")
+
+    new_plates = dict(queue.plates)
+    for plate, tray in zip(plates_needing_tray, available_trays, strict=False):
+        new_plates[plate.plate_id] = Plate(
+            plate_id=plate.plate_id,
+            tray=tray,
+            nr_samples=plate.nr_samples,
+        )
+
+    return PlateQueue(batches=queue.batches, plates=new_plates, cells=queue.cells)
+
+
+# =============================================================================
+# Private: Position Functions (Registry)
+# =============================================================================
+
+
+def _string_concat(row: str | int, col: int) -> str:
     """Grid samplers: 'A' + 1 → 'A1'."""
     return f"{row}{col}"
 
 
-def int_add(row: int, col: int) -> int:
+def _int_add(row: int, col: int) -> int:
     """Evosep: row + col → position (1-indexed offset)."""
     return row + col
 
 
-POSITION_FUNCTIONS: dict[str, Callable[[str | int, int], str | int]] = {
-    "string_concat": string_concat,
-    "int_add": int_add,
+_POSITION_FUNCTIONS: dict[str, Callable[[str | int, int], str | int]] = {
+    "string_concat": _string_concat,
+    "int_add": _int_add,
 }
 
 
-def get_position_function(name: str) -> Callable[[str | int, int], str | int]:
-    """Get a position function by name.
-
-    Args:
-        name: Function name ("string_concat" or "int_add")
-
-    Returns:
-        The position function
-
-    Raises:
-        KeyError: If function name is not found
-    """
-    if name not in POSITION_FUNCTIONS:
-        raise KeyError(f"Unknown position function: {name!r}. Available: {list(POSITION_FUNCTIONS.keys())}")
-    return POSITION_FUNCTIONS[name]
+def _get_position_function(name: str) -> Callable[[str | int, int], str | int]:
+    """Get a position function by name."""
+    if name not in _POSITION_FUNCTIONS:
+        raise KeyError(f"Unknown position function: {name!r}. Available: {list(_POSITION_FUNCTIONS.keys())}")
+    return _POSITION_FUNCTIONS[name]
 
 
 # =============================================================================
-# Position Generation (Pure Function)
+# Private: Position Generation
 # =============================================================================
 
 
-def generate_all_positions(
+def _generate_all_positions(
     trays: list[str] | list[int],
     rows: list[str] | list[int],
     cols: list[int],
     position_fun: Callable[[str | int, int], str | int],
 ) -> list[tuple[str | int, str | int]]:
-    """Generate all (tray, position) tuples using itertools.product.
-
-    Args:
-        trays: List of tray identifiers (e.g., ["Y", "R"] or [1, 2, 3])
-        rows: List of row identifiers (e.g., ["A", "B", ...] or [1, 2, ...])
-        cols: List of column identifiers (e.g., [1, 2, 3, ...])
-        position_fun: Function to format (row, col) into position
-
-    Returns:
-        List of (tray, position) tuples in enumeration order
-    """
+    """Generate all (tray, position) tuples using itertools.product."""
     return [(tray, position_fun(row, col)) for tray, row, col in product(trays, rows, cols)]
 
 
 # =============================================================================
-# Format Position
+# Private: QCLayoutGrid (Stateless)
 # =============================================================================
 
 
-def format_position(tray: str | int, position: str | int) -> str:
-    """Format a (tray, position) tuple as a string for output.
-
-    Args:
-        tray: Tray identifier
-        position: Position within tray
-
-    Returns:
-        Formatted position string (e.g., "Y:A1" or "1:42")
-    """
-    return f"{tray}:{position}"
-
-
-# =============================================================================
-# QC Layout Protocol
-# =============================================================================
-
-
-class QCLayoutProtocol(Protocol):
-    """Protocol for QC layout classes (duck typing)."""
-
-    def get_position(self, sample_id: str) -> tuple[str | int, str | int]:
-        """Get position for a QC sample by ID."""
-        ...
-
-    def reserved_positions(self) -> set[tuple[str | int, str | int]]:
-        """Get all positions reserved for QC samples."""
-        ...
-
-
-# =============================================================================
-# QCLayoutGrid (Stateless)
-# =============================================================================
-
-
-class QCLayoutGrid:
-    """Stateless QC layout for grid samplers with fixed well positions.
-
-    Each QC sample has a fixed (plate, row, col) that never changes.
-    """
+class _QCLayoutGrid:
+    """Stateless QC layout for grid samplers with fixed well positions."""
 
     def __init__(
         self,
         samples: list[QCSampleGrid],
         position_fun: Callable[[str | int, int], str | int],
     ) -> None:
-        """Initialize QC layout from config samples.
-
-        Args:
-            samples: List of QCSampleGrid from config
-            position_fun: Function to format (row, col) into position
-        """
         self._positions: dict[str, tuple[str, str | int]] = {
             s.sample_id: (s.plate, position_fun(s.row, s.col)) for s in samples
         }
 
     def get_position(self, sample_id: str) -> tuple[str, str | int]:
-        """Get the fixed position for a QC sample.
-
-        Args:
-            sample_id: QC sample identifier
-
-        Returns:
-            (plate, position) tuple
-
-        Raises:
-            KeyError: If sample_id is not found
-        """
         if sample_id not in self._positions:
             raise KeyError(f"Unknown QC sample: {sample_id!r}. Available: {list(self._positions.keys())}")
         return self._positions[sample_id]
 
     def reserved_positions(self) -> set[tuple[str, str | int]]:
-        """Get all positions reserved for QC samples.
-
-        Returns:
-            Set of (plate, position) tuples
-        """
         return set(self._positions.values())
 
-    @property
-    def sample_ids(self) -> list[str]:
-        """Get all QC sample IDs."""
-        return list(self._positions.keys())
-
 
 # =============================================================================
-# QCLayoutEvosep (Stateful)
+# Private: QCLayoutEvosep (Stateful)
 # =============================================================================
 
 
-class QCLayoutEvosep:
-    """Stateful QC layout for Evosep with consumable tip positions.
-
-    Each QC sample has a range of positions (tips). Each call to get_position()
-    returns the next available position and increments the counter.
-    """
+class _QCLayoutEvosep:
+    """Stateful QC layout for Evosep with consumable tip positions."""
 
     def __init__(self, samples: list[QCSampleEvosep]) -> None:
-        """Initialize QC layout from config samples.
-
-        Args:
-            samples: List of QCSampleEvosep from config
-        """
         self._samples: dict[str, QCSampleEvosep] = {s.sample_id: s for s in samples}
         self._counters: dict[str, int] = {s.sample_id: 0 for s in samples}
 
     def get_position(self, sample_id: str) -> tuple[int, int]:
-        """Get the next position for a QC sample and increment counter.
-
-        Args:
-            sample_id: QC sample identifier
-
-        Returns:
-            (tray, position) tuple
-
-        Raises:
-            KeyError: If sample_id is not found
-            ValueError: If position range is exhausted
-        """
         if sample_id not in self._samples:
             raise KeyError(f"Unknown QC sample: {sample_id!r}. Available: {list(self._samples.keys())}")
 
@@ -233,285 +159,153 @@ class QCLayoutEvosep:
         return (s.tray, pos)
 
     def reserved_positions(self) -> set[tuple[int, int]]:
-        """Get all positions reserved for QC samples (entire ranges).
-
-        Returns:
-            Set of (tray, position) tuples covering all ranges
-        """
         return {(s.tray, pos) for s in self._samples.values() for pos in range(s.position_start, s.position_end + 1)}
 
-    @property
-    def sample_ids(self) -> list[str]:
-        """Get all QC sample IDs."""
-        return list(self._samples.keys())
-
     def remaining(self, sample_id: str) -> int:
-        """Get remaining positions for a QC sample.
-
-        Args:
-            sample_id: QC sample identifier
-
-        Returns:
-            Number of remaining positions
-        """
         s = self._samples[sample_id]
         used = self._counters[sample_id]
         total = s.position_end - s.position_start + 1
         return total - used
 
     def reset(self) -> None:
-        """Reset all counters to initial state."""
         for sample_id in self._counters:
             self._counters[sample_id] = 0
 
 
 # =============================================================================
-# Validation Functions (Set Operations)
+# SamplerStrategyV2 (Public API)
 # =============================================================================
 
 
-def check_collisions(
-    user_positions: set[tuple[str | int, str | int]],
-    reserved: set[tuple[str | int, str | int]],
-) -> set[tuple[str | int, str | int]]:
-    """Find collisions between user positions and reserved QC positions.
+class SamplerStrategyV2:
+    """Strategy for assigning positions to samples.
 
-    Args:
-        user_positions: Set of positions requested by user
-        reserved: Set of positions reserved for QC samples
-
-    Returns:
-        Set of colliding positions (empty if no collisions)
-    """
-    return user_positions & reserved
-
-
-def check_out_of_bounds(
-    positions: set[tuple[str | int, str | int]],
-    valid_positions: set[tuple[str | int, str | int]],
-) -> set[tuple[str | int, str | int]]:
-    """Find positions that are outside the valid grid.
-
-    Args:
-        positions: Set of positions to check
-        valid_positions: Set of all valid positions in the grid
-
-    Returns:
-        Set of out-of-bounds positions (empty if all valid)
-    """
-    return positions - valid_positions
-
-
-def available_positions(
-    all_positions: set[tuple[str | int, str | int]],
-    reserved: set[tuple[str | int, str | int]],
-) -> set[tuple[str | int, str | int]]:
-    """Get positions available for user samples.
-
-    Args:
-        all_positions: Set of all positions in the grid
-        reserved: Set of positions reserved for QC samples
-
-    Returns:
-        Set of available positions
-    """
-    return all_positions - reserved
-
-
-def validate_no_collisions(
-    user_positions: set[tuple[str | int, str | int]],
-    reserved: set[tuple[str | int, str | int]],
-) -> None:
-    """Validate that user positions don't collide with reserved QC positions.
-
-    Args:
-        user_positions: Set of positions requested by user
-        reserved: Set of positions reserved for QC samples
-
-    Raises:
-        ValueError: If any collisions detected
-    """
-    collisions = user_positions & reserved
-    if collisions:
-        raise ValueError(f"Position collisions with QC samples: {collisions}")
-
-
-def validate_in_bounds(
-    positions: set[tuple[str | int, str | int]],
-    valid_positions: set[tuple[str | int, str | int]],
-) -> None:
-    """Validate that all positions are within the grid bounds.
-
-    Args:
-        positions: Set of positions to validate
-        valid_positions: Set of all valid positions in the grid
-
-    Raises:
-        ValueError: If any positions are out of bounds
-    """
-    out_of_bounds = positions - valid_positions
-    if out_of_bounds:
-        raise ValueError(f"Positions out of bounds: {out_of_bounds}")
-
-
-# =============================================================================
-# Position Assignment (Pure Function)
-# =============================================================================
-
-
-def assign_user_positions(
-    num_samples: int,
-    all_positions: list[tuple[str | int, str | int]],
-    reserved: set[tuple[str | int, str | int]],
-) -> list[tuple[str | int, str | int]]:
-    """Assign positions to user samples, skipping reserved QC positions.
-
-    Positions are assigned in row-major order (from itertools.product).
-
-    Args:
-        num_samples: Number of user samples to place
-        all_positions: All positions in row-major enumeration order
-        reserved: Set of positions reserved for QC samples
-
-    Returns:
-        List of (tray, position) tuples for user samples
-
-    Raises:
-        ValueError: If not enough positions available
-    """
-    # Filter available positions (set membership check is O(1))
-    available = [p for p in all_positions if p not in reserved]
-
-    if len(available) < num_samples:
-        raise ValueError(f"Not enough positions: need {num_samples}, have {len(available)} available")
-
-    return available[:num_samples]
-
-
-# =============================================================================
-# PositionGenerator (Orchestrator)
-# =============================================================================
-
-
-class PositionGenerator:
-    """Orchestrates position generation for a queue run.
-
-    This is the main entry point for position generation. It combines:
+    This is the main public interface for position assignment. It combines:
     - Sampler configuration (trays, position function)
     - Plate layout (rows, cols)
     - QC layout (reserved positions)
 
     And provides methods to:
-    - Assign positions to user samples
+    - Assign positions to user samples (VialQueue → PlateQueue)
+    - Validate plate positions (PlateQueue → PlateQueue)
     - Get positions for QC samples
-    - Query capacity
     """
 
     def __init__(
         self,
         sampler: Sampler,
         plate_layout: PlateLayout,
-        qc_layout: QCLayoutGrid | QCLayoutEvosep,
+        qc_samples: list[QCSampleGrid] | list[QCSampleEvosep],
+        layout_mode: str = "vial",
     ) -> None:
-        """Initialize position generator.
+        """Initialize sampler strategy.
 
         Args:
-            sampler: Sampler configuration (trays, position_fun)
-            plate_layout: Plate layout (rows, cols)
-            qc_layout: QC layout (grid or evosep)
+            sampler: Sampler configuration from config_models_new
+            plate_layout: Plate layout from config_models_new
+            qc_samples: QC sample positions (grid or evosep)
+            layout_mode: "vial" or "plate"
         """
-        self.sampler = sampler
-        self.plate_layout = plate_layout
-        self.qc_layout = qc_layout
+        self._sampler = sampler
+        self._plate_layout = plate_layout
+        self._layout_mode = layout_mode
+        self._position_fun = _get_position_function(sampler.position_fun)
 
-        self._position_fun = get_position_function(sampler.position_fun)
+        # Create the appropriate QC layout based on sample type
+        # Import here to avoid issues with TYPE_CHECKING block
+        from qg.config_models_new.positions import QCSampleGrid
 
-        # Pre-generate all positions (row-major order from product)
-        self._all_positions = generate_all_positions(
+        if qc_samples and isinstance(qc_samples[0], QCSampleGrid):
+            self._qc_layout: _QCLayoutGrid | _QCLayoutEvosep = _QCLayoutGrid(
+                qc_samples,
+                self._position_fun,  # type: ignore[arg-type]
+            )
+            self._is_evosep = False
+        else:
+            self._qc_layout = _QCLayoutEvosep(qc_samples)  # type: ignore[arg-type]
+            self._is_evosep = True
+
+        # Pre-generate all positions
+        self._all_positions = _generate_all_positions(
             trays=sampler.trays,
             rows=plate_layout.rows,
             cols=plate_layout.cols,
             position_fun=self._position_fun,
         )
 
-    def assign_positions(self, num_samples: int) -> list[tuple[str | int, str | int]]:
-        """Assign positions for user samples in row-major order.
+    def assign_positions(self, queue: VialQueue | PlateQueue) -> PlateQueue:
+        """Assign positions. Vial → PlateQueue, Plate → validated PlateQueue."""
+        if self._layout_mode == "vial":
+            if not isinstance(queue, VialQueue):
+                raise TypeError("Vial mode requires VialQueue")
+            return self._assign_positions_vial(queue)
+        else:
+            if not isinstance(queue, PlateQueue):
+                raise TypeError("Plate mode requires PlateQueue")
+            return self._validate_positions_plate(queue)
+
+    def _assign_positions_vial(self, queue: VialQueue) -> PlateQueue:
+        """Transform VialQueue to PlateQueue by assigning positions."""
+        reserved = self._qc_layout.reserved_positions()
+        available = [p for p in self._all_positions if p not in reserved]
+
+        n_samples = len(queue.samples)
+        if len(available) < n_samples:
+            raise ValueError(f"Not enough positions (need {n_samples}, have {len(available)})")
+
+        plates: dict[int, Plate] = {}
+        cells: list[PlateCell] = []
+
+        for i, sample in enumerate(queue.samples):
+            tray, grid_position = available[i]
+            plate_id = hash(tray) & 0xFFFFFFFF
+            if plate_id not in plates:
+                plates[plate_id] = Plate(plate_id=plate_id, tray=tray, nr_samples=0)
+            cells.append(
+                PlateCell(
+                    sample=sample,
+                    position=i + 1,
+                    grid_position=grid_position,
+                    plate_id=plate_id,
+                )
+            )
+
+        # Update sample counts
+        for plate_id in plates:
+            plates[plate_id] = Plate(
+                plate_id=plate_id,
+                tray=plates[plate_id].tray,
+                nr_samples=sum(1 for c in cells if c.plate_id == plate_id),
+            )
+
+        return PlateQueue(batches=queue.batches, plates=plates, cells=cells)
+
+    def _validate_positions_plate(self, queue: PlateQueue) -> PlateQueue:
+        """Assign trays to plates and validate positions don't conflict with QC."""
+        # Assign trays if missing
+        queue = _assign_trays_if_missing(queue, self._sampler.trays)
+
+        # Check for collisions with QC positions
+        reserved = self._qc_layout.reserved_positions()
+        for cell in queue.cells:
+            plate = queue.plates.get(cell.plate_id)
+            tray = plate.tray if plate else None
+            pos = (tray, cell.grid_position)
+            if pos in reserved:
+                raise ValueError(
+                    f"Sample '{cell.sample.sample_name}' at {tray}:{cell.grid_position} conflicts with QC position"
+                )
+
+        return queue
+
+    def get_qc_position(self, sample_name: str) -> PositionDict:
+        """Get QC sample position as dict.
 
         Args:
-            num_samples: Number of user samples to place
+            sample_name: QC sample identifier
 
         Returns:
-            List of (tray, position) tuples
-
-        Raises:
-            ValueError: If not enough positions available
+            Dict with "tray" and "grid_position" keys
         """
-        reserved = self.qc_layout.reserved_positions()
-        return assign_user_positions(num_samples, self._all_positions, reserved)
-
-    def get_qc_position(self, sample_id: str) -> tuple[str | int, str | int]:
-        """Get position for a QC sample.
-
-        Args:
-            sample_id: QC sample identifier
-
-        Returns:
-            (tray, position) tuple
-        """
-        return self.qc_layout.get_position(sample_id)
-
-    def format_position(self, tray: str | int, position: str | int) -> str:
-        """Format a position for output.
-
-        Args:
-            tray: Tray identifier
-            position: Position within tray
-
-        Returns:
-            Formatted position string (e.g., "Y:A1")
-        """
-        return format_position(tray, position)
-
-    @property
-    def capacity(self) -> int:
-        """Total positions minus reserved QC positions."""
-        return len(self._all_positions) - len(self.qc_layout.reserved_positions())
-
-    @property
-    def total_positions(self) -> int:
-        """Total positions (including QC reserved)."""
-        return len(self._all_positions)
-
-    @property
-    def qc_reserved_count(self) -> int:
-        """Number of positions reserved for QC samples."""
-        return len(self.qc_layout.reserved_positions())
-
-    @property
-    def all_positions(self) -> list[tuple[str | int, str | int]]:
-        """All positions in row-major order (read-only copy)."""
-        return list(self._all_positions)
-
-    def available_positions(self) -> set[tuple[str | int, str | int]]:
-        """Available positions (all - reserved)."""
-        return set(self._all_positions) - self.qc_layout.reserved_positions()
-
-    def validate_user_positions(
-        self,
-        user_positions: set[tuple[str | int, str | int]],
-    ) -> None:
-        """Validate user-provided positions.
-
-        Checks:
-        1. All positions are within grid bounds
-        2. No collisions with reserved QC positions
-
-        Args:
-            user_positions: Set of positions to validate
-
-        Raises:
-            ValueError: If validation fails
-        """
-        all_pos = set(self._all_positions)
-        validate_in_bounds(user_positions, all_pos)
-        validate_no_collisions(user_positions, self.qc_layout.reserved_positions())
+        tray, grid_position = self._qc_layout.get_position(sample_name)
+        return {"tray": tray, "grid_position": grid_position}
