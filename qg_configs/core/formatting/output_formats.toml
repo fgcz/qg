@@ -48,13 +48,14 @@ position_format = "{grid_position}"  # Evosep: position is numeric (1-96), tray 
 "Analysis Method" = "analysis_method"
 
 [hystar]
-description = "Bruker Hystar sequence format"
+description = "Bruker HyStar sequence format for TimsTOF"
 file_extension = ".csv"
-position_format = "{tray}:{grid_position}"  # e.g., "1:A1"
+position_format = "S{tray}-{grid_position}"  # e.g., "S1-A1"
 
 [hystar.columns]
-"Sample Name" = "sample_name"
-"Sample Position" = "position"
-"Method" = "method"
-"Data Path" = "data_path"
-"Injection Volume" = "inj_vol"
+"Position" = "position"
+"SampleID" = "file_name"
+"Volume" = "inj_vol"
+"DataPath" = "data_path"
+"SuperMethod" = "method"
+# SampleComment, ResultDatafile, ACQEND_EXECUTE - added by XML writer (hardcoded/derived)

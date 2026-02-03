@@ -189,6 +189,27 @@ def _build_queue_rows(slots: list[ExpandedSlot], data_path: str, inj_vol_overrid
     return QueueRowTable(rows=rows)
 
 
+def write_queue(df: pl.DataFrame, output_format: str) -> str:
+    """Write queue DataFrame to string in the appropriate format.
+
+    Args:
+        df: Formatted queue DataFrame
+        output_format: Format name (e.g., "xcalibur", "hystar")
+
+    Returns:
+        String content (CSV or XML)
+    """
+    if output_format == "hystar":
+        from io import BytesIO
+
+        from qg.hystar_xml_writer import write_hystar_xml
+
+        buffer = BytesIO()
+        write_hystar_xml(df, buffer)
+        return buffer.getvalue().decode("utf-8")
+    return df.write_csv()
+
+
 def format_table(queue_rows: QueueRowTable, output_format: OutputFormat) -> pl.DataFrame:
     """Format queue rows as DataFrame for the given output format."""
     df = queue_rows.to_table()
@@ -272,6 +293,25 @@ class QueueGenerator:
         """Execute pipeline and return formatted DataFrame."""
         rows = self.build_rows()
         return format_table(rows, self.output_format)
+
+    def write(self) -> str:
+        """Generate queue and return as string in the appropriate format (CSV or XML)."""
+        df = self.generate()
+        output_format_name = self.queue_input.parameters.output_format
+        if output_format_name == "hystar":
+            from io import BytesIO
+
+            from qg.hystar_xml_writer import write_hystar_xml
+
+            buffer = BytesIO()
+            write_hystar_xml(df, buffer)
+            return buffer.getvalue().decode("utf-8")
+        return df.write_csv()
+
+    @property
+    def file_extension(self) -> str:
+        """Return the appropriate file extension for the output format."""
+        return ".xml" if self.queue_input.parameters.output_format == "hystar" else ".csv"
 
     def build_rows(self) -> QueueRowTable:
         """Execute the queue generation pipeline."""

@@ -28,7 +28,7 @@ def cli_main() -> None:
         *,
         output: Annotated[
             Path | None,
-            cyclopts.Parameter(name=["--output", "-o"], help="Output CSV file (default: stdout)"),
+            cyclopts.Parameter(name=["--output", "-o"], help="Output file (default: stdout)"),
         ] = None,
         config_dir: Annotated[
             Path,
@@ -39,7 +39,7 @@ def cli_main() -> None:
             cyclopts.Parameter(name=["--verbose", "-v"], help="Enable verbose logging"),
         ] = False,
     ) -> None:
-        """Generate queue CSV from input JSON."""
+        """Generate queue from input JSON (CSV or XML based on output_format)."""
         # Configure logging
         if verbose:
             logging.basicConfig(
@@ -54,13 +54,13 @@ def cli_main() -> None:
         # Generate queue
         layout_mode = "plate" if isinstance(queue_input, PlateQueueInput) else "vial"
         generator = QueueGenerator(config, queue_input, layout_mode)
-        df = generator.generate()
+        content = generator.write()
 
-        # Output
+        # Output (respects output_format: CSV or XML)
         if output:
-            df.write_csv(output)
+            output.write_text(content)
         else:
-            print(df.write_csv())
+            print(content)
 
     app()
 

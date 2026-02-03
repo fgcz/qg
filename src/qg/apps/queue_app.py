@@ -835,6 +835,7 @@ def _(config, layout_mode, queue_parameters, sample_df, selected_orders):
     generated_queue_df = None
     raw_queue_df = None
     generation_error = None
+    generator = None
 
     if queue_parameters and layout_mode and selected_orders and sample_df is not None and not sample_df.is_empty():
         try:
@@ -844,9 +845,9 @@ def _(config, layout_mode, queue_parameters, sample_df, selected_orders):
                 .add_samples_from_dataframe(sample_df)
                 .build()
             )
-            _generator = QueueGenerator(config, _queue_input, layout_mode)
-            generated_queue_df = _generator.generate()
-            raw_queue_df = _generator.build_rows().to_table()
+            generator = QueueGenerator(config, _queue_input, layout_mode)
+            generated_queue_df = generator.generate()
+            raw_queue_df = generator.build_rows().to_table()
         except ValueError as e:
             # Config errors - provide user-friendly message
             logger.exception("Queue generation failed")
@@ -861,7 +862,7 @@ def _(config, layout_mode, queue_parameters, sample_df, selected_orders):
                 )
             else:
                 generation_error = _err_str
-    return generated_queue_df, generation_error, raw_queue_df
+    return generated_queue_df, generation_error, generator, raw_queue_df
 
 
 @app.cell
@@ -875,6 +876,7 @@ def _(
     formatted_ticket_toggle,
     generated_queue_df,
     generation_error,
+    generator,
     queue_parameters,
     raw_queue_df,
     selected_orders,
@@ -882,18 +884,19 @@ def _(
     # Queue Preview tab content
     if generation_error:
         queue_preview_content = mo.callout(mo.md(f"**Generation Error:** {generation_error}"), kind="danger")
-    elif generated_queue_df is not None:
+    elif generated_queue_df is not None and generator is not None:
         _display_df = generated_queue_df if formatted_ticket_toggle.value else raw_queue_df
 
-        # Create download button with CSV data
-        _csv_data = generated_queue_df.write_csv()
+        # Create download button with data in appropriate format
+        _output_data = generator.write()
         _container_ids = [o[0] for o in selected_orders] if selected_orders else []
         _ids_str = "_".join(str(c) for c in _container_ids) if _container_ids else "queue"
-        _filename = f"{queue_parameters.date}_{queue_parameters.instrument}_{_ids_str}.csv"
+        _ext = generator.file_extension
+        _filename = f"{queue_parameters.date}_{queue_parameters.instrument}_{_ids_str}{_ext}"
         _download_button = mo.download(
-            data=_csv_data.encode("utf-8"),
+            data=_output_data.encode("utf-8"),
             filename=_filename,
-            label="Download CSV",
+            label=f"Download {_ext.upper()[1:]}",
         )
 
         queue_preview_content = mo.vstack(

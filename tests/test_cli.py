@@ -77,3 +77,36 @@ def test_generate_queues_cli_stdout(config, tmp_path):
     header_line = result.stdout.split("\n")[0]
     for col in expected_columns:
         assert col in header_line, f"Missing column '{col}' in output"
+
+
+def test_generate_queues_cli_hystar_xml(config, tmp_path):
+    """Test qg CLI generates XML output for hystar format."""
+    queue_input = make_queue_input(num_samples=3, output_format="hystar")
+    input_file = tmp_path / "input.json"
+    input_file.write_text(queue_input.model_dump_json(indent=2))
+
+    output_file = tmp_path / "output.xml"
+
+    result = subprocess.run(
+        ["uv", "run", "qg", str(input_file), "-o", str(output_file), "-c", str(CONFIG_DIR)],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, f"CLI failed: {result.stderr}"
+    assert output_file.exists()
+    content = output_file.read_text()
+
+    # Check XML structure
+    assert "<?xml version=" in content
+    assert "<SampleTable>" in content
+    assert "</SampleTable>" in content
+    assert "<Sample " in content
+
+    # Check hystar-specific attributes
+    assert 'Position="S' in content  # Position starts with S
+    assert "SampleID=" in content
+    assert "DataPath=" in content
+    assert "ResultDatafile=" in content
+    assert 'SampleComment=""' in content
+    assert "ACQEND_EXECUTE=" in content
