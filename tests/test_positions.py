@@ -182,3 +182,79 @@ class TestSamplerStrategyV2NoQC:
         assert result.cells[2].grid_position == "A3"
         assert result.cells[3].grid_position == "A4"
         assert result.cells[4].grid_position == "A5"
+
+
+def create_multi_container_vial_queue(containers: list[tuple[int, int]]) -> VialQueue:
+    """Create VialQueue with samples from multiple containers.
+
+    Args:
+        containers: List of (container_id, n_samples) tuples
+    """
+    samples = []
+    batches = {}
+    sample_id = 1000
+    for container_id, n_samples in containers:
+        batches[container_id] = ContainerBatch(container_id=container_id)
+        for i in range(n_samples):
+            samples.append(
+                VialSample(
+                    sample_name=f"C{container_id}_S{i}",
+                    sample_id=sample_id,
+                    tube_id=f"{container_id}/{i}",
+                    container_id=container_id,
+                )
+            )
+            sample_id += 1
+    return VialQueue(batches=batches, samples=samples)
+
+
+class TestOneContainerPerTray:
+    """Tests for one_container_per_tray mode."""
+
+    def test_one_container_per_tray_assigns_to_different_trays(self, config) -> None:
+        """Each container's samples should be on a different tray."""
+        strategy = SamplerStrategyV2("Vanquish", "vial", config, "Proteomics", "noqc")
+        # Two containers with 3 samples each
+        queue = create_multi_container_vial_queue([(100, 3), (200, 3)])
+
+        result = strategy.assign_positions(queue, one_container_per_tray=True)
+
+        assert len(result.cells) == 6
+        # Container 100 samples should all be on tray Y (first tray)
+        container_100_trays = {result.plates[c.plate_id].tray for c in result.cells if c.sample.container_id == 100}
+        # Container 200 samples should all be on tray R (second tray)
+        container_200_trays = {result.plates[c.plate_id].tray for c in result.cells if c.sample.container_id == 200}
+        assert len(container_100_trays) == 1, "Container 100 should be on one tray"
+        assert len(container_200_trays) == 1, "Container 200 should be on one tray"
+        assert container_100_trays != container_200_trays, "Containers should be on different trays"
+
+    def test_one_container_per_tray_false_mixes_on_same_tray(self, config) -> None:
+        """Without one_container_per_tray, samples fill sequentially across trays."""
+        strategy = SamplerStrategyV2("Vanquish", "vial", config, "Proteomics", "noqc")
+        # Two containers with 3 samples each
+        queue = create_multi_container_vial_queue([(100, 3), (200, 3)])
+
+        result = strategy.assign_positions(queue, one_container_per_tray=False)
+
+        assert len(result.cells) == 6
+        # All 6 samples should be on the same tray (Y) since they fit
+        trays = {result.plates[c.plate_id].tray for c in result.cells}
+        assert len(trays) == 1, "All samples should be on the same tray when one_container_per_tray=False"
+
+    def test_one_container_per_tray_raises_when_not_enough_trays(self, config) -> None:
+        """Should raise error if more containers than available trays."""
+        strategy = SamplerStrategyV2("Vanquish", "vial", config, "Proteomics", "noqc")
+        # Vanquish has 4 trays, try with 5 containers
+        queue = create_multi_container_vial_queue([(100, 1), (200, 1), (300, 1), (400, 1), (500, 1)])
+
+        with pytest.raises(ValueError, match="Not enough trays.*5 containers"):
+            strategy.assign_positions(queue, one_container_per_tray=True)
+
+    def test_one_container_per_tray_raises_when_container_too_large(self, config) -> None:
+        """Should raise error if a container has more samples than tray capacity."""
+        strategy = SamplerStrategyV2("Vanquish", "vial", config, "Proteomics", "noqc")
+        # Vanquish_54 has 54 positions per tray, try with 60 samples in one container
+        queue = create_multi_container_vial_queue([(100, 60)])
+
+        with pytest.raises(ValueError, match="only has.*available positions"):
+            strategy.assign_positions(queue, one_container_per_tray=True)

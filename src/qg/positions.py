@@ -19,6 +19,7 @@ from qg.params_models import (
     PlateCell,
     PlateQueue,
     VialQueue,
+    VialSample,
 )
 
 PositionDict = dict[str, Any]  # {"tray": plate, "grid_position": grid_position}
@@ -117,13 +118,59 @@ class _VialAssigner:
     ) -> None:
         reserved = qc_layout.reserved_positions()
         self._available = [p for p in all_positions if p not in reserved]
+        # Group available positions by tray for one_container_per_tray mode
+        self._by_tray: dict[str | int, list[tuple[str | int, str | int]]] = {}
+        for pos in self._available:
+            tray = pos[0]
+            if tray not in self._by_tray:
+                self._by_tray[tray] = []
+            self._by_tray[tray].append(pos)
 
-    def assign(self, queue: VialQueue) -> PlateQueue:
+    def assign(self, queue: VialQueue, *, one_container_per_tray: bool = False) -> PlateQueue:
+        if one_container_per_tray:
+            return self._assign_separate(queue)
+        return self._assign_sequential(queue)
+
+    def _assign_sequential(self, queue: VialQueue) -> PlateQueue:
+        """Assign positions sequentially across all trays (original behavior)."""
         n = len(queue.samples)
         if n > len(self._available):
             raise ValueError(f"Not enough positions (need {n}, have {len(self._available)})")
 
         assignments = list(zip(queue.samples, self._available[:n], strict=True))
+        by_tray = self._group_by_tray(assignments)
+        return self._build_plate_queue(queue.batches, by_tray)
+
+    def _assign_separate(self, queue: VialQueue) -> PlateQueue:
+        """Assign each container's samples to a separate tray."""
+        # Group samples by container_id, preserving order
+        samples_by_container: dict[int, list[VialSample]] = {}
+        for sample in queue.samples:
+            cid = sample.container_id
+            if cid not in samples_by_container:
+                samples_by_container[cid] = []
+            samples_by_container[cid].append(sample)
+
+        trays = list(self._by_tray.keys())
+        n_containers = len(samples_by_container)
+        if n_containers > len(trays):
+            raise ValueError(
+                f"Not enough trays ({len(trays)}) for {n_containers} containers. "
+                f"Set one_container_per_tray=False to allow mixing containers on the same tray."
+            )
+
+        # Assign each container to a tray
+        assignments: list[tuple[VialSample, tuple[str | int, str | int]]] = []
+        for (cid, samples), tray in zip(samples_by_container.items(), trays, strict=False):
+            tray_positions = self._by_tray[tray]
+            if len(samples) > len(tray_positions):
+                raise ValueError(
+                    f"Container {cid} has {len(samples)} samples but tray {tray} only has "
+                    f"{len(tray_positions)} available positions."
+                )
+            for sample, pos in zip(samples, tray_positions, strict=False):
+                assignments.append((sample, pos))
+
         by_tray = self._group_by_tray(assignments)
         return self._build_plate_queue(queue.batches, by_tray)
 
@@ -269,11 +316,11 @@ class SamplerStrategyV2:
             self._vial_assigner = None
             self._plate_validator = _PlateValidator(sampler.trays, self._qc_layout)
 
-    def assign_positions(self, queue: VialQueue | PlateQueue) -> PlateQueue:
+    def assign_positions(self, queue: VialQueue | PlateQueue, *, one_container_per_tray: bool = False) -> PlateQueue:
         if self._layout_mode == "vial":
             if not isinstance(queue, VialQueue):
                 raise TypeError("Vial mode requires VialQueue")
-            return self._vial_assigner.assign(queue)  # type: ignore[union-attr]
+            return self._vial_assigner.assign(queue, one_container_per_tray=one_container_per_tray)  # type: ignore[union-attr]
         else:
             if not isinstance(queue, PlateQueue):
                 raise TypeError("Plate mode requires PlateQueue")

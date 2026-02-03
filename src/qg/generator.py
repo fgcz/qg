@@ -240,7 +240,9 @@ class QueueGenerator:
 
         # Transform/validate queue to get PlateQueue
         if isinstance(queue_input, VialQueueInput):
-            self.plate_queue: PlateQueue = self.sampler.assign_positions(queue_input.queue)
+            self.plate_queue: PlateQueue = self.sampler.assign_positions(
+                queue_input.queue, one_container_per_tray=params.one_container_per_tray
+            )
         else:
             self.plate_queue = self.sampler.assign_positions(queue_input.queue)
 

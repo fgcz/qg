@@ -82,6 +82,8 @@ class QueueParameters(BaseModel):
     randomization: Literal["no", "random", "blocked"] = "no"
     inj_vol_override: float | None = None
     qc_frequency_override: int | None = None
+    # If True, samples from different containers are placed on separate trays (vial mode only)
+    one_container_per_tray: bool = False
 
     @classmethod
     def create(
@@ -102,6 +104,7 @@ class QueueParameters(BaseModel):
         randomization: Literal["no", "random", "blocked"] = "no",
         inj_vol_override: float | None = None,
         qc_frequency_override: int | None = None,
+        one_container_per_tray: bool = False,
     ) -> Self:
         """Create validated QueueParameters."""
         if not configs.queue_patterns.get_pattern(tech_area, queue_pattern):
@@ -132,6 +135,7 @@ class QueueParameters(BaseModel):
             randomization=randomization,
             inj_vol_override=inj_vol_override,
             qc_frequency_override=qc_frequency_override,
+            one_container_per_tray=one_container_per_tray,
         )
 
 
