@@ -12,25 +12,25 @@ with app.setup:
     import polars as pl
     import tomli_w
 
-    from qg.config_models_new.formatting import (
+    from qg.config_models.formatting import (
         InstrumentsConfig,
         OutputFormatsConfig,
         SamplesConfig,
     )
-    from qg.config_models_new.loader import (
+    from qg.config_models.loader import (
         ConfigValidationError,
         QGConfiguration,
         qg_configuration,
     )
-    from qg.config_models_new.positions import (
+    from qg.config_models.positions import (
         PlateLayoutsConfig,
         QCLayoutsEvosepConfig,
         QCLayoutsGridConfig,
         SamplerPlateLayoutsConfig,
         SamplersConfig,
     )
-    from qg.config_models_new.structure import QueuePatternsConfig
-    from qg.config_models_new.ui import InstrumentConfigsConfig
+    from qg.config_models.structure import QueuePatternsConfig
+    from qg.config_models.ui import InstrumentConfigsConfig
 
     def compact_toml(toml_str: str) -> str:
         """Convert multiline arrays to inline format for readability."""
@@ -50,7 +50,7 @@ with app.setup:
 @app.cell
 def _():
     # Config directory
-    config_dir = Path(__file__).parent.parent.parent.parent / "qg_configs_new"
+    config_dir = Path(__file__).parent.parent.parent.parent / "qg_configs"
     cfg = qg_configuration(config_dir)
     return cfg, config_dir
 

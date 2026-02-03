@@ -74,7 +74,7 @@ class InstrumentConfigsConfig(BaseModel):
         """Load instrument configs from config directory.
 
         Args:
-            config_dir: Root config directory (e.g., qg_configs_new/)
+            config_dir: Root config directory (e.g., qg_configs/)
 
         Returns:
             InstrumentConfigsConfig with all configs loaded

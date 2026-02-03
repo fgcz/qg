@@ -5,11 +5,11 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from qg.config_models_new.loader import qg_configuration
+from qg.config_models.loader import qg_configuration
 from qg.params_models import PlateQueueInput, QueueParameters, VialQueueInput
 from qg.queue_builder import QueueBuilder
 
-CONFIG_DIR = Path(__file__).parent.parent / "qg_configs_new"
+CONFIG_DIR = Path(__file__).parent.parent / "qg_configs"
 
 
 @pytest.fixture

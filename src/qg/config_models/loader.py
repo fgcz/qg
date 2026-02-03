@@ -1,6 +1,6 @@
 """Configuration loading for queue generation (new config structure).
 
-This module provides the QGConfiguration class that loads configs from qg_configs_new/.
+This module provides the QGConfiguration class that loads configs from qg_configs/.
 """
 
 from __future__ import annotations
@@ -396,9 +396,9 @@ def qg_configuration(config_dir: Path | None = None) -> QGConfiguration:
     """Load all configuration files from a directory.
 
     Args:
-        config_dir: Path to configuration directory (e.g., qg_configs_new/).
+        config_dir: Path to configuration directory (e.g., qg_configs/).
                    Contains core/ and ui/ subdirectories.
-                   Defaults to qg_configs_new/ relative to this module.
+                   Defaults to qg_configs/ relative to this module.
 
     Returns:
         QGConfiguration with all validated configurations
@@ -409,8 +409,8 @@ def qg_configuration(config_dir: Path | None = None) -> QGConfiguration:
         pydantic.ValidationError: If config data doesn't match schema
     """
     if config_dir is None:
-        # Navigate from loader.py up to project root: src/qg/config_models_new/ -> qg_configs_new/
-        config_dir = Path(__file__).parent.parent.parent.parent / "qg_configs_new"
+        # Navigate from loader.py up to project root: src/qg/config_models_new/ -> qg_configs/
+        config_dir = Path(__file__).parent.parent.parent.parent / "qg_configs"
     config_dir = Path(config_dir)
 
     # Load configs using ClassVar paths as single source of truth

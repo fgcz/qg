@@ -8,14 +8,14 @@ from pathlib import Path
 
 import pytest
 
-from qg.config_models_new.loader import qg_configuration
+from qg.config_models.loader import qg_configuration
 from qg.queue_structure import build_multi_container_queue_structure
 
 
 @pytest.fixture
 def config():
     """Load all configs for testing."""
-    return qg_configuration(Path(__file__).parent.parent / "qg_configs_new")
+    return qg_configuration(Path(__file__).parent.parent / "qg_configs")
 
 
 @pytest.fixture

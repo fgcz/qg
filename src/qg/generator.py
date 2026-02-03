@@ -1,8 +1,4 @@
-"""Queue file generator for mass spectrometry instruments (new models).
-
-This module uses the new config_models_new architecture with NO dependencies
-on old config_models.py or config.py.
-"""
+"""Queue file generator for mass spectrometry instruments."""
 
 from __future__ import annotations
 
@@ -12,17 +8,17 @@ from typing import TYPE_CHECKING, Any, Literal
 import polars as pl
 from pydantic import BaseModel
 
-from qg.config_models_new.formatting import Sample
-from qg.config_models_new.loader import QGConfiguration
-from qg.config_models_new.methods import MethodsConfig
-from qg.config_models_new.structure import QueuePattern
+from qg.config_models.formatting import Sample
+from qg.config_models.loader import QGConfiguration
+from qg.config_models.methods import MethodsConfig
+from qg.config_models.structure import QueuePattern
 from qg.params_models import PlateCell, PlateQueue, QueueInput, VialQueueInput
-from qg.positions_new import SamplerStrategyV2
+from qg.positions import SamplerStrategyV2
 from qg.queue_structure import SlotEntry, build_multi_container_queue_structure
 from qg.randomize import randomize_plate_queue
 
 if TYPE_CHECKING:
-    from qg.config_models_new.formatting import OutputFormat, SamplesConfig
+    from qg.config_models.formatting import OutputFormat, SamplesConfig
 
 PositionDict = dict[str, Any]
 

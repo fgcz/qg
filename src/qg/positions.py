@@ -12,8 +12,8 @@ from collections.abc import Callable
 from itertools import product
 from typing import Any
 
-from qg.config_models_new.loader import QGConfiguration
-from qg.config_models_new.positions import QCSampleEvosep, QCSampleGrid
+from qg.config_models.loader import QGConfiguration
+from qg.config_models.positions import QCSampleEvosep, QCSampleGrid
 from qg.params_models import (
     Plate,
     PlateCell,

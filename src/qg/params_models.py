@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Literal, Self
 from pydantic import AliasChoices, BaseModel, Field
 
 if TYPE_CHECKING:
-    from qg.config_models_new.loader import QGConfiguration
+    from qg.config_models.loader import QGConfiguration
 
 
 class VialSample(BaseModel):

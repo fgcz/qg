@@ -16,8 +16,8 @@ with app.setup:
     logger = logging.getLogger(__name__)
 
     from qg.bfabric_utils import BfabricHelper
-    from qg.config_models_new.loader import qg_configuration
-    from qg.generator_new import QueueGenerator
+    from qg.config_models.loader import qg_configuration
+    from qg.generator import QueueGenerator
     from qg.params_models import QueueParameters
     from qg.queue_builder import QueueBuilder
 

@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from qg.config_models_new.loader import QGConfiguration, qg_configuration
+from qg.config_models.loader import QGConfiguration, qg_configuration
 
-CONFIG_DIR = Path(__file__).parent.parent / "qg_configs_new"
+CONFIG_DIR = Path(__file__).parent.parent / "qg_configs"
 
 
 # =============================================================================

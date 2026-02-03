@@ -3,7 +3,7 @@
 # =============================================================================
 #
 # Minimal validation, just load data from config files.
-# Domain logic is in positions_new.py (Layer 2).
+# Domain logic is in positions.py (Layer 2).
 
 import tomllib
 from pathlib import Path
@@ -64,7 +64,7 @@ class PlateLayoutsConfig(BaseModel):
         """Load plate layouts from config directory.
 
         Args:
-            config_dir: Root config directory (e.g., qg_configs_new/)
+            config_dir: Root config directory (e.g., qg_configs/)
 
         Returns:
             PlateLayoutsConfig with all layouts loaded
@@ -126,7 +126,7 @@ class SamplersConfig(BaseModel):
         """Load samplers from config directory.
 
         Args:
-            config_dir: Root config directory (e.g., qg_configs_new/)
+            config_dir: Root config directory (e.g., qg_configs/)
 
         Returns:
             SamplersConfig with all samplers loaded
@@ -185,7 +185,7 @@ class SamplerPlateLayoutsConfig(BaseModel):
         """Load sampler plate layouts from config directory.
 
         Args:
-            config_dir: Root config directory (e.g., qg_configs_new/)
+            config_dir: Root config directory (e.g., qg_configs/)
 
         Returns:
             SamplerPlateLayoutsConfig with all mappings loaded
@@ -247,7 +247,7 @@ class QCLayoutsGridConfig(BaseModel):
         """Load QC layouts for grid samplers from config directory.
 
         Args:
-            config_dir: Root config directory (e.g., qg_configs_new/)
+            config_dir: Root config directory (e.g., qg_configs/)
 
         Returns:
             QCLayoutsGridConfig with all samples loaded
@@ -309,7 +309,7 @@ class QCLayoutsEvosepConfig(BaseModel):
         """Load QC layouts for Evosep from config directory.
 
         Args:
-            config_dir: Root config directory (e.g., qg_configs_new/)
+            config_dir: Root config directory (e.g., qg_configs/)
 
         Returns:
             QCLayoutsEvosepConfig with all samples loaded

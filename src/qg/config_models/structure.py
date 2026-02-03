@@ -110,7 +110,7 @@ class QueuePatternsConfig(BaseModel):
         """Load queue patterns from config directory.
 
         Args:
-            config_dir: Root config directory (e.g., qg_configs_new/)
+            config_dir: Root config directory (e.g., qg_configs/)
 
         Returns:
             QueuePatternsConfig with all patterns loaded

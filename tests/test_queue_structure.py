@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from qg.config_models_new.loader import qg_configuration
-from qg.config_models_new.structure import QueuePattern
+from qg.config_models.loader import qg_configuration
+from qg.config_models.structure import QueuePattern
 from qg.queue_structure import (
     _compute_extended_positions,
     _compute_middle_block_positions,
@@ -22,7 +22,7 @@ from qg.queue_structure import (
 def all_patterns() -> dict[str, dict[str, QueuePattern]]:
     """Load all queue patterns from config."""
     qg_configuration.cache_clear()
-    config_dir = Path(__file__).parent.parent / "qg_configs_new"
+    config_dir = Path(__file__).parent.parent / "qg_configs"
     config = qg_configuration(config_dir)
     return config.queue_patterns.patterns
 
@@ -34,7 +34,7 @@ def all_patterns() -> dict[str, dict[str, QueuePattern]]:
 SAMPLE_COUNTS = [8, 16, 32, 56, 106, 212]
 
 # Generate pattern keys from config file
-_config_dir = Path(__file__).parent.parent / "qg_configs_new"
+_config_dir = Path(__file__).parent.parent / "qg_configs"
 _config = qg_configuration(_config_dir)
 _patterns_config = _config.queue_patterns
 

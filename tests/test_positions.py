@@ -1,23 +1,21 @@
 # =============================================================================
-# Tests for positions_new.py - SamplerStrategyV2
+# Tests for positions.py - SamplerStrategyV2
 # =============================================================================
-#
-# Tests use QGConfiguration from qg_configs_new/
 
 from pathlib import Path
 
 import pytest
 
-from qg.config_models_new.loader import qg_configuration
+from qg.config_models.loader import qg_configuration
 from qg.params_models import ContainerBatch, VialQueue, VialSample
-from qg.positions_new import SamplerStrategyV2
+from qg.positions import SamplerStrategyV2
 
-CONFIG_DIR = Path(__file__).parent.parent / "qg_configs_new"
+CONFIG_DIR = Path(__file__).parent.parent / "qg_configs"
 
 
 @pytest.fixture
 def config():
-    """Load QGConfiguration from qg_configs_new/."""
+    """Load QGConfiguration from qg_configs/."""
     return qg_configuration(CONFIG_DIR)
 
 

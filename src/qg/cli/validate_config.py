@@ -4,7 +4,7 @@ import sys
 
 import pydantic
 
-from qg.config_models_new.loader import qg_configuration
+from qg.config_models.loader import qg_configuration
 
 
 def cli_main() -> None:

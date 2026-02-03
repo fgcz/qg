@@ -20,7 +20,7 @@ from qg.params_models import (
 )
 
 if TYPE_CHECKING:
-    from qg.config_models_new.loader import QGConfiguration
+    from qg.config_models.loader import QGConfiguration
 
 
 class QueueBuilder:

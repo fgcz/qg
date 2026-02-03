@@ -8,8 +8,8 @@ from typing import Annotated
 
 import cyclopts
 
-from qg.config_models_new.loader import qg_configuration
-from qg.generator_new import QueueGenerator
+from qg.config_models.loader import qg_configuration
+from qg.generator import QueueGenerator
 from qg.params_models import PlateQueueInput, read_queue_input
 
 
@@ -33,7 +33,7 @@ def cli_main() -> None:
         config_dir: Annotated[
             Path,
             cyclopts.Parameter(name=["--config-dir", "-c"], help="Config directory"),
-        ] = Path("qg_configs_new"),
+        ] = Path("qg_configs"),
         verbose: Annotated[
             bool,
             cyclopts.Parameter(name=["--verbose", "-v"], help="Enable verbose logging"),

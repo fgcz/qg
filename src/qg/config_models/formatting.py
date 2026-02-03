@@ -75,7 +75,7 @@ class InstrumentsConfig(BaseModel):
         """Load instruments from config directory.
 
         Args:
-            config_dir: Root config directory (e.g., qg_configs_new/)
+            config_dir: Root config directory (e.g., qg_configs/)
 
         Returns:
             InstrumentsConfig with all instruments loaded
@@ -146,7 +146,7 @@ class OutputFormatsConfig(BaseModel):
         """Load output formats from config directory.
 
         Args:
-            config_dir: Root config directory (e.g., qg_configs_new/)
+            config_dir: Root config directory (e.g., qg_configs/)
 
         Returns:
             OutputFormatsConfig with all formats loaded
@@ -268,7 +268,7 @@ class SamplesConfig(BaseModel):
         """Load samples from config directory.
 
         Args:
-            config_dir: Root config directory (e.g., qg_configs_new/)
+            config_dir: Root config directory (e.g., qg_configs/)
 
         Returns:
             SamplesConfig with all samples loaded

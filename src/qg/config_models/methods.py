@@ -174,7 +174,7 @@ class MethodsConfig(BaseModel):
         into a MethodsConfig keyed by (tech_area, instrument).
 
         Args:
-            config_dir: Root config directory (e.g., qg_configs_new/)
+            config_dir: Root config directory (e.g., qg_configs/)
             instruments: InstrumentsConfig to determine which methods files to load
 
         Returns:
