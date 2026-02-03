@@ -216,6 +216,8 @@ class TestQueueParametersCreate:
             sampler="Vanquish",
             output_format="xcalibur",
             queue_pattern="standard",
+            queue_type="Vial",
+            plate_layout="Vanquish_54",
             polarity=["pos"],
             date="20260122",
             user="testuser",
@@ -235,6 +237,8 @@ class TestQueueParametersCreate:
                 sampler="Vanquish",
                 output_format="xcalibur",
                 queue_pattern="nonexistent",
+                queue_type="Vial",
+                plate_layout="Vanquish_54",
                 polarity=["pos"],
                 date="20260122",
             )
@@ -251,6 +255,8 @@ class TestQueueParametersCreate:
                 sampler="Vanquish",
                 output_format="nonexistent",
                 queue_pattern="standard",
+                queue_type="Vial",
+                plate_layout="Vanquish_54",
                 polarity=["pos"],
                 date="20260122",
             )
@@ -267,6 +273,8 @@ class TestQueueParametersCreate:
                 sampler="Vanquish",
                 output_format="xcalibur",
                 queue_pattern="standard",
+                queue_type="Vial",
+                plate_layout="Vanquish_54",
                 polarity=["pos"],
                 date="20260122",
             )
@@ -303,6 +311,8 @@ class TestQueueInputCreate:
             sampler="Vanquish",
             output_format="xcalibur",
             queue_pattern="standard",
+            queue_type="Plate",
+            plate_layout="Vanquish_96",
             polarity=["pos"],
             date="20260122",
         )
@@ -326,6 +336,8 @@ class TestQueueInputCreate:
             sampler="Vanquish",
             output_format="xcalibur",
             queue_pattern="standard",
+            queue_type="Vial",
+            plate_layout="Vanquish_54",
             polarity=["pos"],
             date="20260122",
         )

@@ -54,6 +54,8 @@ class TestOutputFormats:
             sampler="Vanquish",
             output_format=output_format,
             queue_pattern="noqc",
+            queue_type="Vial",
+            plate_layout="Vanquish_54",
             polarity=["pos"],
             date="20260116",
             user="test",
@@ -75,6 +77,8 @@ class TestOutputFormats:
             sampler="Vanquish",
             output_format=output_format,
             queue_pattern="noqc",
+            queue_type="Vial",
+            plate_layout="Vanquish_54",
             polarity=["pos"],
             date="20260116",
             user="test",
@@ -97,6 +101,8 @@ class TestNoQCPattern:
             sampler="Vanquish",
             output_format="xcalibur",
             queue_pattern="noqc",
+            queue_type="Vial",
+            plate_layout="Vanquish_54",
             polarity=["pos"],
             date="20260116",
             user="test",
@@ -119,6 +125,8 @@ class TestQCOnlyPattern:
             sampler="Vanquish",
             output_format="xcalibur",
             queue_pattern="qc_only",
+            queue_type="Vial",
+            plate_layout="Vanquish_54",
             polarity=["pos"],
             date="20260116",
             user="test",
@@ -148,6 +156,8 @@ class TestRandomization:
             sampler="Vanquish",
             output_format="xcalibur",
             queue_pattern="noqc",
+            queue_type="Vial",
+            plate_layout="Vanquish_54",
             polarity=["pos"],
             date="20260116",
             user="test",
@@ -184,6 +194,8 @@ class TestRandomization:
             sampler="Vanquish",
             output_format="xcalibur",
             queue_pattern="noqc",
+            queue_type="Vial",
+            plate_layout="Vanquish_54",
             polarity=["pos"],
             date="20260116",
             user="test",
@@ -217,6 +229,8 @@ class TestRandomization:
             sampler="Vanquish",
             output_format="xcalibur",
             queue_pattern="noqc",
+            queue_type="Vial",
+            plate_layout="Vanquish_54",
             polarity=["pos"],
             date="20260116",
             user="test",
@@ -232,8 +246,11 @@ class TestRandomization:
 
 
 class TestDifferentSamplers:
-    @pytest.mark.parametrize("sampler", ["Vanquish", "MClass", "Evosep"])
-    def test_sampler_generates_queue(self, config, sampler: str):
+    @pytest.mark.parametrize(
+        "sampler,plate_layout",
+        [("Vanquish", "Vanquish_54"), ("MClass", "MClass_48"), ("Evosep", "Evosep_96")],
+    )
+    def test_sampler_generates_queue(self, config, sampler: str, plate_layout: str):
         samples = make_vial_samples(3)
         params = QueueParameters(
             tech_area="Proteomics",
@@ -241,6 +258,8 @@ class TestDifferentSamplers:
             sampler=sampler,
             output_format="xcalibur",
             queue_pattern="noqc",
+            queue_type="Vial",
+            plate_layout=plate_layout,
             polarity=["pos"],
             date="20260116",
             user="test",
@@ -263,6 +282,8 @@ class TestMetabolomicsPolarity:
             sampler="Vanquish",
             output_format="xcalibur",
             queue_pattern="noqc",
+            queue_type="Vial",
+            plate_layout="Vanquish_54",
             polarity=["pos", "neg"],
             date="20260116",
             user="test",

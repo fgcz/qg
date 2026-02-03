@@ -212,6 +212,7 @@ class SamplerStrategyV2:
         config: QGConfiguration,
         tech_area: str,
         qc_layout_name: str = "standard",
+        plate_layout_name: str | None = None,
     ) -> None:
         self._layout_mode = layout_mode
 
@@ -220,14 +221,18 @@ class SamplerStrategyV2:
         if not sampler:
             raise ValueError(f"Unknown sampler: {sampler_name}")
 
-        # Resolve plate_layout via sampler_plate_layouts
+        # Resolve plate_layout - use explicit if provided, else auto-resolve
         queue_type = "Vial" if layout_mode == "vial" else "Plate"
-        plate_layout_names = config.sampler_plate_layouts.get_plate_layouts_for_sampler(sampler_name, queue_type)
-        if not plate_layout_names:
-            raise ValueError(f"No {queue_type} layout for {sampler_name}")
-        plate_layout = config.plate_layouts.get_layout(plate_layout_names[0])
+        if plate_layout_name:
+            resolved_layout_name = plate_layout_name
+        else:
+            plate_layout_names = config.sampler_plate_layouts.get_plate_layouts_for_sampler(sampler_name, queue_type)
+            if not plate_layout_names:
+                raise ValueError(f"No {queue_type} layout for {sampler_name}")
+            resolved_layout_name = plate_layout_names[0]
+        plate_layout = config.plate_layouts.get_layout(resolved_layout_name)
         if not plate_layout:
-            raise ValueError(f"Unknown plate layout: {plate_layout_names[0]}")
+            raise ValueError(f"Unknown plate layout: {resolved_layout_name}")
 
         # Resolve QC samples based on sampler type
         if sampler_name == "Evosep":

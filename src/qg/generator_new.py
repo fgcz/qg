@@ -239,6 +239,7 @@ class QueueGenerator:
             config=config,
             tech_area=params.tech_area,
             qc_layout_name=self.pattern.qc_layout_name,
+            plate_layout_name=params.plate_layout,
         )
 
         # Transform/validate queue to get PlateQueue

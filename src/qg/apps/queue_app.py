@@ -89,28 +89,42 @@ def _():
 
 
 @app.cell
-def _(
-    get_instrument,
-    master_table,
-    get_pattern,
-    get_sampler,
-    get_tech_area,
-):
-    # Progressive filtering based on current selections
-    filtered_table = master_table
+def _(master_table, tech_area_field):
+    # Filter by tech_area for instrument options
+    if tech_area_field.value:
+        table_by_tech = master_table.filter(pl.col("tech_area") == tech_area_field.value)
+    else:
+        table_by_tech = master_table
+    return (table_by_tech,)
 
-    if get_tech_area() is not None:
-        filtered_table = filtered_table.filter(pl.col("tech_area") == get_tech_area())
 
-    if get_instrument() is not None:
-        filtered_table = filtered_table.filter(pl.col("instrument") == get_instrument())
+@app.cell
+def _(table_by_tech, instrument_field):
+    # Filter by instrument for sampler options
+    if instrument_field.value:
+        table_by_instrument = table_by_tech.filter(pl.col("instrument") == instrument_field.value)
+    else:
+        table_by_instrument = table_by_tech
+    return (table_by_instrument,)
 
-    if get_sampler() is not None:
-        filtered_table = filtered_table.filter(pl.col("sampler") == get_sampler())
 
-    if get_pattern() is not None:
-        filtered_table = filtered_table.filter(pl.col("pattern_name") == get_pattern())
+@app.cell
+def _(table_by_instrument, sampler_field):
+    # Filter by sampler for pattern options
+    if sampler_field.value:
+        table_by_sampler = table_by_instrument.filter(pl.col("sampler") == sampler_field.value)
+    else:
+        table_by_sampler = table_by_instrument
+    return (table_by_sampler,)
 
+
+@app.cell
+def _(table_by_sampler, pattern_field):
+    # Final filtered table with all selections
+    if pattern_field.value:
+        filtered_table = table_by_sampler.filter(pl.col("pattern_name") == pattern_field.value)
+    else:
+        filtered_table = table_by_sampler
     return (filtered_table,)
 
 
@@ -120,20 +134,13 @@ def _(
 
 
 @app.cell
-def _(master_table, set_tech_area, get_tech_area, set_instrument, set_sampler, set_pattern):
+def _(master_table, set_instrument, set_sampler, set_pattern):
     # Tech area dropdown - options from master table
+    # Default to Proteomics, user can change
     _options = sorted(master_table["tech_area"].unique().to_list())
-    _current = get_tech_area()
-
-    # Compute initial value if state is not set
-    if _current is None or _current not in _options:
-        _initial = "Proteomics" if "Proteomics" in _options else (_options[0] if _options else None)
-        if _initial:
-            set_tech_area(_initial)
-        _current = _initial
+    _default = "Proteomics" if "Proteomics" in _options else (_options[0] if _options else None)
 
     def _on_tech_area_change(value):
-        set_tech_area(value)
         # Clear downstream selections when parent changes
         set_instrument(None)
         set_sampler(None)
@@ -141,7 +148,7 @@ def _(master_table, set_tech_area, get_tech_area, set_instrument, set_sampler, s
 
     tech_area_field = mo.ui.dropdown(
         options=_options,
-        value=_current,
+        value=_default,
         label="Tech Area",
         on_change=_on_tech_area_change,
     )
@@ -149,103 +156,106 @@ def _(master_table, set_tech_area, get_tech_area, set_instrument, set_sampler, s
 
 
 @app.cell
-def _(
-    filtered_table,
-    get_instrument,
-    set_instrument,
-    set_pattern,
-    set_sampler,
-    get_tech_area,
-):
-    # Instrument dropdown - options from filtered table
-    _options = sorted(filtered_table["instrument"].unique().to_list()) if get_tech_area() else []
-    _current = get_instrument()
-
-    # Initialize state if not set or invalid
-    if _options and (_current is None or _current not in _options):
-        _initial = _options[0]
-        set_instrument(_initial)
-        _current = _initial
-
-    def _on_instrument_change(value):
-        set_instrument(value)
-        set_sampler(None)
-        set_pattern(None)
+def _(table_by_tech, tech_area_field):
+    # Instrument dropdown - options based on selected tech_area
+    _options = sorted(table_by_tech["instrument"].unique().to_list()) if tech_area_field.value else []
+    _default = _options[0] if _options else None
 
     instrument_field = mo.ui.dropdown(
         options=_options,
-        value=_current if _current in _options else None,
+        value=_default,
         label="Instrument",
-        on_change=_on_instrument_change,
     )
     return (instrument_field,)
 
 
 @app.cell
-def _(
-    filtered_table,
-    get_instrument,
-    get_sampler,
-    set_pattern,
-    set_sampler,
-):
-    # Sampler dropdown - options from filtered table
-    _options = sorted(filtered_table["sampler"].unique().to_list()) if get_instrument() else []
-    _current = get_sampler()
-
-    # Initialize state if not set or invalid
-    if _options and (_current is None or _current not in _options):
-        _initial = _options[0]
-        set_sampler(_initial)
-        _current = _initial
-
-    def _on_sampler_change(value):
-        set_sampler(value)
-        set_pattern(None)
+def _(table_by_instrument, instrument_field):
+    # Sampler dropdown - options based on selected instrument
+    _options = sorted(table_by_instrument["sampler"].unique().to_list()) if instrument_field.value else []
+    _default = _options[0] if _options else None
 
     sampler_field = mo.ui.dropdown(
         options=_options,
-        value=_current if _current in _options else None,
+        value=_default,
         label="Sampler",
-        on_change=_on_sampler_change,
     )
     return (sampler_field,)
 
 
 @app.cell
-def _(filtered_table, get_pattern, get_sampler, set_pattern):
-    # Pattern dropdown - options from filtered table, sorted with default first
-    if get_sampler():
-        # Get patterns and sort so default_pattern comes first
-        _df = filtered_table.select(["pattern_name", "default_pattern"]).unique()
-        _default = _df.filter(pl.col("pattern_name") == pl.col("default_pattern"))["pattern_name"].to_list()
+def _(table_by_sampler, sampler_field):
+    # Pattern dropdown - options based on selected sampler, with default first
+    if sampler_field.value:
+        _df = table_by_sampler.select(["pattern_name", "default_pattern"]).unique()
+        _default_patterns = _df.filter(pl.col("pattern_name") == pl.col("default_pattern"))["pattern_name"].to_list()
         _others = (
             _df.filter(pl.col("pattern_name") != pl.col("default_pattern"))["pattern_name"].unique().sort().to_list()
         )
-        _options = _default + _others
+        _options = _default_patterns + _others
+        _default = _options[0] if _options else None
     else:
         _options = []
-    _current = get_pattern()
-
-    # Initialize state if not set or invalid
-    if _options and (_current is None or _current not in _options):
-        _initial = _options[0]
-        set_pattern(_initial)
-        _current = _initial
+        _default = None
 
     pattern_field = mo.ui.dropdown(
         options=_options,
-        value=_current if _current in _options else None,
+        value=_default,
         label="Pattern",
-        on_change=set_pattern,
     )
     return (pattern_field,)
 
 
 @app.cell
-def _(filtered_table, get_sampler):
-    # Output format is derived from the filtered table (determined by instrument+sampler)
-    if get_sampler():
+def _(table_by_sampler, sampler_field):
+    # Queue type dropdown - options based on selected sampler
+    if sampler_field.value:
+        _options = sorted(table_by_sampler["queue_type"].unique().to_list())
+        _default = _options[0] if _options else None
+    else:
+        _options = []
+        _default = None
+
+    queue_type_field = mo.ui.dropdown(
+        options=_options,
+        value=_default,
+        label="Queue Type",
+    )
+    return (queue_type_field,)
+
+
+@app.cell
+def _(table_by_sampler, sampler_field, queue_type_field):
+    # Filter by queue_type for plate_layout options
+    if queue_type_field.value:
+        table_by_queue_type = table_by_sampler.filter(pl.col("queue_type") == queue_type_field.value)
+    else:
+        table_by_queue_type = table_by_sampler
+    return (table_by_queue_type,)
+
+
+@app.cell
+def _(table_by_queue_type, queue_type_field):
+    # Plate layout dropdown - options based on selected sampler + queue_type
+    if queue_type_field.value:
+        _options = sorted(table_by_queue_type["plate_layout"].unique().to_list())
+        _default = _options[0] if _options else None
+    else:
+        _options = []
+        _default = None
+
+    plate_layout_field = mo.ui.dropdown(
+        options=_options,
+        value=_default,
+        label="Plate Layout",
+    )
+    return (plate_layout_field,)
+
+
+@app.cell
+def _(filtered_table, sampler_field):
+    # Output format is derived (determined by instrument+sampler combination)
+    if sampler_field.value and not filtered_table.is_empty():
         _formats = filtered_table["output_format"].unique().to_list()
         output_format_value = _formats[0] if _formats else "xcalibur"
     else:
@@ -257,22 +267,28 @@ def _(filtered_table, get_sampler):
 def _(
     config,
     filtered_table,
-    get_instrument,
-    get_pattern,
-    get_sampler,
-    get_tech_area,
+    tech_area_field,
+    instrument_field,
+    sampler_field,
+    pattern_field,
+    queue_type_field,
+    plate_layout_field,
 ):
     # Validate that all parameters are set and a valid QC layout exists
     validation_errors = []
 
     # Check required selections
-    if not get_tech_area():
+    if not tech_area_field.value:
         validation_errors.append("Tech area not selected")
-    if not get_instrument():
+    if not instrument_field.value:
         validation_errors.append("Instrument not selected")
-    if not get_sampler():
+    if not sampler_field.value:
         validation_errors.append("Sampler not selected")
-    if not get_pattern():
+    if not queue_type_field.value:
+        validation_errors.append("Queue type not selected")
+    if not plate_layout_field.value:
+        validation_errors.append("Plate layout not selected")
+    if not pattern_field.value:
         validation_errors.append("Pattern not selected")
 
     # Check combination exists in filtered table
@@ -280,67 +296,68 @@ def _(
         validation_errors.append("No valid combination found")
 
     # Check QC layout exists for this combination
-    if not validation_errors:
-        # Get qc_layout_name and plate_layout from the pattern
-        _pattern = config.queue_patterns.get_pattern(get_tech_area(), get_pattern())
+    if not validation_errors and plate_layout_field.value:
+        # Get qc_layout_name from the pattern
+        _pattern = config.queue_patterns.get_pattern(tech_area_field.value, pattern_field.value)
         if _pattern:
             _qc_layout_name = _pattern.qc_layout_name
-            # Get plate_layout from filtered_table
-            _plate_layouts = filtered_table["plate_layout"].unique().to_list()
-            if _plate_layouts:
-                _plate_layout = _plate_layouts[0]
-                # Check if QC layout exists (for grid samplers)
-                if get_sampler() != "Evosep":
-                    _qc_samples = config.qc_layouts_grid.get_samples(get_tech_area(), _qc_layout_name, _plate_layout)
-                    if not _qc_samples:
-                        validation_errors.append(
-                            f"No QC layout for {get_tech_area()}/{_qc_layout_name}/{_plate_layout}"
-                        )
-                else:
-                    _qc_samples = config.qc_layouts_evosep.get_samples(get_tech_area(), _qc_layout_name, _plate_layout)
-                    if not _qc_samples:
-                        validation_errors.append(
-                            f"No Evosep QC layout for {get_tech_area()}/{_qc_layout_name}/{_plate_layout}"
-                        )
+            # Check if QC layout exists (for grid samplers)
+            if sampler_field.value != "Evosep":
+                _qc_samples = config.qc_layouts_grid.get_samples(
+                    tech_area_field.value, _qc_layout_name, plate_layout_field.value
+                )
+                if not _qc_samples:
+                    validation_errors.append(
+                        f"No QC layout for {tech_area_field.value}/{_qc_layout_name}/{plate_layout_field.value}"
+                    )
+            else:
+                _qc_samples = config.qc_layouts_evosep.get_samples(
+                    tech_area_field.value, _qc_layout_name, plate_layout_field.value
+                )
+                if not _qc_samples:
+                    validation_errors.append(
+                        f"No Evosep QC layout for {tech_area_field.value}/{_qc_layout_name}/{plate_layout_field.value}"
+                    )
 
     config_valid = len(validation_errors) == 0
     return config_valid, validation_errors
 
 
 @app.cell
-def _(config_valid, validation_errors):
-    # Create validation status indicator
-    if config_valid:
-        validation_status = mo.callout(mo.md("✓ Configuration valid"), kind="success")
+def _(config, config_valid, queue_type_field, sample_df, sampler_field, validation_errors):
+    # Combine config validation with dynamic plate capacity check
+    _all_errors = list(validation_errors)
+
+    # Check plate count vs sampler tray capacity (only for plate mode)
+    if (
+        config_valid
+        and queue_type_field.value == "Plate"
+        and sampler_field.value
+        and sample_df is not None
+        and not sample_df.is_empty()
+        and "plate_id" in sample_df.columns
+    ):
+        _sampler = config.samplers.get_sampler(sampler_field.value)
+        if _sampler:
+            _num_trays = len(_sampler.trays)
+            _num_plates = sample_df["plate_id"].n_unique()
+            if _num_plates > _num_trays:
+                _all_errors.append(f"{sampler_field.value} has {_num_trays} trays but {_num_plates} plates selected")
+
+    # Only show validation status when there are errors
+    if not _all_errors:
+        validation_status = None
     else:
-        _errors = "\n".join(f"• {e}" for e in validation_errors)
-        validation_status = mo.callout(mo.md(f"**Missing:**\n{_errors}"), kind="warn")
+        _errors_md = "\n".join(f"• {e}" for e in _all_errors)
+        validation_status = mo.callout(mo.md(f"**Issues:**\n{_errors_md}"), kind="warn")
     return (validation_status,)
 
 
 @app.cell
-def _(
-    set_instrument,
-    set_pattern,
-    set_sampler,
-    set_tech_area,
-):
-    # Reset button - clears all selections
-    def _on_reset(_):
-        set_tech_area(None)
-        set_instrument(None)
-        set_sampler(None)
-        set_pattern(None)
-
-    reset_button = mo.ui.button(label="Reset", on_click=_on_reset, kind="warn")
-    return (reset_button,)
-
-
-@app.cell
-def _(config, get_pattern, get_tech_area):
+def _(config, pattern_field, tech_area_field):
     # Get default QC frequency from selected pattern (fallback to 16 if not yet selected)
-    if get_tech_area() and get_pattern():
-        _pattern = config.queue_patterns.get_pattern(get_tech_area(), get_pattern())
+    if tech_area_field.value and pattern_field.value:
+        _pattern = config.queue_patterns.get_pattern(tech_area_field.value, pattern_field.value)
         default_qc_frequency = _pattern.run_QC_after_n_samples if _pattern else 16
     else:
         default_qc_frequency = 16
@@ -358,10 +375,10 @@ def _(default_qc_frequency):
 
 
 @app.cell
-def _(config, get_instrument, get_tech_area):
+def _(config, instrument_field, tech_area_field):
     # Load available methods from config (empty DataFrame if not yet selected)
-    if get_tech_area() and get_instrument():
-        _methods = config.methods.get_methods(get_tech_area(), get_instrument())
+    if tech_area_field.value and instrument_field.value:
+        _methods = config.methods.get_methods(tech_area_field.value, instrument_field.value)
         methods_df = _methods.to_table() if _methods else pl.DataFrame()
     else:
         methods_df = pl.DataFrame()
@@ -418,9 +435,9 @@ def _(available_methods_neg, polarity_group):
 
 
 @app.cell
-def _(get_tech_area):
+def _(tech_area_field):
     # Polarity selection - proteomics uses single polarity (pos), metabolomics/lipidomics use both
-    _needs_both_polarities = get_tech_area() in ("Metabolomics", "Lipidomics")
+    _needs_both_polarities = tech_area_field.value in ("Metabolomics", "Lipidomics")
     polarity_group = mo.ui.batch(
         mo.md("**Polarity:** {pos} pos {neg} neg"),
         {"pos": mo.ui.checkbox(value=True), "neg": mo.ui.checkbox(value=_needs_both_polarities)},
@@ -466,10 +483,11 @@ def _(
     method_field_pos,
     output_format_value,
     pattern_field,
+    plate_layout_field,
     polarity_group,
     qc_frequency_field,
+    queue_type_field,
     randomization_field,
-    reset_button,
     sampler_field,
     tech_area_field,
     user_field,
@@ -483,12 +501,13 @@ def _(
 
     _sidebar_items = [
         mo.md("# Queue Generator"),
-        mo.hstack([mo.md("### Instrument"), reset_button], justify="space-between"),
+        mo.md("### Instrument"),
         tech_area_field,
         instrument_field,
         sampler_field,
+        queue_type_field,
+        plate_layout_field,
         mo.md(f"**Output:** {output_format_value}"),
-        validation_status,
         mo.md("### Queue"),
         *_queue_items,
         mo.md("### Options"),
@@ -498,6 +517,9 @@ def _(
         inj_vol_field,
         qc_frequency_field,
     ]
+    # Add validation errors at bottom only if present
+    if validation_status is not None:
+        _sidebar_items.append(validation_status)
 
     mo.sidebar(mo.vstack(_sidebar_items))
     return
@@ -521,14 +543,22 @@ def _(BFABRIC_CACHE_DIR):
 
 
 @app.cell
-def _(projects_df, get_tech_area):
+def _(projects_df, tech_area_field, queue_type_field):
+    # Map tech_area to bfabric Area values
     _area_map = {
         "Proteomics": ["Proteomics"],
         "Metabolomics": ["Metabolomics/Biophysics"],
         "Lipidomics": ["Metabolomics/Biophysics"],
     }
-    _allowed_areas = _area_map.get(get_tech_area(), [])
-    _filtered = projects_df.filter(pl.col("Area").is_in(_allowed_areas))
+    # Map queue_type to bfabric Type values (Vial -> Vials, Plate -> Plates)
+    _type_map = {
+        "Vial": ["Vials"],
+        "Plate": ["Plates"],
+    }
+    _allowed_areas = _area_map.get(tech_area_field.value, [])
+    _allowed_types = _type_map.get(queue_type_field.value, [])
+
+    _filtered = projects_df.filter(pl.col("Area").is_in(_allowed_areas) & pl.col("Type").is_in(_allowed_types))
     project_table = mo.ui.table(
         data=_filtered,
         selection="multi",
@@ -634,7 +664,6 @@ def _(full_samples_df, subset_samples_select):
 
 @app.cell
 def _(
-    container_type,
     date_field,
     inj_vol_field,
     instrument_field,
@@ -642,11 +671,13 @@ def _(
     method_field_pos,
     output_format_value,
     pattern_field,
+    plate_layout_field,
     polarity_group,
     qc_frequency_field,
+    queue_type_field,
     randomization_field,
     sampler_field,
-    get_tech_area,
+    tech_area_field,
     user_field,
 ):
     queue_parameters_err = None
@@ -659,16 +690,18 @@ def _(
         _method_fields = {"pos": method_field_pos, "neg": method_field_neg}
         method_dict = {pol: field.value for pol, field in _method_fields.items() if field is not None and field.value}
 
-        # Derive layout_mode from container_type (used by QueueBuilder, not QueueParameters)
-        layout_mode = "vial" if container_type == "Vials" else "plate"
+        # Derive layout_mode from queue_type (Vial -> vial, Plate -> plate)
+        layout_mode = "vial" if queue_type_field.value == "Vial" else "plate"
 
         queue_parameters = QueueParameters.model_validate(
             {
-                "tech_area": get_tech_area(),
+                "tech_area": tech_area_field.value,
                 "instrument": instrument_field.value,
                 "sampler": sampler_field.value,
                 "output_format": output_format_value,
                 "queue_pattern": pattern_field.value,
+                "queue_type": queue_type_field.value,
+                "plate_layout": plate_layout_field.value,
                 "polarity": _polarity,
                 "date": date_field.value.strftime("%Y%m%d"),
                 "user": user_field.value.strip(),
@@ -815,9 +848,19 @@ def _(config, layout_mode, queue_parameters, sample_df, selected_orders):
             generated_queue_df = _generator.generate()
             raw_queue_df = _generator.build_rows().to_table()
         except ValueError as e:
-            # Config errors (missing QC layout, etc.) - log and display to user
+            # Config errors - provide user-friendly message
             logger.exception("Queue generation failed")
-            generation_error = str(e)
+            _err_str = str(e)
+            if "Not enough tray positions" in _err_str:
+                # Extract numbers from error message
+                _sampler = queue_parameters.sampler if queue_parameters else "sampler"
+                generation_error = (
+                    f"{_err_str}\n\n"
+                    f"The {_sampler} sampler cannot hold this many plates simultaneously. "
+                    f"Either select fewer plates, or use a sampler with more tray positions (e.g., Vanquish has 4 trays)."
+                )
+            else:
+                generation_error = _err_str
     return generated_queue_df, generation_error, raw_queue_df
 
 
@@ -866,12 +909,61 @@ def _(
 
 
 @app.cell
-def _(filtered_table):
-    # Valid Combinations tab content - shows filtered combinations based on current selections
+def _(
+    master_table,
+    tech_area_field,
+    instrument_field,
+    sampler_field,
+    pattern_field,
+    queue_type_field,
+    plate_layout_field,
+):
+    # Valid Combinations tab content - shows ALL combinations with matching rows highlighted
+    # Build match condition based on current selections
+    _match_conditions = []
+    _active_filters = []
+
+    if tech_area_field.value:
+        _match_conditions.append(pl.col("tech_area") == tech_area_field.value)
+        _active_filters.append(f"**tech_area** = {tech_area_field.value}")
+    if instrument_field.value:
+        _match_conditions.append(pl.col("instrument") == instrument_field.value)
+        _active_filters.append(f"**instrument** = {instrument_field.value}")
+    if sampler_field.value:
+        _match_conditions.append(pl.col("sampler") == sampler_field.value)
+        _active_filters.append(f"**sampler** = {sampler_field.value}")
+    if pattern_field.value:
+        _match_conditions.append(pl.col("pattern_name") == pattern_field.value)
+        _active_filters.append(f"**pattern_name** = {pattern_field.value}")
+    if queue_type_field.value:
+        _match_conditions.append(pl.col("queue_type") == queue_type_field.value)
+        _active_filters.append(f"**queue_type** = {queue_type_field.value}")
+    if plate_layout_field.value:
+        _match_conditions.append(pl.col("plate_layout") == plate_layout_field.value)
+        _active_filters.append(f"**plate_layout** = {plate_layout_field.value}")
+
+    # Create combined match expression
+    _display_cols = [c for c in master_table.columns if c != "default_pattern"]
+    if _match_conditions:
+        _combined_match = _match_conditions[0]
+        for _cond in _match_conditions[1:]:
+            _combined_match = _combined_match & _cond
+        # Add "✓" column for matching rows, sort matches to top
+        _display_table = (
+            master_table.with_columns(pl.when(_combined_match).then(pl.lit("✓")).otherwise(pl.lit("")).alias("✓"))
+            .select(["✓"] + _display_cols)
+            .sort("✓", descending=True)
+        )
+        _match_count = master_table.filter(_combined_match).height
+    else:
+        _display_table = master_table.with_columns(pl.lit("").alias("✓")).select(["✓"] + _display_cols)
+        _match_count = master_table.height
+
+    _filters_md = " | ".join(_active_filters) if _active_filters else "None"
     valid_combinations_content = mo.vstack(
         [
-            mo.md(f"**{len(filtered_table)} combinations** matching current selection"),
-            filtered_table,
+            mo.md(f"**{_match_count}/{len(master_table)} combinations** match | Filters: {_filters_md}"),
+            _display_table,
         ]
     )
     return (valid_combinations_content,)

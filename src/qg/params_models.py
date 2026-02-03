@@ -72,6 +72,8 @@ class QueueParameters(BaseModel):
     sampler: str
     output_format: str
     queue_pattern: str
+    queue_type: Literal["Vial", "Plate"]
+    plate_layout: str
     polarity: list[Literal["pos", "neg"]] = Field(default_factory=list)
     date: str  # YYYYMMDD
     user: str = ""
@@ -91,6 +93,8 @@ class QueueParameters(BaseModel):
         sampler: str,
         output_format: str,
         queue_pattern: str,
+        queue_type: Literal["Vial", "Plate"],
+        plate_layout: str,
         polarity: list[Literal["pos", "neg"]],
         date: str,
         user: str = "",
@@ -108,6 +112,10 @@ class QueueParameters(BaseModel):
             raise ValueError(f"Instrument '{instrument}' not found for {tech_area}")
         if not configs.samples.get_sample(tech_area, "default"):
             raise ValueError(f"No 'default' sample definition for {tech_area}")
+        # Validate plate_layout exists for (sampler, queue_type)
+        valid_layouts = configs.sampler_plate_layouts.get_plate_layouts_for_sampler(sampler, queue_type)
+        if plate_layout not in valid_layouts:
+            raise ValueError(f"Plate layout '{plate_layout}' not valid for {sampler}/{queue_type}")
 
         return cls(
             tech_area=tech_area,
@@ -115,6 +123,8 @@ class QueueParameters(BaseModel):
             sampler=sampler,
             output_format=output_format,
             queue_pattern=queue_pattern,
+            queue_type=queue_type,
+            plate_layout=plate_layout,
             polarity=polarity,
             date=date,
             user=user,

@@ -64,6 +64,8 @@ def make_queue_input(
     instrument: str = "ASTRAL_1",
     sampler: str = "Vanquish",
     queue_pattern: str = "standard",
+    queue_type: str = "Vial",
+    plate_layout: str = "Vanquish_54",
     output_format: str = "xcalibur",
     container_id: int = 12345,
 ) -> VialQueueInput:
@@ -80,6 +82,8 @@ def make_queue_input(
         instrument: Instrument name.
         sampler: Sampler name (e.g., "Vanquish").
         queue_pattern: Queue pattern name.
+        queue_type: Queue type ("Vial" or "Plate").
+        plate_layout: Plate layout name.
         output_format: Output format name.
         container_id: Container ID (single-group mode only).
 
@@ -92,6 +96,8 @@ def make_queue_input(
         sampler=sampler,
         output_format=output_format,
         queue_pattern=queue_pattern,
+        queue_type=queue_type,
+        plate_layout=plate_layout,
         polarity=["pos"],
         date=date.today().strftime("%Y%m%d"),
         user="testuser",

@@ -20,3 +20,4 @@ queue_files/
 plans/
 bfabric_cache/
 deprecated/
+.coverage

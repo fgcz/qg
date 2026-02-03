@@ -9,7 +9,7 @@
 
 [Proteomics.noqc]
 description = "No QC - no QC samples"
-qc_layout_name = "none"
+qc_layout_name = "standard"
 run_QC_after_n_samples = 1000
 start = []
 middle = []
@@ -82,7 +82,7 @@ end = ["clean"]
 
 [Metabolomics.noqc]
 description = "No QC - no QC samples"
-qc_layout_name = "none"
+qc_layout_name = "standard"
 run_QC_after_n_samples = 1
 start = []
 middle = []
@@ -139,7 +139,7 @@ end = ["blank", "blank", "blank"]
 
 [Lipidomics.noqc]
 description = "No QC - no QC samples"
-qc_layout_name = "none"
+qc_layout_name = "standard"
 run_QC_after_n_samples = 1
 start = []
 middle = []
