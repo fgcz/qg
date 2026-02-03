@@ -207,7 +207,7 @@ class QCSampleGrid(BaseModel):
     qc_layout_name: str = Field(..., description="QC layout name")
     plate_layout: str = Field(..., description="Plate layout name")
     sample_id: str = Field(..., description="QC sample identifier")
-    plate: str = Field(..., description="Plate/tray identifier")
+    tray: str = Field(..., description="Tray identifier")
     row: str = Field(..., description="Row identifier")
     col: int = Field(..., description="Column identifier")
 

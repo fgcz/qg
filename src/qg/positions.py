@@ -63,7 +63,7 @@ class _QCLayoutGrid:
         position_fun: Callable[[str | int, int], str | int],
     ) -> None:
         self._positions: dict[str, tuple[str, str | int]] = {
-            s.sample_id: (s.plate, position_fun(s.row, s.col)) for s in samples
+            s.sample_id: (s.tray, position_fun(s.row, s.col)) for s in samples
         }
 
     def get_position(self, sample_id: str) -> tuple[str, str | int]:
@@ -244,8 +244,8 @@ class SamplerStrategyV2:
 
         position_fun = _PositionFunctions.get(sampler.position_fun)
 
-        # Create QC layout based on sample type
-        is_grid = qc_samples and hasattr(qc_samples[0], "plate")
+        # Create QC layout based on sample type (grid has row/col, evosep has position_start/end)
+        is_grid = qc_samples and hasattr(qc_samples[0], "row")
         if is_grid:
             self._qc_layout: _QCLayoutGrid | _QCLayoutEvosep = _QCLayoutGrid(
                 qc_samples,  # type: ignore[arg-type]

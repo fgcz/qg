@@ -10,7 +10,6 @@ Cells are grouped by (plate_id, container_id) and shuffled within each group.
 from __future__ import annotations
 
 import random
-from itertools import groupby
 from typing import Literal
 
 from qg.params_models import PlateCell, PlateQueue
@@ -28,18 +27,25 @@ def randomize_plate_queue(
 
     Returns:
         New PlateQueue with randomized cells (plates/batches unchanged).
+        Group order is preserved (e.g., if plate 2 comes before plate 1 in input,
+        it will also come before plate 1 in output).
     """
     if mode == "no":
         return queue
 
-    # Group cells by (plate_id, container_id)
+    # Group cells by (plate_id, container_id), preserving original group order
     def group_key(cell: PlateCell) -> tuple[int, int]:
         return (cell.plate_id, cell.sample.container_id)
 
-    sorted_cells = sorted(queue.cells, key=group_key)
-    grouped = {k: list(v) for k, v in groupby(sorted_cells, key=group_key)}
+    # Build groups in order of first occurrence (not sorted by key)
+    grouped: dict[tuple[int, int], list[PlateCell]] = {}
+    for cell in queue.cells:
+        key = group_key(cell)
+        if key not in grouped:
+            grouped[key] = []
+        grouped[key].append(cell)
 
-    # Randomize within each group
+    # Randomize within each group, preserving group order
     randomized_cells: list[PlateCell] = []
     for cells in grouped.values():
         if mode == "random":

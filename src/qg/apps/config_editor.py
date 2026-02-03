@@ -215,7 +215,7 @@ def _(
             mo.md("### Sampler Plate Layouts (sampler_plate_layouts.csv)"),
             sampler_plate_layouts_editor,
             mo.md("### QC Layouts - Grid Samplers (qc_layouts_grid.csv)"),
-            mo.md("_Columns: tech_area, qc_layout_name, plate_layout, sample_id, plate, row, col_"),
+            mo.md("_Columns: tech_area, qc_layout_name, plate_layout, sample_id, tray, row, col_"),
             qc_layouts_grid_editor,
             mo.md("### QC Layouts - Evosep (qc_layouts_evosep.csv)"),
             mo.md("_Columns: tech_area, qc_layout_name, plate_layout, sample_id, tray, position_start, position_end_"),

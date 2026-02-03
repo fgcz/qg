@@ -274,3 +274,48 @@ class TestBoundaryRespect:
 
         assert set(group1_ids) == {1, 2, 3, 4, 5}
         assert set(group2_ids) == {6, 7, 8, 9, 10}
+
+    def test_plate_order_preserved(self):
+        """Plate order from B-Fabric input is preserved (plate 2 before plate 1)."""
+        py_random.seed(42)
+        # Input order: plate 2 first, then plate 1 (simulating B-Fabric order)
+        queue = make_multi_plate_queue(
+            [
+                (2, 100, 5),  # plate 2, container 100, ids 1-5
+                (1, 200, 5),  # plate 1, container 200, ids 6-10
+            ]
+        )
+        input_plate_order = [c.plate_id for c in queue.cells]
+        assert input_plate_order == [2, 2, 2, 2, 2, 1, 1, 1, 1, 1], "Test setup: plate 2 before plate 1"
+
+        result = randomize_plate_queue(queue, "random")
+
+        # Plate order must be preserved: first 5 are plate 2, next 5 are plate 1
+        output_plate_order = [c.plate_id for c in result.cells]
+        assert output_plate_order[:5] == [2, 2, 2, 2, 2], "Plate 2 samples should come first"
+        assert output_plate_order[5:] == [1, 1, 1, 1, 1], "Plate 1 samples should come second"
+
+    def test_plate_order_preserved_blocked(self):
+        """Plate order preserved with blocked randomization too."""
+        py_random.seed(42)
+        # Create cells manually to set grouping_var and preserve plate 2 before plate 1
+        cells = []
+        batches = {100: ContainerBatch(container_id=100), 200: ContainerBatch(container_id=200)}
+        plates = {1: Plate(plate_id=1, tray="Y", nr_samples=4), 2: Plate(plate_id=2, tray="R", nr_samples=4)}
+
+        # Plate 2 first (container 100)
+        for i, group in enumerate(["A", "A", "B", "B"]):
+            s = VialSample(sample_name=f"p2_{group}{i}", sample_id=i + 1, container_id=100, grouping_var=group)
+            cells.append(PlateCell(sample=s, position=i, grid_position=f"A{i}", plate_id=2))
+        # Plate 1 second (container 200)
+        for i, group in enumerate(["A", "A", "B", "B"]):
+            s = VialSample(sample_name=f"p1_{group}{i}", sample_id=i + 5, container_id=200, grouping_var=group)
+            cells.append(PlateCell(sample=s, position=i, grid_position=f"A{i}", plate_id=1))
+
+        queue = PlateQueue(batches=batches, plates=plates, cells=cells)
+
+        result = randomize_plate_queue(queue, "blocked")
+
+        output_plate_order = [c.plate_id for c in result.cells]
+        assert output_plate_order[:4] == [2, 2, 2, 2], "Plate 2 samples should come first"
+        assert output_plate_order[4:] == [1, 1, 1, 1], "Plate 1 samples should come second"

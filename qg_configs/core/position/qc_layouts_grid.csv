@@ -1,4 +1,4 @@
-tech_area,qc_layout_name,plate_layout,sample_id,plate,row,col
+tech_area,qc_layout_name,plate_layout,sample_id,tray,row,col
 # Proteomics - Vanquish_54 (vial mode, QC row F, plate B)
 Proteomics,standard,Vanquish_54,QC01,B,F,9
 Proteomics,standard,Vanquish_54,QC03dia,B,F,8
