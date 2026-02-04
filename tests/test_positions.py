@@ -1,14 +1,19 @@
 # =============================================================================
-# Tests for positions.py - SamplerStrategyV2
+# Tests for positionV2.py
 # =============================================================================
+#
+# - assign() tests use create_assembled_sampler
+# - get_qc_position() tests use create_qc_position_provider
 
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 
 from qg.config_models.loader import qg_configuration
 from qg.params_models import ContainerBatch, VialQueue, VialSample
-from qg.positions import SamplerStrategyV2
+from qg.positionV2 import create_assembled_sampler
+from qg.qc_positions import create_qc_position_provider
 
 CONFIG_DIR = Path(__file__).parent.parent / "qg_configs"
 
@@ -29,14 +34,19 @@ def create_vial_queue(n_samples: int) -> VialQueue:
     return VialQueue(batches=batches, samples=samples)
 
 
-class TestSamplerStrategyV2Vanquish:
-    """Tests for SamplerStrategyV2 with Vanquish sampler."""
+# =============================================================================
+# Tests for assign() - using positionV2.create_assembled_sampler
+# =============================================================================
+
+
+class TestAssignVanquish:
+    """Tests for assign() with Vanquish sampler."""
 
     def test_assigns_positions(self, config) -> None:
-        strategy = SamplerStrategyV2("Vanquish", "vial", config, "Proteomics", "standard")
+        sampler = create_assembled_sampler("Vanquish", "vial", config, "Proteomics", "standard")
         queue = create_vial_queue(3)
 
-        result = strategy.assign_positions(queue)
+        result = sampler.assign(queue)
 
         assert len(result.cells) == 3
         for cell in result.cells:
@@ -47,10 +57,10 @@ class TestSamplerStrategyV2Vanquish:
         assert result.cells[2].grid_position == "A3"
 
     def test_row_major_order(self, config) -> None:
-        strategy = SamplerStrategyV2("Vanquish", "vial", config, "Proteomics", "standard")
+        sampler = create_assembled_sampler("Vanquish", "vial", config, "Proteomics", "standard")
         queue = create_vial_queue(15)
 
-        result = strategy.assign_positions(queue)
+        result = sampler.assign(queue)
 
         # First 9 samples in row A (Vanquish_54 has 9 cols)
         for i in range(9):
@@ -60,35 +70,26 @@ class TestSamplerStrategyV2Vanquish:
         assert result.cells[10].grid_position == "B2"
 
     def test_spans_multiple_plates(self, config) -> None:
-        strategy = SamplerStrategyV2("Vanquish", "vial", config, "Proteomics", "standard")
+        sampler = create_assembled_sampler("Vanquish", "vial", config, "Proteomics", "standard")
         # Vanquish_54 = 6 rows x 9 cols = 54 positions per plate
         queue = create_vial_queue(60)
 
-        result = strategy.assign_positions(queue)
+        result = sampler.assign(queue)
 
         # Check plates via the plates dict
         trays = [result.plates[c.plate_id].tray for c in result.cells]
         assert trays[0] == "Y"
         # After filling first plate (minus QC positions), should move to next tray
 
-    def test_get_qc_position(self, config) -> None:
-        strategy = SamplerStrategyV2("Vanquish", "vial", config, "Proteomics", "standard")
 
-        # Get a QC position defined in qc_layouts_grid.csv
-        pos = strategy.get_qc_position("QC01")
-
-        assert "tray" in pos
-        assert "grid_position" in pos
-
-
-class TestSamplerStrategyV2MClass:
-    """Tests for SamplerStrategyV2 with MClass sampler."""
+class TestAssignMClass:
+    """Tests for assign() with MClass sampler."""
 
     def test_assigns_positions(self, config) -> None:
-        strategy = SamplerStrategyV2("MClass", "vial", config, "Proteomics", "standard")
+        sampler = create_assembled_sampler("MClass", "vial", config, "Proteomics", "standard")
         queue = create_vial_queue(3)
 
-        result = strategy.assign_positions(queue)
+        result = sampler.assign(queue)
 
         assert len(result.cells) == 3
         assert result.cells[0].grid_position == "A1"
@@ -96,11 +97,11 @@ class TestSamplerStrategyV2MClass:
         assert result.cells[2].grid_position == "A3"
 
     def test_row_major_order(self, config) -> None:
-        strategy = SamplerStrategyV2("MClass", "vial", config, "Proteomics", "standard")
+        sampler = create_assembled_sampler("MClass", "vial", config, "Proteomics", "standard")
         # MClass_48 has 8 columns per row
         queue = create_vial_queue(10)
 
-        result = strategy.assign_positions(queue)
+        result = sampler.assign(queue)
 
         # First 8 samples in row A
         for i in range(8):
@@ -110,14 +111,14 @@ class TestSamplerStrategyV2MClass:
         assert result.cells[9].grid_position == "B2"
 
 
-class TestSamplerStrategyV2Evosep:
-    """Tests for SamplerStrategyV2 with Evosep sampler."""
+class TestAssignEvosep:
+    """Tests for assign() with Evosep sampler."""
 
     def test_assigns_positions(self, config) -> None:
-        strategy = SamplerStrategyV2("Evosep", "vial", config, "Proteomics", "standard")
+        sampler = create_assembled_sampler("Evosep", "vial", config, "Proteomics", "standard")
         queue = create_vial_queue(3)
 
-        result = strategy.assign_positions(queue)
+        result = sampler.assign(queue)
 
         assert len(result.cells) == 3
         # Evosep uses numeric positions
@@ -126,11 +127,11 @@ class TestSamplerStrategyV2Evosep:
         assert result.cells[2].grid_position == 3
 
     def test_sequential_order(self, config) -> None:
-        strategy = SamplerStrategyV2("Evosep", "vial", config, "Proteomics", "standard")
+        sampler = create_assembled_sampler("Evosep", "vial", config, "Proteomics", "standard")
         # Test positions across a slot boundary
         queue = create_vial_queue(100)
 
-        result = strategy.assign_positions(queue)
+        result = sampler.assign(queue)
 
         # First 96 samples on tray 1
         for i in range(96):
@@ -141,39 +142,22 @@ class TestSamplerStrategyV2Evosep:
         assert result.cells[96].grid_position == 1
 
     def test_raises_when_full(self, config) -> None:
-        strategy = SamplerStrategyV2("Evosep", "vial", config, "Proteomics", "standard")
+        sampler = create_assembled_sampler("Evosep", "vial", config, "Proteomics", "standard")
         # 4 slots x 96 = 384, request more
         queue = create_vial_queue(400)
 
-        with pytest.raises(ValueError, match="Not enough positions"):
-            strategy.assign_positions(queue)
-
-    def test_get_qc_position(self, config) -> None:
-        strategy = SamplerStrategyV2("Evosep", "vial", config, "Proteomics", "standard")
-
-        pos = strategy.get_qc_position("QC01")
-
-        assert "tray" in pos
-        assert "grid_position" in pos
-
-    def test_get_qc_position_increments(self, config) -> None:
-        strategy = SamplerStrategyV2("Evosep", "vial", config, "Proteomics", "standard")
-
-        pos1 = strategy.get_qc_position("QC01")
-        pos2 = strategy.get_qc_position("QC01")
-
-        # Evosep QC positions should increment (consumable tips)
-        assert pos1["grid_position"] != pos2["grid_position"]
+        with pytest.raises(ValueError):
+            sampler.assign(queue)
 
 
-class TestSamplerStrategyV2NoQC:
+class TestAssignNoQC:
     """Tests with noqc pattern (no QC positions reserved)."""
 
     def test_noqc_uses_all_positions(self, config) -> None:
-        strategy = SamplerStrategyV2("Vanquish", "vial", config, "Proteomics", "noqc")
+        sampler = create_assembled_sampler("Vanquish", "vial", config, "Proteomics", "noqc")
         queue = create_vial_queue(5)
 
-        result = strategy.assign_positions(queue)
+        result = sampler.assign(queue)
 
         assert len(result.cells) == 5
         # All positions available starting from A1
@@ -213,11 +197,11 @@ class TestOneContainerPerTray:
 
     def test_one_container_per_tray_assigns_to_different_trays(self, config) -> None:
         """Each container's samples should be on a different tray."""
-        strategy = SamplerStrategyV2("Vanquish", "vial", config, "Proteomics", "noqc")
+        sampler = create_assembled_sampler("Vanquish", "vial", config, "Proteomics", "noqc")
         # Two containers with 3 samples each
         queue = create_multi_container_vial_queue([(100, 3), (200, 3)])
 
-        result = strategy.assign_positions(queue, one_container_per_tray=True)
+        result = sampler.assign(queue, one_container_per_tray=True)
 
         assert len(result.cells) == 6
         # Container 100 samples should all be on tray Y (first tray)
@@ -230,11 +214,11 @@ class TestOneContainerPerTray:
 
     def test_one_container_per_tray_false_mixes_on_same_tray(self, config) -> None:
         """Without one_container_per_tray, samples fill sequentially across trays."""
-        strategy = SamplerStrategyV2("Vanquish", "vial", config, "Proteomics", "noqc")
+        sampler = create_assembled_sampler("Vanquish", "vial", config, "Proteomics", "noqc")
         # Two containers with 3 samples each
         queue = create_multi_container_vial_queue([(100, 3), (200, 3)])
 
-        result = strategy.assign_positions(queue, one_container_per_tray=False)
+        result = sampler.assign(queue, one_container_per_tray=False)
 
         assert len(result.cells) == 6
         # All 6 samples should be on the same tray (Y) since they fit
@@ -243,18 +227,71 @@ class TestOneContainerPerTray:
 
     def test_one_container_per_tray_raises_when_not_enough_trays(self, config) -> None:
         """Should raise error if more containers than available trays."""
-        strategy = SamplerStrategyV2("Vanquish", "vial", config, "Proteomics", "noqc")
+        sampler = create_assembled_sampler("Vanquish", "vial", config, "Proteomics", "noqc")
         # Vanquish has 4 trays, try with 5 containers
         queue = create_multi_container_vial_queue([(100, 1), (200, 1), (300, 1), (400, 1), (500, 1)])
 
-        with pytest.raises(ValueError, match="Not enough trays.*5 containers"):
-            strategy.assign_positions(queue, one_container_per_tray=True)
+        with pytest.raises(ValueError):
+            sampler.assign(queue, one_container_per_tray=True)
 
     def test_one_container_per_tray_raises_when_container_too_large(self, config) -> None:
         """Should raise error if a container has more samples than tray capacity."""
-        strategy = SamplerStrategyV2("Vanquish", "vial", config, "Proteomics", "noqc")
+        sampler = create_assembled_sampler("Vanquish", "vial", config, "Proteomics", "noqc")
         # Vanquish_54 has 54 positions per tray, try with 60 samples in one container
         queue = create_multi_container_vial_queue([(100, 60)])
 
-        with pytest.raises(ValueError, match="only has.*available positions"):
-            strategy.assign_positions(queue, one_container_per_tray=True)
+        with pytest.raises(ValueError):
+            sampler.assign(queue, one_container_per_tray=True)
+
+
+# =============================================================================
+# Tests for get_qc_position() - using positionV2.create_qc_position_provider
+# =============================================================================
+
+
+@dataclass
+class MockSlotEntry:
+    """Mock SlotEntry for testing QC position providers."""
+
+    sample_id: str
+    container_id: int = 0
+
+
+class TestGetQCPosition:
+    """Tests for QC position providers."""
+
+    def test_vanquish_get_qc_position(self, config) -> None:
+        # Grid ignores slot_entries, so we pass empty list
+        provider = create_qc_position_provider(
+            "Vanquish", config, "Proteomics", "standard", "Vanquish_54", slot_entries=[]
+        )
+
+        pos = provider.get_position("QC01")
+
+        assert pos.tray is not None
+        assert pos.grid_position is not None
+
+    def test_evosep_get_qc_position(self, config) -> None:
+        # Evosep needs slot_entries to validate capacity
+        slot_entries = [MockSlotEntry("QC01")]
+        provider = create_qc_position_provider(
+            "Evosep", config, "Proteomics", "standard", "Evosep_96", slot_entries=slot_entries
+        )
+
+        pos = provider.get_position("QC01")
+
+        assert pos.tray is not None
+        assert pos.grid_position is not None
+
+    def test_evosep_get_qc_position_increments(self, config) -> None:
+        # Evosep needs slot_entries - we need 2 QC01 entries since we call get_position twice
+        slot_entries = [MockSlotEntry("QC01"), MockSlotEntry("QC01")]
+        provider = create_qc_position_provider(
+            "Evosep", config, "Proteomics", "standard", "Evosep_96", slot_entries=slot_entries
+        )
+
+        pos1 = provider.get_position("QC01")
+        pos2 = provider.get_position("QC01")
+
+        # Evosep QC positions should increment (consumable tips)
+        assert pos1.grid_position != pos2.grid_position

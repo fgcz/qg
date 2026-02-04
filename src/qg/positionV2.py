@@ -1,0 +1,398 @@
+# =============================================================================
+# Position Generation V2 (Self-contained - NO dependencies on positions.py)
+# =============================================================================
+#
+# 4 specialized classes for position assignment:
+#   - _PlateValidatorGridConfig: Plate mode + Grid samplers (Vanquish/MClass)
+#   - _PlateValidatorEvosepConfig: Plate mode + Evosep
+#   - _VialPlateAssignerGridConfig: Vial mode + Grid samplers
+#   - _VialPlateAssignerEvosepConfig: Vial mode + Evosep
+#
+# Factory: create_assembled_sampler() returns correct class
+
+from __future__ import annotations
+
+from collections import Counter
+from collections.abc import Callable
+from itertools import product
+from typing import NamedTuple
+
+from qg.config_models.loader import QGConfiguration
+from qg.config_models.positions import (
+    PlateLayout,
+    QCSampleEvosep,
+    QCSampleGrid,
+    Sampler,
+)
+from qg.params_models import (
+    Plate,
+    PlateCell,
+    PlateQueue,
+    VialQueue,
+    VialSample,
+)
+
+# =============================================================================
+# Position NamedTuple
+# =============================================================================
+
+
+class Position(NamedTuple):
+    """A position on a sampler tray."""
+
+    tray: str | int
+    grid_position: str | int
+
+
+# =============================================================================
+# Position Functions Registry
+# =============================================================================
+
+
+class _PositionFunctions:
+    """Registry for position functions (string_concat, int_add)."""
+
+    @staticmethod
+    def string_concat(row: str | int, col: int) -> str:
+        """Grid samplers: 'A' + 1 -> 'A1'."""
+        return f"{row}{col}"
+
+    @staticmethod
+    def int_add(row: int, col: int) -> int:
+        """Evosep: 1 + 0 -> 1, 13 + 2 -> 15."""
+        return row + col
+
+    _registry: dict[str, Callable[[str | int, int], str | int]] = {
+        "string_concat": string_concat.__func__,  # type: ignore[attr-defined]
+        "int_add": int_add.__func__,  # type: ignore[attr-defined]
+    }
+
+    @classmethod
+    def get(cls, name: str) -> Callable[[str | int, int], str | int]:
+        """Get position function by name."""
+        return cls._registry[name]
+
+    @staticmethod
+    def generate_all(
+        trays: list[str] | list[int],
+        rows: list[str] | list[int],
+        cols: list[int],
+        position_fun: Callable[[str | int, int], str | int],
+    ) -> list[Position]:
+        """Generate all positions for given trays, rows, cols."""
+        return [Position(tray, position_fun(row, col)) for tray, row, col in product(trays, rows, cols)]
+
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+
+def _group_by_key[K, V](items: list[V], key: Callable[[V], K]) -> dict[K, list[V]]:
+    """Group items by key function, preserving order."""
+    result: dict[K, list[V]] = {}
+    for item in items:
+        result.setdefault(key(item), []).append(item)
+    return result
+
+
+def _assign_trays_if_missing(queue: PlateQueue, available_trays: list[str] | list[int]) -> PlateQueue:
+    """Assign trays to plates that don't have one."""
+    plates_needing_tray = [p for p in queue.plates.values() if p.tray is None]
+    if not plates_needing_tray:
+        return queue
+
+    if len(plates_needing_tray) > len(available_trays):
+        raise ValueError(f"Not enough trays ({len(available_trays)}) for {len(plates_needing_tray)} plates")
+
+    new_plates = dict(queue.plates)
+    for plate, tray in zip(plates_needing_tray, available_trays, strict=False):
+        new_plates[plate.plate_id] = Plate(
+            plate_id=plate.plate_id,
+            tray=tray,
+            nr_samples=plate.nr_samples,
+        )
+
+    return PlateQueue(batches=queue.batches, plates=new_plates, cells=queue.cells)
+
+
+def _build_plate_queue(
+    batches: dict,
+    pairs: list[tuple[VialSample, Position]],
+) -> PlateQueue:
+    """Build PlateQueue from sample-position pairs."""
+    cells: list[PlateCell] = []
+    tray_for_plate: dict[int, str | int] = {}
+
+    for i, (sample, pos) in enumerate(pairs):
+        plate_id = hash(pos.tray) & 0xFFFFFFFF
+        tray_for_plate[plate_id] = pos.tray
+        cells.append(
+            PlateCell(
+                sample=sample,
+                position=i + 1,
+                grid_position=pos.grid_position,
+                plate_id=plate_id,
+            )
+        )
+
+    counts = Counter(cell.plate_id for cell in cells)
+    plates = {
+        plate_id: Plate(plate_id=plate_id, tray=tray, nr_samples=counts[plate_id])
+        for plate_id, tray in tray_for_plate.items()
+    }
+    return PlateQueue(batches=batches, plates=plates, cells=cells)
+
+
+# =============================================================================
+# Position Pools (DRY: shared position computation)
+# =============================================================================
+
+
+class _PositionPoolGrid:
+    """Position pool for Grid samplers (Vanquish, MClass).
+
+    Computes reserved QC positions from fixed (tray, row, col) and filters them out.
+    """
+
+    def __init__(
+        self,
+        sampler: Sampler,
+        plate_layout: PlateLayout,
+        qc_samples: list[QCSampleGrid],
+    ) -> None:
+        self.position_fun = _PositionFunctions.get(sampler.position_fun)
+        self.trays = sampler.trays
+
+        # Compute reserved QC positions
+        self.reserved: set[Position] = {Position(s.tray, self.position_fun(s.row, s.col)) for s in qc_samples}
+
+        # Generate all positions and filter out reserved
+        self.all_positions = _PositionFunctions.generate_all(
+            sampler.trays, plate_layout.rows, plate_layout.cols, self.position_fun
+        )
+        self.available = [p for p in self.all_positions if p not in self.reserved]
+        self.by_tray = _group_by_key(self.available, key=lambda p: p.tray)
+
+
+class _PositionPoolEvosep:
+    """Position pool for Evosep (consumable tips - no upfront reservation).
+
+    Computes reserved ranges but doesn't filter them out (tips are consumed sequentially).
+    """
+
+    def __init__(
+        self,
+        sampler: Sampler,
+        plate_layout: PlateLayout,
+        qc_samples: list[QCSampleEvosep],
+    ) -> None:
+        self.position_fun = _PositionFunctions.get(sampler.position_fun)
+        self.trays = sampler.trays
+
+        # Compute reserved QC positions (ranges)
+        self.reserved: set[Position] = {
+            Position(s.tray, pos) for s in qc_samples for pos in range(s.position_start, s.position_end + 1)
+        }
+
+        # Generate all positions (don't filter - Evosep uses consumable tips)
+        self.all_positions = _PositionFunctions.generate_all(
+            sampler.trays, plate_layout.rows, plate_layout.cols, self.position_fun
+        )
+        self.available = self.all_positions
+        self.by_tray = _group_by_key(self.available, key=lambda p: p.tray)
+
+
+# =============================================================================
+# Plate Validators (Plate Mode - validate existing positions)
+# =============================================================================
+
+
+class _PlateValidatorGridConfig:
+    """Validates PlateQueue positions against QC reservations (Grid samplers).
+
+    For Plate mode: user provides PlateQueue with positions already assigned.
+    This class validates that user positions don't conflict with QC positions.
+    """
+
+    def __init__(
+        self,
+        sampler: Sampler,
+        plate_layout: PlateLayout,
+        qc_samples: list[QCSampleGrid],
+    ) -> None:
+        self.pool = _PositionPoolGrid(sampler, plate_layout, qc_samples)
+
+    def _check_collisions(self, queue: PlateQueue) -> None:
+        """Check that no user positions conflict with QC positions."""
+        for cell in queue.cells:
+            plate = queue.plates.get(cell.plate_id)
+            tray = plate.tray if plate else None
+            pos = Position(tray, cell.grid_position)
+            if pos in self.pool.reserved:
+                raise ValueError(
+                    f"Sample '{cell.sample.sample_name}' at {tray}:{cell.grid_position} conflicts with QC position"
+                )
+
+    def assign(self, queue: PlateQueue, *, one_container_per_tray: bool = False) -> PlateQueue:  # noqa: ARG002
+        """Assign trays to plates and validate no QC conflicts."""
+        queue = _assign_trays_if_missing(queue, self.pool.trays)
+        self._check_collisions(queue)
+        return queue
+
+
+class _PlateValidatorEvosepConfig:
+    """Validates PlateQueue positions against QC reservations (Evosep).
+
+    For Plate mode with Evosep: just assigns trays (no collision check - tips are consumable).
+    """
+
+    def __init__(
+        self,
+        sampler: Sampler,
+        plate_layout: PlateLayout,
+        qc_samples: list[QCSampleEvosep],
+    ) -> None:
+        self.pool = _PositionPoolEvosep(sampler, plate_layout, qc_samples)
+
+    def assign(self, queue: PlateQueue, *, one_container_per_tray: bool = False) -> PlateQueue:  # noqa: ARG002
+        """Assign trays to plates (Evosep doesn't check collisions - tips are consumable)."""
+        return _assign_trays_if_missing(queue, self.pool.trays)
+
+
+# =============================================================================
+# Vial Assigners (Vial Mode - assign new positions)
+# =============================================================================
+
+
+class _VialPlateAssignerGridConfig:
+    """Assigns positions to VialQueue samples (Grid samplers).
+
+    For Vial mode: user provides VialQueue (samples without positions).
+    This class assigns positions and returns PlateQueue.
+    """
+
+    def __init__(
+        self,
+        sampler: Sampler,
+        plate_layout: PlateLayout,
+        qc_samples: list[QCSampleGrid],
+    ) -> None:
+        self.pool = _PositionPoolGrid(sampler, plate_layout, qc_samples)
+
+    def assign(self, queue: VialQueue, *, one_container_per_tray: bool = False) -> PlateQueue:
+        """Transform VialQueue to PlateQueue by assigning positions."""
+        n_samples = len(queue.samples)
+
+        if one_container_per_tray:
+            by_container = _group_by_key(queue.samples, key=lambda s: s.container_id)
+            n_containers = len(by_container)
+            n_trays = len(self.pool.by_tray)
+            if n_containers > n_trays:
+                raise ValueError(
+                    f"Not enough trays ({n_trays}) for {n_containers} containers. "
+                    f"Set one_container_per_tray=False to allow mixing containers on the same tray."
+                )
+            pairs = []
+            for samples, tray in zip(by_container.values(), self.pool.by_tray.keys(), strict=False):
+                tray_positions = self.pool.by_tray[tray]
+                if len(samples) > len(tray_positions):
+                    raise ValueError(
+                        f"Container has {len(samples)} samples but tray {tray} "
+                        f"only has {len(tray_positions)} available positions."
+                    )
+                pairs.extend(zip(samples, tray_positions, strict=False))
+        else:
+            if n_samples > len(self.pool.available):
+                raise ValueError(f"Not enough positions (need {n_samples}, have {len(self.pool.available)})")
+            pairs = list(zip(queue.samples, self.pool.available, strict=False))
+
+        return _build_plate_queue(queue.batches, pairs)
+
+
+class _VialPlateAssignerEvosepConfig:
+    """Assigns positions to VialQueue samples (Evosep).
+
+    For Vial mode with Evosep: assigns sequential positions across slots.
+    """
+
+    def __init__(
+        self,
+        sampler: Sampler,
+        plate_layout: PlateLayout,
+        qc_samples: list[QCSampleEvosep],
+    ) -> None:
+        self.pool = _PositionPoolEvosep(sampler, plate_layout, qc_samples)
+
+    def assign(self, queue: VialQueue, *, one_container_per_tray: bool = False) -> PlateQueue:  # noqa: ARG002
+        """Transform VialQueue to PlateQueue by assigning positions."""
+        n_samples = len(queue.samples)
+        if n_samples > len(self.pool.available):
+            raise ValueError(f"Not enough positions (need {n_samples}, have {len(self.pool.available)})")
+        pairs = list(zip(queue.samples, self.pool.available, strict=False))
+        return _build_plate_queue(queue.batches, pairs)
+
+
+# =============================================================================
+# Type Alias and Factory
+# =============================================================================
+
+AssembledSampler = (
+    _PlateValidatorGridConfig
+    | _PlateValidatorEvosepConfig
+    | _VialPlateAssignerGridConfig
+    | _VialPlateAssignerEvosepConfig
+)
+
+
+def create_assembled_sampler(
+    sampler_name: str,
+    layout_mode: str,
+    config: QGConfiguration,
+    tech_area: str,
+    qc_layout_name: str = "standard",
+    plate_layout_name: str | None = None,
+) -> AssembledSampler:
+    """Factory to create correct sampler class based on mode and sampler type.
+
+    Args:
+        sampler_name: Sampler name (e.g., "Vanquish", "MClass", "Evosep")
+        layout_mode: "vial" or "plate"
+        config: QGConfiguration with all config data
+        tech_area: Technology area (e.g., "Proteomics")
+        qc_layout_name: QC layout name (default "standard")
+        plate_layout_name: Optional plate layout name (auto-resolved if None)
+
+    Returns:
+        One of 4 AssembledSampler classes based on layout_mode + sampler_name
+    """
+    sampler = config.samplers.get_sampler(sampler_name)
+    if sampler is None:
+        raise ValueError(f"Unknown sampler: {sampler_name}")
+
+    # Resolve plate layout
+    queue_type = "Vial" if layout_mode == "vial" else "Plate"
+    layout_name = (
+        plate_layout_name or config.sampler_plate_layouts.get_plate_layouts_for_sampler(sampler_name, queue_type)[0]
+    )
+    plate_layout = config.plate_layouts.get_layout(layout_name)
+    if plate_layout is None:
+        raise ValueError(f"Unknown plate layout: {layout_name}")
+
+    # Return correct class based on layout_mode + sampler_name
+    is_evosep = sampler_name == "Evosep"
+
+    if layout_mode == "plate":
+        if is_evosep:
+            qc = config.qc_layouts_evosep.get_samples(tech_area, qc_layout_name, plate_layout.name)
+            return _PlateValidatorEvosepConfig(sampler, plate_layout, qc)
+        else:
+            qc = config.qc_layouts_grid.get_samples(tech_area, qc_layout_name, plate_layout.name)
+            return _PlateValidatorGridConfig(sampler, plate_layout, qc)
+    else:  # vial
+        if is_evosep:
+            qc = config.qc_layouts_evosep.get_samples(tech_area, qc_layout_name, plate_layout.name)
+            return _VialPlateAssignerEvosepConfig(sampler, plate_layout, qc)
+        else:
+            qc = config.qc_layouts_grid.get_samples(tech_area, qc_layout_name, plate_layout.name)
+            return _VialPlateAssignerGridConfig(sampler, plate_layout, qc)
