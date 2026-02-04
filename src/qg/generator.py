@@ -177,7 +177,7 @@ def _build_queue_rows(slots: list[ExpandedSlot], data_path: str, inj_vol_overrid
                 grid_position=pos.grid_position,
                 plate_id=cell.plate_id if cell else None,
                 grouping_var=sample.grouping_var if sample else None,
-                inj_vol=inj_vol_override or sample_cfg.inj_vol,
+                inj_vol=(inj_vol_override if slot.slot.sample_id == "default" else None) or sample_cfg.inj_vol,
                 file_name=slot.file_name,
                 polarity=slot.polarity,
                 data_path=data_path,
