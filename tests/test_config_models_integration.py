@@ -183,7 +183,7 @@ class TestMethodsConfigs:
         """Load a single methods CSV into MethodsForInstrument."""
         from qg.config_models.methods import MethodsForInstrument
 
-        path = CONFIG_ROOT / "core" / "methods" / "proteomics" / "ASTRAL_1_methods.csv"
+        path = CONFIG_ROOT / "core" / "methods" / "Proteomics" / "ASTRAL_1_methods.csv"
         df = pl.read_csv(path)
         methods = MethodsForInstrument.from_table(df)
 
