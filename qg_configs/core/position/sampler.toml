@@ -7,7 +7,7 @@
 
 [Vanquish]
 description = "Thermo Vanquish autosampler"
-trays = ["Y", "R", "B", "G"]
+trays = ["Y", "R", "G", "B"]
 position_fun = "string_concat"
 
 [MClass]
