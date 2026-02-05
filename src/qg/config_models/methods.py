@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class Method(BaseModel):
     """A method definition from methods CSV."""
 
-    sample_type: str = Field(..., min_length=1, description="Sample type (default, QC03dda, etc.)")
+    sample_type: str = Field(..., min_length=1, description="Sample type (DEFAULT_SAMPLE_ID, QC03dda, etc.)")
     polarity: str = Field(default="", description="Polarity (pos, neg, or empty for proteomics)")
     method_name: str = Field(..., min_length=1, description="Method name")
     method_path: str = Field(..., min_length=1, description="Full path to method file")
@@ -42,21 +42,23 @@ class MethodsForInstrument(BaseModel):
         """Get a specific method.
 
         Args:
-            sample_type: Sample type (default, QC03dda, etc.)
+            sample_type: Sample type (DEFAULT_SAMPLE_ID, QC03dda, etc.)
             polarity: Polarity (pos, neg, or empty)
             method_name: Optional specific method name
 
         Returns:
             Method if found, None otherwise. Falls back to 'default' sample_type.
         """
+        from qg.config_models.formatting import SamplesConfig
+
         for m in self.methods:
             if m.sample_type == sample_type and m.polarity == polarity:
                 if not method_name or m.method_name == method_name:
                     return m
 
-        # Fallback to "default" sample_type
-        if sample_type != "default":
-            return self.get_method("default", polarity, method_name)
+        # Fallback to default sample_type
+        if sample_type != SamplesConfig.DEFAULT_SAMPLE_ID:
+            return self.get_method(SamplesConfig.DEFAULT_SAMPLE_ID, polarity, method_name)
 
         return None
 

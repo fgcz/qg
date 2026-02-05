@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from qg.config_models.formatting import SamplesConfig
 from qg.config_models.loader import qg_configuration
 from qg.params_models import ContainerBatch, VialQueue, VialSample
 from qg.positionV2 import create_assembled_sampler
@@ -263,7 +264,13 @@ class TestGetQCPosition:
     def test_vanquish_get_qc_position(self, config) -> None:
         # Grid ignores slot_entries, so we pass empty list
         provider = create_qc_position_provider(
-            "Vanquish", config, "Proteomics", "standard", "Vanquish_54", slot_entries=[]
+            "Vanquish",
+            config,
+            "Proteomics",
+            "standard",
+            "Vanquish_54",
+            slot_entries=[],
+            default_sample_id=SamplesConfig.DEFAULT_SAMPLE_ID,
         )
 
         pos = provider.get_position("QC01")
@@ -275,7 +282,13 @@ class TestGetQCPosition:
         # Evosep needs slot_entries to validate capacity
         slot_entries = [MockSlotEntry("QC01")]
         provider = create_qc_position_provider(
-            "Evosep", config, "Proteomics", "standard", "Evosep_96", slot_entries=slot_entries
+            "Evosep",
+            config,
+            "Proteomics",
+            "standard",
+            "Evosep_96",
+            slot_entries=slot_entries,
+            default_sample_id=SamplesConfig.DEFAULT_SAMPLE_ID,
         )
 
         pos = provider.get_position("QC01")
@@ -287,7 +300,13 @@ class TestGetQCPosition:
         # Evosep needs slot_entries - we need 2 QC01 entries since we call get_position twice
         slot_entries = [MockSlotEntry("QC01"), MockSlotEntry("QC01")]
         provider = create_qc_position_provider(
-            "Evosep", config, "Proteomics", "standard", "Evosep_96", slot_entries=slot_entries
+            "Evosep",
+            config,
+            "Proteomics",
+            "standard",
+            "Evosep_96",
+            slot_entries=slot_entries,
+            default_sample_id=SamplesConfig.DEFAULT_SAMPLE_ID,
         )
 
         pos1 = provider.get_position("QC01")

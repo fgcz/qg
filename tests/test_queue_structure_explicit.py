@@ -8,8 +8,11 @@ from pathlib import Path
 
 import pytest
 
+from qg.config_models.formatting import SamplesConfig
 from qg.config_models.loader import qg_configuration
 from qg.queue_structure import build_multi_container_queue_structure
+
+DEFAULT_SAMPLE_ID = SamplesConfig.DEFAULT_SAMPLE_ID
 
 
 @pytest.fixture
@@ -30,7 +33,7 @@ class TestMultiGroupQueueStructure:
     def test_both_zero_samples(self, pattern):
         """Two projects, 0 samples each: start + separation + end."""
         groups = [(1001, 0), (1002, 0)]
-        structure = build_multi_container_queue_structure(groups, pattern)
+        structure = build_multi_container_queue_structure(groups, pattern, DEFAULT_SAMPLE_ID)
 
         expected = len(pattern.start) + len(pattern.separation) + len(pattern.end)
         assert len(structure) == expected
@@ -38,7 +41,7 @@ class TestMultiGroupQueueStructure:
     def test_first_one_second_zero(self, pattern):
         """First project: 1 sample, second: 0 samples."""
         groups = [(1001, 1), (1002, 0)]
-        structure = build_multi_container_queue_structure(groups, pattern)
+        structure = build_multi_container_queue_structure(groups, pattern, DEFAULT_SAMPLE_ID)
 
         expected = len(pattern.start) + 1 + len(pattern.separation) + len(pattern.end)
         assert len(structure) == expected
@@ -46,7 +49,7 @@ class TestMultiGroupQueueStructure:
     def test_first_zero_second_one(self, pattern):
         """First project: 0 samples, second: 1 sample."""
         groups = [(1001, 0), (1002, 1)]
-        structure = build_multi_container_queue_structure(groups, pattern)
+        structure = build_multi_container_queue_structure(groups, pattern, DEFAULT_SAMPLE_ID)
 
         expected = len(pattern.start) + len(pattern.separation) + 1 + len(pattern.end)
         assert len(structure) == expected
@@ -54,7 +57,7 @@ class TestMultiGroupQueueStructure:
     def test_both_one_sample(self, pattern):
         """Both projects: 1 sample each."""
         groups = [(1001, 1), (1002, 1)]
-        structure = build_multi_container_queue_structure(groups, pattern)
+        structure = build_multi_container_queue_structure(groups, pattern, DEFAULT_SAMPLE_ID)
 
         expected = len(pattern.start) + 1 + len(pattern.separation) + 1 + len(pattern.end)
         assert len(structure) == expected
@@ -65,7 +68,7 @@ class TestMultiGroupQueueStructure:
         pattern.run_QC_after_n_samples = 5
 
         groups = [(1001, 10), (1002, 0)]
-        structure = build_multi_container_queue_structure(groups, pattern)
+        structure = build_multi_container_queue_structure(groups, pattern, DEFAULT_SAMPLE_ID)
 
         # 10 samples with qc every 5 = 1 middle block after sample 5
         expected = len(pattern.start) + 10 + len(pattern.middle) + len(pattern.separation) + len(pattern.end)
@@ -76,7 +79,7 @@ class TestMultiGroupQueueStructure:
         pattern.run_QC_after_n_samples = 5
 
         groups = [(1001, 0), (1002, 10)]
-        structure = build_multi_container_queue_structure(groups, pattern)
+        structure = build_multi_container_queue_structure(groups, pattern, DEFAULT_SAMPLE_ID)
 
         expected = len(pattern.start) + len(pattern.separation) + 10 + len(pattern.middle) + len(pattern.end)
         assert len(structure) == expected
@@ -86,7 +89,7 @@ class TestMultiGroupQueueStructure:
         pattern.run_QC_after_n_samples = 5
 
         groups = [(1001, 10), (1002, 10)]
-        structure = build_multi_container_queue_structure(groups, pattern)
+        structure = build_multi_container_queue_structure(groups, pattern, DEFAULT_SAMPLE_ID)
 
         expected = (
             len(pattern.start)
@@ -106,7 +109,7 @@ class TestSingleContainerWithMultiGroupFunction:
     def test_single_container_zero_samples(self, pattern):
         """Single container, 0 samples: start + end (no separation)."""
         groups = [(1001, 0)]
-        structure = build_multi_container_queue_structure(groups, pattern)
+        structure = build_multi_container_queue_structure(groups, pattern, DEFAULT_SAMPLE_ID)
 
         expected = len(pattern.start) + len(pattern.end)
         assert len(structure) == expected
@@ -114,7 +117,7 @@ class TestSingleContainerWithMultiGroupFunction:
     def test_single_container_one_sample(self, pattern):
         """Single container, 1 sample: start + 1 + end."""
         groups = [(1001, 1)]
-        structure = build_multi_container_queue_structure(groups, pattern)
+        structure = build_multi_container_queue_structure(groups, pattern, DEFAULT_SAMPLE_ID)
 
         expected = len(pattern.start) + 1 + len(pattern.end)
         assert len(structure) == expected
@@ -124,7 +127,7 @@ class TestSingleContainerWithMultiGroupFunction:
         pattern.run_QC_after_n_samples = 5
 
         groups = [(1001, 10)]
-        structure = build_multi_container_queue_structure(groups, pattern)
+        structure = build_multi_container_queue_structure(groups, pattern, DEFAULT_SAMPLE_ID)
 
         expected = len(pattern.start) + 10 + len(pattern.middle) + len(pattern.end)
         assert len(structure) == expected

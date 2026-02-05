@@ -161,6 +161,12 @@ class OutputFormatsConfig(BaseModel):
 # Sample Model
 # =============================================================================
 
+# Sample ID used for user samples in the queue structure.
+# QC samples use specific identifiers (e.g., "QC01", "pooledQC") from config.
+# This is defined at module level for use by Sample validator; SamplesConfig
+# exposes it publicly as DEFAULT_SAMPLE_ID for external code.
+_DEFAULT_SAMPLE_ID = "default"
+
 # Valid placeholders in file_name_template
 VALID_PLACEHOLDERS = {
     "date",
@@ -203,9 +209,9 @@ class Sample(BaseModel):
     @model_validator(mode="after")
     def validate_default_has_sample_id(self) -> Self:
         """Default samples should have {sample_id} in template."""
-        if self.sample_id == "default":
+        if self.sample_id == _DEFAULT_SAMPLE_ID:
             if "{sample_id}" not in self.file_name_template:
-                raise ValueError("'default' sample should have {sample_id} in file_name_template")
+                raise ValueError(f"'{_DEFAULT_SAMPLE_ID}' sample should have {{sample_id}} in file_name_template")
         return self
 
 
@@ -213,6 +219,7 @@ class SamplesConfig(BaseModel):
     """Collection of all samples."""
 
     config_path: ClassVar[Path] = Path("core/formatting/samples.csv")
+    DEFAULT_SAMPLE_ID: ClassVar[str] = _DEFAULT_SAMPLE_ID
 
     samples: list[Sample]
 
@@ -228,11 +235,11 @@ class SamplesConfig(BaseModel):
     @model_validator(mode="after")
     def validate_each_tech_has_default(self) -> Self:
         """Check that each tech_area has a 'default' sample."""
-        techs_with_default = {s.tech_area for s in self.samples if s.sample_id == "default"}
+        techs_with_default = {s.tech_area for s in self.samples if s.sample_id == _DEFAULT_SAMPLE_ID}
         all_techs = {s.tech_area for s in self.samples}
         missing = all_techs - techs_with_default
         if missing:
-            raise ValueError(f"Technologies missing 'default' sample: {missing}")
+            raise ValueError(f"Technologies missing '{_DEFAULT_SAMPLE_ID}' sample: {missing}")
         return self
 
     def get_by_tech_area(self, tech: str) -> list[Sample]:

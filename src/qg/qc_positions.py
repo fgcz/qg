@@ -11,7 +11,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import NamedTuple
+from typing import Protocol
 
 from qg.config_models.loader import QGConfiguration
 from qg.config_models.positions import (
@@ -19,46 +19,22 @@ from qg.config_models.positions import (
     QCSampleGrid,
 )
 from qg.queue_structure import SlotEntry
+from qg.utils import (
+    Position,
+    get_position_function,
+)
 
 # =============================================================================
-# Position NamedTuple
-# =============================================================================
-
-
-class Position(NamedTuple):
-    """A position on a sampler tray."""
-
-    tray: str | int
-    grid_position: str | int
-
-
-# =============================================================================
-# Position Functions Registry
+# QC Position Provider Protocol
 # =============================================================================
 
 
-class _PositionFunctions:
-    """Registry for position functions (string_concat, int_add)."""
+class QCPositionProvider(Protocol):
+    """Protocol for providing QC positions."""
 
-    @staticmethod
-    def string_concat(row: str | int, col: int) -> str:
-        """Grid samplers: 'A' + 1 -> 'A1'."""
-        return f"{row}{col}"
-
-    @staticmethod
-    def int_add(row: int, col: int) -> int:
-        """Evosep: 1 + 0 -> 1, 13 + 2 -> 15."""
-        return row + col
-
-    _registry: dict[str, Callable[[str | int, int], str | int]] = {
-        "string_concat": string_concat.__func__,  # type: ignore[attr-defined]
-        "int_add": int_add.__func__,  # type: ignore[attr-defined]
-    }
-
-    @classmethod
-    def get(cls, name: str) -> Callable[[str | int, int], str | int]:
-        """Get position function by name."""
-        return cls._registry[name]
+    def get_position(self, sample_id: str) -> Position:
+        """Get position for a QC sample ID."""
+        ...
 
 
 # =============================================================================
@@ -99,6 +75,7 @@ class _QCPositionProviderEvosep:
         self,
         qc_samples: list[QCSampleEvosep],
         slot_entries: list[SlotEntry],
+        default_sample_id: str,
     ) -> None:
         self._samples: dict[str, QCSampleEvosep] = {s.sample_id: s for s in qc_samples}
         self._counters: dict[str, int] = {s.sample_id: 0 for s in qc_samples}
@@ -106,7 +83,7 @@ class _QCPositionProviderEvosep:
         # Count QC samples needed from slot_entries
         qc_counts: dict[str, int] = {}
         for entry in slot_entries:
-            if entry.sample_id != "default":
+            if entry.sample_id != default_sample_id:
                 qc_counts[entry.sample_id] = qc_counts.get(entry.sample_id, 0) + 1
 
         # Validate upfront: enough positions for all QC samples needed
@@ -131,10 +108,8 @@ class _QCPositionProviderEvosep:
 
 
 # =============================================================================
-# Type Alias and Factory
+# Factory
 # =============================================================================
-
-QCPositionProvider = _QCPositionProviderGrid | _QCPositionProviderEvosep
 
 
 def create_qc_position_provider(
@@ -144,6 +119,7 @@ def create_qc_position_provider(
     qc_layout_name: str,
     plate_layout_name: str,
     slot_entries: list[SlotEntry],
+    default_sample_id: str,
 ) -> QCPositionProvider:
     """Factory to create QC position provider.
 
@@ -156,11 +132,11 @@ def create_qc_position_provider(
         slot_entries: List of SlotEntry - used by Evosep to validate capacity
     """
     sampler = config.samplers.get_sampler(sampler_name)
-    position_fun = _PositionFunctions.get(sampler.position_fun)
+    position_fun = get_position_function(sampler.position_fun)
 
     if sampler_name == "Evosep":
         qc_samples = config.qc_layouts_evosep.get_samples(tech_area, qc_layout_name, plate_layout_name)
-        return _QCPositionProviderEvosep(qc_samples, slot_entries)
+        return _QCPositionProviderEvosep(qc_samples, slot_entries, default_sample_id)
     else:
         qc_samples = config.qc_layouts_grid.get_samples(tech_area, qc_layout_name, plate_layout_name)
         return _QCPositionProviderGrid(qc_samples, position_fun, slot_entries)

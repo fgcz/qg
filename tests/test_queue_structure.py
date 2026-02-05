@@ -3,15 +3,61 @@
 from pathlib import Path
 
 import pytest
+from loguru import logger
 
+from qg.config_models.formatting import SamplesConfig
 from qg.config_models.loader import qg_configuration
 from qg.config_models.structure import QueuePattern
 from qg.queue_structure import (
     _compute_extended_positions,
     _compute_middle_block_positions,
-    _compute_queue_counts,
     build_multi_container_queue_structure,
 )
+
+
+def _compute_queue_counts(num_samples: int, pattern: QueuePattern) -> dict[str, int]:
+    """Compute queue slot counts without building the structure.
+
+    Args:
+        num_samples: Number of user samples
+        pattern: Queue pattern configuration
+
+    Returns:
+        Dict with queue structure counts including extended blocks
+    """
+    num_middle_blocks = (num_samples - 1) // pattern.run_QC_after_n_samples if num_samples > 0 else 0
+
+    # Calculate extended blocks (replaces every Nth middle)
+    multiplier = pattern.middle_extended_frequency_multiplier or 0
+    if multiplier > 0 and pattern.middle_extended:
+        num_extended_blocks = num_middle_blocks // multiplier
+        num_regular_middle = num_middle_blocks - num_extended_blocks
+    else:
+        num_extended_blocks = 0
+        num_regular_middle = num_middle_blocks
+
+    start_qcs = len(pattern.start)
+    middle_qcs = num_regular_middle * len(pattern.middle)
+    extended_qcs = num_extended_blocks * len(pattern.middle_extended or [])
+    end_qcs = len(pattern.end)
+
+    total_qcs = start_qcs + middle_qcs + extended_qcs + end_qcs
+
+    counts = {
+        "start_qcs": start_qcs,
+        "user_samples": num_samples,
+        "middle_blocks": num_middle_blocks,
+        "regular_middle_blocks": num_regular_middle,
+        "middle_qcs": middle_qcs,
+        "extended_blocks": num_extended_blocks,
+        "extended_qcs": extended_qcs,
+        "end_qcs": end_qcs,
+        "total_qcs": total_qcs,
+        "total": total_qcs + num_samples,
+    }
+    logger.debug("Queue counts: {}", counts)
+    return counts
+
 
 # =============================================================================
 # Fixtures
@@ -332,7 +378,7 @@ class TestComputeQueueCountsConsistency:
 
 def _build_structure(num_samples: int, pattern: QueuePattern) -> list[str]:
     """Helper: build single-container structure and extract sample_ids."""
-    slot_entries = build_multi_container_queue_structure([(0, num_samples)], pattern)
+    slot_entries = build_multi_container_queue_structure([(0, num_samples)], pattern, SamplesConfig.DEFAULT_SAMPLE_ID)
     return [s.sample_id for s in slot_entries]
 
 
@@ -368,7 +414,7 @@ class TestBuildQueueStructure:
         pattern = all_patterns[tech][pattern_name]
         structure = _build_structure(num_samples, pattern)
 
-        user_count = sum(1 for s in structure if s == "default")
+        user_count = sum(1 for s in structure if s == SamplesConfig.DEFAULT_SAMPLE_ID)
         assert user_count == num_samples
 
     @pytest.mark.parametrize("tech,pattern_name", ALL_PATTERN_KEYS)

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Literal
 import polars as pl
 from pydantic import BaseModel
 
-from qg.config_models.formatting import Sample
+from qg.config_models.formatting import Sample, SamplesConfig
 from qg.config_models.loader import QGConfiguration
 from qg.config_models.methods import MethodsConfig
 from qg.config_models.structure import QueuePattern
@@ -55,10 +55,10 @@ class SlotInfo:
     """A slot in the queue structure before polarity expansion."""
 
     idx: int
-    sample_id: str  # "default" for user samples, qc_id for QC
+    sample_id: str  # DEFAULT_SAMPLE_ID for user samples, qc_id for QC
     position: Position
     sample_config: Sample
-    user_cell: PlateCell | None  # Only for "default" slots
+    user_cell: PlateCell | None  # Only for DEFAULT_SAMPLE_ID slots
     container_id: int
 
 
@@ -79,6 +79,7 @@ def _build_slots(
     qc_provider: QCPositionProvider,
     samples_config: SamplesConfig,
     tech_area: str,
+    default_sample_id: str,
 ) -> list[SlotInfo]:
     """Build slots from SlotEntry list and PlateQueue."""
     slots: list[SlotInfo] = []
@@ -90,7 +91,7 @@ def _build_slots(
             continue
 
         user_cell: PlateCell | None = None
-        if entry.sample_id == "default":
+        if entry.sample_id == default_sample_id:
             user_cell = next(cell_iter, None)
             if not user_cell:
                 continue
@@ -132,12 +133,13 @@ def _resolve_methods(
     tech_area: str,
     instrument: str,
     method: dict[str, str],
+    default_sample_id: str,
 ) -> list[ExpandedSlot]:
     """Resolve method path for each slot."""
     for slot in slots:
         sample_id = slot.slot.sample_id
         polarity = slot.polarity
-        method_name = method.get(polarity, "") if sample_id == "default" else ""
+        method_name = method.get(polarity, "") if sample_id == default_sample_id else ""
         slot.method = methods_config.get_method_path(tech_area, instrument, sample_id, polarity, method_name)
     return slots
 
@@ -158,7 +160,12 @@ def _format_file_names(slots: list[ExpandedSlot], date: str) -> list[ExpandedSlo
     return slots
 
 
-def _build_queue_rows(slots: list[ExpandedSlot], data_path: str, inj_vol_override: float | None) -> QueueRowTable:
+def _build_queue_rows(
+    slots: list[ExpandedSlot],
+    data_path: str,
+    inj_vol_override: float | None,
+    default_sample_id: str,
+) -> QueueRowTable:
     """Convert slots to QueueRows."""
     rows: list[QueueRow] = []
     for slot in slots:
@@ -170,14 +177,14 @@ def _build_queue_rows(slots: list[ExpandedSlot], data_path: str, inj_vol_overrid
         rows.append(
             QueueRow(
                 run_number=slot.run_number,
-                sample_type="user" if slot.slot.sample_id == "default" else "qc",
+                sample_type="user" if slot.slot.sample_id == default_sample_id else "qc",
                 sample_id=str(sample.sample_id) if sample else slot.slot.sample_id,
                 sample_name=sample.sample_name if sample else sample_cfg.sample_name,
                 tray=pos.tray,
                 grid_position=pos.grid_position,
                 plate_id=cell.plate_id if cell else None,
                 grouping_var=sample.grouping_var if sample else None,
-                inj_vol=(inj_vol_override if slot.slot.sample_id == "default" else None) or sample_cfg.inj_vol,
+                inj_vol=(inj_vol_override if slot.slot.sample_id == default_sample_id else None) or sample_cfg.inj_vol,
                 file_name=slot.file_name,
                 polarity=slot.polarity,
                 data_path=data_path,
@@ -320,6 +327,7 @@ class QueueGenerator:
     def build_rows(self) -> QueueRowTable:
         """Execute the queue generation pipeline."""
         params = self.queue_input.parameters
+        default_sample_id = self.samples_config.DEFAULT_SAMPLE_ID
 
         # Apply randomization (within plate/container boundaries)
         plate_queue = randomize_plate_queue(self.plate_queue, params.randomization)
@@ -332,7 +340,9 @@ class QueueGenerator:
         groups = list(samples_per_container.items())
 
         # Build structure
-        slot_entries = build_multi_container_queue_structure(groups, self.pattern, params.qc_frequency_override)
+        slot_entries = build_multi_container_queue_structure(
+            groups, self.pattern, default_sample_id, params.qc_frequency_override
+        )
 
         # Create QC position provider (Evosep validates capacity upfront using slot_entries)
         qc_provider = create_qc_position_provider(
@@ -342,19 +352,24 @@ class QueueGenerator:
             qc_layout_name=self._qc_layout_name,
             plate_layout_name=self._plate_layout_name,
             slot_entries=slot_entries,
+            default_sample_id=default_sample_id,
         )
 
         # Build slots
-        slots = _build_slots(slot_entries, plate_queue, qc_provider, self.samples_config, params.tech_area)
+        slots = _build_slots(
+            slot_entries, plate_queue, qc_provider, self.samples_config, params.tech_area, default_sample_id
+        )
 
         # Expand polarities
         expanded = _expand_polarities(slots, params.polarity)
 
         # Resolve methods
-        expanded = _resolve_methods(expanded, self.methods_config, params.tech_area, params.instrument, params.method)
+        expanded = _resolve_methods(
+            expanded, self.methods_config, params.tech_area, params.instrument, params.method, default_sample_id
+        )
 
         # Format file names
         expanded = _format_file_names(expanded, params.date)
 
         # Build queue rows
-        return _build_queue_rows(expanded, self.data_path, params.inj_vol_override)
+        return _build_queue_rows(expanded, self.data_path, params.inj_vol_override, default_sample_id)

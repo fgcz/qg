@@ -113,8 +113,10 @@ class QueueParameters(BaseModel):
             raise ValueError(f"Output format '{output_format}' not found")
         if not configs.instruments.get_instrument(tech_area, instrument):
             raise ValueError(f"Instrument '{instrument}' not found for {tech_area}")
-        if not configs.samples.get_sample(tech_area, "default"):
-            raise ValueError(f"No 'default' sample definition for {tech_area}")
+        from qg.config_models.formatting import SamplesConfig
+
+        if not configs.samples.get_sample(tech_area, SamplesConfig.DEFAULT_SAMPLE_ID):
+            raise ValueError(f"No '{SamplesConfig.DEFAULT_SAMPLE_ID}' sample definition for {tech_area}")
         # Validate plate_layout exists for (sampler, queue_type)
         valid_layouts = configs.sampler_plate_layouts.get_plate_layouts_for_sampler(sampler, queue_type)
         if plate_layout not in valid_layouts:

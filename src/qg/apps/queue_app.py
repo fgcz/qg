@@ -16,6 +16,7 @@ with app.setup:
     logger = logging.getLogger(__name__)
 
     from qg.bfabric_utils import BfabricHelper
+    from qg.config_models.formatting import SamplesConfig
     from qg.config_models.loader import qg_configuration
     from qg.generator import QueueGenerator
     from qg.params_models import QueueParameters
@@ -391,7 +392,7 @@ def _(methods_df):
     def _get_methods(df: pl.DataFrame, polarity: str | None) -> list[str]:
         if df.is_empty():
             return []
-        filtered = df.filter(pl.col("sample_type") == "default")
+        filtered = df.filter(pl.col("sample_type") == SamplesConfig.DEFAULT_SAMPLE_ID)
         if polarity and "polarity" in filtered.columns:
             filtered = filtered.filter(pl.col("polarity") == polarity)
         return sorted(filtered["method_name"].unique().to_list())

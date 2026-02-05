@@ -13,9 +13,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Callable
-from itertools import product
-from typing import NamedTuple
+from typing import Protocol
 
 from qg.config_models.loader import QGConfiguration
 from qg.config_models.positions import (
@@ -31,69 +29,16 @@ from qg.params_models import (
     VialQueue,
     VialSample,
 )
-
-# =============================================================================
-# Position NamedTuple
-# =============================================================================
-
-
-class Position(NamedTuple):
-    """A position on a sampler tray."""
-
-    tray: str | int
-    grid_position: str | int
-
-
-# =============================================================================
-# Position Functions Registry
-# =============================================================================
-
-
-class _PositionFunctions:
-    """Registry for position functions (string_concat, int_add)."""
-
-    @staticmethod
-    def string_concat(row: str | int, col: int) -> str:
-        """Grid samplers: 'A' + 1 -> 'A1'."""
-        return f"{row}{col}"
-
-    @staticmethod
-    def int_add(row: int, col: int) -> int:
-        """Evosep: 1 + 0 -> 1, 13 + 2 -> 15."""
-        return row + col
-
-    _registry: dict[str, Callable[[str | int, int], str | int]] = {
-        "string_concat": string_concat.__func__,  # type: ignore[attr-defined]
-        "int_add": int_add.__func__,  # type: ignore[attr-defined]
-    }
-
-    @classmethod
-    def get(cls, name: str) -> Callable[[str | int, int], str | int]:
-        """Get position function by name."""
-        return cls._registry[name]
-
-    @staticmethod
-    def generate_all(
-        trays: list[str] | list[int],
-        rows: list[str] | list[int],
-        cols: list[int],
-        position_fun: Callable[[str | int, int], str | int],
-    ) -> list[Position]:
-        """Generate all positions for given trays, rows, cols."""
-        return [Position(tray, position_fun(row, col)) for tray, row, col in product(trays, rows, cols)]
-
+from qg.utils import (
+    Position,
+    generate_all_positions,
+    get_position_function,
+    group_by_key,
+)
 
 # =============================================================================
 # Helper Functions
 # =============================================================================
-
-
-def _group_by_key[K, V](items: list[V], key: Callable[[V], K]) -> dict[K, list[V]]:
-    """Group items by key function, preserving order."""
-    result: dict[K, list[V]] = {}
-    for item in items:
-        result.setdefault(key(item), []).append(item)
-    return result
 
 
 def _assign_trays_if_missing(queue: PlateQueue, available_trays: list[str] | list[int]) -> PlateQueue:
@@ -161,18 +106,18 @@ class _PositionPoolGrid:
         plate_layout: PlateLayout,
         qc_samples: list[QCSampleGrid],
     ) -> None:
-        self.position_fun = _PositionFunctions.get(sampler.position_fun)
+        self.position_fun = get_position_function(sampler.position_fun)
         self.trays = sampler.trays
 
         # Compute reserved QC positions
         self.reserved: set[Position] = {Position(s.tray, self.position_fun(s.row, s.col)) for s in qc_samples}
 
         # Generate all positions and filter out reserved
-        self.all_positions = _PositionFunctions.generate_all(
+        self.all_positions = generate_all_positions(
             sampler.trays, plate_layout.rows, plate_layout.cols, self.position_fun
         )
         self.available = [p for p in self.all_positions if p not in self.reserved]
-        self.by_tray = _group_by_key(self.available, key=lambda p: p.tray)
+        self.by_tray = group_by_key(self.available, key=lambda p: p.tray)
 
 
 class _PositionPoolEvosep:
@@ -187,7 +132,7 @@ class _PositionPoolEvosep:
         plate_layout: PlateLayout,
         qc_samples: list[QCSampleEvosep],
     ) -> None:
-        self.position_fun = _PositionFunctions.get(sampler.position_fun)
+        self.position_fun = get_position_function(sampler.position_fun)
         self.trays = sampler.trays
 
         # Compute reserved QC positions (ranges)
@@ -196,11 +141,11 @@ class _PositionPoolEvosep:
         }
 
         # Generate all positions (don't filter - Evosep uses consumable tips)
-        self.all_positions = _PositionFunctions.generate_all(
+        self.all_positions = generate_all_positions(
             sampler.trays, plate_layout.rows, plate_layout.cols, self.position_fun
         )
         self.available = self.all_positions
-        self.by_tray = _group_by_key(self.available, key=lambda p: p.tray)
+        self.by_tray = group_by_key(self.available, key=lambda p: p.tray)
 
 
 # =============================================================================
@@ -285,7 +230,7 @@ class _VialPlateAssignerGridConfig:
         n_samples = len(queue.samples)
 
         if one_container_per_tray:
-            by_container = _group_by_key(queue.samples, key=lambda s: s.container_id)
+            by_container = group_by_key(queue.samples, key=lambda s: s.container_id)
             n_containers = len(by_container)
             n_trays = len(self.pool.by_tray)
             if n_containers > n_trays:
@@ -337,12 +282,24 @@ class _VialPlateAssignerEvosepConfig:
 # Type Alias and Factory
 # =============================================================================
 
-AssembledSampler = (
-    _PlateValidatorGridConfig
-    | _PlateValidatorEvosepConfig
-    | _VialPlateAssignerGridConfig
-    | _VialPlateAssignerEvosepConfig
-)
+
+class PlateValidator(Protocol):
+    """Protocol for classes that validate PlateQueue positions (Plate mode)."""
+
+    def assign(self, queue: PlateQueue, *, one_container_per_tray: bool = False) -> PlateQueue:
+        """Assign trays and validate positions."""
+        ...
+
+
+class VialAssigner(Protocol):
+    """Protocol for classes that assign positions to VialQueue (Vial mode)."""
+
+    def assign(self, queue: VialQueue, *, one_container_per_tray: bool = False) -> PlateQueue:
+        """Assign positions and trays."""
+        ...
+
+
+AssembledSampler = PlateValidator | VialAssigner
 
 
 def create_assembled_sampler(
