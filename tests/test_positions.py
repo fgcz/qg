@@ -151,6 +151,26 @@ class TestAssignEvosep:
             sampler.assign(queue)
 
 
+class TestGridSamplerExhaustion:
+    """Tests for grid sampler position exhaustion."""
+
+    def test_vanquish_raises_when_full(self, config) -> None:
+        """Vanquish_54 has 4 trays × 54 = 216 positions."""
+        sampler = create_assembled_sampler("Vanquish", "vial", config, "Proteomics", "noqc", "Vanquish_54")
+        queue = create_vial_queue(220)  # More than 216
+
+        with pytest.raises(ValueError, match="Not enough positions"):
+            sampler.assign(queue)
+
+    def test_mclass_raises_when_full(self, config) -> None:
+        """MClass_48 has 4 trays × 48 = 192 positions."""
+        sampler = create_assembled_sampler("MClass", "vial", config, "Proteomics", "noqc", "MClass_48")
+        queue = create_vial_queue(200)  # More than 192
+
+        with pytest.raises(ValueError, match="Not enough positions"):
+            sampler.assign(queue)
+
+
 class TestAssignNoQC:
     """Tests with noqc pattern (no QC positions reserved)."""
 

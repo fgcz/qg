@@ -139,6 +139,38 @@ class TestConfigSamplers:
         assert "Vanquish" in names
 
 
+class TestMethodResolution:
+    """Tests for method resolution fallback logic."""
+
+    def test_qc_sample_uses_fallback_to_default(self, config: QGConfiguration) -> None:
+        """QC sample without specific method falls back to 'default' sample_type."""
+        methods = config.methods.get_methods("Proteomics", "ASTRAL_1")
+        # QC01 has no explicit method in ASTRAL_1_methods.csv
+        path = methods.get_method_path("QC01", "pos", "")
+        # Should fallback to default's method
+        assert path != "", "QC01 should fallback to default method"
+
+    def test_default_method_returns_path(self, config: QGConfiguration) -> None:
+        """Default sample_type returns method path."""
+        methods = config.methods.get_methods("Proteomics", "ASTRAL_1")
+        path = methods.get_method_path("default", "pos", "DIA_60min")
+        assert "DIA_60min" in path
+
+    def test_explicit_qc_method_returns_specific_path(self, config: QGConfiguration) -> None:
+        """QC sample with explicit method returns that specific method."""
+        methods = config.methods.get_methods("Proteomics", "ASTRAL_1")
+        # QC03dda has explicit method in ASTRAL_1_methods.csv
+        path = methods.get_method_path("QC03dda", "pos", "")
+        assert "DDA_60min" in path
+
+    def test_nonexistent_method_returns_empty(self, config: QGConfiguration) -> None:
+        """Nonexistent sample_type with no default fallback returns empty."""
+        methods = config.methods.get_methods("Proteomics", "ASTRAL_1")
+        # Request a method_name that doesn't exist for default
+        path = methods.get_method_path("default", "pos", "NONEXISTENT_METHOD")
+        assert path == ""
+
+
 class TestConfigInstrumentConfigs:
     """Tests for instrument_configs (UI) in QGConfiguration."""
 
@@ -278,6 +310,42 @@ class TestQueueParametersCreate:
                 queue_pattern="standard",
                 queue_type="Vial",
                 plate_layout="Vanquish_54",
+                polarity=["pos"],
+                date="20260122",
+            )
+
+    def test_create_rejects_invalid_sampler(self, config: QGConfiguration) -> None:
+        """Factory raises KeyError for non-existent sampler."""
+        from qg.params_models import QueueParameters
+
+        with pytest.raises(KeyError, match="Sampler 'FakeSampler' not found"):
+            QueueParameters.create(
+                config,
+                tech_area="Proteomics",
+                instrument="ASTRAL_1",
+                sampler="FakeSampler",
+                output_format="xcalibur",
+                queue_pattern="standard",
+                queue_type="Vial",
+                plate_layout="Vanquish_54",
+                polarity=["pos"],
+                date="20260122",
+            )
+
+    def test_create_rejects_invalid_plate_layout(self, config: QGConfiguration) -> None:
+        """Factory raises ValueError for invalid plate_layout/sampler combo."""
+        from qg.params_models import QueueParameters
+
+        with pytest.raises(ValueError, match="not valid for"):
+            QueueParameters.create(
+                config,
+                tech_area="Proteomics",
+                instrument="ASTRAL_1",
+                sampler="Vanquish",
+                output_format="xcalibur",
+                queue_pattern="standard",
+                queue_type="Vial",
+                plate_layout="Evosep_96",  # Invalid for Vanquish
                 polarity=["pos"],
                 date="20260122",
             )
