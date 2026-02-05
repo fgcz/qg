@@ -427,8 +427,6 @@ class QGConfiguration:
         methods_base = MethodsConfig.config_folder
         for (tech_area, instrument), df in self.methods.to_tables().items():
             instr = self.instruments.get_instrument(tech_area, instrument)
-            if instr is None:
-                continue
             # methods_file is like "methods/proteomics/ASTRAL_1_methods.csv"
             # Remove the "methods/" prefix to get relative path from methods_base
             relative_path = instr.methods_file.removeprefix("methods/")

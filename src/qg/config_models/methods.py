@@ -106,10 +106,14 @@ class MethodsConfig(BaseModel):
 
     methods: dict[str, dict[str, MethodsForInstrument]] = Field(default_factory=dict)
 
-    def get_methods(self, tech_area: str, instrument: str) -> MethodsForInstrument | None:
+    def get_methods(self, tech_area: str, instrument: str) -> MethodsForInstrument:
         """Get methods for a tech_area/instrument combination."""
-        tech_methods = self.methods.get(tech_area, {})
-        return tech_methods.get(instrument)
+        if tech_area not in self.methods:
+            raise KeyError(f"No methods found for tech_area '{tech_area}'")
+        tech_methods = self.methods[tech_area]
+        if instrument not in tech_methods:
+            raise KeyError(f"No methods found for instrument '{instrument}' in tech_area '{tech_area}'")
+        return tech_methods[instrument]
 
     def get_method_path(
         self,
@@ -119,14 +123,8 @@ class MethodsConfig(BaseModel):
         polarity: str = "",
         method_name: str = "",
     ) -> str:
-        """Get method path for given parameters.
-
-        Returns:
-            Method path, or empty string if not found.
-        """
+        """Get method path for given parameters."""
         methods = self.get_methods(tech_area, instrument)
-        if not methods:
-            return ""
         return methods.get_method_path(sample_type, polarity, method_name)
 
     def add_instrument_methods(

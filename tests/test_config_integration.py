@@ -82,10 +82,12 @@ class TestConfigQueuePatterns:
         assert pattern is not None
         assert pattern.run_QC_after_n_samples > 0
 
-    def test_get_pattern_returns_none_for_unknown(self, config: QGConfiguration) -> None:
+    def test_get_pattern_raises_for_unknown(self, config: QGConfiguration) -> None:
         tech = config.queue_patterns.get_technologies()[0]
-        assert config.queue_patterns.get_pattern("unknown_tech", "standard") is None
-        assert config.queue_patterns.get_pattern(tech, "nonexistent") is None
+        with pytest.raises(KeyError):
+            config.queue_patterns.get_pattern("unknown_tech", "standard")
+        with pytest.raises(KeyError):
+            config.queue_patterns.get_pattern(tech, "nonexistent")
 
 
 class TestConfigQCLayoutsGrid:
@@ -120,8 +122,9 @@ class TestConfigOutputFormats:
         assert fmt.file_extension
         assert len(fmt.columns) > 0
 
-    def test_get_format_returns_none_for_unknown(self, config: QGConfiguration) -> None:
-        assert config.output_formats.get_format("nonexistent") is None
+    def test_get_format_raises_for_unknown(self, config: QGConfiguration) -> None:
+        with pytest.raises(KeyError):
+            config.output_formats.get_format("nonexistent")
 
 
 class TestConfigSamplers:
@@ -226,10 +229,10 @@ class TestQueueParametersCreate:
         assert params.instrument == "ASTRAL_1"
 
     def test_create_rejects_invalid_pattern(self, config: QGConfiguration) -> None:
-        """Factory raises ValueError for non-existent pattern."""
+        """Factory raises KeyError for non-existent pattern."""
         from qg.params_models import QueueParameters
 
-        with pytest.raises(ValueError, match="Pattern 'nonexistent' not found"):
+        with pytest.raises(KeyError, match="Pattern 'nonexistent' not found"):
             QueueParameters.create(
                 config,
                 tech_area="Proteomics",
@@ -244,10 +247,10 @@ class TestQueueParametersCreate:
             )
 
     def test_create_rejects_invalid_output_format(self, config: QGConfiguration) -> None:
-        """Factory raises ValueError for non-existent output format."""
+        """Factory raises KeyError for non-existent output format."""
         from qg.params_models import QueueParameters
 
-        with pytest.raises(ValueError, match="Output format 'nonexistent' not found"):
+        with pytest.raises(KeyError, match="Output format 'nonexistent' not found"):
             QueueParameters.create(
                 config,
                 tech_area="Proteomics",
@@ -262,10 +265,10 @@ class TestQueueParametersCreate:
             )
 
     def test_create_rejects_invalid_instrument(self, config: QGConfiguration) -> None:
-        """Factory raises ValueError for non-existent instrument."""
+        """Factory raises KeyError for non-existent instrument."""
         from qg.params_models import QueueParameters
 
-        with pytest.raises(ValueError, match="Instrument 'FAKE_INSTRUMENT' not found"):
+        with pytest.raises(KeyError, match="Instrument 'FAKE_INSTRUMENT' not found"):
             QueueParameters.create(
                 config,
                 tech_area="Proteomics",

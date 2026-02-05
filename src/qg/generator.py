@@ -11,7 +11,6 @@ from pydantic import BaseModel
 from qg.config_models.formatting import Sample, SamplesConfig
 from qg.config_models.loader import QGConfiguration
 from qg.config_models.methods import MethodsConfig
-from qg.config_models.structure import QueuePattern
 from qg.params_models import PlateCell, PlateQueue, QueueInput, VialQueueInput
 from qg.positionV2 import create_assembled_sampler
 from qg.qc_positions import Position, QCPositionProvider, create_qc_position_provider
@@ -249,11 +248,8 @@ class QueueGenerator:
         self._config = config
         params = queue_input.parameters
 
-        # Resolve pattern
-        pattern = config.queue_patterns.get_pattern(params.tech_area, params.queue_pattern)
-        if pattern is None:
-            raise ValueError(f"No pattern found for tech_area='{params.tech_area}', pattern='{params.queue_pattern}'")
-        self.pattern: QueuePattern = pattern
+        # Pattern existence validated in QueueParameters.create()
+        self.pattern = config.queue_patterns.get_pattern(params.tech_area, params.queue_pattern)
 
         # Store info needed for QC position provider (created later in build_rows)
         self._sampler_name = params.sampler
@@ -282,10 +278,10 @@ class QueueGenerator:
         self.samples_config = config.samples
         self.methods_config = config.methods
 
-        # Resolve data path
+        # Resolve data path (instrument validated in QueueParameters.create())
         instr = config.instruments.get_instrument(params.tech_area, params.instrument)
         self.data_path = ""
-        if instr and instr.path_template:
+        if instr.path_template:
             first_batch = next(iter(queue_input.queue.batches.values()), None)
             container_id = first_batch.container_id if first_batch else 0
             self.data_path = instr.path_template.format(
@@ -294,11 +290,8 @@ class QueueGenerator:
                 date=params.date,
             )
 
-        # Resolve output format
-        output_format = config.output_formats.get_format(params.output_format)
-        if output_format is None:
-            raise ValueError(f"Unknown output format: {params.output_format}")
-        self.output_format = output_format
+        # Output format existence validated in QueueParameters.create()
+        self.output_format = config.output_formats.get_format(params.output_format)
 
     def generate(self) -> pl.DataFrame:
         """Execute pipeline and return formatted DataFrame."""

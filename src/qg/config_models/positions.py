@@ -37,9 +37,11 @@ class PlateLayoutsConfig(BaseModel):
 
     layouts: dict[str, PlateLayout] = Field(default_factory=dict)
 
-    def get_layout(self, name: str) -> PlateLayout | None:
+    def get_layout(self, name: str) -> PlateLayout:
         """Get a specific plate layout by name."""
-        return self.layouts.get(name)
+        if name not in self.layouts:
+            raise KeyError(f"Plate layout '{name}' not found. Available: {list(self.layouts.keys())}")
+        return self.layouts[name]
 
     def get_layout_names(self) -> list[str]:
         """Get all layout names."""
@@ -96,9 +98,11 @@ class SamplersConfig(BaseModel):
 
     samplers: dict[str, Sampler] = Field(default_factory=dict)
 
-    def get_sampler(self, name: str) -> Sampler | None:
+    def get_sampler(self, name: str) -> Sampler:
         """Get a specific sampler by name."""
-        return self.samplers.get(name)
+        if name not in self.samplers:
+            raise KeyError(f"Sampler '{name}' not found. Available: {list(self.samplers.keys())}")
+        return self.samplers[name]
 
     def get_sampler_names(self) -> list[str]:
         """Get all sampler names."""

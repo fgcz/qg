@@ -56,10 +56,15 @@ class QueuePatternsConfig(BaseModel):
         """Get list of all technologies with patterns defined."""
         return list(self.patterns.keys())
 
-    def get_pattern(self, tech_area: str, pattern_name: str) -> QueuePattern | None:
+    def get_pattern(self, tech_area: str, pattern_name: str) -> QueuePattern:
         """Get a specific pattern by tech_area and name."""
-        tech_patterns = self.patterns.get(tech_area, {})
-        return tech_patterns.get(pattern_name)
+        if tech_area not in self.patterns:
+            raise KeyError(f"No patterns found for tech_area '{tech_area}'")
+        tech_patterns = self.patterns[tech_area]
+        if pattern_name not in tech_patterns:
+            available = list(tech_patterns.keys())
+            raise KeyError(f"Pattern '{pattern_name}' not found for '{tech_area}'. Available: {available}")
+        return tech_patterns[pattern_name]
 
     def get_patterns_for_tech_area(self, tech_area: str) -> dict[str, QueuePattern]:
         """Get all patterns for a tech_area."""

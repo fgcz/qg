@@ -323,13 +323,9 @@ def create_assembled_sampler(
     Returns:
         One of 4 AssembledSampler classes based on layout_mode + sampler_name
     """
+    # Sampler and plate_layout existence validated in QueueParameters.create()
     sampler = config.samplers.get_sampler(sampler_name)
-    if sampler is None:
-        raise ValueError(f"Unknown sampler: {sampler_name}")
-
     plate_layout = config.plate_layouts.get_layout(plate_layout_name)
-    if plate_layout is None:
-        raise ValueError(f"Unknown plate layout: {plate_layout_name}")
 
     # Get QC samples using centralized method
     is_evosep = sampler_name == "Evosep"
