@@ -307,8 +307,8 @@ def create_assembled_sampler(
     layout_mode: str,
     config: QGConfiguration,
     tech_area: str,
-    qc_layout_name: str = "standard",
-    plate_layout_name: str | None = None,
+    qc_layout_name: str,
+    plate_layout_name: str,
 ) -> AssembledSampler:
     """Factory to create correct sampler class based on mode and sampler type.
 
@@ -317,8 +317,8 @@ def create_assembled_sampler(
         layout_mode: "vial" or "plate"
         config: QGConfiguration with all config data
         tech_area: Technology area (e.g., "Proteomics")
-        qc_layout_name: QC layout name (default "standard")
-        plate_layout_name: Optional plate layout name (auto-resolved if None)
+        qc_layout_name: QC layout name (e.g., "standard")
+        plate_layout_name: Plate layout name (e.g., "Vanquish_54")
 
     Returns:
         One of 4 AssembledSampler classes based on layout_mode + sampler_name
@@ -327,29 +327,22 @@ def create_assembled_sampler(
     if sampler is None:
         raise ValueError(f"Unknown sampler: {sampler_name}")
 
-    # Resolve plate layout
-    queue_type = "Vial" if layout_mode == "vial" else "Plate"
-    layout_name = (
-        plate_layout_name or config.sampler_plate_layouts.get_plate_layouts_for_sampler(sampler_name, queue_type)[0]
-    )
-    plate_layout = config.plate_layouts.get_layout(layout_name)
+    plate_layout = config.plate_layouts.get_layout(plate_layout_name)
     if plate_layout is None:
-        raise ValueError(f"Unknown plate layout: {layout_name}")
+        raise ValueError(f"Unknown plate layout: {plate_layout_name}")
+
+    # Get QC samples using centralized method
+    is_evosep = sampler_name == "Evosep"
+    qc = config.get_qc_samples(tech_area, qc_layout_name, plate_layout.name, sampler_name)
 
     # Return correct class based on layout_mode + sampler_name
-    is_evosep = sampler_name == "Evosep"
-
     if layout_mode == "plate":
         if is_evosep:
-            qc = config.qc_layouts_evosep.get_samples(tech_area, qc_layout_name, plate_layout.name)
             return _PlateValidatorEvosepConfig(sampler, plate_layout, qc)
         else:
-            qc = config.qc_layouts_grid.get_samples(tech_area, qc_layout_name, plate_layout.name)
             return _PlateValidatorGridConfig(sampler, plate_layout, qc)
     else:  # vial
         if is_evosep:
-            qc = config.qc_layouts_evosep.get_samples(tech_area, qc_layout_name, plate_layout.name)
             return _VialPlateAssignerEvosepConfig(sampler, plate_layout, qc)
         else:
-            qc = config.qc_layouts_grid.get_samples(tech_area, qc_layout_name, plate_layout.name)
             return _VialPlateAssignerGridConfig(sampler, plate_layout, qc)

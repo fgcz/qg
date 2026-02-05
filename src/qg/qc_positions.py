@@ -133,10 +133,9 @@ def create_qc_position_provider(
     """
     sampler = config.samplers.get_sampler(sampler_name)
     position_fun = get_position_function(sampler.position_fun)
+    qc_samples = config.get_qc_samples(tech_area, qc_layout_name, plate_layout_name, sampler_name)
 
     if sampler_name == "Evosep":
-        qc_samples = config.qc_layouts_evosep.get_samples(tech_area, qc_layout_name, plate_layout_name)
         return _QCPositionProviderEvosep(qc_samples, slot_entries, default_sample_id)
     else:
-        qc_samples = config.qc_layouts_grid.get_samples(tech_area, qc_layout_name, plate_layout_name)
         return _QCPositionProviderGrid(qc_samples, position_fun, slot_entries)
