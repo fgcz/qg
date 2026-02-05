@@ -7,83 +7,18 @@ any sample data or position assignment.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 from loguru import logger
 
 from qg.config_models.structure import QueuePattern
-
-if TYPE_CHECKING:
-    from qg.params_models import QueueInput, SampleGroup
 
 
 @dataclass(frozen=True)
 class SlotEntry:
     """A slot in the queue structure with container context."""
 
-    sample_id: str  # "default" for user samples, qc_id for QC
+    sample_id: str  # DEFAULT_SAMPLE_ID for user samples, qc_id for QC
     container_id: int  # Which container this slot belongs to
-
-
-def _extract_groups(
-    source: QueueInput | list[SampleGroup],
-) -> list[tuple[int, int]]:
-    """Extract (container_id, num_samples) tuples from QueueInput or SampleGroup list.
-
-    Args:
-        source: Either a QueueInput object or a list of SampleGroup objects
-
-    Returns:
-        List of (container_id, num_samples) tuples for build_multi_container_queue_structure
-    """
-    # If it's a QueueInput, get sample_groups
-    if hasattr(source, "sample_groups"):
-        source = source.sample_groups
-    return [(g.container_id, len(g.samples)) for g in source]
-
-
-def _compute_queue_counts(num_samples: int, pattern: QueuePattern) -> dict[str, int]:
-    """Compute queue slot counts without building the structure.
-
-    Args:
-        num_samples: Number of user samples
-        pattern: Queue pattern configuration
-
-    Returns:
-        Dict with queue structure counts including extended blocks
-    """
-    num_middle_blocks = (num_samples - 1) // pattern.run_QC_after_n_samples if num_samples > 0 else 0
-
-    # Calculate extended blocks (replaces every Nth middle)
-    multiplier = pattern.middle_extended_frequency_multiplier or 0
-    if multiplier > 0 and pattern.middle_extended:
-        num_extended_blocks = num_middle_blocks // multiplier
-        num_regular_middle = num_middle_blocks - num_extended_blocks
-    else:
-        num_extended_blocks = 0
-        num_regular_middle = num_middle_blocks
-
-    start_qcs = len(pattern.start)
-    middle_qcs = num_regular_middle * len(pattern.middle)
-    extended_qcs = num_extended_blocks * len(pattern.middle_extended or [])
-    end_qcs = len(pattern.end)
-
-    total_qcs = start_qcs + middle_qcs + extended_qcs + end_qcs
-
-    counts = {
-        "start_qcs": start_qcs,
-        "user_samples": num_samples,
-        "middle_blocks": num_middle_blocks,
-        "regular_middle_blocks": num_regular_middle,
-        "middle_qcs": middle_qcs,
-        "extended_blocks": num_extended_blocks,
-        "extended_qcs": extended_qcs,
-        "end_qcs": end_qcs,
-        "total_qcs": total_qcs,
-        "total": total_qcs + num_samples,
-    }
-    logger.debug("Queue counts: {}", counts)
-    return counts
 
 
 def _compute_middle_block_positions(num_samples: int, qc_frequency: int) -> list[int]:
@@ -130,6 +65,7 @@ def _compute_extended_positions(num_middle_blocks: int, multiplier: int) -> set[
 def build_multi_container_queue_structure(
     groups: list[tuple[int, int]],  # (container_id, num_samples)
     pattern: QueuePattern,
+    default_sample_id: str,
     qc_frequency_override: int | None = None,
 ) -> list[SlotEntry]:
     """Build queue structure for multiple groups with separation blocks.
@@ -186,7 +122,7 @@ def build_multi_container_queue_structure(
 
             middle_block_idx = 0
             for i in range(num_samples):
-                structure.append(SlotEntry(sample_id="default", container_id=container_id))
+                structure.append(SlotEntry(sample_id=default_sample_id, container_id=container_id))
                 if i in middle_positions:
                     if middle_block_idx in extended_positions and pattern.middle_extended:
                         for sample_id in pattern.middle_extended:
@@ -201,7 +137,7 @@ def build_multi_container_queue_structure(
     for sample_id in pattern.end:
         structure.append(SlotEntry(sample_id=sample_id, container_id=last_container_id))
 
-    user_count = sum(1 for s in structure if s.sample_id == "default")
+    user_count = sum(1 for s in structure if s.sample_id == default_sample_id)
     qc_count = len(structure) - user_count
     logger.debug(
         "Multi-group structure built: {} total slots ({} QC, {} user across {} groups)",

@@ -106,15 +106,21 @@ class QueueParameters(BaseModel):
         qc_frequency_override: int | None = None,
         one_container_per_tray: bool = False,
     ) -> Self:
-        """Create validated QueueParameters."""
-        if not configs.queue_patterns.get_pattern(tech_area, queue_pattern):
-            raise ValueError(f"Pattern '{queue_pattern}' not found for {tech_area}")
-        if not configs.output_formats.get_format(output_format):
-            raise ValueError(f"Output format '{output_format}' not found")
-        if not configs.instruments.get_instrument(tech_area, instrument):
-            raise ValueError(f"Instrument '{instrument}' not found for {tech_area}")
-        if not configs.samples.get_sample(tech_area, "default"):
-            raise ValueError(f"No 'default' sample definition for {tech_area}")
+        """Create validated QueueParameters.
+
+        Raises:
+            KeyError: If any config reference (pattern, format, instrument, sampler, sample) is invalid.
+            ValueError: If plate_layout is not valid for the sampler/queue_type combination.
+        """
+        from qg.config_models.formatting import SamplesConfig
+
+        # These raise KeyError with descriptive message if not found
+        configs.queue_patterns.get_pattern(tech_area, queue_pattern)
+        configs.output_formats.get_format(output_format)
+        configs.instruments.get_instrument(tech_area, instrument)
+        configs.samplers.get_sampler(sampler)
+        configs.samples.get_sample(tech_area, SamplesConfig.DEFAULT_SAMPLE_ID)
+
         # Validate plate_layout exists for (sampler, queue_type)
         valid_layouts = configs.sampler_plate_layouts.get_plate_layouts_for_sampler(sampler, queue_type)
         if plate_layout not in valid_layouts:

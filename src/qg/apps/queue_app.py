@@ -16,6 +16,7 @@ with app.setup:
     logger = logging.getLogger(__name__)
 
     from qg.bfabric_utils import BfabricHelper
+    from qg.config_models.formatting import SamplesConfig
     from qg.config_models.loader import qg_configuration
     from qg.generator import QueueGenerator
     from qg.params_models import QueueParameters
@@ -301,23 +302,13 @@ def _(
         _pattern = config.queue_patterns.get_pattern(tech_area_field.value, pattern_field.value)
         if _pattern:
             _qc_layout_name = _pattern.qc_layout_name
-            # Check if QC layout exists (for grid samplers)
-            if sampler_field.value != "Evosep":
-                _qc_samples = config.qc_layouts_grid.get_samples(
-                    tech_area_field.value, _qc_layout_name, plate_layout_field.value
+            _qc_samples = config.get_qc_samples(
+                tech_area_field.value, _qc_layout_name, plate_layout_field.value, sampler_field.value
+            )
+            if not _qc_samples:
+                validation_errors.append(
+                    f"No QC layout for {tech_area_field.value}/{_qc_layout_name}/{plate_layout_field.value}"
                 )
-                if not _qc_samples:
-                    validation_errors.append(
-                        f"No QC layout for {tech_area_field.value}/{_qc_layout_name}/{plate_layout_field.value}"
-                    )
-            else:
-                _qc_samples = config.qc_layouts_evosep.get_samples(
-                    tech_area_field.value, _qc_layout_name, plate_layout_field.value
-                )
-                if not _qc_samples:
-                    validation_errors.append(
-                        f"No Evosep QC layout for {tech_area_field.value}/{_qc_layout_name}/{plate_layout_field.value}"
-                    )
 
     config_valid = len(validation_errors) == 0
     return config_valid, validation_errors
@@ -391,7 +382,7 @@ def _(methods_df):
     def _get_methods(df: pl.DataFrame, polarity: str | None) -> list[str]:
         if df.is_empty():
             return []
-        filtered = df.filter(pl.col("sample_type") == "default")
+        filtered = df.filter(pl.col("sample_type") == SamplesConfig.DEFAULT_SAMPLE_ID)
         if polarity and "polarity" in filtered.columns:
             filtered = filtered.filter(pl.col("polarity") == polarity)
         return sorted(filtered["method_name"].unique().to_list())

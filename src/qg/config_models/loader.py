@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
+from importlib.resources import files
 from pathlib import Path
 
 import polars as pl
@@ -23,11 +24,41 @@ from .positions import (
     PlateLayoutsConfig,
     QCLayoutsEvosepConfig,
     QCLayoutsGridConfig,
+    QCSampleEvosep,
+    QCSampleGrid,
     SamplerPlateLayoutsConfig,
     SamplersConfig,
 )
 from .structure import QueuePatternsConfig
 from .ui import InstrumentConfigsConfig
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+
+def _default_config_dir() -> Path:
+    """Get default config directory using package resources.
+
+    Uses importlib.resources to locate the qg package, then navigates to qg_configs/.
+    Falls back to __file__ navigation if the directory doesn't exist (e.g., editable install).
+
+    Returns:
+        Path to qg_configs/ directory
+    """
+    try:
+        # files("qg") returns the qg package directory (e.g., src/qg/ or site-packages/qg/)
+        pkg_path = Path(str(files("qg")))
+        # qg_configs is at project root: 2 levels up from src/qg/
+        config_dir = (pkg_path.parent.parent / "qg_configs").resolve()
+        if config_dir.is_dir():
+            return config_dir
+    except (TypeError, ModuleNotFoundError):
+        pass
+
+    # Fallback: navigate from __file__ (for editable installs or when resources fail)
+    return (Path(__file__).parent.parent.parent.parent / "qg_configs").resolve()
+
 
 # =============================================================================
 # Exception Class
@@ -274,6 +305,30 @@ class QGConfiguration:
             ]
         )
 
+    def get_qc_samples(
+        self,
+        tech_area: str,
+        qc_layout_name: str,
+        plate_layout_name: str,
+        sampler_name: str,
+    ) -> list[QCSampleGrid] | list[QCSampleEvosep]:
+        """Get QC samples from appropriate layout based on sampler type.
+
+        Centralizes the grid vs evosep branching logic that appears in multiple places.
+
+        Args:
+            tech_area: Technology area (e.g., "Proteomics")
+            qc_layout_name: QC layout name (e.g., "standard")
+            plate_layout_name: Plate layout name (e.g., "Vanquish_54")
+            sampler_name: Sampler name - "Evosep" uses evosep layout, others use grid
+
+        Returns:
+            List of QC samples (QCSampleGrid or QCSampleEvosep)
+        """
+        if sampler_name == "Evosep":
+            return self.qc_layouts_evosep.get_samples(tech_area, qc_layout_name, plate_layout_name)
+        return self.qc_layouts_grid.get_samples(tech_area, qc_layout_name, plate_layout_name)
+
     @staticmethod
     def create(
         *,
@@ -372,8 +427,6 @@ class QGConfiguration:
         methods_base = MethodsConfig.config_folder
         for (tech_area, instrument), df in self.methods.to_tables().items():
             instr = self.instruments.get_instrument(tech_area, instrument)
-            if instr is None:
-                continue
             # methods_file is like "methods/proteomics/ASTRAL_1_methods.csv"
             # Remove the "methods/" prefix to get relative path from methods_base
             relative_path = instr.methods_file.removeprefix("methods/")
@@ -409,8 +462,7 @@ def qg_configuration(config_dir: Path | None = None) -> QGConfiguration:
         pydantic.ValidationError: If config data doesn't match schema
     """
     if config_dir is None:
-        # Navigate from loader.py up to project root: src/qg/config_models_new/ -> qg_configs/
-        config_dir = Path(__file__).parent.parent.parent.parent / "qg_configs"
+        config_dir = _default_config_dir()
     config_dir = Path(config_dir)
 
     # Load configs using ClassVar paths as single source of truth
