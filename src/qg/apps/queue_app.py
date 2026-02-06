@@ -18,7 +18,7 @@ with app.setup:
     from qg.bfabric_utils import BfabricHelper
     from qg.config_models.formatting import SamplesConfig
     from qg.config_models.loader import qg_configuration
-    from qg.generator import QueueGenerator
+    from qg.generator import QueueGenerator, format_table, write_queue
     from qg.params_models import QueueParameters
     from qg.queue_builder import QueueBuilder
 
@@ -296,11 +296,10 @@ def _(
     if not validation_errors and filtered_table.is_empty():
         validation_errors.append("No valid combination found")
 
-    # Check QC layout exists for this combination
+    # Check QC layout exists for this combination (skip for patterns with no QC references)
     if not validation_errors and plate_layout_field.value:
-        # Get qc_layout_name from the pattern
         _pattern = config.queue_patterns.get_pattern(tech_area_field.value, pattern_field.value)
-        if _pattern:
+        if _pattern and _pattern.get_all_sample_ids():
             _qc_layout_name = _pattern.qc_layout_name
             _qc_samples = config.get_qc_samples(
                 tech_area_field.value, _qc_layout_name, plate_layout_field.value, sampler_field.value
@@ -823,10 +822,12 @@ def _(
 @app.cell
 def _(config, layout_mode, queue_parameters, sample_df, selected_orders):
     # Generate queue from current parameters (multi-order support)
+    # IMPORTANT: build_rows() is called exactly ONCE to ensure the displayed queue
+    # and the downloaded file are identical (randomization is non-deterministic).
     generated_queue_df = None
     raw_queue_df = None
+    queue_output_str = None
     generation_error = None
-    generator = None
 
     if queue_parameters and layout_mode and selected_orders and sample_df is not None and not sample_df.is_empty():
         try:
@@ -836,9 +837,11 @@ def _(config, layout_mode, queue_parameters, sample_df, selected_orders):
                 .add_samples_from_dataframe(sample_df)
                 .build()
             )
-            generator = QueueGenerator(config, _queue_input, layout_mode)
-            generated_queue_df = generator.generate()
-            raw_queue_df = generator.build_rows().to_table()
+            _generator = QueueGenerator(config, _queue_input, layout_mode)
+            _queue_rows = _generator.build_rows()
+            raw_queue_df = _queue_rows.to_table()
+            generated_queue_df = format_table(_queue_rows, _generator.output_format)
+            queue_output_str = write_queue(generated_queue_df, queue_parameters.output_format)
         except ValueError as e:
             # Config errors - provide user-friendly message
             logger.exception("Queue generation failed")
@@ -853,7 +856,7 @@ def _(config, layout_mode, queue_parameters, sample_df, selected_orders):
                 )
             else:
                 generation_error = _err_str
-    return generated_queue_df, generation_error, generator, raw_queue_df
+    return generated_queue_df, generation_error, queue_output_str, raw_queue_df
 
 
 @app.cell
@@ -867,7 +870,7 @@ def _(
     formatted_ticket_toggle,
     generated_queue_df,
     generation_error,
-    generator,
+    queue_output_str,
     queue_parameters,
     raw_queue_df,
     selected_orders,
@@ -875,17 +878,16 @@ def _(
     # Queue Preview tab content
     if generation_error:
         queue_preview_content = mo.callout(mo.md(f"**Generation Error:** {generation_error}"), kind="danger")
-    elif generated_queue_df is not None and generator is not None:
+    elif generated_queue_df is not None and queue_output_str is not None:
         _display_df = generated_queue_df if formatted_ticket_toggle.value else raw_queue_df
 
-        # Create download button with data in appropriate format
-        _output_data = generator.write()
+        # Download uses the pre-computed output string (same data as displayed)
         _container_ids = [o[0] for o in selected_orders] if selected_orders else []
         _ids_str = "_".join(str(c) for c in _container_ids) if _container_ids else "queue"
-        _ext = generator.file_extension
+        _ext = ".xml" if queue_parameters.output_format == "hystar" else ".csv"
         _filename = f"{queue_parameters.date}_{queue_parameters.instrument}_{_ids_str}{_ext}"
         _download_button = mo.download(
-            data=_output_data.encode("utf-8"),
+            data=queue_output_str.encode("utf-8"),
             filename=_filename,
             label=f"Download {_ext.upper()[1:]}",
         )

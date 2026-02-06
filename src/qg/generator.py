@@ -253,7 +253,6 @@ class QueueGenerator:
 
         # Store info needed for QC position provider (created later in build_rows)
         self._sampler_name = params.sampler
-        self._qc_layout_name = self.pattern.qc_layout_name
         self._plate_layout_name = params.plate_layout
 
         # Create assembled sampler for position assignment
@@ -262,7 +261,7 @@ class QueueGenerator:
             layout_mode=layout_mode,
             config=config,
             tech_area=params.tech_area,
-            qc_layout_name=self.pattern.qc_layout_name,
+            pattern=self.pattern,
             plate_layout_name=params.plate_layout,
         )
 
@@ -342,7 +341,7 @@ class QueueGenerator:
             sampler_name=self._sampler_name,
             config=self._config,
             tech_area=params.tech_area,
-            qc_layout_name=self._qc_layout_name,
+            pattern=self.pattern,
             plate_layout_name=self._plate_layout_name,
             slot_entries=slot_entries,
             default_sample_id=default_sample_id,

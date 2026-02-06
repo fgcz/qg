@@ -10,14 +10,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import Protocol
 
 from qg.config_models.loader import QGConfiguration
-from qg.config_models.positions import (
-    QCSampleEvosep,
-    QCSampleGrid,
-)
+from qg.config_models.structure import QueuePattern
+from qg.qc_layout import QCLayoutEvosep, QCLayoutGrid, create_qc_layout
 from qg.queue_structure import SlotEntry
 from qg.utils import (
     Position,
@@ -50,14 +47,10 @@ class _QCPositionProviderGrid:
 
     def __init__(
         self,
-        qc_samples: list[QCSampleGrid],
-        position_fun: Callable[[str | int, int], str | int],
+        qc_layout: QCLayoutGrid,
         slot_entries: list[SlotEntry],  # noqa: ARG002
     ) -> None:
-        # Precompute positions: {sample_id: Position}
-        self._positions: dict[str, Position] = {
-            s.sample_id: Position(s.tray, position_fun(s.row, s.col)) for s in qc_samples
-        }
+        self._positions = qc_layout.position_map
 
     def get_position(self, sample_id: str) -> Position:
         """Get QC position (always returns same position for Grid)."""
@@ -73,12 +66,12 @@ class _QCPositionProviderEvosep:
 
     def __init__(
         self,
-        qc_samples: list[QCSampleEvosep],
+        qc_layout: QCLayoutEvosep,
         slot_entries: list[SlotEntry],
         default_sample_id: str,
     ) -> None:
-        self._samples: dict[str, QCSampleEvosep] = {s.sample_id: s for s in qc_samples}
-        self._counters: dict[str, int] = {s.sample_id: 0 for s in qc_samples}
+        self._samples = qc_layout.sample_map
+        self._counters: dict[str, int] = {sid: 0 for sid in self._samples}
 
         # Count QC samples needed from slot_entries
         qc_counts: dict[str, int] = {}
@@ -116,7 +109,7 @@ def create_qc_position_provider(
     sampler_name: str,
     config: QGConfiguration,
     tech_area: str,
-    qc_layout_name: str,
+    pattern: QueuePattern,
     plate_layout_name: str,
     slot_entries: list[SlotEntry],
     default_sample_id: str,
@@ -127,15 +120,18 @@ def create_qc_position_provider(
         sampler_name: "Vanquish", "MClass", or "Evosep"
         config: QGConfiguration
         tech_area: e.g., "Proteomics"
-        qc_layout_name: e.g., "standard"
+        pattern: Queue pattern (used to resolve QC layout; empty patterns yield no QC positions)
         plate_layout_name: e.g., "Vanquish_54"
         slot_entries: List of SlotEntry - used by Evosep to validate capacity
+        default_sample_id: The default sample ID for user samples
     """
     sampler = config.samplers.get_sampler(sampler_name)
     position_fun = get_position_function(sampler.position_fun)
-    qc_samples = config.get_qc_samples(tech_area, qc_layout_name, plate_layout_name, sampler_name)
+
+    # Create QC layout (empty when pattern has no QC references)
+    qc_layout = create_qc_layout(config, tech_area, pattern, plate_layout_name, sampler_name, position_fun)
 
     if sampler_name == "Evosep":
-        return _QCPositionProviderEvosep(qc_samples, slot_entries, default_sample_id)
+        return _QCPositionProviderEvosep(qc_layout, slot_entries, default_sample_id)
     else:
-        return _QCPositionProviderGrid(qc_samples, position_fun, slot_entries)
+        return _QCPositionProviderGrid(qc_layout, slot_entries)

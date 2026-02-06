@@ -18,10 +18,9 @@ from typing import Protocol
 from qg.config_models.loader import QGConfiguration
 from qg.config_models.positions import (
     PlateLayout,
-    QCSampleEvosep,
-    QCSampleGrid,
     Sampler,
 )
+from qg.config_models.structure import QueuePattern
 from qg.params_models import (
     Plate,
     PlateCell,
@@ -29,6 +28,7 @@ from qg.params_models import (
     VialQueue,
     VialSample,
 )
+from qg.qc_layout import QCLayoutEvosep, QCLayoutGrid, create_qc_layout
 from qg.utils import (
     Position,
     generate_all_positions,
@@ -97,20 +97,20 @@ def _build_plate_queue(
 class _PositionPoolGrid:
     """Position pool for Grid samplers (Vanquish, MClass).
 
-    Computes reserved QC positions from fixed (tray, row, col) and filters them out.
+    Uses precomputed QCLayoutGrid for reserved positions and filters them out.
     """
 
     def __init__(
         self,
         sampler: Sampler,
         plate_layout: PlateLayout,
-        qc_samples: list[QCSampleGrid],
+        qc_layout: QCLayoutGrid,
     ) -> None:
         self.position_fun = get_position_function(sampler.position_fun)
         self.trays = sampler.trays
 
-        # Compute reserved QC positions
-        self.reserved: set[Position] = {Position(s.tray, self.position_fun(s.row, s.col)) for s in qc_samples}
+        # Use precomputed reserved QC positions
+        self.reserved = qc_layout.reserved
 
         # Generate all positions and filter out reserved
         self.all_positions = generate_all_positions(
@@ -123,22 +123,20 @@ class _PositionPoolGrid:
 class _PositionPoolEvosep:
     """Position pool for Evosep (consumable tips - no upfront reservation).
 
-    Computes reserved ranges but doesn't filter them out (tips are consumed sequentially).
+    Uses precomputed QCLayoutEvosep for reserved ranges (not filtered out - tips consumed sequentially).
     """
 
     def __init__(
         self,
         sampler: Sampler,
         plate_layout: PlateLayout,
-        qc_samples: list[QCSampleEvosep],
+        qc_layout: QCLayoutEvosep,
     ) -> None:
         self.position_fun = get_position_function(sampler.position_fun)
         self.trays = sampler.trays
 
-        # Compute reserved QC positions (ranges)
-        self.reserved: set[Position] = {
-            Position(s.tray, pos) for s in qc_samples for pos in range(s.position_start, s.position_end + 1)
-        }
+        # Use precomputed reserved QC positions
+        self.reserved = qc_layout.reserved
 
         # Generate all positions (don't filter - Evosep uses consumable tips)
         self.all_positions = generate_all_positions(
@@ -164,9 +162,9 @@ class _PlateValidatorGridConfig:
         self,
         sampler: Sampler,
         plate_layout: PlateLayout,
-        qc_samples: list[QCSampleGrid],
+        qc_layout: QCLayoutGrid,
     ) -> None:
-        self.pool = _PositionPoolGrid(sampler, plate_layout, qc_samples)
+        self.pool = _PositionPoolGrid(sampler, plate_layout, qc_layout)
 
     def _check_collisions(self, queue: PlateQueue) -> None:
         """Check that no user positions conflict with QC positions."""
@@ -196,9 +194,9 @@ class _PlateValidatorEvosepConfig:
         self,
         sampler: Sampler,
         plate_layout: PlateLayout,
-        qc_samples: list[QCSampleEvosep],
+        qc_layout: QCLayoutEvosep,
     ) -> None:
-        self.pool = _PositionPoolEvosep(sampler, plate_layout, qc_samples)
+        self.pool = _PositionPoolEvosep(sampler, plate_layout, qc_layout)
 
     def assign(self, queue: PlateQueue, *, one_container_per_tray: bool = False) -> PlateQueue:  # noqa: ARG002
         """Assign trays to plates (Evosep doesn't check collisions - tips are consumable)."""
@@ -221,9 +219,9 @@ class _VialPlateAssignerGridConfig:
         self,
         sampler: Sampler,
         plate_layout: PlateLayout,
-        qc_samples: list[QCSampleGrid],
+        qc_layout: QCLayoutGrid,
     ) -> None:
-        self.pool = _PositionPoolGrid(sampler, plate_layout, qc_samples)
+        self.pool = _PositionPoolGrid(sampler, plate_layout, qc_layout)
 
     def assign(self, queue: VialQueue, *, one_container_per_tray: bool = False) -> PlateQueue:
         """Transform VialQueue to PlateQueue by assigning positions."""
@@ -265,9 +263,9 @@ class _VialPlateAssignerEvosepConfig:
         self,
         sampler: Sampler,
         plate_layout: PlateLayout,
-        qc_samples: list[QCSampleEvosep],
+        qc_layout: QCLayoutEvosep,
     ) -> None:
-        self.pool = _PositionPoolEvosep(sampler, plate_layout, qc_samples)
+        self.pool = _PositionPoolEvosep(sampler, plate_layout, qc_layout)
 
     def assign(self, queue: VialQueue, *, one_container_per_tray: bool = False) -> PlateQueue:  # noqa: ARG002
         """Transform VialQueue to PlateQueue by assigning positions."""
@@ -307,7 +305,7 @@ def create_assembled_sampler(
     layout_mode: str,
     config: QGConfiguration,
     tech_area: str,
-    qc_layout_name: str,
+    pattern: QueuePattern,
     plate_layout_name: str,
 ) -> AssembledSampler:
     """Factory to create correct sampler class based on mode and sampler type.
@@ -317,7 +315,7 @@ def create_assembled_sampler(
         layout_mode: "vial" or "plate"
         config: QGConfiguration with all config data
         tech_area: Technology area (e.g., "Proteomics")
-        qc_layout_name: QC layout name (e.g., "standard")
+        pattern: Queue pattern (used to resolve QC layout; empty patterns yield no reservations)
         plate_layout_name: Plate layout name (e.g., "Vanquish_54")
 
     Returns:
@@ -326,19 +324,20 @@ def create_assembled_sampler(
     # Sampler and plate_layout existence validated in QueueParameters.create()
     sampler = config.samplers.get_sampler(sampler_name)
     plate_layout = config.plate_layouts.get_layout(plate_layout_name)
+    position_fun = get_position_function(sampler.position_fun)
 
-    # Get QC samples using centralized method
-    is_evosep = sampler_name == "Evosep"
-    qc = config.get_qc_samples(tech_area, qc_layout_name, plate_layout.name, sampler_name)
+    # Create QC layout (empty when pattern has no QC references)
+    qc_layout = create_qc_layout(config, tech_area, pattern, plate_layout.name, sampler_name, position_fun)
 
     # Return correct class based on layout_mode + sampler_name
+    is_evosep = sampler_name == "Evosep"
     if layout_mode == "plate":
         if is_evosep:
-            return _PlateValidatorEvosepConfig(sampler, plate_layout, qc)
+            return _PlateValidatorEvosepConfig(sampler, plate_layout, qc_layout)
         else:
-            return _PlateValidatorGridConfig(sampler, plate_layout, qc)
+            return _PlateValidatorGridConfig(sampler, plate_layout, qc_layout)
     else:  # vial
         if is_evosep:
-            return _VialPlateAssignerEvosepConfig(sampler, plate_layout, qc)
+            return _VialPlateAssignerEvosepConfig(sampler, plate_layout, qc_layout)
         else:
-            return _VialPlateAssignerGridConfig(sampler, plate_layout, qc)
+            return _VialPlateAssignerGridConfig(sampler, plate_layout, qc_layout)
