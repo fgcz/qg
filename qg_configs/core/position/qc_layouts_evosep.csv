@@ -4,3 +4,7 @@ Proteomics,standard,Evosep_96,QC01,5,1,48
 Proteomics,standard,Evosep_96,QC03dia,5,49,96
 Proteomics,standard,Evosep_96,QC03dda,5,49,96
 Proteomics,standard,Evosep_96,clean,6,1,96
+# Proteomics - Evosep_96 evosep_qc (Tray 6: QC03 positions 1-49, clean positions 50-96)
+Proteomics,evosep_qc,Evosep_96,QC03dia,6,1,49
+Proteomics,evosep_qc,Evosep_96,QC03dda,6,1,49
+Proteomics,evosep_qc,Evosep_96,clean,6,50,96

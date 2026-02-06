@@ -152,8 +152,8 @@ class TestAssignEvosep:
     def test_raises_when_full(self, config) -> None:
         pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
         sampler = create_assembled_sampler("Evosep", "vial", config, "Proteomics", pattern, "Evosep_96")
-        # 4 slots x 96 = 384, request more
-        queue = create_vial_queue(400)
+        # 5 trays x 96 = 480, request more
+        queue = create_vial_queue(500)
 
         with pytest.raises(ValueError):
             sampler.assign(queue)

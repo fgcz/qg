@@ -273,6 +273,121 @@ class TestDifferentSamplers:
         assert len(result) == 3
 
 
+class TestEvosepQCPattern:
+    """Integration test for the evosep_qc pattern (Evosep: clean-QC03 bookends)."""
+
+    def test_evosep_qc_slot_sequence(self, config):
+        samples = make_vial_samples(5)
+        params = QueueParameters(
+            tech_area="Proteomics",
+            instrument="ASTRAL_1",
+            sampler="Evosep",
+            output_format="chronos",
+            queue_pattern="evosep_qc",
+            queue_type="Vial",
+            plate_layout="Evosep_96",
+            polarity=["pos"],
+            date="20260116",
+            user="test",
+        )
+        queue_input = make_vial_queue_input(params, samples)
+
+        generator = QueueGenerator(config, queue_input, layout_mode="vial")
+        result = generator.build_rows()
+
+        sample_ids = [row.sample_id for row in result.rows]
+        sample_types = [row.sample_type for row in result.rows]
+
+        # Pattern: start=[clean, QC03dia] + 5 samples + end=[clean, QC03dia]
+        assert len(result.rows) == 9
+        assert sample_types == ["qc", "qc", "user", "user", "user", "user", "user", "qc", "qc"]
+        assert sample_ids[0] == "clean"
+        assert sample_ids[1] == "QC03dia"
+        assert sample_ids[-2] == "clean"
+        assert sample_ids[-1] == "QC03dia"
+
+    def test_evosep_qc_positions_on_tray6(self, config):
+        samples = make_vial_samples(5)
+        params = QueueParameters(
+            tech_area="Proteomics",
+            instrument="ASTRAL_1",
+            sampler="Evosep",
+            output_format="chronos",
+            queue_pattern="evosep_qc",
+            queue_type="Vial",
+            plate_layout="Evosep_96",
+            polarity=["pos"],
+            date="20260116",
+            user="test",
+        )
+        queue_input = make_vial_queue_input(params, samples)
+
+        generator = QueueGenerator(config, queue_input, layout_mode="vial")
+        result = generator.build_rows()
+
+        qc_rows = [row for row in result.rows if row.sample_type == "qc"]
+
+        for row in qc_rows:
+            # All QC should be on tray 6
+            assert row.tray == 6, f"{row.sample_id} should be on tray 6, got {row.tray}"
+
+        # QC03dia positions should be <= 49
+        qc03_rows = [row for row in qc_rows if row.sample_id == "QC03dia"]
+        for row in qc03_rows:
+            assert row.grid_position <= 49, f"QC03dia position {row.grid_position} should be <= 49"
+
+        # Clean positions should be >= 50
+        clean_rows = [row for row in qc_rows if row.sample_id == "clean"]
+        for row in clean_rows:
+            assert row.grid_position >= 50, f"clean position {row.grid_position} should be >= 50"
+
+    def test_evosep_qc_user_samples_on_trays_1_to_5(self, config):
+        samples = make_vial_samples(5)
+        params = QueueParameters(
+            tech_area="Proteomics",
+            instrument="ASTRAL_1",
+            sampler="Evosep",
+            output_format="chronos",
+            queue_pattern="evosep_qc",
+            queue_type="Vial",
+            plate_layout="Evosep_96",
+            polarity=["pos"],
+            date="20260116",
+            user="test",
+        )
+        queue_input = make_vial_queue_input(params, samples)
+
+        generator = QueueGenerator(config, queue_input, layout_mode="vial")
+        result = generator.build_rows()
+
+        user_rows = [row for row in result.rows if row.sample_type == "user"]
+        for row in user_rows:
+            assert row.tray in (1, 2, 3, 4, 5), f"User sample tray {row.tray} should be 1-5"
+
+    def test_evosep_qc_no_middle_insertions(self, config):
+        # With 50 samples, the high run_QC_after_n_samples (1000) should prevent middle QC
+        samples = make_vial_samples(50)
+        params = QueueParameters(
+            tech_area="Proteomics",
+            instrument="ASTRAL_1",
+            sampler="Evosep",
+            output_format="chronos",
+            queue_pattern="evosep_qc",
+            queue_type="Vial",
+            plate_layout="Evosep_96",
+            polarity=["pos"],
+            date="20260116",
+            user="test",
+        )
+        queue_input = make_vial_queue_input(params, samples)
+
+        generator = QueueGenerator(config, queue_input, layout_mode="vial")
+        result = generator.build_rows()
+
+        # start(2) + 50 samples + end(2) = 54 total, no middle QC
+        assert len(result.rows) == 54
+
+
 class TestMetabolomicsPolarity:
     def test_polarity_expansion(self, config):
         samples = make_vial_samples(2)
