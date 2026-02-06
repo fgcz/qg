@@ -187,7 +187,8 @@ class _PlateValidatorGridConfig:
 class _PlateValidatorEvosepConfig:
     """Validates PlateQueue positions against QC reservations (Evosep).
 
-    For Plate mode with Evosep: just assigns trays (no collision check - tips are consumable).
+    For Plate mode with Evosep: assigns trays and converts alphanumeric positions
+    (e.g., "D8") to Evosep numeric positions (e.g., 44).
     """
 
     def __init__(
@@ -197,10 +198,36 @@ class _PlateValidatorEvosepConfig:
         qc_layout: QCLayoutEvosep,
     ) -> None:
         self.pool = _PositionPoolEvosep(sampler, plate_layout, qc_layout)
+        self.plate_layout = plate_layout
+
+    def _convert_alpha_to_numeric(self, grid_position: str | int) -> str | int:
+        """Convert alphanumeric plate position (e.g., "D8") to Evosep numeric position (e.g., 44).
+
+        B-Fabric provides positions in standard 96-well notation (A1–H12), but Evosep/Chronos
+        expects numeric positions (1–96). Formula: rows[row_index] + (col - 1).
+        """
+        if isinstance(grid_position, int):
+            return grid_position
+        if not isinstance(grid_position, str) or len(grid_position) < 2:
+            raise ValueError(f"Invalid grid position: {grid_position!r}")
+        row_letter = grid_position[0].upper()
+        row_index = ord(row_letter) - ord("A")
+        col = int(grid_position[1:])
+        rows = self.plate_layout.rows
+        if row_index < 0 or row_index >= len(rows):
+            raise ValueError(f"Row '{row_letter}' out of range for plate layout '{self.plate_layout.name}'")
+        if col < 1 or col > len(self.plate_layout.cols):
+            raise ValueError(f"Column {col} out of range for plate layout '{self.plate_layout.name}'")
+        return rows[row_index] + (col - 1)
 
     def assign(self, queue: PlateQueue, *, one_container_per_tray: bool = False) -> PlateQueue:  # noqa: ARG002
-        """Assign trays to plates (Evosep doesn't check collisions - tips are consumable)."""
-        return _assign_trays_if_missing(queue, self.pool.trays)
+        """Assign trays to plates and convert alphanumeric positions to Evosep numeric."""
+        queue = _assign_trays_if_missing(queue, self.pool.trays)
+        converted_cells = [
+            cell.model_copy(update={"grid_position": self._convert_alpha_to_numeric(cell.grid_position)})
+            for cell in queue.cells
+        ]
+        return PlateQueue(batches=queue.batches, plates=queue.plates, cells=converted_cells)
 
 
 # =============================================================================

@@ -12,7 +12,7 @@ import pytest
 
 from qg.config_models.formatting import SamplesConfig
 from qg.config_models.loader import qg_configuration
-from qg.params_models import ContainerBatch, VialQueue, VialSample
+from qg.params_models import ContainerBatch, Plate, PlateCell, PlateQueue, VialQueue, VialSample
 from qg.positionV2 import create_assembled_sampler
 from qg.qc_positions import create_qc_position_provider
 
@@ -352,3 +352,78 @@ class TestGetQCPosition:
 
         # Evosep QC positions should increment (consumable tips)
         assert pos1.grid_position != pos2.grid_position
+
+
+# =============================================================================
+# Tests for Evosep Plate mode - alphanumeric to numeric conversion
+# =============================================================================
+
+
+def _create_plate_queue_with_alpha_positions(positions: list[str]) -> PlateQueue:
+    """Helper to create a PlateQueue with alphanumeric grid positions (e.g., A1, D8)."""
+    cells = [
+        PlateCell(
+            sample=VialSample(
+                sample_name=f"Sample_{i}",
+                sample_id=1000 + i,
+                tube_id=f"12345/{i}",
+                container_id=12345,
+            ),
+            position=i + 1,
+            grid_position=pos,
+            plate_id=1,
+        )
+        for i, pos in enumerate(positions)
+    ]
+    plates = {1: Plate(plate_id=1, tray=None, nr_samples=len(cells))}
+    batches = {12345: ContainerBatch(container_id=12345)}
+    return PlateQueue(batches=batches, plates=plates, cells=cells)
+
+
+class TestEvosepPlateAlphaToNumeric:
+    """Tests for Evosep plate mode: alphanumeric -> numeric position conversion."""
+
+    def test_converts_alpha_positions_to_numeric(self, config) -> None:
+        """A1->1, D8->44, H12->96."""
+        pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
+        sampler = create_assembled_sampler("Evosep", "plate", config, "Proteomics", pattern, "Evosep_96")
+        queue = _create_plate_queue_with_alpha_positions(["A1", "D8", "H12"])
+
+        result = sampler.assign(queue)
+
+        assert result.cells[0].grid_position == 1
+        assert result.cells[1].grid_position == 44
+        assert result.cells[2].grid_position == 96
+
+    def test_already_numeric_positions_unchanged(self, config) -> None:
+        """Positions that are already numeric should pass through unchanged."""
+        pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
+        sampler = create_assembled_sampler("Evosep", "plate", config, "Proteomics", pattern, "Evosep_96")
+        cells = [
+            PlateCell(
+                sample=VialSample(sample_name="Sample_0", sample_id=1000, tube_id="12345/0", container_id=12345),
+                position=1,
+                grid_position=44,
+                plate_id=1,
+            )
+        ]
+        plates = {1: Plate(plate_id=1, tray=None, nr_samples=1)}
+        batches = {12345: ContainerBatch(container_id=12345)}
+        queue = PlateQueue(batches=batches, plates=plates, cells=cells)
+
+        result = sampler.assign(queue)
+
+        assert result.cells[0].grid_position == 44
+
+    def test_all_corner_positions(self, config) -> None:
+        """Test all four corners of 96-well plate."""
+        pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
+        sampler = create_assembled_sampler("Evosep", "plate", config, "Proteomics", pattern, "Evosep_96")
+        queue = _create_plate_queue_with_alpha_positions(["A1", "A12", "H1", "H12"])
+
+        result = sampler.assign(queue)
+
+        assert result.cells[0].grid_position == 1  # 1 + (1-1) = 1
+        assert result.cells[1].grid_position == 12  # 1 + (12-1) = 12
+        assert result.cells[2].grid_position == 85  # 85 + (1-1) = 85
+        assert result.cells[3].grid_position == 96  # 85 + (12-1) = 96
