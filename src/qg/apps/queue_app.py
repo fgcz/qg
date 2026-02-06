@@ -38,8 +38,8 @@ def _():
         _content = "No user information in request. Using default configuration."
         client = Bfabric.connect()
 
-    mo.md(_content)
     bfabric = BfabricHelper(client)
+    mo.md(_content)
     return (bfabric,)
 
 
@@ -706,7 +706,7 @@ def _(container_type, selected_orders):
 @app.cell
 def _(all_plates, plates_select, selected_orders):
     _has_plates = any(all_plates.get(o[0]) for o in selected_orders) if selected_orders else False
-    mo.output.replace(plates_select if _has_plates else mo.md(""))
+    plates_select if _has_plates else mo.md("")
     return
 
 
@@ -719,77 +719,72 @@ def _(
 ):
     # Sample Selection tab content
     _order_count = len(selected_orders) if selected_orders else 0
+    if sample_df is not None and not sample_df.is_empty():
+        _summary = mo.md(f"**{len(sample_df)} samples from {_order_count} order(s)**")
+        _table = subset_samples_select if subset_samples_select is not None else sample_df
+    else:
+        _summary = mo.md("**No samples selected**")
+        _table = None
     sample_selection_content = mo.vstack(
         [
-            mo.hstack(
-                [
-                    subset_samples_toggle,
-                    mo.md(f"**{len(sample_df)} samples from {_order_count} order(s)**"),
-                ],
-                justify="start",
-            ),
-            subset_samples_select if subset_samples_select is not None else sample_df,
+            mo.hstack([subset_samples_toggle, _summary], justify="start"),
+            _table,
         ]
     )
     return (sample_selection_content,)
 
 
 @app.cell
-def _(
-    config,
-    layout_mode,
-    queue_parameters,
-    queue_parameters_err,
-    sample_df,
-    selected_orders,
-):
-    # Build full QueueInput for display (Parameters tab content)
-    _output = None
-    _download_button = None
-    if (
-        queue_parameters
-        and layout_mode
-        and selected_orders
-        and sample_df is not None
-        and "container_id" in sample_df.columns
-    ):
+def _(config, layout_mode, queue_parameters, sample_df, selected_orders):
+    # Build QueueInput once — shared by Parameters tab and queue generation
+    queue_input = None
+    queue_input_err = None
+    if queue_parameters and layout_mode and selected_orders and sample_df is not None and not sample_df.is_empty():
         try:
-            _queue_input = (
+            queue_input = (
                 QueueBuilder(config)
                 .with_parameters(queue_parameters, layout_mode)
                 .add_samples_from_dataframe(sample_df)
                 .build()
             )
-            _output = _queue_input.model_dump(mode="json")
+        except ValueError as e:
+            queue_input_err = str(e)
+    return queue_input, queue_input_err
 
-            # Create download button for JSON
-            import json
 
-            _json_data = json.dumps(_output, indent=2)
-            _ids_str = "_".join(str(c) for c in sample_df["container_id"].unique().sort().to_list())
-            _filename = f"{queue_parameters.tech_area}_{queue_parameters.sampler.replace('.', '_')}_c{_ids_str}_n{len(sample_df)}.json"
-            _download_button = mo.download(
-                data=_json_data.encode("utf-8"),
-                filename=_filename,
-                label="Download Params JSON",
-            )
-        except ValueError:
-            pass  # Builder validation failed, show error state
+@app.cell
+def _(queue_input, queue_input_err, queue_parameters, queue_parameters_err, sample_df):
+    # Parameters tab content — uses shared queue_input
+    _output = None
+    _download_button = None
+    if queue_input is not None:
+        _output = queue_input.model_dump(mode="json")
 
+        # Create download button for JSON
+        import json
+
+        _json_data = json.dumps(_output, indent=2)
+        _ids_str = "_".join(str(c) for c in sample_df["container_id"].unique().sort().to_list())
+        _filename = f"{queue_parameters.tech_area}_{queue_parameters.sampler.replace('.', '_')}_c{_ids_str}_n{len(sample_df)}.json"
+        _download_button = mo.download(
+            data=_json_data.encode("utf-8"),
+            filename=_filename,
+            label="Download Params JSON",
+        )
+
+    _err_msg = queue_input_err or (str(queue_parameters_err) if queue_parameters_err else "Select orders")
     parameters_content = mo.vstack(
         [
             _download_button if _download_button else None,
-            mo.callout(_output, kind="info")
-            if _output
-            else mo.callout(str(queue_parameters_err) if queue_parameters_err else "Select orders", kind="danger"),
+            mo.callout(_output, kind="info") if _output else mo.callout(_err_msg, kind="danger"),
         ]
     )
     return (parameters_content,)
 
 
 @app.cell
-def _(config, layout_mode, queue_parameters, sample_df, selected_orders):
-    # Generate queue from current parameters (multi-order support)
+def _(config, layout_mode, queue_input, queue_parameters):
+    # Generate queue from shared queue_input
     # IMPORTANT: build_rows() is called exactly ONCE to ensure the displayed queue
     # and the downloaded file are identical (randomization is non-deterministic).
     generated_queue_df = None
@@ -797,15 +792,9 @@ def _(config, layout_mode, queue_parameters, sample_df, selected_orders):
     queue_output_str = None
     generation_error = None
 
-    if queue_parameters and layout_mode and selected_orders and sample_df is not None and not sample_df.is_empty():
+    if queue_input is not None and layout_mode:
         try:
-            _queue_input = (
-                QueueBuilder(config)
-                .with_parameters(queue_parameters, layout_mode)
-                .add_samples_from_dataframe(sample_df)
-                .build()
-            )
-            _generator = QueueGenerator(config, _queue_input, layout_mode)
+            _generator = QueueGenerator(config, queue_input, layout_mode)
             _queue_rows = _generator.build_rows()
             raw_queue_df = _queue_rows.to_table()
             generated_queue_df = format_table(_queue_rows, _generator.output_format)
@@ -815,7 +804,6 @@ def _(config, layout_mode, queue_parameters, sample_df, selected_orders):
             logger.exception("Queue generation failed")
             _err_str = str(e)
             if "Not enough tray positions" in _err_str:
-                # Extract numbers from error message
                 _sampler = queue_parameters.sampler if queue_parameters else "sampler"
                 generation_error = (
                     f"{_err_str}\n\n"
@@ -909,9 +897,7 @@ def _(
     # Create combined match expression
     _display_cols = [c for c in master_table.columns if c != "default_pattern"]
     if _match_conditions:
-        _combined_match = _match_conditions[0]
-        for _cond in _match_conditions[1:]:
-            _combined_match = _combined_match & _cond
+        _combined_match = pl.all_horizontal(*_match_conditions)
         # Add "✓" column for matching rows, sort matches to top
         _display_table = (
             master_table.with_columns(pl.when(_combined_match).then(pl.lit("✓")).otherwise(pl.lit("")).alias("✓"))
