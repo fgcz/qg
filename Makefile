@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help app editor validate projects
+.PHONY: help app app-all editor validate projects projects-all
 
 help:
 	@echo "Queue Generation System"
@@ -8,14 +8,20 @@ help:
 	@echo "Usage: make <target>"
 	@echo ""
 	@echo "Targets:"
-	@echo "  app        Run the marimo GUI app"
-	@echo "  editor     Run the config editor app"
-	@echo "  validate   Validate all configuration files"
-	@echo "  projects   Fetch projects from B-Fabric"
+	@echo "  app            Run the marimo GUI app (active projects)"
+	@echo "  app-all        Run the marimo GUI app (all projects)"
+	@echo "  editor         Run the config editor app"
+	@echo "  validate       Validate all configuration files"
+	@echo "  projects       Fetch active projects from B-Fabric"
+	@echo "  projects-all   Fetch all projects from B-Fabric (no status filter)"
 
-# Run the marimo GUI app
+# Run the marimo GUI app (active projects)
 app:
 	uv run marimo run src/qg/apps/queue_app.py
+
+# Run the marimo GUI app (all projects)
+app-all:
+	uv run marimo run src/qg/apps/queue_app.py -- --all-projects
 
 # Run the config editor
 editor:
@@ -25,9 +31,13 @@ editor:
 validate:
 	uv run qg-validate
 
-# Fetch projects from B-Fabric
+# Fetch active projects from B-Fabric
 projects:
 	uv run qg-find-projects
+
+# Fetch all projects from B-Fabric (no status filter)
+projects-all:
+	uv run qg-find-projects --all
 
 deploy-test:
 	docker compose -f docker-compose-test.yml build app

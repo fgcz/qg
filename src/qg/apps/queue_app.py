@@ -47,7 +47,10 @@ def _():
 def _():
     # B-Fabric cache directory for cached project data
     BFABRIC_CACHE_DIR = Path(__file__).parent.parent.parent.parent / "bfabric_cache"
-    return (BFABRIC_CACHE_DIR,)
+    # Use --all-projects flag to load all containers (no status filter)
+    _args = mo.cli_args()
+    USE_ALL_PROJECTS = _args.get("all-projects", False)
+    return BFABRIC_CACHE_DIR, USE_ALL_PROJECTS
 
 
 @app.cell
@@ -489,10 +492,11 @@ def _(
 
 
 @app.cell
-def _(BFABRIC_CACHE_DIR):
-    # Load orders and projects data
-    _orders_data = pl.read_csv(BFABRIC_CACHE_DIR / "bfabric_order.csv")
-    _projects_data = pl.read_csv(BFABRIC_CACHE_DIR / "bfabric_project.csv")
+def _(BFABRIC_CACHE_DIR, USE_ALL_PROJECTS):
+    # Load orders and projects data (use _all suffix when --all-projects is set)
+    _suffix = "_all" if USE_ALL_PROJECTS else ""
+    _orders_data = pl.read_csv(BFABRIC_CACHE_DIR / f"bfabric_order{_suffix}.csv")
+    _projects_data = pl.read_csv(BFABRIC_CACHE_DIR / f"bfabric_project{_suffix}.csv")
 
     projects_df = pl.concat((_orders_data, _projects_data), how="diagonal_relaxed").sort(
         "Container ID", descending=True
@@ -592,26 +596,16 @@ def _(BFABRIC_CACHE_DIR, bfabric, container_type, plates_select, selected_orders
 
 
 @app.cell
-def _():
-    subset_samples_toggle = mo.ui.checkbox(False, label="Subset samples")
-    return (subset_samples_toggle,)
+def _(full_samples_df):
+    # Always-on selection table; nothing selected = all samples
+    _freeze = ["sample_name"] if "sample_name" in full_samples_df.columns else []
+    samples_table = mo.ui.table(data=full_samples_df, freeze_columns_left=_freeze)
+    return (samples_table,)
 
 
 @app.cell
-def _(full_samples_df, subset_samples_toggle):
-    if subset_samples_toggle.value:
-        subset_samples_select = mo.ui.table(data=full_samples_df, freeze_columns_left=["sample_name"])
-    else:
-        subset_samples_select = None
-    return (subset_samples_select,)
-
-
-@app.cell
-def _(full_samples_df, subset_samples_select):
-    if subset_samples_select is None:
-        sample_df = full_samples_df
-    else:
-        sample_df = subset_samples_select.value
+def _(full_samples_df, samples_table):
+    sample_df = samples_table.value if not samples_table.value.is_empty() else full_samples_df
     return (sample_df,)
 
 
@@ -711,26 +705,14 @@ def _(all_plates, plates_select, selected_orders):
 
 
 @app.cell
-def _(
-    sample_df,
-    selected_orders,
-    subset_samples_select,
-    subset_samples_toggle,
-):
+def _(sample_df, samples_table, selected_orders):
     # Sample Selection tab content
     _order_count = len(selected_orders) if selected_orders else 0
     if sample_df is not None and not sample_df.is_empty():
         _summary = mo.md(f"**{len(sample_df)} samples from {_order_count} order(s)**")
-        _table = subset_samples_select if subset_samples_select is not None else sample_df
     else:
-        _summary = mo.md("**No samples selected**")
-        _table = None
-    sample_selection_content = mo.vstack(
-        [
-            mo.hstack([subset_samples_toggle, _summary], justify="start"),
-            _table,
-        ]
-    )
+        _summary = mo.md("**No samples loaded**")
+    sample_selection_content = mo.vstack([_summary, samples_table])
     return (sample_selection_content,)
 
 
@@ -848,11 +830,14 @@ def _(
             label=f"Download {_ext.upper()[1:]}",
         )
 
+        _rand_label = (
+            f" | randomization: {queue_parameters.randomization}" if queue_parameters.randomization != "no" else ""
+        )
         queue_preview_content = mo.vstack(
             [
                 mo.hstack([formatted_ticket_toggle, _download_button], justify="start", gap=1),
-                mo.md(f"**{len(_display_df)} rows**"),
-                _display_df,
+                mo.md(f"**{len(_display_df)} rows{_rand_label}**"),
+                mo.ui.table(_display_df, show_column_summaries=False),
             ]
         )
     else:
