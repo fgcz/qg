@@ -64,31 +64,6 @@ def _(config):
     return (master_table,)
 
 
-# =============================================================================
-# Selection State Management
-# =============================================================================
-
-
-@app.cell
-def _():
-    # State to track user selections - mo.state returns (getter_fn, setter_fn)
-    # When reset, all values become None and table is unfiltered
-    get_tech_area, set_tech_area = mo.state(None)
-    get_instrument, set_instrument = mo.state(None)
-    get_sampler, set_sampler = mo.state(None)
-    get_pattern, set_pattern = mo.state(None)
-    return (
-        get_instrument,
-        get_pattern,
-        get_sampler,
-        get_tech_area,
-        set_instrument,
-        set_pattern,
-        set_sampler,
-        set_tech_area,
-    )
-
-
 @app.cell
 def _(master_table, tech_area_field):
     # Filter by tech_area for instrument options
@@ -135,23 +110,16 @@ def _(table_by_sampler, pattern_field):
 
 
 @app.cell
-def _(master_table, set_instrument, set_sampler, set_pattern):
+def _(master_table):
     # Tech area dropdown - options from master table
     # Default to Proteomics, user can change
     _options = sorted(master_table["tech_area"].unique().to_list())
     _default = "Proteomics" if "Proteomics" in _options else (_options[0] if _options else None)
 
-    def _on_tech_area_change(value):
-        # Clear downstream selections when parent changes
-        set_instrument(None)
-        set_sampler(None)
-        set_pattern(None)
-
     tech_area_field = mo.ui.dropdown(
         options=_options,
         value=_default,
         label="Tech Area",
-        on_change=_on_tech_area_change,
     )
     return (tech_area_field,)
 
