@@ -50,30 +50,56 @@ def read_containers(
     return result.to_polars(flatten=True).filter(pl.col("countsamples") > 0)
 
 
-def extract_output(containers_df: pl.DataFrame) -> pl.DataFrame:
+def find_containers_with_plates(client: Bfabric, container_ids: Sequence[int]) -> set[int]:
+    """Check which containers have plates by querying the plate endpoint.
+
+    :param client: B-Fabric client instance.
+    :param container_ids: Container IDs to check.
+    :return: Set of container IDs that have plates.
+    """
+    has_plates: set[int] = set()
+    for cid in container_ids:
+        result = client.read("plate", {"containerid": cid}, max_results=1)
+        if len(result) > 0:
+            has_plates.add(cid)
+    logger.info(f"Found {len(has_plates)}/{len(container_ids)} containers with plates")
+    return has_plates
+
+
+def extract_output(containers_df: pl.DataFrame, containers_with_plates: set[int]) -> pl.DataFrame:
     """Extract containers for queue app.
 
+    All containers get a "Vials" row. Containers that also have plates
+    get an additional "Plates" row.
+
     :param containers_df: Raw containers DataFrame.
+    :param containers_with_plates: Container IDs that have plates.
     :return: Formatted DataFrame with Container ID, Name, Project ID, PI,
         Samples, Type, Status, Area.
     """
-    optional_columns = {"project_id", "processesplates"}
+    optional_columns = {"project_id"}
     missing_columns = optional_columns - set(containers_df.columns)
     containers_df = containers_df.with_columns(**{col: pl.lit(None) for col in missing_columns})
 
-    return containers_df.select(
+    base = containers_df.select(
         pl.col("id").alias("Container ID"),
         pl.col("name").alias("Container Name"),
         pl.col("project_id").alias("Project ID"),
         pl.col("billingcustomer").alias("PI"),
         pl.col("countsamples").alias("Samples"),
-        pl.when(pl.col("processesplates").cast(pl.Boolean))
-        .then(pl.lit("Plates"))
-        .otherwise(pl.lit("Vials"))
-        .alias("Type"),
         pl.col("status").alias("Status"),
         pl.col("technology").list.first().alias("Area"),
     )
+
+    vials = base.with_columns(pl.lit("Vials").alias("Type"))
+
+    if containers_with_plates:
+        plates = base.filter(pl.col("Container ID").is_in(containers_with_plates)).with_columns(
+            pl.lit("Plates").alias("Type")
+        )
+        return pl.concat([vials, plates]).sort("Container ID", descending=True)
+
+    return vials
 
 
 def generate_bfabric_cache(
@@ -107,7 +133,10 @@ def generate_bfabric_cache(
             client, "project", max_results=None, technology_ids=technology_ids, active_only=active_only
         )
 
-    outputs = {key: extract_output(df) for key, df in dfs.items()}
+    all_ids = [cid for df in dfs.values() for cid in df["id"].to_list()]
+    containers_with_plates = find_containers_with_plates(client, all_ids)
+
+    outputs = {key: extract_output(df, containers_with_plates) for key, df in dfs.items()}
 
     cache_path = get_cache_dir()
     cache_path.mkdir(exist_ok=True)
