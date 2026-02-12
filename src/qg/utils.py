@@ -8,19 +8,35 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from itertools import product
-from typing import NamedTuple, TypeVar
+from typing import TypeVar
 
 # =============================================================================
-# Position NamedTuple
+# Position
 # =============================================================================
 
 
-class Position(NamedTuple):
-    """A position on a sampler tray."""
+@dataclass(frozen=True)
+class Position:
+    """A position on a sampler tray.
+
+    Equality and hashing use (tray, grid_position) only, so row/col
+    don't affect set membership checks (QC conflict detection).
+    """
 
     tray: str | int
     grid_position: str | int
+    row: str | int = ""
+    col: int = 0
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Position):
+            return NotImplemented
+        return self.tray == other.tray and self.grid_position == other.grid_position
+
+    def __hash__(self) -> int:
+        return hash((self.tray, self.grid_position))
 
 
 # =============================================================================
@@ -56,7 +72,7 @@ def generate_all_positions(
     position_fun: Callable[[str | int, int], str | int],
 ) -> list[Position]:
     """Generate all positions for given trays, rows, cols."""
-    return [Position(tray, position_fun(row, col)) for tray, row, col in product(trays, rows, cols)]
+    return [Position(tray, position_fun(row, col), row=row, col=col) for tray, row, col in product(trays, rows, cols)]
 
 
 # =============================================================================

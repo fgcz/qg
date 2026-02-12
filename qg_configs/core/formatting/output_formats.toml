@@ -1,11 +1,17 @@
 # Output Format Definitions
 # Maps internal fields to output column names
 # See ALGORITHM.md for field documentation
+#
+# grid_position_format: How to combine row + col for display
+#   "{row},{col}"       -> "F,7"  (Xcalibur with comma)
+#   "{row}{col}"        -> "F7"   (XcaliburSII, no comma)
+#   "{grid_position}"   -> "15"   (Evosep integer passthrough)
 
 [xcalibur_sld]
 description = "Thermo XCalibur sequence format (SLD-compatible)"
 file_extension = ".csv"
 position_format = "{tray}:{grid_position}"  # e.g., "Y:A1"
+grid_position_format = "{row}{col}"
 
 [xcalibur_sld.columns]
 "row" = "run_number"
@@ -16,11 +22,27 @@ position_format = "{tray}:{grid_position}"  # e.g., "Y:A1"
 "output_path" = "data_path"
 
 [xcalibur]
-description = "Legacy queue generation format"
+description = "Thermo XCalibur format (Exploris 1/2, Lumos2, Qexactive 1, Vanquish instruments)"
 file_extension = ".csv"
-position_format = "{tray}:{grid_position}"  # e.g., "Y:A1"
+position_format = "{tray}:{grid_position}"  # e.g., "1:F,7" or "Y:A,1"
+grid_position_format = "{row},{col}"
 
 [xcalibur.columns]
+"File Name" = "file_name"
+"Path" = "data_path"
+"Instrument Method" = "method"
+"Position" = "position"
+"Inj Vol" = "inj_vol"
+"Sample Type" = "sample_type"
+"Sample Name" = "sample_name"
+
+[xcalibur_sii]
+description = "Thermo XCalibur SII format (ASCEND_1)"
+file_extension = ".csv"
+position_format = "{tray}:{grid_position}"  # e.g., "1:F7"
+grid_position_format = "{row}{col}"
+
+[xcalibur_sii.columns]
 "File Name" = "file_name"
 "Path" = "data_path"
 "Instrument Method" = "method"
@@ -33,6 +55,7 @@ position_format = "{tray}:{grid_position}"  # e.g., "Y:A1"
 description = "Chronos autosampler format (Evosep)"
 file_extension = ".csv"
 position_format = "{grid_position}"  # Evosep: position is numeric (1-96), tray is separate column
+grid_position_format = "{grid_position}"
 
 [chronos.columns]
 "Sample Name" = "sample_name"
@@ -51,6 +74,7 @@ position_format = "{grid_position}"  # Evosep: position is numeric (1-96), tray 
 description = "Bruker HyStar sequence format for TimsTOF"
 file_extension = ".csv"
 position_format = "S{tray}-{grid_position}"  # e.g., "S1-A1"
+grid_position_format = "{row}{col}"
 
 [hystar.columns]
 "Position" = "position"

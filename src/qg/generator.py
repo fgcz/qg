@@ -28,8 +28,10 @@ class QueueRow(BaseModel):
     sample_type: Literal["user", "qc"]
     sample_id: str
     sample_name: str
-    tray: str | int | None = None
-    grid_position: str | int | None = None
+    tray: str | int
+    grid_position: str | int
+    row: str | int = ""
+    col: int = 0
     plate_id: int | None = None
     grouping_var: str | None = None
     inj_vol: float = 0.0
@@ -97,6 +99,8 @@ def _build_slots(
             position = Position(
                 tray=plate_queue.plates[user_cell.plate_id].tray,
                 grid_position=user_cell.grid_position,
+                row=user_cell.row,
+                col=user_cell.col,
             )
         else:
             position = qc_provider.get_position(entry.sample_id)
@@ -181,6 +185,8 @@ def _build_queue_rows(
                 sample_name=sample.sample_name if sample else sample_cfg.sample_name,
                 tray=pos.tray,
                 grid_position=pos.grid_position,
+                row=pos.row,
+                col=pos.col,
                 plate_id=cell.plate_id if cell else None,
                 grouping_var=sample.grouping_var if sample else None,
                 inj_vol=(inj_vol_override if slot.slot.sample_id == default_sample_id else None) or sample_cfg.inj_vol,
@@ -218,10 +224,15 @@ def write_queue(df: pl.DataFrame, output_format: str) -> str:
 def format_table(queue_rows: QueueRowTable, output_format: OutputFormat) -> pl.DataFrame:
     """Format queue rows as DataFrame for the given output format."""
     df = queue_rows.to_table()
+    gp_fmt = output_format.grid_position_format
+    pos_fmt = output_format.position_format
     df = df.with_columns(
-        pl.struct(["tray", "grid_position"])
+        pl.struct(["tray", "grid_position", "row", "col"])
         .map_elements(
-            lambda s: output_format.position_format.format(tray=s["tray"], grid_position=s["grid_position"]),
+            lambda s: pos_fmt.format(
+                tray=s["tray"],
+                grid_position=gp_fmt.format(row=s["row"], col=s["col"], grid_position=s["grid_position"]),
+            ),
             return_dtype=pl.Utf8,
         )
         .alias("position")

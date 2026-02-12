@@ -29,6 +29,8 @@ class PlateCell(BaseModel):
     position: int
     grid_position: str | int
     plate_id: int | None  # FK to Plate
+    row: str | int = ""
+    col: int = 0
 
 
 class ContainerBatch(BaseModel):

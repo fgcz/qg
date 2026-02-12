@@ -1,7 +1,7 @@
 tech_area,instrument,sampler,output_format,default_pattern
 Proteomics,ASTRAL_1,Vanquish,xcalibur,standard
 Proteomics,ASTRAL_1,Evosep,chronos,evosep_qc
-Proteomics,ASCEND_1,MClass,xcalibur,standard
+Proteomics,ASCEND_1,MClass,xcalibur_sii,standard
 Proteomics,EXPLORIS_1,Evosep,chronos,evosep_qc
 Proteomics,EXPLORIS_1,MClass,xcalibur,standard
 Proteomics,EXPLORIS_2,Evosep,chronos,evosep_qc

@@ -30,7 +30,7 @@ class QCLayoutGrid:
         position_fun: Callable[[str | int, int], str | int],
     ) -> None:
         self.position_map: dict[str, Position] = {
-            s.sample_id: Position(s.tray, position_fun(s.row, s.col)) for s in qc_samples
+            s.sample_id: Position(s.tray, position_fun(s.row, s.col), row=s.row, col=s.col) for s in qc_samples
         }
         self.reserved: set[Position] = set(self.position_map.values())
         self.is_empty: bool = len(qc_samples) == 0

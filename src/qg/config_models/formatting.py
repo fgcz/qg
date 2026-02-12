@@ -96,6 +96,7 @@ class OutputFormat(BaseModel):
     description: str
     file_extension: str
     position_format: str  # How to format {tray, grid_position} into position string
+    grid_position_format: str = "{row}{col}"  # How to format {row, col, grid_position} for display
     columns: dict[str, str]  # output_column_name -> internal_field_name
 
 
@@ -139,6 +140,7 @@ class OutputFormatsConfig(BaseModel):
                 description=format_data["description"],
                 file_extension=format_data["file_extension"],
                 position_format=format_data["position_format"],
+                grid_position_format=format_data.get("grid_position_format", "{row}{col}"),
                 columns=format_data.get("columns", {}),
             )
         return cls(formats=formats)

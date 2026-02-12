@@ -97,7 +97,7 @@ class _QCPositionProviderEvosep:
         idx = self._counters[sample_id]
         pos = s.position_start + idx
         self._counters[sample_id] = idx + 1
-        return Position(s.tray, pos)
+        return Position(s.tray, pos, row=s.position_start, col=idx)
 
 
 # =============================================================================
