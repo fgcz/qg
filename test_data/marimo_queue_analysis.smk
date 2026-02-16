@@ -119,7 +119,7 @@ rule marimo_app:
     input:
         "reference/merged.csv"
     shell:
-        "marimo run ../src/qg/tools_apps/queue_analysis_marimo.py"
+        "uv run marimo run ../src/qg/tools_apps/queue_analysis_marimo.py"
 
 
 # =============================================================================
