@@ -44,6 +44,146 @@ def make_vial_queue_input(
     )
 
 
+class TestFormatTable:
+    """Tests for format_table(), including literal: prefix handling."""
+
+    def test_literal_prefix_produces_constant_column(self):
+        """Columns with 'literal:VALUE' produce a constant column."""
+        from qg.config_models.formatting import OutputFormat
+        from qg.generator import QueueRow, QueueRowTable, format_table
+
+        fmt = OutputFormat(
+            description="test",
+            file_extension=".csv",
+            position_format="{tray}:{grid_position}",
+            columns={
+                "File Name": "file_name",
+                "Lab": "literal:FGCZ",
+                "Sample ID": "sample_id",
+            },
+        )
+        rows = QueueRowTable(
+            rows=[
+                QueueRow(
+                    run_number=1,
+                    sample_type="user",
+                    sample_id="100",
+                    sample_name="s1",
+                    tray="Y",
+                    grid_position="A1",
+                    row="A",
+                    col=1,
+                    inj_vol=2.0,
+                    method="m.meth",
+                    file_name="f1",
+                    data_path="D:\\data",
+                    container_id=1,
+                ),
+                QueueRow(
+                    run_number=2,
+                    sample_type="user",
+                    sample_id="200",
+                    sample_name="s2",
+                    tray="Y",
+                    grid_position="A2",
+                    row="A",
+                    col=2,
+                    inj_vol=2.0,
+                    method="m.meth",
+                    file_name="f2",
+                    data_path="D:\\data",
+                    container_id=1,
+                ),
+            ]
+        )
+
+        df = format_table(rows, fmt)
+
+        assert df.columns == ["File Name", "Lab", "Sample ID"]
+        assert df["Lab"].to_list() == ["FGCZ", "FGCZ"]
+        assert df["File Name"].to_list() == ["f1", "f2"]
+        assert df["Sample ID"].to_list() == ["100", "200"]
+
+    def test_literal_prefix_preserves_column_order(self):
+        """Literal columns appear in the position defined by columns dict."""
+        from qg.config_models.formatting import OutputFormat
+        from qg.generator import QueueRow, QueueRowTable, format_table
+
+        fmt = OutputFormat(
+            description="test",
+            file_extension=".csv",
+            position_format="{tray}:{grid_position}",
+            columns={
+                "A": "file_name",
+                "B": "literal:constant_b",
+                "C": "sample_id",
+                "D": "literal:constant_d",
+            },
+        )
+        rows = QueueRowTable(
+            rows=[
+                QueueRow(
+                    run_number=1,
+                    sample_type="user",
+                    sample_id="1",
+                    sample_name="s",
+                    tray="Y",
+                    grid_position="A1",
+                    row="A",
+                    col=1,
+                    inj_vol=1.0,
+                    method="",
+                    file_name="f",
+                    data_path="",
+                    container_id=1,
+                ),
+            ]
+        )
+
+        df = format_table(rows, fmt)
+
+        assert df.columns == ["A", "B", "C", "D"]
+        assert df["B"].item() == "constant_b"
+        assert df["D"].item() == "constant_d"
+
+    def test_no_literal_columns_still_works(self):
+        """Format with only field references (no literal:) works as before."""
+        from qg.config_models.formatting import OutputFormat
+        from qg.generator import QueueRow, QueueRowTable, format_table
+
+        fmt = OutputFormat(
+            description="test",
+            file_extension=".csv",
+            position_format="{tray}:{grid_position}",
+            columns={"Name": "file_name", "ID": "sample_id"},
+        )
+        rows = QueueRowTable(
+            rows=[
+                QueueRow(
+                    run_number=1,
+                    sample_type="user",
+                    sample_id="42",
+                    sample_name="s",
+                    tray="Y",
+                    grid_position="A1",
+                    row="A",
+                    col=1,
+                    inj_vol=1.0,
+                    method="",
+                    file_name="myfile",
+                    data_path="",
+                    container_id=1,
+                ),
+            ]
+        )
+
+        df = format_table(rows, fmt)
+
+        assert df.columns == ["Name", "ID"]
+        assert df["Name"].item() == "myfile"
+        assert df["ID"].item() == "42"
+
+
 class TestOutputFormats:
     @pytest.mark.parametrize("output_format", ["xcalibur", "chronos", "hystar"])
     def test_output_format_has_columns(self, config, output_format: str):
@@ -67,6 +207,33 @@ class TestOutputFormats:
 
         assert isinstance(result, pl.DataFrame)
         assert len(result.columns) > 0
+
+    def test_xcalibur_has_literal_l3_laboratory(self, config):
+        """Xcalibur output includes L3 Laboratory column with constant 'FGCZ'."""
+        samples = make_vial_samples(3)
+        params = QueueParameters(
+            tech_area="Proteomics",
+            instrument="ASTRAL_1",
+            sampler="Vanquish",
+            output_format="xcalibur",
+            queue_pattern="noqc",
+            queue_type="Vial",
+            plate_layout="Vanquish_54",
+            polarity=["pos"],
+            date="20260116",
+            user="test",
+        )
+        queue_input = make_vial_queue_input(params, samples)
+
+        generator = QueueGenerator(config, queue_input, layout_mode="vial")
+        result = generator.generate()
+
+        assert "L3 Laboratory" in result.columns
+        assert result["L3 Laboratory"].to_list() == ["FGCZ"] * 3
+        # Verify column order: L3 Laboratory between Inj Vol and Sample ID
+        cols = result.columns
+        assert cols.index("L3 Laboratory") == cols.index("Inj Vol") + 1
+        assert cols.index("L3 Laboratory") == cols.index("Sample ID") - 1
 
     @pytest.mark.parametrize("output_format", ["xcalibur", "chronos", "hystar"])
     def test_single_sample_row_count(self, config, output_format: str):

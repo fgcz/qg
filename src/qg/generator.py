@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 import polars as pl
 from pydantic import BaseModel
 
-from qg.config_models.formatting import Sample, SamplesConfig
+from qg.config_models.formatting import OutputFormat, Sample, SamplesConfig
 from qg.config_models.loader import QGConfiguration
 from qg.config_models.methods import MethodsConfig
 from qg.params_models import PlateCell, PlateQueue, QueueInput, VialQueueInput
@@ -16,9 +16,6 @@ from qg.positionV2 import create_assembled_sampler
 from qg.qc_positions import Position, QCPositionProvider, create_qc_position_provider
 from qg.queue_structure import SlotEntry, build_multi_container_queue_structure
 from qg.randomize import randomize_plate_queue
-
-if TYPE_CHECKING:
-    from qg.config_models.formatting import OutputFormat, SamplesConfig
 
 
 class QueueRow(BaseModel):
@@ -200,25 +197,20 @@ def _build_queue_rows(
     return QueueRowTable(rows=rows)
 
 
-def write_queue(df: pl.DataFrame, output_format: str) -> str:
-    """Write queue DataFrame to string in the appropriate format.
+def write_queue(df: pl.DataFrame, output_format: OutputFormat) -> str:
+    """Write queue DataFrame to string using the format's configured writer.
 
     Args:
         df: Formatted queue DataFrame
-        output_format: Format name (e.g., "xcalibur", "hystar")
+        output_format: OutputFormat with writer configuration
 
     Returns:
         String content (CSV or XML)
     """
-    if output_format == "hystar":
-        from io import BytesIO
+    from qg.writers import get_writer
 
-        from qg.hystar_xml_writer import write_hystar_xml
-
-        buffer = BytesIO()
-        write_hystar_xml(df, buffer)
-        return buffer.getvalue().decode("utf-8")
-    return df.write_csv()
+    writer = get_writer(output_format.writer)
+    return writer(df)
 
 
 def format_table(queue_rows: QueueRowTable, output_format: OutputFormat) -> pl.DataFrame:
@@ -237,13 +229,14 @@ def format_table(queue_rows: QueueRowTable, output_format: OutputFormat) -> pl.D
         )
         .alias("position")
     )
-    df = df.select(
-        [
-            pl.col(internal).alias(output_name)
-            for output_name, internal in output_format.columns.items()
-            if internal in df.columns
-        ]
-    )
+    LITERAL_PREFIX = "literal:"
+    select_exprs = []
+    for output_name, value in output_format.columns.items():
+        if value.startswith(LITERAL_PREFIX):
+            select_exprs.append(pl.lit(value[len(LITERAL_PREFIX) :]).alias(output_name))
+        elif value in df.columns:
+            select_exprs.append(pl.col(value).alias(output_name))
+    df = df.select(select_exprs)
     return df
 
 
@@ -309,23 +302,14 @@ class QueueGenerator:
         return format_table(rows, self.output_format)
 
     def write(self) -> str:
-        """Generate queue and return as string in the appropriate format (CSV or XML)."""
+        """Generate queue and return as string in the appropriate format."""
         df = self.generate()
-        output_format_name = self.queue_input.parameters.output_format
-        if output_format_name == "hystar":
-            from io import BytesIO
-
-            from qg.hystar_xml_writer import write_hystar_xml
-
-            buffer = BytesIO()
-            write_hystar_xml(df, buffer)
-            return buffer.getvalue().decode("utf-8")
-        return df.write_csv()
+        return write_queue(df, self.output_format)
 
     @property
     def file_extension(self) -> str:
         """Return the appropriate file extension for the output format."""
-        return ".xml" if self.queue_input.parameters.output_format == "hystar" else ".csv"
+        return self.output_format.file_extension
 
     def build_rows(self) -> QueueRowTable:
         """Execute the queue generation pipeline."""

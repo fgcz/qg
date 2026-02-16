@@ -773,6 +773,7 @@ def _(config, layout_mode, queue_input, queue_parameters):
     raw_queue_df = None
     queue_output_str = None
     generation_error = None
+    output_file_extension = ".csv"
 
     if queue_input is not None and layout_mode:
         try:
@@ -780,7 +781,8 @@ def _(config, layout_mode, queue_input, queue_parameters):
             _queue_rows = _generator.build_rows()
             raw_queue_df = _queue_rows.to_table()
             generated_queue_df = format_table(_queue_rows, _generator.output_format)
-            queue_output_str = write_queue(generated_queue_df, queue_parameters.output_format)
+            queue_output_str = write_queue(generated_queue_df, _generator.output_format)
+            output_file_extension = _generator.file_extension
         except ValueError as e:
             # Config errors - provide user-friendly message
             logger.exception("Queue generation failed")
@@ -794,7 +796,7 @@ def _(config, layout_mode, queue_input, queue_parameters):
                 )
             else:
                 generation_error = _err_str
-    return generated_queue_df, generation_error, queue_output_str, raw_queue_df
+    return generated_queue_df, generation_error, output_file_extension, queue_output_str, raw_queue_df
 
 
 @app.cell
@@ -808,6 +810,7 @@ def _(
     formatted_ticket_toggle,
     generated_queue_df,
     generation_error,
+    output_file_extension,
     queue_output_str,
     queue_parameters,
     raw_queue_df,
@@ -822,7 +825,7 @@ def _(
         # Download uses the pre-computed output string (same data as displayed)
         _container_ids = [o[0] for o in selected_orders] if selected_orders else []
         _ids_str = "_".join(str(c) for c in _container_ids) if _container_ids else "queue"
-        _ext = ".xml" if queue_parameters.output_format == "hystar" else ".csv"
+        _ext = output_file_extension
         _filename = f"{queue_parameters.date}_{queue_parameters.instrument}_{_ids_str}{_ext}"
         _download_button = mo.download(
             data=queue_output_str.encode("utf-8"),

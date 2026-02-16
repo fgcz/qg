@@ -52,7 +52,9 @@ def test_generate_queues_cli(config, tmp_path):
     # Check that output contains expected columns from config
     output_format = config.output_formats.get_format(queue_input.parameters.output_format)
     expected_columns = list(output_format.columns.keys())
-    header_line = content.split("\n")[0]
+    lines = content.split("\n")
+    # xcalibur_csv writer prepends a preamble line; find header by looking for first expected column
+    header_line = next(line for line in lines if expected_columns[0] in line)
     for col in expected_columns:
         assert col in header_line, f"Missing column '{col}' in output"
 
@@ -74,7 +76,8 @@ def test_generate_queues_cli_stdout(config, tmp_path):
     # Check that output contains expected columns from config
     output_format = config.output_formats.get_format(queue_input.parameters.output_format)
     expected_columns = list(output_format.columns.keys())
-    header_line = result.stdout.split("\n")[0]
+    lines = result.stdout.split("\n")
+    header_line = next(line for line in lines if expected_columns[0] in line)
     for col in expected_columns:
         assert col in header_line, f"Missing column '{col}' in output"
 

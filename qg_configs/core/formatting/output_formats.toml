@@ -7,53 +7,44 @@
 #   "{row}{col}"        -> "F7"   (XcaliburSII, no comma)
 #   "{grid_position}"   -> "15"   (Evosep integer passthrough)
 
-[xcalibur_sld]
-description = "Thermo XCalibur sequence format (SLD-compatible)"
-file_extension = ".csv"
-position_format = "{tray}:{grid_position}"  # e.g., "Y:A1"
-grid_position_format = "{row}{col}"
-
-[xcalibur_sld.columns]
-"row" = "run_number"
-"run" = "run_number"
-"vial" = "position"
-"filename" = "file_name"
-"method" = "method"
-"output_path" = "data_path"
-
 [xcalibur]
 description = "Thermo XCalibur format (Exploris 1/2, Lumos2, Qexactive 1, Vanquish instruments)"
 file_extension = ".csv"
+writer = "xcalibur_csv"
 position_format = "{tray}:{grid_position}"  # e.g., "1:F,7" or "Y:A,1"
 grid_position_format = "{row},{col}"
 
 [xcalibur.columns]
 "File Name" = "file_name"
 "Path" = "data_path"
-"Instrument Method" = "method"
 "Position" = "position"
 "Inj Vol" = "inj_vol"
-"Sample Type" = "sample_type"
+"L3 Laboratory" = "literal:FGCZ"
+"Sample ID" = "sample_id"
 "Sample Name" = "sample_name"
+"Instrument Method" = "method"
 
 [xcalibur_sii]
 description = "Thermo XCalibur SII format (ASCEND_1)"
 file_extension = ".csv"
+writer = "xcalibur_csv"
 position_format = "{tray}:{grid_position}"  # e.g., "1:F7"
 grid_position_format = "{row}{col}"
 
 [xcalibur_sii.columns]
 "File Name" = "file_name"
 "Path" = "data_path"
-"Instrument Method" = "method"
 "Position" = "position"
 "Inj Vol" = "inj_vol"
-"Sample Type" = "sample_type"
+"L3 Laboratory" = "literal:FGCZ"
+"Sample ID" = "sample_id"
 "Sample Name" = "sample_name"
+"Instrument Method" = "method"
 
 [chronos]
 description = "Chronos autosampler format (Evosep)"
 file_extension = ".csv"
+writer = "csv"
 position_format = "{grid_position}"  # Evosep: position is numeric (1-96), tray is separate column
 grid_position_format = "{grid_position}"
 
@@ -72,7 +63,8 @@ grid_position_format = "{grid_position}"
 
 [hystar]
 description = "Bruker HyStar sequence format for TimsTOF"
-file_extension = ".csv"
+file_extension = ".xml"
+writer = "hystar_xml"
 position_format = "S{tray}-{grid_position}"  # e.g., "S1-A1"
 grid_position_format = "{row}{col}"
 
