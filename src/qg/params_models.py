@@ -27,9 +27,9 @@ class PlateCell(BaseModel):
 
     sample: VialSample
     position: int
-    grid_position: str | int
+    grid_position: str
     plate_id: int | None  # FK to Plate
-    row: str | int = ""
+    row: str = ""
     col: int = 0
 
 

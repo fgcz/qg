@@ -24,8 +24,8 @@ with app.setup:
     )
     from qg.config_models.positions import (
         PlateLayoutsConfig,
-        QCLayoutsEvosepConfig,
-        QCLayoutsGridConfig,
+        QCLayoutsTipConfig,
+        QCLayoutsWellConfig,
         SamplerPlateLayoutsConfig,
         SamplersConfig,
     )
@@ -84,16 +84,16 @@ def _(cfg):
 
 @app.cell
 def _(cfg):
-    qc_layouts_grid_df = cfg.qc_layouts_grid.to_table()
-    qc_layouts_grid_editor = mo.ui.data_editor(qc_layouts_grid_df, label="QC Layouts - Grid")
-    return qc_layouts_grid_df, qc_layouts_grid_editor
+    qc_layouts_well_df = cfg.qc_layouts_well.to_table()
+    qc_layouts_well_editor = mo.ui.data_editor(qc_layouts_well_df, label="QC Layouts - Well Plates")
+    return qc_layouts_well_df, qc_layouts_well_editor
 
 
 @app.cell
 def _(cfg):
-    qc_layouts_evosep_df = cfg.qc_layouts_evosep.to_table()
-    qc_layouts_evosep_editor = mo.ui.data_editor(qc_layouts_evosep_df, label="QC Layouts - Evosep")
-    return qc_layouts_evosep_df, qc_layouts_evosep_editor
+    qc_layouts_tip_df = cfg.qc_layouts_tip.to_table()
+    qc_layouts_tip_editor = mo.ui.data_editor(qc_layouts_tip_df, label="QC Layouts - Tip Plates")
+    return qc_layouts_tip_df, qc_layouts_tip_editor
 
 
 @app.cell
@@ -201,8 +201,8 @@ def _(
     samplers_editor,
     plate_layouts_editor,
     sampler_plate_layouts_editor,
-    qc_layouts_grid_editor,
-    qc_layouts_evosep_editor,
+    qc_layouts_well_editor,
+    qc_layouts_tip_editor,
 ):
     # core/position/ - sampler.toml, plate_layouts.toml, sampler_plate_layouts.csv, qc_layouts_*.csv
     position_tab = mo.vstack(
@@ -214,12 +214,12 @@ def _(
             plate_layouts_editor,
             mo.md("### Sampler Plate Layouts (sampler_plate_layouts.csv)"),
             sampler_plate_layouts_editor,
-            mo.md("### QC Layouts - Grid Samplers (qc_layouts_grid.csv)"),
+            mo.md("### QC Layouts - Well Plates (qc_layouts_well.csv)"),
             mo.md("_Columns: tech_area, qc_layout_name, plate_layout, sample_id, tray, row, col_"),
-            qc_layouts_grid_editor,
-            mo.md("### QC Layouts - Evosep (qc_layouts_evosep.csv)"),
+            qc_layouts_well_editor,
+            mo.md("### QC Layouts - Tip Plates (qc_layouts_tip.csv)"),
             mo.md("_Columns: tech_area, qc_layout_name, plate_layout, sample_id, tray, position_start, position_end_"),
-            qc_layouts_evosep_editor,
+            qc_layouts_tip_editor,
         ]
     )
     return (position_tab,)
@@ -545,8 +545,8 @@ def _(
     cfg,
     instruments_editor,
     samples_editor,
-    qc_layouts_grid_editor,
-    qc_layouts_evosep_editor,
+    qc_layouts_well_editor,
+    qc_layouts_tip_editor,
     instrument_configs_editor,
     sampler_plate_layouts_editor,
     samplers_editor,
@@ -562,8 +562,8 @@ def _(
         QGConfiguration.create(
             instruments=InstrumentsConfig.from_table(instruments_editor.value),
             samples=SamplesConfig.from_table(samples_editor.value),
-            qc_layouts_grid=QCLayoutsGridConfig.from_table(qc_layouts_grid_editor.value),
-            qc_layouts_evosep=QCLayoutsEvosepConfig.from_table(qc_layouts_evosep_editor.value),
+            qc_layouts_well=QCLayoutsWellConfig.from_table(qc_layouts_well_editor.value),
+            qc_layouts_tip=QCLayoutsTipConfig.from_table(qc_layouts_tip_editor.value),
             instrument_configs=InstrumentConfigsConfig.from_table(instrument_configs_editor.value),
             sampler_plate_layouts=SamplerPlateLayoutsConfig.from_table(sampler_plate_layouts_editor.value),
             samplers=SamplersConfig.from_dict(tomllib.loads(samplers_editor.value)),
@@ -602,8 +602,8 @@ def _(
     config_dir,
     instruments_editor,
     samples_editor,
-    qc_layouts_grid_editor,
-    qc_layouts_evosep_editor,
+    qc_layouts_well_editor,
+    qc_layouts_tip_editor,
     instrument_configs_editor,
     sampler_plate_layouts_editor,
     samplers_editor,
@@ -619,8 +619,8 @@ def _(
         cfg_to_save = QGConfiguration.create(
             instruments=InstrumentsConfig.from_table(instruments_editor.value),
             samples=SamplesConfig.from_table(samples_editor.value),
-            qc_layouts_grid=QCLayoutsGridConfig.from_table(qc_layouts_grid_editor.value),
-            qc_layouts_evosep=QCLayoutsEvosepConfig.from_table(qc_layouts_evosep_editor.value),
+            qc_layouts_well=QCLayoutsWellConfig.from_table(qc_layouts_well_editor.value),
+            qc_layouts_tip=QCLayoutsTipConfig.from_table(qc_layouts_tip_editor.value),
             instrument_configs=InstrumentConfigsConfig.from_table(instrument_configs_editor.value),
             sampler_plate_layouts=SamplerPlateLayoutsConfig.from_table(sampler_plate_layouts_editor.value),
             samplers=SamplersConfig.from_dict(tomllib.loads(samplers_editor.value)),

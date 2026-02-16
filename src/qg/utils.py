@@ -26,8 +26,8 @@ class Position:
     """
 
     tray: str | int
-    grid_position: str | int
-    row: str | int = ""
+    grid_position: str
+    row: str = ""
     col: int = 0
 
     def __eq__(self, other: object) -> bool:
@@ -44,32 +44,26 @@ class Position:
 # =============================================================================
 
 
-def string_concat(row: str | int, col: int) -> str:
-    """Grid samplers: 'A' + 1 -> 'A1'."""
+def string_concat(row: str, col: int) -> str:
+    """Combine row letter and column number: 'A' + 1 -> 'A1'."""
     return f"{row}{col}"
 
 
-def int_add(row: int, col: int) -> int:
-    """Evosep: 1 + 0 -> 1, 13 + 2 -> 15."""
-    return row + col
-
-
-_POSITION_FUNCTIONS: dict[str, Callable[[str | int, int], str | int]] = {
+_POSITION_FUNCTIONS: dict[str, Callable[[str, int], str]] = {
     "string_concat": string_concat,
-    "int_add": int_add,
 }
 
 
-def get_position_function(name: str) -> Callable[[str | int, int], str | int]:
+def get_position_function(name: str) -> Callable[[str, int], str]:
     """Get position function by name."""
     return _POSITION_FUNCTIONS[name]
 
 
 def generate_all_positions(
     trays: list[str] | list[int],
-    rows: list[str] | list[int],
+    rows: list[str],
     cols: list[int],
-    position_fun: Callable[[str | int, int], str | int],
+    position_fun: Callable[[str, int], str],
 ) -> list[Position]:
     """Generate all positions for given trays, rows, cols."""
     return [Position(tray, position_fun(row, col), row=row, col=col) for tray, row, col in product(trays, rows, cols)]

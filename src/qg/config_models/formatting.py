@@ -98,6 +98,7 @@ class OutputFormat(BaseModel):
     writer: str = "csv"  # Writer function name (csv, xcalibur_csv, hystar_xml)
     position_format: str  # How to format {tray, grid_position} into position string
     grid_position_format: str = "{row}{col}"  # How to format {row, col, grid_position} for display
+    grid_position_conversion: str = "identity"  # "identity" or "alpha_to_flat"
     columns: dict[str, str]  # output_column_name -> internal_field_name or "literal:VALUE"
 
 
@@ -143,6 +144,7 @@ class OutputFormatsConfig(BaseModel):
                 writer=format_data.get("writer", "csv"),
                 position_format=format_data["position_format"],
                 grid_position_format=format_data.get("grid_position_format", "{row}{col}"),
+                grid_position_conversion=format_data.get("grid_position_conversion", "identity"),
                 columns=format_data.get("columns", {}),
             )
         return cls(formats=formats)

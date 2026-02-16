@@ -26,8 +26,8 @@ class QueueRow(BaseModel):
     sample_id: str
     sample_name: str
     tray: str | int
-    grid_position: str | int
-    row: str | int = ""
+    grid_position: str
+    row: str = ""
     col: int = 0
     plate_id: int | None = None
     grouping_var: str | None = None
@@ -213,9 +213,34 @@ def write_queue(df: pl.DataFrame, output_format: OutputFormat) -> str:
     return writer(df)
 
 
+def _alpha_to_flat(pos: str, num_cols: int = 12) -> int:
+    """Convert alpha grid position to flat 1-based index (row-major).
+
+    A1 → 1, A12 → 12, B1 → 13, H12 → 96.
+    """
+    row_idx = ord(pos[0].upper()) - ord("A")
+    col = int(pos[1:])
+    return row_idx * num_cols + col
+
+
+_GRID_POSITION_CONVERSIONS: dict[str, object] = {
+    "identity": None,  # no-op, handled by skipping
+    "alpha_to_flat": _alpha_to_flat,
+}
+
+
 def format_table(queue_rows: QueueRowTable, output_format: OutputFormat) -> pl.DataFrame:
     """Format queue rows as DataFrame for the given output format."""
     df = queue_rows.to_table()
+
+    # Apply grid_position conversion (e.g., alpha→flat for Chronos)
+    conv_name = output_format.grid_position_conversion
+    if conv_name != "identity":
+        conv_fn = _GRID_POSITION_CONVERSIONS[conv_name]
+        df = df.with_columns(
+            pl.col("grid_position").map_elements(conv_fn, return_dtype=pl.Int64).alias("grid_position")
+        )
+
     gp_fmt = output_format.grid_position_format
     pos_fmt = output_format.position_format
     df = df.with_columns(

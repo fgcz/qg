@@ -21,13 +21,39 @@ class PlateLayout(BaseModel):
     """A plate layout definition (grid geometry)."""
 
     name: str = Field(..., description="Layout name (e.g., Vanquish_54)")
-    rows: list[str] | list[int] = Field(..., description="Row identifiers")
+    rows: list[str] = Field(..., description="Row identifiers (alpha: A, B, ...)")
     cols: list[int] = Field(..., description="Column identifiers")
 
     @property
     def capacity(self) -> int:
         """Total positions in this layout."""
         return len(self.rows) * len(self.cols)
+
+    def alpha_to_flat(self, pos: str) -> int:
+        """Convert alpha position to flat 1-based index (row-major).
+
+        A1 → 1, A12 → 12, B1 → 13, H12 → 96.
+        """
+        row_letter = pos[0].upper()
+        col = int(pos[1:])
+        row_idx = ord(row_letter) - ord("A")
+        return row_idx * len(self.cols) + col
+
+    def flat_to_row_col(self, n: int) -> tuple[str, int]:
+        """Convert flat 1-based index to (row_letter, col) tuple (row-major).
+
+        1 → ("A", 1), 13 → ("B", 1), 96 → ("H", 12).
+        """
+        row_idx = (n - 1) // len(self.cols)
+        col = (n - 1) % len(self.cols) + 1
+        return (chr(ord("A") + row_idx), col)
+
+    def split_alpha(self, pos: str) -> tuple[str, int]:
+        """Parse alpha grid position into (row, col) components.
+
+        'D8' → ('D', 8), 'A1' → ('A', 1).
+        """
+        return (pos[0].upper(), int(pos[1:]))
 
 
 class PlateLayoutsConfig(BaseModel):
@@ -88,7 +114,7 @@ class Sampler(BaseModel):
     name: str = Field(..., description="Sampler name (e.g., Vanquish)")
     description: str = Field(default="", description="Human-readable description")
     trays: list[str] | list[int] = Field(..., description="Available tray identifiers")
-    position_fun: str = Field(..., description="Position function name (string_concat or int_add)")
+    position_fun: str = Field(..., description="Position function name (string_concat)")
 
 
 class SamplersConfig(BaseModel):
@@ -200,12 +226,12 @@ class SamplerPlateLayoutsConfig(BaseModel):
 
 
 # =============================================================================
-# QCSampleGrid - from qc_layouts_grid.csv
+# QCSampleWell - from qc_layouts_well.csv
 # =============================================================================
 
 
-class QCSampleGrid(BaseModel):
-    """A QC sample position for grid samplers (fixed well positions)."""
+class QCSampleWell(BaseModel):
+    """A QC sample position for well-plate samplers (fixed well positions)."""
 
     tech_area: str = Field(..., description="Technology area")
     qc_layout_name: str = Field(..., description="QC layout name")
@@ -216,19 +242,19 @@ class QCSampleGrid(BaseModel):
     col: int = Field(..., description="Column identifier")
 
 
-class QCLayoutsGridConfig(BaseModel):
-    """All QC sample positions for grid samplers."""
+class QCLayoutsWellConfig(BaseModel):
+    """All QC sample positions for well-plate samplers."""
 
-    config_path: ClassVar[Path] = Path("core/position/qc_layouts_grid.csv")
+    config_path: ClassVar[Path] = Path("core/position/qc_layouts_well.csv")
 
-    samples: list[QCSampleGrid]
+    samples: list[QCSampleWell]
 
     def get_samples(
         self,
         tech_area: str,
         qc_layout_name: str,
         plate_layout: str,
-    ) -> list[QCSampleGrid]:
+    ) -> list[QCSampleWell]:
         """Get QC samples for a specific (tech_area, qc_layout_name, plate_layout)."""
         return [
             s
@@ -242,19 +268,19 @@ class QCLayoutsGridConfig(BaseModel):
 
     @classmethod
     def from_table(cls, df: pl.DataFrame) -> Self:
-        """Create QCLayoutsGridConfig from a DataFrame."""
-        samples = [QCSampleGrid(**row) for row in df.to_dicts()]
+        """Create QCLayoutsWellConfig from a DataFrame."""
+        samples = [QCSampleWell(**row) for row in df.to_dicts()]
         return cls(samples=samples)
 
     @classmethod
     def load(cls, config_dir: Path) -> Self:
-        """Load QC layouts for grid samplers from config directory.
+        """Load QC layouts for well-plate samplers from config directory.
 
         Args:
             config_dir: Root config directory (e.g., qg_configs/)
 
         Returns:
-            QCLayoutsGridConfig with all samples loaded
+            QCLayoutsWellConfig with all samples loaded
         """
         path = config_dir / cls.config_path
         df = pl.read_csv(path, comment_prefix="#")
@@ -262,35 +288,35 @@ class QCLayoutsGridConfig(BaseModel):
 
 
 # =============================================================================
-# QCSampleEvosep - from qc_layouts_evosep.csv
+# QCSampleTip - from qc_layouts_tip.csv
 # =============================================================================
 
 
-class QCSampleEvosep(BaseModel):
-    """A QC sample position range for Evosep (consumable tips)."""
+class QCSampleTip(BaseModel):
+    """A QC sample position range for tip-plate samplers (consumable tips)."""
 
     tech_area: str = Field(..., description="Technology area")
     qc_layout_name: str = Field(..., description="QC layout name")
     plate_layout: str = Field(..., description="Plate layout name")
     sample_id: str = Field(..., description="QC sample identifier")
     tray: int = Field(..., description="Tray number")
-    position_start: int = Field(..., ge=1, description="Start position (inclusive)")
-    position_end: int = Field(..., ge=1, description="End position (inclusive)")
+    position_start: str = Field(..., description="Start position in alpha format (e.g., A1)")
+    position_end: str = Field(..., description="End position in alpha format (e.g., D12)")
 
 
-class QCLayoutsEvosepConfig(BaseModel):
-    """All QC sample position ranges for Evosep."""
+class QCLayoutsTipConfig(BaseModel):
+    """All QC sample position ranges for tip-plate samplers."""
 
-    config_path: ClassVar[Path] = Path("core/position/qc_layouts_evosep.csv")
+    config_path: ClassVar[Path] = Path("core/position/qc_layouts_tip.csv")
 
-    samples: list[QCSampleEvosep]
+    samples: list[QCSampleTip]
 
     def get_samples(
         self,
         tech_area: str,
         qc_layout_name: str,
         plate_layout: str,
-    ) -> list[QCSampleEvosep]:
+    ) -> list[QCSampleTip]:
         """Get QC samples for a specific (tech_area, qc_layout_name, plate_layout)."""
         return [
             s
@@ -304,19 +330,19 @@ class QCLayoutsEvosepConfig(BaseModel):
 
     @classmethod
     def from_table(cls, df: pl.DataFrame) -> Self:
-        """Create QCLayoutsEvosepConfig from a DataFrame."""
-        samples = [QCSampleEvosep(**row) for row in df.to_dicts()]
+        """Create QCLayoutsTipConfig from a DataFrame."""
+        samples = [QCSampleTip(**row) for row in df.to_dicts()]
         return cls(samples=samples)
 
     @classmethod
     def load(cls, config_dir: Path) -> Self:
-        """Load QC layouts for Evosep from config directory.
+        """Load QC layouts for tip-plate samplers from config directory.
 
         Args:
             config_dir: Root config directory (e.g., qg_configs/)
 
         Returns:
-            QCLayoutsEvosepConfig with all samples loaded
+            QCLayoutsTipConfig with all samples loaded
         """
         path = config_dir / cls.config_path
         df = pl.read_csv(path, comment_prefix="#")

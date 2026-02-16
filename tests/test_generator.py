@@ -415,7 +415,7 @@ class TestRandomization:
 class TestDifferentSamplers:
     @pytest.mark.parametrize(
         "sampler,plate_layout",
-        [("Vanquish", "Vanquish_54"), ("MClass", "MClass_48"), ("Evosep", "Evosep_96")],
+        [("Vanquish", "Vanquish_54"), ("MClass", "MClass_48"), ("Evosep", "Plate_96")],
     )
     def test_sampler_generates_queue(self, config, sampler: str, plate_layout: str):
         samples = make_vial_samples(3)
@@ -452,7 +452,7 @@ class TestEvosepQCPattern:
             output_format="chronos",
             queue_pattern="evosep_qc",
             queue_type="Vial",
-            plate_layout="Evosep_96",
+            plate_layout="Plate_96",
             polarity=["pos"],
             date="20260116",
             user="test",
@@ -482,7 +482,7 @@ class TestEvosepQCPattern:
             output_format="chronos",
             queue_pattern="evosep_qc",
             queue_type="Vial",
-            plate_layout="Evosep_96",
+            plate_layout="Plate_96",
             polarity=["pos"],
             date="20260116",
             user="test",
@@ -498,15 +498,22 @@ class TestEvosepQCPattern:
             # All QC should be on tray 6
             assert row.tray == 6, f"{row.sample_id} should be on tray 6, got {row.tray}"
 
-        # QC03dia positions should be <= 49
+        # Internal positions are now alpha — use PlateLayout.alpha_to_flat for range checks
+        from qg.config_models.positions import PlateLayout
+
+        layout = PlateLayout(name="Plate_96", rows=list("ABCDEFGH"), cols=list(range(1, 13)))
+
+        # QC03dia positions should map to flat <= 49
         qc03_rows = [row for row in qc_rows if row.sample_id == "QC03dia"]
         for row in qc03_rows:
-            assert row.grid_position <= 49, f"QC03dia position {row.grid_position} should be <= 49"
+            flat = layout.alpha_to_flat(row.grid_position)
+            assert flat <= 49, f"QC03dia position {row.grid_position} (flat={flat}) should be <= 49"
 
-        # Clean positions should be >= 50
+        # Clean positions should map to flat >= 50
         clean_rows = [row for row in qc_rows if row.sample_id == "clean"]
         for row in clean_rows:
-            assert row.grid_position >= 50, f"clean position {row.grid_position} should be >= 50"
+            flat = layout.alpha_to_flat(row.grid_position)
+            assert flat >= 50, f"clean position {row.grid_position} (flat={flat}) should be >= 50"
 
     def test_evosep_qc_user_samples_on_trays_1_to_5(self, config):
         samples = make_vial_samples(5)
@@ -517,7 +524,7 @@ class TestEvosepQCPattern:
             output_format="chronos",
             queue_pattern="evosep_qc",
             queue_type="Vial",
-            plate_layout="Evosep_96",
+            plate_layout="Plate_96",
             polarity=["pos"],
             date="20260116",
             user="test",
@@ -541,7 +548,7 @@ class TestEvosepQCPattern:
             output_format="chronos",
             queue_pattern="evosep_qc",
             queue_type="Vial",
-            plate_layout="Evosep_96",
+            plate_layout="Plate_96",
             polarity=["pos"],
             date="20260116",
             user="test",
@@ -553,6 +560,64 @@ class TestEvosepQCPattern:
 
         # start(2) + 50 samples + end(2) = 54 total, no middle QC
         assert len(result.rows) == 54
+
+
+class TestEvosepChronosOutputFormat:
+    """Integration test: Evosep + Chronos output produces numeric Source Vial."""
+
+    def test_chronos_source_vial_is_numeric(self, config):
+        samples = make_vial_samples(3)
+        params = QueueParameters(
+            tech_area="Proteomics",
+            instrument="ASTRAL_1",
+            sampler="Evosep",
+            output_format="chronos",
+            queue_pattern="noqc",
+            queue_type="Vial",
+            plate_layout="Plate_96",
+            polarity=["pos"],
+            date="20260116",
+            user="test",
+        )
+        queue_input = make_vial_queue_input(params, samples)
+
+        generator = QueueGenerator(config, queue_input, layout_mode="vial")
+        result = generator.generate()
+
+        # Source Vial should contain numeric 1-96 (alpha_to_flat conversion)
+        assert "Source Vial" in result.columns
+        vials = result["Source Vial"].to_list()
+        assert vials == [1, 2, 3]
+
+
+class TestEvosepHystarOutputFormat:
+    """Integration test: Evosep + HyStar output produces S{tray}-{row}{col} positions."""
+
+    def test_hystar_position_format(self, config):
+        samples = make_vial_samples(3)
+        params = QueueParameters(
+            tech_area="Proteomics",
+            instrument="TIMSTOF_1",
+            sampler="Evosep",
+            output_format="hystar",
+            queue_pattern="noqc",
+            queue_type="Vial",
+            plate_layout="Plate_96",
+            polarity=["pos"],
+            date="20260116",
+            user="test",
+        )
+        queue_input = make_vial_queue_input(params, samples)
+
+        generator = QueueGenerator(config, queue_input, layout_mode="vial")
+        result = generator.generate()
+
+        # Position should be S{tray}-{row}{col} format
+        assert "Position" in result.columns
+        positions = result["Position"].to_list()
+        assert positions[0] == "S1-A1"
+        assert positions[1] == "S1-A2"
+        assert positions[2] == "S1-A3"
 
 
 class TestMetabolomicsPolarity:

@@ -22,10 +22,10 @@ from .formatting import (
 from .methods import MethodsConfig
 from .positions import (
     PlateLayoutsConfig,
-    QCLayoutsEvosepConfig,
-    QCLayoutsGridConfig,
-    QCSampleEvosep,
-    QCSampleGrid,
+    QCLayoutsTipConfig,
+    QCLayoutsWellConfig,
+    QCSampleTip,
+    QCSampleWell,
     SamplerPlateLayoutsConfig,
     SamplersConfig,
 )
@@ -118,12 +118,12 @@ def _validate_pattern_sample_refs(
 
 def _validate_layout_sample_refs(
     samples: SamplesConfig,
-    qc_layouts_grid: QCLayoutsGridConfig,
-    qc_layouts_evosep: QCLayoutsEvosepConfig,
+    qc_layouts_well: QCLayoutsWellConfig,
+    qc_layouts_tip: QCLayoutsTipConfig,
 ) -> list[str]:
     """Validate that QC layouts only reference defined samples.
 
-    Checks that all sample_id values in qc_layouts_grid.csv and qc_layouts_evosep.csv
+    Checks that all sample_id values in qc_layouts_well.csv and qc_layouts_tip.csv
     exist in samples.csv for the same tech_area.
 
     Returns:
@@ -134,36 +134,36 @@ def _validate_layout_sample_refs(
 
     all_ok = True
 
-    # Validate grid layout samples
-    grid_tech_samples: dict[str, set[str]] = {}
-    for qc_sample in qc_layouts_grid.samples:
+    # Validate well-plate layout samples
+    well_tech_samples: dict[str, set[str]] = {}
+    for qc_sample in qc_layouts_well.samples:
         tech = qc_sample.tech_area
-        if tech not in grid_tech_samples:
-            grid_tech_samples[tech] = set()
-        grid_tech_samples[tech].add(qc_sample.sample_id)
+        if tech not in well_tech_samples:
+            well_tech_samples[tech] = set()
+        well_tech_samples[tech].add(qc_sample.sample_id)
 
-    for tech, sample_ids in grid_tech_samples.items():
+    for tech, sample_ids in well_tech_samples.items():
         valid_sample_ids = {s.sample_id for s in samples.get_by_tech_area(tech)}
         unknown = sample_ids - valid_sample_ids
         if unknown:
-            msg = f"qc_layouts_grid.csv: {tech} references unknown samples: {unknown}"
+            msg = f"qc_layouts_well.csv: {tech} references unknown samples: {unknown}"
             errors.append(msg)
             logger.warning(msg)
             all_ok = False
 
-    # Validate evosep layout samples
-    evosep_tech_samples: dict[str, set[str]] = {}
-    for qc_sample in qc_layouts_evosep.samples:
+    # Validate tip-plate layout samples
+    tip_tech_samples: dict[str, set[str]] = {}
+    for qc_sample in qc_layouts_tip.samples:
         tech = qc_sample.tech_area
-        if tech not in evosep_tech_samples:
-            evosep_tech_samples[tech] = set()
-        evosep_tech_samples[tech].add(qc_sample.sample_id)
+        if tech not in tip_tech_samples:
+            tip_tech_samples[tech] = set()
+        tip_tech_samples[tech].add(qc_sample.sample_id)
 
-    for tech, sample_ids in evosep_tech_samples.items():
+    for tech, sample_ids in tip_tech_samples.items():
         valid_sample_ids = {s.sample_id for s in samples.get_by_tech_area(tech)}
         unknown = sample_ids - valid_sample_ids
         if unknown:
-            msg = f"qc_layouts_evosep.csv: {tech} references unknown samples: {unknown}"
+            msg = f"qc_layouts_tip.csv: {tech} references unknown samples: {unknown}"
             errors.append(msg)
             logger.warning(msg)
             all_ok = False
@@ -178,8 +178,8 @@ def _validate_configs(
     *,
     samples: SamplesConfig,
     queue_patterns: QueuePatternsConfig,
-    qc_layouts_grid: QCLayoutsGridConfig,
-    qc_layouts_evosep: QCLayoutsEvosepConfig,
+    qc_layouts_well: QCLayoutsWellConfig,
+    qc_layouts_tip: QCLayoutsTipConfig,
 ) -> list[str]:
     """Validate cross-references between configs.
 
@@ -189,7 +189,7 @@ def _validate_configs(
     errors: list[str] = []
 
     errors.extend(_validate_pattern_sample_refs(samples, queue_patterns))
-    errors.extend(_validate_layout_sample_refs(samples, qc_layouts_grid, qc_layouts_evosep))
+    errors.extend(_validate_layout_sample_refs(samples, qc_layouts_well, qc_layouts_tip))
 
     if errors:
         logger.error(f"{len(errors)} cross-validation error(s):")
@@ -222,8 +222,8 @@ class QGConfiguration:
         plate_layouts: Plate layout definitions (grid geometries)
         samplers: Sampler definitions (trays, position function)
         sampler_plate_layouts: Sampler to plate_layout mappings
-        qc_layouts_grid: QC sample positions for grid samplers
-        qc_layouts_evosep: QC sample positions for Evosep
+        qc_layouts_well: QC sample positions for well-plate samplers
+        qc_layouts_tip: QC sample positions for tip-plate samplers
 
         # structure/
         queue_patterns: Queue pattern definitions (QC injection sequences)
@@ -244,8 +244,8 @@ class QGConfiguration:
     plate_layouts: PlateLayoutsConfig
     samplers: SamplersConfig
     sampler_plate_layouts: SamplerPlateLayoutsConfig
-    qc_layouts_grid: QCLayoutsGridConfig
-    qc_layouts_evosep: QCLayoutsEvosepConfig
+    qc_layouts_well: QCLayoutsWellConfig
+    qc_layouts_tip: QCLayoutsTipConfig
 
     # structure/
     queue_patterns: QueuePatternsConfig
@@ -311,7 +311,7 @@ class QGConfiguration:
         qc_layout_name: str,
         plate_layout_name: str,
         sampler_name: str,
-    ) -> list[QCSampleGrid] | list[QCSampleEvosep]:
+    ) -> list[QCSampleWell] | list[QCSampleTip]:
         """Get QC samples from appropriate layout based on sampler type.
 
         Centralizes the grid vs evosep branching logic that appears in multiple places.
@@ -320,14 +320,14 @@ class QGConfiguration:
             tech_area: Technology area (e.g., "Proteomics")
             qc_layout_name: QC layout name (e.g., "standard")
             plate_layout_name: Plate layout name (e.g., "Vanquish_54")
-            sampler_name: Sampler name - "Evosep" uses evosep layout, others use grid
+            sampler_name: Sampler name - "Evosep" uses tip layout, others use well
 
         Returns:
-            List of QC samples (QCSampleGrid or QCSampleEvosep)
+            List of QC samples (QCSampleWell or QCSampleTip)
         """
         if sampler_name == "Evosep":
-            return self.qc_layouts_evosep.get_samples(tech_area, qc_layout_name, plate_layout_name)
-        return self.qc_layouts_grid.get_samples(tech_area, qc_layout_name, plate_layout_name)
+            return self.qc_layouts_tip.get_samples(tech_area, qc_layout_name, plate_layout_name)
+        return self.qc_layouts_well.get_samples(tech_area, qc_layout_name, plate_layout_name)
 
     @staticmethod
     def create(
@@ -338,8 +338,8 @@ class QGConfiguration:
         plate_layouts: PlateLayoutsConfig,
         samplers: SamplersConfig,
         sampler_plate_layouts: SamplerPlateLayoutsConfig,
-        qc_layouts_grid: QCLayoutsGridConfig,
-        qc_layouts_evosep: QCLayoutsEvosepConfig,
+        qc_layouts_well: QCLayoutsWellConfig,
+        qc_layouts_tip: QCLayoutsTipConfig,
         queue_patterns: QueuePatternsConfig,
         methods: MethodsConfig,
         instrument_configs: InstrumentConfigsConfig,
@@ -352,8 +352,8 @@ class QGConfiguration:
         errors = _validate_configs(
             samples=samples,
             queue_patterns=queue_patterns,
-            qc_layouts_grid=qc_layouts_grid,
-            qc_layouts_evosep=qc_layouts_evosep,
+            qc_layouts_well=qc_layouts_well,
+            qc_layouts_tip=qc_layouts_tip,
         )
         if errors:
             raise ConfigValidationError(errors)
@@ -365,8 +365,8 @@ class QGConfiguration:
             plate_layouts=plate_layouts,
             samplers=samplers,
             sampler_plate_layouts=sampler_plate_layouts,
-            qc_layouts_grid=qc_layouts_grid,
-            qc_layouts_evosep=qc_layouts_evosep,
+            qc_layouts_well=qc_layouts_well,
+            qc_layouts_tip=qc_layouts_tip,
             queue_patterns=queue_patterns,
             methods=methods,
             instrument_configs=instrument_configs,
@@ -387,8 +387,8 @@ class QGConfiguration:
         errors = _validate_configs(
             samples=self.samples,
             queue_patterns=self.queue_patterns,
-            qc_layouts_grid=self.qc_layouts_grid,
-            qc_layouts_evosep=self.qc_layouts_evosep,
+            qc_layouts_well=self.qc_layouts_well,
+            qc_layouts_tip=self.qc_layouts_tip,
         )
         if errors:
             raise ConfigValidationError(errors)
@@ -400,8 +400,8 @@ class QGConfiguration:
             self.instruments,
             self.samples,
             self.sampler_plate_layouts,
-            self.qc_layouts_grid,
-            self.qc_layouts_evosep,
+            self.qc_layouts_well,
+            self.qc_layouts_tip,
             self.instrument_configs,
         ]
         for cfg in csv_configs:
@@ -475,8 +475,8 @@ def qg_configuration(config_dir: Path | None = None) -> QGConfiguration:
     plate_layouts = PlateLayoutsConfig.load(config_dir)
     samplers = SamplersConfig.load(config_dir)
     sampler_plate_layouts = SamplerPlateLayoutsConfig.load(config_dir)
-    qc_layouts_grid = QCLayoutsGridConfig.load(config_dir)
-    qc_layouts_evosep = QCLayoutsEvosepConfig.load(config_dir)
+    qc_layouts_well = QCLayoutsWellConfig.load(config_dir)
+    qc_layouts_tip = QCLayoutsTipConfig.load(config_dir)
 
     # structure/
     queue_patterns = QueuePatternsConfig.load(config_dir)
@@ -495,8 +495,8 @@ def qg_configuration(config_dir: Path | None = None) -> QGConfiguration:
         plate_layouts=plate_layouts,
         samplers=samplers,
         sampler_plate_layouts=sampler_plate_layouts,
-        qc_layouts_grid=qc_layouts_grid,
-        qc_layouts_evosep=qc_layouts_evosep,
+        qc_layouts_well=qc_layouts_well,
+        qc_layouts_tip=qc_layouts_tip,
         queue_patterns=queue_patterns,
         methods=methods,
         instrument_configs=instrument_configs,

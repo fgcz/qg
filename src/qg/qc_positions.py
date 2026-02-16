@@ -3,8 +3,8 @@
 # =============================================================================
 #
 # 2 provider classes for QC position lookup:
-#   - _QCPositionProviderGrid: Grid samplers (Vanquish/MClass) - stateless
-#   - _QCPositionProviderEvosep: Evosep - stateful (consumable tips)
+#   - _QCPositionProviderWell: Well-plate samplers (Vanquish/MClass) - stateless
+#   - _QCPositionProviderTip: Tip-plate samplers (Evosep) - stateful (consumable tips)
 #
 # Factory: create_qc_position_provider() returns correct class
 
@@ -13,8 +13,9 @@ from __future__ import annotations
 from typing import Protocol
 
 from qg.config_models.loader import QGConfiguration
+from qg.config_models.positions import PlateLayout
 from qg.config_models.structure import QueuePattern
-from qg.qc_layout import QCLayoutEvosep, QCLayoutGrid, create_qc_layout
+from qg.qc_layout import QCLayoutTip, QCLayoutWell, create_qc_layout
 from qg.queue_structure import SlotEntry
 from qg.utils import (
     Position,
@@ -39,39 +40,47 @@ class QCPositionProvider(Protocol):
 # =============================================================================
 
 
-class _QCPositionProviderGrid:
-    """QC position provider for Grid samplers (stateless).
+class _QCPositionProviderWell:
+    """QC position provider for well-plate samplers (stateless).
 
     Returns the same position for each QC sample every time - QC vials are reusable.
     """
 
     def __init__(
         self,
-        qc_layout: QCLayoutGrid,
+        qc_layout: QCLayoutWell,
         slot_entries: list[SlotEntry],  # noqa: ARG002
     ) -> None:
         self._positions = qc_layout.position_map
 
     def get_position(self, sample_id: str) -> Position:
-        """Get QC position (always returns same position for Grid)."""
+        """Get QC position (always returns same position for well plates)."""
         return self._positions[sample_id]
 
 
-class _QCPositionProviderEvosep:
-    """QC position provider for Evosep (stateful, consumable tips).
+class _QCPositionProviderTip:
+    """QC position provider for tip-plate samplers (stateful, consumable tips).
 
     Each call increments the position counter - tips are consumed sequentially.
     Validates capacity upfront in constructor using slot_entries.
+    Internally uses flat (1-96) arithmetic, returns alpha Position objects.
     """
 
     def __init__(
         self,
-        qc_layout: QCLayoutEvosep,
+        qc_layout: QCLayoutTip,
         slot_entries: list[SlotEntry],
         default_sample_id: str,
+        plate_layout: PlateLayout,
     ) -> None:
         self._samples = qc_layout.sample_map
+        self._plate_layout = plate_layout
         self._counters: dict[str, int] = {sid: 0 for sid in self._samples}
+
+        # Pre-compute flat start positions for arithmetic
+        self._start_flat: dict[str, int] = {
+            sid: plate_layout.alpha_to_flat(s.position_start) for sid, s in self._samples.items()
+        }
 
         # Count QC samples needed from slot_entries
         qc_counts: dict[str, int] = {}
@@ -84,7 +93,9 @@ class _QCPositionProviderEvosep:
             if sample_id not in self._samples:
                 raise ValueError(f"QC sample '{sample_id}' not found in QC layout")
             s = self._samples[sample_id]
-            capacity = s.position_end - s.position_start + 1
+            start = plate_layout.alpha_to_flat(s.position_start)
+            end = plate_layout.alpha_to_flat(s.position_end)
+            capacity = end - start + 1
             if count_needed > capacity:
                 raise ValueError(
                     f"Not enough positions for QC sample '{sample_id}': "
@@ -92,12 +103,13 @@ class _QCPositionProviderEvosep:
                 )
 
     def get_position(self, sample_id: str) -> Position:
-        """Get next QC position (increments counter)."""
+        """Get next QC position (increments counter). Returns alpha Position."""
         s = self._samples[sample_id]
         idx = self._counters[sample_id]
-        pos = s.position_start + idx
+        flat_pos = self._start_flat[sample_id] + idx
+        row, col = self._plate_layout.flat_to_row_col(flat_pos)
         self._counters[sample_id] = idx + 1
-        return Position(s.tray, pos, row=s.position_start, col=idx)
+        return Position(s.tray, f"{row}{col}", row=row, col=col)
 
 
 # =============================================================================
@@ -127,11 +139,14 @@ def create_qc_position_provider(
     """
     sampler = config.samplers.get_sampler(sampler_name)
     position_fun = get_position_function(sampler.position_fun)
+    plate_layout = config.plate_layouts.get_layout(plate_layout_name)
 
     # Create QC layout (empty when pattern has no QC references)
-    qc_layout = create_qc_layout(config, tech_area, pattern, plate_layout_name, sampler_name, position_fun)
+    qc_layout = create_qc_layout(
+        config, tech_area, pattern, plate_layout_name, sampler_name, position_fun, plate_layout
+    )
 
     if sampler_name == "Evosep":
-        return _QCPositionProviderEvosep(qc_layout, slot_entries, default_sample_id)
+        return _QCPositionProviderTip(qc_layout, slot_entries, default_sample_id, plate_layout)
     else:
-        return _QCPositionProviderGrid(qc_layout, slot_entries)
+        return _QCPositionProviderWell(qc_layout, slot_entries)

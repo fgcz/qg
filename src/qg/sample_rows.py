@@ -20,7 +20,7 @@ class PlateSampleRow(BaseModel):
     sample_id: int
     container_id: int
     position: int | None = None
-    grid_position: str | int | None = None
+    grid_position: str | None = None
     plate_id: int
     tray: str | int | None = None
     grouping_var: str | None = None

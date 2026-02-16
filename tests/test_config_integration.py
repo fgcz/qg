@@ -90,17 +90,17 @@ class TestConfigQueuePatterns:
             config.queue_patterns.get_pattern(tech, "nonexistent")
 
 
-class TestConfigQCLayoutsGrid:
-    """Tests for qc_layouts_grid in QGConfiguration."""
+class TestConfigQCLayoutsWell:
+    """Tests for qc_layouts_well in QGConfiguration."""
 
-    def test_qc_layouts_grid_loaded(self, config: QGConfiguration) -> None:
-        assert config.qc_layouts_grid is not None
-        assert len(config.qc_layouts_grid.samples) > 0
+    def test_qc_layouts_well_loaded(self, config: QGConfiguration) -> None:
+        assert config.qc_layouts_well is not None
+        assert len(config.qc_layouts_well.samples) > 0
 
     def test_get_samples_returns_dict(self, config: QGConfiguration) -> None:
         # Get first sample to extract tech_area, qc_layout_name, plate_layout
-        first = config.qc_layouts_grid.samples[0]
-        samples = config.qc_layouts_grid.get_samples(first.tech_area, first.qc_layout_name, first.plate_layout)
+        first = config.qc_layouts_well.samples[0]
+        samples = config.qc_layouts_well.get_samples(first.tech_area, first.qc_layout_name, first.plate_layout)
         assert samples is not None
         assert len(samples) > 0
 
@@ -345,7 +345,7 @@ class TestQueueParametersCreate:
                 output_format="xcalibur",
                 queue_pattern="standard",
                 queue_type="Vial",
-                plate_layout="Evosep_96",  # Invalid for Vanquish
+                plate_layout="MClass_48",  # Invalid for Vanquish
                 polarity=["pos"],
                 date="20260122",
             )
@@ -383,7 +383,7 @@ class TestQueueInputCreate:
             output_format="xcalibur",
             queue_pattern="standard",
             queue_type="Plate",
-            plate_layout="Vanquish_96",
+            plate_layout="Plate_96",
             polarity=["pos"],
             date="20260122",
         )

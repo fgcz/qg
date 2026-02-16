@@ -108,7 +108,7 @@ class TestPositionConfigs:
         config = PlateLayoutsConfig.from_dict(data)
 
         # Check known layouts exist
-        for name in ["Vanquish_54", "Vanquish_96", "MClass_48", "Evosep_96"]:
+        for name in ["Vanquish_54", "Plate_96", "MClass_48"]:
             layout = config.get_layout(name)
             assert layout is not None, f"Missing layout {name}"
             assert layout.capacity > 0
@@ -127,7 +127,7 @@ class TestPositionConfigs:
             sampler = config.get_sampler(name)
             assert sampler is not None, f"Missing sampler {name}"
             assert len(sampler.trays) > 0
-            assert sampler.position_fun in ["string_concat", "int_add"]
+            assert sampler.position_fun == "string_concat"
 
     def test_load_sampler_plate_layouts(self):
         """Load sampler_plate_layouts.csv into SamplerPlateLayoutsConfig."""
@@ -143,13 +143,13 @@ class TestPositionConfigs:
         assert "Vial" in queue_types
         assert "Plate" in queue_types
 
-    def test_load_qc_layouts_grid(self):
-        """Load qc_layouts_grid.csv into QCLayoutsGridConfig."""
-        from qg.config_models.positions import QCLayoutsGridConfig
+    def test_load_qc_layouts_well(self):
+        """Load qc_layouts_well.csv into QCLayoutsWellConfig."""
+        from qg.config_models.positions import QCLayoutsWellConfig
 
-        path = CONFIG_ROOT / "core" / "position" / "qc_layouts_grid.csv"
+        path = CONFIG_ROOT / "core" / "position" / "qc_layouts_well.csv"
         df = pl.read_csv(path, comment_prefix="#")
-        config = QCLayoutsGridConfig.from_table(df)
+        config = QCLayoutsWellConfig.from_table(df)
 
         assert len(config.samples) > 0
         # Check Proteomics standard layout has QC01
@@ -157,17 +157,17 @@ class TestPositionConfigs:
         sample_ids = {s.sample_id for s in samples}
         assert "QC01" in sample_ids
 
-    def test_load_qc_layouts_evosep(self):
-        """Load qc_layouts_evosep.csv into QCLayoutsEvosepConfig."""
-        from qg.config_models.positions import QCLayoutsEvosepConfig
+    def test_load_qc_layouts_tip(self):
+        """Load qc_layouts_tip.csv into QCLayoutsTipConfig."""
+        from qg.config_models.positions import QCLayoutsTipConfig
 
-        path = CONFIG_ROOT / "core" / "position" / "qc_layouts_evosep.csv"
+        path = CONFIG_ROOT / "core" / "position" / "qc_layouts_tip.csv"
         df = pl.read_csv(path, comment_prefix="#")
-        config = QCLayoutsEvosepConfig.from_table(df)
+        config = QCLayoutsTipConfig.from_table(df)
 
         assert len(config.samples) > 0
         # Check Proteomics Evosep layout exists
-        samples = config.get_samples("Proteomics", "standard", "Evosep_96")
+        samples = config.get_samples("Proteomics", "standard", "Plate_96")
         assert len(samples) > 0
 
 
