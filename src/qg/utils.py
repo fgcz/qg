@@ -9,8 +9,34 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from enum import StrEnum
 from itertools import product
 from typing import TypeVar
+
+# =============================================================================
+# Enums for config-driven dispatch
+# =============================================================================
+
+
+class GridPositionConversion(StrEnum):
+    """How to convert alpha grid positions (A1, B2) for output."""
+
+    IDENTITY = "identity"
+    ALPHA_TO_FLAT = "alpha_to_flat"
+
+
+class PositionFunction(StrEnum):
+    """How to combine row letter and column number into a position string."""
+
+    STRING_CONCAT = "string_concat"
+
+
+class LayoutMode(StrEnum):
+    """Whether the queue uses vials (assigned by the system) or pre-plated cells."""
+
+    VIAL = "vial"
+    PLATE = "plate"
+
 
 # =============================================================================
 # Position
@@ -27,8 +53,8 @@ class Position:
 
     tray: str | int
     grid_position: str
-    row: str = ""
-    col: int = 0
+    row: str
+    col: int
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Position):
@@ -49,12 +75,12 @@ def string_concat(row: str, col: int) -> str:
     return f"{row}{col}"
 
 
-_POSITION_FUNCTIONS: dict[str, Callable[[str, int], str]] = {
-    "string_concat": string_concat,
+_POSITION_FUNCTIONS: dict[PositionFunction, Callable[[str, int], str]] = {
+    PositionFunction.STRING_CONCAT: string_concat,
 }
 
 
-def get_position_function(name: str) -> Callable[[str, int], str]:
+def get_position_function(name: PositionFunction) -> Callable[[str, int], str]:
     """Get position function by name."""
     return _POSITION_FUNCTIONS[name]
 

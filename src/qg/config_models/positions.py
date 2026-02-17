@@ -12,6 +12,8 @@ from typing import ClassVar, Literal, Self
 import polars as pl
 from pydantic import BaseModel, Field
 
+from qg.utils import PositionFunction
+
 # =============================================================================
 # PlateLayout - from plate_layouts.toml
 # =============================================================================
@@ -117,7 +119,7 @@ class Sampler(BaseModel):
         ..., description="Sampler type: 'well' (reusable vials) or 'tip' (consumable tips)"
     )
     trays: list[str] | list[int] = Field(..., description="Available tray identifiers")
-    position_fun: str = Field(..., description="Position function name (string_concat)")
+    position_fun: PositionFunction = Field(..., description="Position function name")
 
     @property
     def is_tip(self) -> bool:

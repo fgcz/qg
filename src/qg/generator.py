@@ -12,11 +12,12 @@ from qg.config_models.formatting import OutputFormat, Sample, SamplesConfig
 from qg.config_models.loader import QGConfiguration
 from qg.config_models.methods import MethodsConfig
 from qg.config_models.positions import PlateLayout
-from qg.params_models import PlateCell, PlateQueue, QueueInput, VialQueueInput
+from qg.params_models import PlateCell, PlateQueue, PlateQueueInput, QueueInput, VialQueueInput
 from qg.positionV2 import create_assembled_sampler
 from qg.qc_positions import Position, QCPositionProvider, create_qc_position_provider
 from qg.queue_structure import SlotEntry, build_multi_container_queue_structure
 from qg.randomize import randomize_plate_queue
+from qg.utils import GridPositionConversion, LayoutMode
 
 
 class QueueRow(BaseModel):
@@ -219,7 +220,7 @@ def format_table(queue_rows: QueueRowTable, output_format: OutputFormat, plate_l
     df = queue_rows.to_table()
 
     # Apply grid_position conversion (e.g., alpha→flat for Chronos)
-    if output_format.grid_position_conversion != "identity":
+    if output_format.grid_position_conversion != GridPositionConversion.IDENTITY:
         df = df.with_columns(
             pl.col("grid_position")
             .map_elements(plate_layout.alpha_to_flat, return_dtype=pl.Int64)
@@ -256,11 +257,11 @@ class QueueGenerator:
     Uses QGConfiguration (new config bundle) with NO dependencies on old config.py.
     """
 
-    def __init__(self, config: QGConfiguration, queue_input: QueueInput, layout_mode: Literal["vial", "plate"]) -> None:
+    def __init__(self, config: QGConfiguration, queue_input: QueueInput) -> None:
         self.queue_input = queue_input
-        self._layout_mode = layout_mode
         self._config = config
         params = queue_input.parameters
+        layout_mode = LayoutMode.PLATE if isinstance(queue_input, PlateQueueInput) else LayoutMode.VIAL
 
         # Pattern existence validated in QueueParameters.create()
         self.pattern = config.queue_patterns.get_pattern(params.tech_area, params.queue_pattern)

@@ -208,7 +208,7 @@ class TestOutputFormats:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(config, queue_input, layout_mode="vial")
+        generator = QueueGenerator(config, queue_input)
         result = generator.generate()
 
         assert isinstance(result, pl.DataFrame)
@@ -231,7 +231,7 @@ class TestOutputFormats:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(config, queue_input, layout_mode="vial")
+        generator = QueueGenerator(config, queue_input)
         result = generator.generate()
 
         assert "L3 Laboratory" in result.columns
@@ -258,7 +258,7 @@ class TestOutputFormats:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(config, queue_input, layout_mode="vial")
+        generator = QueueGenerator(config, queue_input)
         result = generator.generate()
 
         assert len(result) == 1
@@ -282,7 +282,7 @@ class TestNoQCPattern:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(config, queue_input, layout_mode="vial")
+        generator = QueueGenerator(config, queue_input)
         result = generator.generate()
 
         assert len(result) == num_samples
@@ -306,7 +306,7 @@ class TestQCOnlyPattern:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(config, queue_input, layout_mode="vial")
+        generator = QueueGenerator(config, queue_input)
         result = generator.generate()
 
         # qc_only pattern: start(3) + samples + end(3) = 6 + num_samples
@@ -338,7 +338,7 @@ class TestRandomization:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(config, queue_input, layout_mode="vial")
+        generator = QueueGenerator(config, queue_input)
         result = generator.build_rows()
 
         result_order = [int(row.sample_id) for row in result.rows if row.sample_type == "user"]
@@ -376,7 +376,7 @@ class TestRandomization:
         )
         queue_input = make_vial_queue_input(params, samples, container_id)
 
-        generator = QueueGenerator(config, queue_input, layout_mode="vial")
+        generator = QueueGenerator(config, queue_input)
         result = generator.build_rows()
 
         result_ids = [int(row.sample_id) for row in result.rows if row.sample_type == "user"]
@@ -411,7 +411,7 @@ class TestRandomization:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(config, queue_input, layout_mode="vial")
+        generator = QueueGenerator(config, queue_input)
         result = generator.build_rows()
 
         result_order = [int(row.sample_id) for row in result.rows if row.sample_type == "user"]
@@ -439,7 +439,7 @@ class TestDifferentSamplers:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(config, queue_input, layout_mode="vial")
+        generator = QueueGenerator(config, queue_input)
         result = generator.generate()
 
         assert isinstance(result, pl.DataFrame)
@@ -465,7 +465,7 @@ class TestEvosepQCPattern:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(config, queue_input, layout_mode="vial")
+        generator = QueueGenerator(config, queue_input)
         result = generator.build_rows()
 
         sample_ids = [row.sample_id for row in result.rows]
@@ -495,7 +495,7 @@ class TestEvosepQCPattern:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(config, queue_input, layout_mode="vial")
+        generator = QueueGenerator(config, queue_input)
         result = generator.build_rows()
 
         qc_rows = [row for row in result.rows if row.sample_type == "qc"]
@@ -537,7 +537,7 @@ class TestEvosepQCPattern:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(config, queue_input, layout_mode="vial")
+        generator = QueueGenerator(config, queue_input)
         result = generator.build_rows()
 
         user_rows = [row for row in result.rows if row.sample_type == "user"]
@@ -561,7 +561,7 @@ class TestEvosepQCPattern:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(config, queue_input, layout_mode="vial")
+        generator = QueueGenerator(config, queue_input)
         result = generator.build_rows()
 
         # start(2) + 50 samples + end(2) = 54 total, no middle QC
@@ -587,7 +587,7 @@ class TestEvosepChronosOutputFormat:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(config, queue_input, layout_mode="vial")
+        generator = QueueGenerator(config, queue_input)
         result = generator.generate()
 
         # Source Vial should contain numeric 1-96 (alpha_to_flat conversion)
@@ -615,7 +615,7 @@ class TestEvosepHystarOutputFormat:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(config, queue_input, layout_mode="vial")
+        generator = QueueGenerator(config, queue_input)
         result = generator.generate()
 
         # Position should be S{tray}-{row}{col} format
@@ -643,7 +643,7 @@ class TestMetabolomicsPolarity:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(config, queue_input, layout_mode="vial")
+        generator = QueueGenerator(config, queue_input)
         result = generator.build_rows()
 
         # 2 samples x 2 polarities = 4 rows
@@ -652,3 +652,108 @@ class TestMetabolomicsPolarity:
         # Check polarity alternation
         polarities = [row.polarity for row in result.rows]
         assert polarities == ["pos", "neg", "pos", "neg"]
+
+
+class TestChronosNonRowA:
+    """Chronos alpha_to_flat must work beyond row A (regression gap from code review)."""
+
+    def test_chronos_source_vial_beyond_row_a(self, config):
+        """With 15 samples on Plate_96 (12 cols), rows A and B are used."""
+        samples = make_vial_samples(15)
+        params = QueueParameters(
+            tech_area="Proteomics",
+            instrument="ASTRAL_1",
+            sampler="Evosep",
+            output_format="chronos",
+            queue_pattern="noqc",
+            queue_type="Vial",
+            plate_layout="Plate_96",
+            polarity=["pos"],
+            date="20260116",
+            user="test",
+        )
+        queue_input = make_vial_queue_input(params, samples)
+
+        generator = QueueGenerator(config, queue_input)
+        result = generator.generate()
+
+        vials = result["Source Vial"].to_list()
+        # 15 samples: A1-A12 -> 1-12, B1-B3 -> 13-15
+        assert vials == list(range(1, 16))
+
+
+class TestQueueInputRoundTrip:
+    """Round-trip: write_queue_input -> read_queue_input preserves data."""
+
+    def test_vial_queue_input_round_trip(self, tmp_path):
+        """VialQueueInput survives JSON serialization round-trip."""
+        from qg.params_models import read_queue_input, write_queue_input
+
+        samples = make_vial_samples(3, container_id=12345)
+        params = QueueParameters(
+            tech_area="Proteomics",
+            instrument="ASTRAL_1",
+            sampler="Vanquish",
+            output_format="xcalibur",
+            queue_pattern="standard",
+            queue_type="Vial",
+            plate_layout="Vanquish_54",
+            polarity=["pos"],
+            date="20260116",
+            user="test",
+        )
+        original = make_vial_queue_input(params, samples, container_id=12345)
+
+        path = tmp_path / "vial_test.json"
+        write_queue_input(original, path)
+        restored = read_queue_input(path)
+
+        assert isinstance(restored, VialQueueInput)
+        assert len(restored.queue.samples) == 3
+        assert restored.parameters.instrument == "ASTRAL_1"
+        assert restored.queue.samples[0].sample_name == "sample_1"
+        assert restored.queue.samples[0].container_id == 12345
+
+    def test_plate_queue_input_round_trip(self, tmp_path):
+        """PlateQueueInput survives JSON serialization round-trip."""
+        from qg.params_models import (
+            Plate,
+            PlateCell,
+            PlateQueue,
+            PlateQueueInput,
+            read_queue_input,
+            write_queue_input,
+        )
+
+        sample = VialSample(sample_name="S1", sample_id=100, container_id=99)
+        cell = PlateCell(sample=sample, position=1, grid_position="D8", plate_id=1, row="D", col=8)
+        plate = Plate(plate_id=1, tray="Y", nr_samples=1)
+        queue = PlateQueue(
+            batches={99: ContainerBatch(container_id=99)},
+            plates={1: plate},
+            cells=[cell],
+        )
+        params = QueueParameters(
+            tech_area="Proteomics",
+            instrument="ASTRAL_1",
+            sampler="Evosep",
+            output_format="chronos",
+            queue_pattern="noqc",
+            queue_type="Plate",
+            plate_layout="Plate_96",
+            polarity=["pos"],
+            date="20260116",
+            user="test",
+        )
+        original = PlateQueueInput(parameters=params, queue=queue)
+
+        path = tmp_path / "plate_test.json"
+        write_queue_input(original, path)
+        restored = read_queue_input(path)
+
+        assert isinstance(restored, PlateQueueInput)
+        assert restored.queue.cells[0].grid_position == "D8"
+        assert restored.queue.cells[0].row == "D"
+        assert restored.queue.cells[0].col == 8
+        assert restored.queue.cells[0].sample.sample_name == "S1"
+        assert restored.queue.plates[1].tray == "Y"

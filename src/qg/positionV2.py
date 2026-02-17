@@ -30,6 +30,7 @@ from qg.params_models import (
 )
 from qg.qc_layout import QCLayoutTip, QCLayoutWell, create_qc_layout
 from qg.utils import (
+    LayoutMode,
     Position,
     generate_all_positions,
     get_position_function,
@@ -173,7 +174,7 @@ class _PlateValidatorWellConfig:
         for cell in queue.cells:
             plate = queue.plates.get(cell.plate_id)
             tray = plate.tray if plate else None
-            pos = Position(tray, cell.grid_position)
+            pos = Position(tray, cell.grid_position, row=cell.grid_position[0], col=int(cell.grid_position[1:]))
             if pos in self.pool.reserved:
                 raise ValueError(
                     f"Sample '{cell.sample.sample_name}' at {tray}:{cell.grid_position} conflicts with QC position"
@@ -317,7 +318,7 @@ AssembledSampler = PlateValidator | VialAssigner
 
 def create_assembled_sampler(
     sampler_name: str,
-    layout_mode: str,
+    layout_mode: LayoutMode,
     config: QGConfiguration,
     tech_area: str,
     pattern: QueuePattern,
@@ -327,14 +328,14 @@ def create_assembled_sampler(
 
     Args:
         sampler_name: Sampler name (e.g., "Vanquish", "MClass", "Evosep")
-        layout_mode: "vial" or "plate"
+        layout_mode: LayoutMode.VIAL or LayoutMode.PLATE
         config: QGConfiguration with all config data
         tech_area: Technology area (e.g., "Proteomics")
         pattern: Queue pattern (used to resolve QC layout; empty patterns yield no reservations)
         plate_layout_name: Plate layout name (e.g., "Vanquish_54")
 
     Returns:
-        One of 4 AssembledSampler classes based on layout_mode + sampler_name
+        One of 4 AssembledSampler classes based on layout_mode + sampler type
     """
     # Sampler and plate_layout existence validated in QueueParameters.create()
     sampler = config.samplers.get_sampler(sampler_name)
@@ -348,7 +349,7 @@ def create_assembled_sampler(
 
     # Return correct class based on layout_mode + sampler type
     is_tip = sampler.is_tip
-    if layout_mode == "plate":
+    if layout_mode == LayoutMode.PLATE:
         if is_tip:
             return _PlateValidatorTipConfig(sampler, plate_layout, qc_layout)
         else:

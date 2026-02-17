@@ -77,9 +77,12 @@ class _QCPositionProviderTip:
         self._plate_layout = plate_layout
         self._counters: dict[str, int] = {sid: 0 for sid in self._samples}
 
-        # Pre-compute flat start positions for arithmetic
+        # Pre-compute flat start/end positions for arithmetic and bounds checking
         self._start_flat: dict[str, int] = {
             sid: plate_layout.alpha_to_flat(s.position_start) for sid, s in self._samples.items()
+        }
+        self._end_flat: dict[str, int] = {
+            sid: plate_layout.alpha_to_flat(s.position_end) for sid, s in self._samples.items()
         }
 
         # Count QC samples needed from slot_entries
@@ -93,9 +96,7 @@ class _QCPositionProviderTip:
             if sample_id not in self._samples:
                 raise ValueError(f"QC sample '{sample_id}' not found in QC layout")
             s = self._samples[sample_id]
-            start = plate_layout.alpha_to_flat(s.position_start)
-            end = plate_layout.alpha_to_flat(s.position_end)
-            capacity = end - start + 1
+            capacity = self._end_flat[sample_id] - self._start_flat[sample_id] + 1
             if count_needed > capacity:
                 raise ValueError(
                     f"Not enough positions for QC sample '{sample_id}': "
@@ -107,6 +108,10 @@ class _QCPositionProviderTip:
         s = self._samples[sample_id]
         idx = self._counters[sample_id]
         flat_pos = self._start_flat[sample_id] + idx
+        if flat_pos > self._end_flat[sample_id]:
+            raise RuntimeError(
+                f"QC sample '{sample_id}' exceeded allocated range ({s.position_start}-{s.position_end})"
+            )
         row, col = self._plate_layout.flat_to_row_col(flat_pos)
         self._counters[sample_id] = idx + 1
         return Position(s.tray, f"{row}{col}", row=row, col=col)

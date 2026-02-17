@@ -10,7 +10,7 @@ import cyclopts
 
 from qg.config_models.loader import qg_configuration
 from qg.generator import QueueGenerator
-from qg.params_models import PlateQueueInput, read_queue_input
+from qg.params_models import read_queue_input
 
 
 def cli_main() -> None:
@@ -52,8 +52,7 @@ def cli_main() -> None:
         queue_input = read_queue_input(input_json)
 
         # Generate queue
-        layout_mode = "plate" if isinstance(queue_input, PlateQueueInput) else "vial"
-        generator = QueueGenerator(config, queue_input, layout_mode)
+        generator = QueueGenerator(config, queue_input)
         content = generator.write()
 
         # Output (respects output_format: CSV or XML)

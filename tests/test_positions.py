@@ -426,3 +426,41 @@ class TestEvosepPlateAlphaPassthrough:
         assert result.cells[1].grid_position == "A12"
         assert result.cells[2].grid_position == "H1"
         assert result.cells[3].grid_position == "H12"
+
+
+# =============================================================================
+# Round-trip tests for PlateLayout position conversions
+# =============================================================================
+
+
+class TestPlateLayoutRoundTrip:
+    """Round-trip: alpha -> flat -> (row, col) -> alpha for all plate layouts."""
+
+    @pytest.mark.parametrize(
+        "layout_name",
+        ["Plate_96", "Vanquish_54", "MClass_48"],
+    )
+    def test_alpha_flat_round_trip_all_positions(self, config, layout_name: str) -> None:
+        """Every position in the layout survives alpha -> flat -> row_col -> alpha."""
+        layout = config.plate_layouts.get_layout(layout_name)
+
+        for row in layout.rows:
+            for col in layout.cols:
+                alpha = f"{row}{col}"
+                flat = layout.alpha_to_flat(alpha)
+                row_back, col_back = layout.flat_to_row_col(flat)
+                alpha_back = f"{row_back}{col_back}"
+
+                assert alpha_back == alpha, f"{layout_name}: {alpha} -> flat {flat} -> {alpha_back}"
+
+    @pytest.mark.parametrize(
+        "layout_name",
+        ["Plate_96", "Vanquish_54", "MClass_48"],
+    )
+    def test_flat_range_is_contiguous(self, config, layout_name: str) -> None:
+        """Flat indices should be 1..capacity with no gaps."""
+        layout = config.plate_layouts.get_layout(layout_name)
+
+        flats = sorted(layout.alpha_to_flat(f"{r}{c}") for r in layout.rows for c in layout.cols)
+
+        assert flats == list(range(1, layout.capacity + 1))

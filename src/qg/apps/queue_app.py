@@ -273,7 +273,10 @@ def _(
         if _pattern and _pattern.get_all_sample_ids():
             _qc_layout_name = _pattern.qc_layout_name
             _qc_samples = config.get_qc_samples(
-                tech_area_field.value, _qc_layout_name, plate_layout_field.value, sampler_field.value
+                tech_area_field.value,
+                _qc_layout_name,
+                plate_layout_field.value,
+                config.samplers.get_sampler(sampler_field.value),
             )
             if not _qc_samples:
                 validation_errors.append(
@@ -643,7 +646,9 @@ def _(
         method_dict = {pol: field.value for pol, field in _method_fields.items() if field is not None and field.value}
 
         # Derive layout_mode from queue_type (Vial -> vial, Plate -> plate)
-        layout_mode = "vial" if queue_type_field.value == "Vial" else "plate"
+        from qg.utils import LayoutMode
+
+        layout_mode = LayoutMode.VIAL if queue_type_field.value == "Vial" else LayoutMode.PLATE
 
         queue_parameters = QueueParameters.model_validate(
             {
@@ -765,7 +770,7 @@ def _(queue_input, queue_input_err, queue_parameters, queue_parameters_err, samp
 
 
 @app.cell
-def _(config, layout_mode, queue_input, queue_parameters):
+def _(config, queue_input, queue_parameters):
     # Generate queue from shared queue_input
     # IMPORTANT: build_rows() is called exactly ONCE to ensure the displayed queue
     # and the downloaded file are identical (randomization is non-deterministic).
@@ -775,9 +780,9 @@ def _(config, layout_mode, queue_input, queue_parameters):
     generation_error = None
     output_file_extension = ".csv"
 
-    if queue_input is not None and layout_mode:
+    if queue_input is not None:
         try:
-            _generator = QueueGenerator(config, queue_input, layout_mode)
+            _generator = QueueGenerator(config, queue_input)
             _queue_rows = _generator.build_rows()
             raw_queue_df = _queue_rows.to_table()
             _plate_layout = _generator._config.plate_layouts.get_layout(_generator._plate_layout_name)

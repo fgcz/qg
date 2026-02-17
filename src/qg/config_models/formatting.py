@@ -10,6 +10,8 @@ from typing import ClassVar, Self
 import polars as pl
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from qg.utils import GridPositionConversion
+
 
 class Instrument(BaseModel):
     """An instrument definition."""
@@ -98,7 +100,7 @@ class OutputFormat(BaseModel):
     writer: str = "csv"  # Writer function name (csv, xcalibur_csv, hystar_xml)
     position_format: str  # How to format {tray, grid_position} into position string
     grid_position_format: str = "{row}{col}"  # How to format {row, col, grid_position} for display
-    grid_position_conversion: str = "identity"  # "identity" or "alpha_to_flat"
+    grid_position_conversion: GridPositionConversion = GridPositionConversion.IDENTITY
     columns: dict[str, str]  # output_column_name -> internal_field_name or "literal:VALUE"
 
 

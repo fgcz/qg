@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, Self
+from typing import TYPE_CHECKING, Self
 
 import polars as pl
 
@@ -18,6 +18,7 @@ from qg.params_models import (
     VialQueueInput,
     VialSample,
 )
+from qg.utils import LayoutMode
 
 if TYPE_CHECKING:
     from qg.config_models.loader import QGConfiguration
@@ -29,14 +30,14 @@ class QueueBuilder:
     def __init__(self, config: QGConfiguration) -> None:
         self.config = config
         self._parameters: QueueParameters | None = None
-        self._layout_mode: Literal["vial", "plate"] | None = None
+        self._layout_mode: LayoutMode | None = None
         self._batches: dict[int, ContainerBatch] = {}
         self._plates: dict[int, Plate] = {}
         self._vial_samples: list[VialSample] = []
         self._plate_cells: list[PlateCell] = []
         self._built = False
 
-    def with_parameters(self, parameters: QueueParameters, layout_mode: Literal["vial", "plate"]) -> Self:
+    def with_parameters(self, parameters: QueueParameters, layout_mode: LayoutMode) -> Self:
         """Set queue parameters and layout mode."""
         if self._built:
             raise RuntimeError("Builder already used.")
@@ -53,7 +54,7 @@ class QueueBuilder:
         if "container_id" not in df.columns:
             raise ValueError("DataFrame must have 'container_id' column")
 
-        if self._layout_mode == "plate":
+        if self._layout_mode == LayoutMode.PLATE:
             self._add_plate_samples(df)
         else:
             self._add_vial_samples(df)
@@ -104,13 +105,13 @@ class QueueBuilder:
         if self._parameters is None or self._layout_mode is None:
             raise ValueError("Parameters not set.")
 
-        samples = self._plate_cells if self._layout_mode == "plate" else self._vial_samples
+        samples = self._plate_cells if self._layout_mode == LayoutMode.PLATE else self._vial_samples
         if not samples:
             raise ValueError("No samples added.")
 
         self._built = True
 
-        if self._layout_mode == "plate":
+        if self._layout_mode == LayoutMode.PLATE:
             return PlateQueueInput(
                 parameters=self._parameters,
                 queue=PlateQueue(batches=self._batches, plates=self._plates, cells=self._plate_cells),
