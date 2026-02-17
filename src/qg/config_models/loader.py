@@ -26,6 +26,7 @@ from .positions import (
     QCLayoutsWellConfig,
     QCSampleTip,
     QCSampleWell,
+    Sampler,
     SamplerPlateLayoutsConfig,
     SamplersConfig,
 )
@@ -310,22 +311,22 @@ class QGConfiguration:
         tech_area: str,
         qc_layout_name: str,
         plate_layout_name: str,
-        sampler_name: str,
+        sampler: Sampler,
     ) -> list[QCSampleWell] | list[QCSampleTip]:
         """Get QC samples from appropriate layout based on sampler type.
 
-        Centralizes the grid vs evosep branching logic that appears in multiple places.
+        Centralizes the well vs tip branching logic.
 
         Args:
             tech_area: Technology area (e.g., "Proteomics")
             qc_layout_name: QC layout name (e.g., "standard")
             plate_layout_name: Plate layout name (e.g., "Vanquish_54")
-            sampler_name: Sampler name - "Evosep" uses tip layout, others use well
+            sampler: Sampler config object (uses sampler.is_tip to select layout)
 
         Returns:
             List of QC samples (QCSampleWell or QCSampleTip)
         """
-        if sampler_name == "Evosep":
+        if sampler.is_tip:
             return self.qc_layouts_tip.get_samples(tech_area, qc_layout_name, plate_layout_name)
         return self.qc_layouts_well.get_samples(tech_area, qc_layout_name, plate_layout_name)
 

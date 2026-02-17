@@ -7,7 +7,7 @@
 
 import tomllib
 from pathlib import Path
-from typing import ClassVar, Self
+from typing import ClassVar, Literal, Self
 
 import polars as pl
 from pydantic import BaseModel, Field
@@ -113,8 +113,16 @@ class Sampler(BaseModel):
 
     name: str = Field(..., description="Sampler name (e.g., Vanquish)")
     description: str = Field(default="", description="Human-readable description")
+    sampler_type: Literal["well", "tip"] = Field(
+        ..., description="Sampler type: 'well' (reusable vials) or 'tip' (consumable tips)"
+    )
     trays: list[str] | list[int] = Field(..., description="Available tray identifiers")
     position_fun: str = Field(..., description="Position function name (string_concat)")
+
+    @property
+    def is_tip(self) -> bool:
+        """True if this sampler uses consumable tips (e.g., Evosep)."""
+        return self.sampler_type == "tip"
 
 
 class SamplersConfig(BaseModel):
@@ -137,7 +145,12 @@ class SamplersConfig(BaseModel):
     def to_dict(self) -> dict:
         """Convert to dict for TOML serialization."""
         return {
-            name: {"description": s.description, "trays": s.trays, "position_fun": s.position_fun}
+            name: {
+                "description": s.description,
+                "sampler_type": s.sampler_type,
+                "trays": s.trays,
+                "position_fun": s.position_fun,
+            }
             for name, s in self.samplers.items()
         }
 

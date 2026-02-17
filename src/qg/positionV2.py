@@ -346,15 +346,15 @@ def create_assembled_sampler(
         config, tech_area, pattern, plate_layout.name, sampler_name, position_fun, plate_layout
     )
 
-    # Return correct class based on layout_mode + sampler_name
-    is_evosep = sampler_name == "Evosep"
+    # Return correct class based on layout_mode + sampler type
+    is_tip = sampler.is_tip
     if layout_mode == "plate":
-        if is_evosep:
+        if is_tip:
             return _PlateValidatorTipConfig(sampler, plate_layout, qc_layout)
         else:
             return _PlateValidatorWellConfig(sampler, plate_layout, qc_layout)
     else:  # vial
-        if is_evosep:
+        if is_tip:
             return _VialPlateAssignerTipConfig(sampler, plate_layout, qc_layout)
         else:
             return _VialPlateAssignerWellConfig(sampler, plate_layout, qc_layout)

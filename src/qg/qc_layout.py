@@ -74,24 +74,25 @@ def create_qc_layout(
         tech_area: Technology area (e.g., "Proteomics").
         pattern: Queue pattern (checked for QC sample references).
         plate_layout_name: Plate layout name (e.g., "Vanquish_54").
-        sampler_name: Sampler name ("Evosep" uses tip layout, others use well).
-        position_fun: Position function for well-plate samplers (ignored for Evosep).
-        plate_layout: PlateLayout object (required for Evosep alpha→flat conversion).
+        sampler_name: Sampler name (used to look up Sampler config).
+        position_fun: Position function for well-plate samplers (ignored for tip samplers).
+        plate_layout: PlateLayout object (required for tip-plate alpha→flat conversion).
 
     Returns:
         QCLayoutWell or QCLayoutTip (empty if pattern has no QC sample IDs).
     """
-    is_evosep = sampler_name == "Evosep"
+    sampler = config.samplers.get_sampler(sampler_name)
+    is_tip = sampler.is_tip
 
     # If the pattern references no QC samples, return an empty layout
     if not pattern.get_all_sample_ids():
-        if is_evosep:
+        if is_tip:
             return QCLayoutTip([], plate_layout)
         return QCLayoutWell([], position_fun)
 
     qc_layout_name = pattern.qc_layout_name
-    qc_samples = config.get_qc_samples(tech_area, qc_layout_name, plate_layout_name, sampler_name)
+    qc_samples = config.get_qc_samples(tech_area, qc_layout_name, plate_layout_name, sampler)
 
-    if is_evosep:
+    if is_tip:
         return QCLayoutTip(qc_samples, plate_layout)
     return QCLayoutWell(qc_samples, position_fun)

@@ -146,7 +146,7 @@ def create_qc_position_provider(
         config, tech_area, pattern, plate_layout_name, sampler_name, position_fun, plate_layout
     )
 
-    if sampler_name == "Evosep":
+    if sampler.is_tip:
         return _QCPositionProviderTip(qc_layout, slot_entries, default_sample_id, plate_layout)
     else:
         return _QCPositionProviderWell(qc_layout, slot_entries)
