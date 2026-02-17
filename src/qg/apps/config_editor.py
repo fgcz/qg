@@ -665,5 +665,124 @@ def _(
     return
 
 
+# =============================================================================
+# Submit for Review (GitLab MR)
+# =============================================================================
+
+
+@app.cell
+def _():
+    # Check if GitLab integration is available
+    gitlab_available = False
+    gitlab_unavailable_reason = ""
+    try:
+        from qg.gitlab.config_bridge import submit_config_dir as _submit  # noqa: F401
+        from qg.gitlab.settings import load_gitlab_settings
+
+        load_gitlab_settings()
+        gitlab_available = True
+    except ImportError:
+        gitlab_unavailable_reason = (
+            "python-gitlab is not installed. Run `uv pip install python-gitlab` to enable GitLab integration."
+        )
+    except FileNotFoundError as e:
+        gitlab_unavailable_reason = str(e)
+    except ValueError as e:
+        gitlab_unavailable_reason = str(e)
+    return gitlab_available, gitlab_unavailable_reason
+
+
+@app.cell
+def _(gitlab_available, gitlab_unavailable_reason):
+    if gitlab_available:
+        review_author_input = mo.ui.text(label="Author", placeholder="your name")
+        review_description_input = mo.ui.text(
+            label="Change description",
+            placeholder="what did you change and why?",
+            full_width=True,
+        )
+        submit_review_button = mo.ui.run_button(label="Submit for Review", kind="warn")
+    else:
+        review_author_input = None
+        review_description_input = None
+        submit_review_button = None
+    return review_author_input, review_description_input, submit_review_button
+
+
+@app.cell
+def _(
+    gitlab_available,
+    gitlab_unavailable_reason,
+    review_author_input,
+    review_description_input,
+    submit_review_button,
+):
+    if gitlab_available:
+        review_ui = mo.vstack(
+            [
+                mo.md("### Submit for Review"),
+                mo.md("_Save locally first, then submit changes as a GitLab merge request for review._"),
+                mo.hstack([review_author_input, review_description_input], widths=[1, 3]),
+                submit_review_button,
+            ]
+        )
+    else:
+        review_ui = mo.callout(
+            mo.md(f"**GitLab integration not available:** {gitlab_unavailable_reason}"),
+            kind="info",
+        )
+
+    review_ui
+    return
+
+
+@app.cell
+def _(
+    gitlab_available,
+    config_dir,
+    review_author_input,
+    review_description_input,
+    submit_review_button,
+):
+    mo.stop(not gitlab_available or not submit_review_button or not submit_review_button.value)
+
+    from qg.gitlab.config_bridge import submit_config_dir
+
+    _author = review_author_input.value if review_author_input else ""
+    _description = review_description_input.value if review_description_input else ""
+
+    if not _author or not _description:
+        review_result = mo.callout(
+            mo.md("**Please fill in both author and description before submitting.**"),
+            kind="warn",
+        )
+    else:
+        try:
+            mr_url = submit_config_dir(config_dir, author=_author, description=_description)
+            if mr_url:
+                review_result = mo.callout(
+                    mo.md(f"**Merge request created!** [Open MR]({mr_url})"),
+                    kind="success",
+                )
+            else:
+                review_result = mo.callout(
+                    mo.md("**Nothing changed** — no config files differ from the current version."),
+                    kind="info",
+                )
+        except Exception as e:
+            review_result = mo.callout(
+                mo.vstack(
+                    [
+                        mo.md("**Submission failed:**"),
+                        mo.md(f"```\n{e}\n```"),
+                    ]
+                ),
+                kind="danger",
+            )
+
+    review_result
+    return
+
+
 if __name__ == "__main__":
     app.run()

@@ -21,3 +21,4 @@ plans/
 bfabric_cache/
 deprecated/
 .coverage
+.qg_settings.toml

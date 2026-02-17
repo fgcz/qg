@@ -1,0 +1,8 @@
+# GitLab settings for config review workflow.
+# Copy this file to .qg_settings.toml and fill in your credentials.
+# IMPORTANT: .qg_settings.toml is gitignored — never commit your token.
+
+[gitlab]
+url = "https://gitlab.bfabric.org"
+project = "metabolomics/queue-gen"
+private_token = "glpat-xxxxxxxxxxxxxxxxxxxx"

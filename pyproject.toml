@@ -19,6 +19,7 @@ dependencies = [
     "pydantic>=2.12.5",
     "rich>=14.2.0",
     "starlette>=0.50.0",
+    "python-gitlab>=5.0.0",
     "tomli-w>=1.0.0",
     "vegafusion>=2.0.3",
     "vl-convert-python>=1.9.0",
@@ -52,6 +53,7 @@ qg-find-projects = "qg.cli.find_projects:main"
 qg-params = "qg.cli.generate_params:cli_main"
 qg-tools = "qg.tools.cli:main"
 qg-csv-to-params = "qg.tools.csv_to_paramsjson:app"
+qg-app = "qg.gitlab.launcher:launch_queue_app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
