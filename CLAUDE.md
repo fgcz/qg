@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## File Rules
+
+**Never read `TODO/DONE_*.md` files unless explicitly asked by the user.** These are archived task documents and not relevant to current work.
+
 ## Project Overview
 
 Queue generation system for mass spectrometry instruments. Generates sample queues with QC injections for XCalibur, Chronos, and Hystar software.
