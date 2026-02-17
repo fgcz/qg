@@ -7,12 +7,12 @@
 
 import tomllib
 from pathlib import Path
-from typing import ClassVar, Literal, Self
+from typing import ClassVar, Literal, Protocol, Self
 
 import polars as pl
 from pydantic import BaseModel, Field
 
-from qg.utils import PositionFunction
+from qg.utils import GridPositionConversion, PositionFunction
 
 # =============================================================================
 # PlateLayout - from plate_layouts.toml
@@ -362,3 +362,33 @@ class QCLayoutsTipConfig(BaseModel):
         path = config_dir / cls.config_path
         df = pl.read_csv(path, comment_prefix="#")
         return cls.from_table(df)
+
+
+# =============================================================================
+# GridPositionConverter - dispatch grid_position conversion by enum
+# =============================================================================
+
+
+class GridPositionConverter(Protocol):
+    def convert_grid_position(self, pos: str) -> str: ...
+
+
+class _IdentityConverter:
+    def convert_grid_position(self, pos: str) -> str:
+        return pos
+
+
+class _AlphaToFlatConverter:
+    def __init__(self, plate_layout: PlateLayout) -> None:
+        self._plate_layout = plate_layout
+
+    def convert_grid_position(self, pos: str) -> str:
+        return str(self._plate_layout.alpha_to_flat(pos))
+
+
+def get_grid_position_converter(conversion: GridPositionConversion, plate_layout: PlateLayout) -> GridPositionConverter:
+    match conversion:
+        case GridPositionConversion.IDENTITY:
+            return _IdentityConverter()
+        case GridPositionConversion.ALPHA_TO_FLAT:
+            return _AlphaToFlatConverter(plate_layout)

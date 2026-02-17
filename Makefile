@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help app app-all editor validate projects projects-all
+.PHONY: help app app-all editor validate projects projects-all deploy-test
 
 help:
 	@echo "Queue Generation System"
@@ -14,6 +14,7 @@ help:
 	@echo "  validate       Validate all configuration files"
 	@echo "  projects       Fetch active projects from B-Fabric"
 	@echo "  projects-all   Fetch all projects from B-Fabric (no status filter)"
+	@echo "  deploy-test    Build and start Docker test deployment"
 
 # Run the marimo GUI app (active projects)
 app:

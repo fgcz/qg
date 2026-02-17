@@ -593,7 +593,7 @@ class TestEvosepChronosOutputFormat:
         # Source Vial should contain numeric 1-96 (alpha_to_flat conversion)
         assert "Source Vial" in result.columns
         vials = result["Source Vial"].to_list()
-        assert vials == [1, 2, 3]
+        assert vials == ["1", "2", "3"]
 
 
 class TestEvosepHystarOutputFormat:
@@ -679,7 +679,7 @@ class TestChronosNonRowA:
 
         vials = result["Source Vial"].to_list()
         # 15 samples: A1-A12 -> 1-12, B1-B3 -> 13-15
-        assert vials == list(range(1, 16))
+        assert vials == [str(i) for i in range(1, 16)]
 
 
 class TestQueueInputRoundTrip:

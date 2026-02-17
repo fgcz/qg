@@ -11,13 +11,13 @@ from pydantic import BaseModel
 from qg.config_models.formatting import OutputFormat, Sample, SamplesConfig
 from qg.config_models.loader import QGConfiguration
 from qg.config_models.methods import MethodsConfig
-from qg.config_models.positions import PlateLayout
+from qg.config_models.positions import PlateLayout, get_grid_position_converter
 from qg.params_models import PlateCell, PlateQueue, PlateQueueInput, QueueInput, VialQueueInput
 from qg.positionV2 import create_assembled_sampler
 from qg.qc_positions import Position, QCPositionProvider, create_qc_position_provider
 from qg.queue_structure import SlotEntry, build_multi_container_queue_structure
 from qg.randomize import randomize_plate_queue
-from qg.utils import GridPositionConversion, LayoutMode
+from qg.utils import LayoutMode
 
 
 class QueueRow(BaseModel):
@@ -220,12 +220,12 @@ def format_table(queue_rows: QueueRowTable, output_format: OutputFormat, plate_l
     df = queue_rows.to_table()
 
     # Apply grid_position conversion (e.g., alpha→flat for Chronos)
-    if output_format.grid_position_conversion != GridPositionConversion.IDENTITY:
-        df = df.with_columns(
-            pl.col("grid_position")
-            .map_elements(plate_layout.alpha_to_flat, return_dtype=pl.Int64)
-            .alias("grid_position")
-        )
+    converter = get_grid_position_converter(output_format.grid_position_conversion, plate_layout)
+    df = df.with_columns(
+        pl.col("grid_position")
+        .map_elements(converter.convert_grid_position, return_dtype=pl.Utf8)
+        .alias("grid_position")
+    )
 
     gp_fmt = output_format.grid_position_format
     pos_fmt = output_format.position_format
