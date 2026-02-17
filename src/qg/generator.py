@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from qg.config_models.formatting import OutputFormat, Sample, SamplesConfig
 from qg.config_models.loader import QGConfiguration
 from qg.config_models.methods import MethodsConfig
+from qg.config_models.positions import PlateLayout
 from qg.params_models import PlateCell, PlateQueue, QueueInput, VialQueueInput
 from qg.positionV2 import create_assembled_sampler
 from qg.qc_positions import Position, QCPositionProvider, create_qc_position_provider
@@ -213,32 +214,16 @@ def write_queue(df: pl.DataFrame, output_format: OutputFormat) -> str:
     return writer(df)
 
 
-def _alpha_to_flat(pos: str, num_cols: int = 12) -> int:
-    """Convert alpha grid position to flat 1-based index (row-major).
-
-    A1 → 1, A12 → 12, B1 → 13, H12 → 96.
-    """
-    row_idx = ord(pos[0].upper()) - ord("A")
-    col = int(pos[1:])
-    return row_idx * num_cols + col
-
-
-_GRID_POSITION_CONVERSIONS: dict[str, object] = {
-    "identity": None,  # no-op, handled by skipping
-    "alpha_to_flat": _alpha_to_flat,
-}
-
-
-def format_table(queue_rows: QueueRowTable, output_format: OutputFormat) -> pl.DataFrame:
+def format_table(queue_rows: QueueRowTable, output_format: OutputFormat, plate_layout: PlateLayout) -> pl.DataFrame:
     """Format queue rows as DataFrame for the given output format."""
     df = queue_rows.to_table()
 
     # Apply grid_position conversion (e.g., alpha→flat for Chronos)
-    conv_name = output_format.grid_position_conversion
-    if conv_name != "identity":
-        conv_fn = _GRID_POSITION_CONVERSIONS[conv_name]
+    if output_format.grid_position_conversion != "identity":
         df = df.with_columns(
-            pl.col("grid_position").map_elements(conv_fn, return_dtype=pl.Int64).alias("grid_position")
+            pl.col("grid_position")
+            .map_elements(plate_layout.alpha_to_flat, return_dtype=pl.Int64)
+            .alias("grid_position")
         )
 
     gp_fmt = output_format.grid_position_format
@@ -324,7 +309,8 @@ class QueueGenerator:
     def generate(self) -> pl.DataFrame:
         """Execute pipeline and return formatted DataFrame."""
         rows = self.build_rows()
-        return format_table(rows, self.output_format)
+        plate_layout = self._config.plate_layouts.get_layout(self._plate_layout_name)
+        return format_table(rows, self.output_format, plate_layout)
 
     def write(self) -> str:
         """Generate queue and return as string in the appropriate format."""

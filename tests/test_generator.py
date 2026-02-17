@@ -47,6 +47,12 @@ def make_vial_queue_input(
 class TestFormatTable:
     """Tests for format_table(), including literal: prefix handling."""
 
+    @staticmethod
+    def _plate_96():
+        from qg.config_models.positions import PlateLayout
+
+        return PlateLayout(name="Plate_96", rows=list("ABCDEFGH"), cols=list(range(1, 13)))
+
     def test_literal_prefix_produces_constant_column(self):
         """Columns with 'literal:VALUE' produce a constant column."""
         from qg.config_models.formatting import OutputFormat
@@ -97,7 +103,7 @@ class TestFormatTable:
             ]
         )
 
-        df = format_table(rows, fmt)
+        df = format_table(rows, fmt, self._plate_96())
 
         assert df.columns == ["File Name", "Lab", "Sample ID"]
         assert df["Lab"].to_list() == ["FGCZ", "FGCZ"]
@@ -140,7 +146,7 @@ class TestFormatTable:
             ]
         )
 
-        df = format_table(rows, fmt)
+        df = format_table(rows, fmt, self._plate_96())
 
         assert df.columns == ["A", "B", "C", "D"]
         assert df["B"].item() == "constant_b"
@@ -177,7 +183,7 @@ class TestFormatTable:
             ]
         )
 
-        df = format_table(rows, fmt)
+        df = format_table(rows, fmt, self._plate_96())
 
         assert df.columns == ["Name", "ID"]
         assert df["Name"].item() == "myfile"
