@@ -303,14 +303,13 @@ class TestGetQCPosition:
     def test_vanquish_get_qc_position(self, config) -> None:
         # Grid ignores slot_entries, so we pass empty list
         pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
+        sampler = create_assembled_sampler("Vanquish", "vial", config, "Proteomics", pattern, "Vanquish_54")
+        plate_layout = config.plate_layouts.get_layout("Vanquish_54")
         provider = create_qc_position_provider(
-            "Vanquish",
-            config,
-            "Proteomics",
-            pattern,
-            "Vanquish_54",
+            qc_layout=sampler.qc_layout,
             slot_entries=[],
             default_sample_id=SamplesConfig.DEFAULT_SAMPLE_ID,
+            plate_layout=plate_layout,
         )
 
         pos = provider.get_position("QC01")
@@ -321,15 +320,14 @@ class TestGetQCPosition:
     def test_evosep_get_qc_position(self, config) -> None:
         # Evosep needs slot_entries to validate capacity
         pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
+        sampler = create_assembled_sampler("Evosep", "vial", config, "Proteomics", pattern, "Plate_96")
+        plate_layout = config.plate_layouts.get_layout("Plate_96")
         slot_entries = [MockSlotEntry("QC01")]
         provider = create_qc_position_provider(
-            "Evosep",
-            config,
-            "Proteomics",
-            pattern,
-            "Plate_96",
+            qc_layout=sampler.qc_layout,
             slot_entries=slot_entries,
             default_sample_id=SamplesConfig.DEFAULT_SAMPLE_ID,
+            plate_layout=plate_layout,
         )
 
         pos = provider.get_position("QC01")
@@ -340,15 +338,14 @@ class TestGetQCPosition:
     def test_evosep_get_qc_position_increments(self, config) -> None:
         # Evosep needs slot_entries - we need 2 QC01 entries since we call get_position twice
         pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
+        sampler = create_assembled_sampler("Evosep", "vial", config, "Proteomics", pattern, "Plate_96")
+        plate_layout = config.plate_layouts.get_layout("Plate_96")
         slot_entries = [MockSlotEntry("QC01"), MockSlotEntry("QC01")]
         provider = create_qc_position_provider(
-            "Evosep",
-            config,
-            "Proteomics",
-            pattern,
-            "Plate_96",
+            qc_layout=sampler.qc_layout,
             slot_entries=slot_entries,
             default_sample_id=SamplesConfig.DEFAULT_SAMPLE_ID,
+            plate_layout=plate_layout,
         )
 
         pos1 = provider.get_position("QC01")
@@ -426,6 +423,74 @@ class TestEvosepPlateAlphaPassthrough:
         assert result.cells[1].grid_position == "A12"
         assert result.cells[2].grid_position == "H1"
         assert result.cells[3].grid_position == "H12"
+
+
+# =============================================================================
+# Tests for Well-plate Plate mode - row/col splitting
+# =============================================================================
+
+
+class TestWellPlateModeRowColSplit:
+    """Tests for well-plate plate mode: row/col populated from grid_position."""
+
+    @pytest.mark.parametrize("sampler,layout", [("Vanquish", "Vanquish_54"), ("MClass", "MClass_48")])
+    def test_row_col_populated_from_alpha(self, config, sampler: str, layout: str) -> None:
+        """Row and col components are split from alpha grid_position."""
+        pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
+        assembled = create_assembled_sampler(sampler, "plate", config, "Proteomics", pattern, layout)
+        # Use positions in rows A-E to avoid QC positions (F6-F9)
+        queue = _create_plate_queue_with_alpha_positions(["A1", "B3", "E6"])
+
+        result = assembled.assign(queue)
+
+        assert result.cells[0].row == "A"
+        assert result.cells[0].col == 1
+        assert result.cells[1].row == "B"
+        assert result.cells[1].col == 3
+        assert result.cells[2].row == "E"
+        assert result.cells[2].col == 6
+
+    @pytest.mark.parametrize("sampler,layout", [("Vanquish", "Vanquish_54"), ("MClass", "MClass_48")])
+    def test_grid_position_preserved(self, config, sampler: str, layout: str) -> None:
+        """Alpha grid_position is preserved after splitting."""
+        pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
+        assembled = create_assembled_sampler(sampler, "plate", config, "Proteomics", pattern, layout)
+        queue = _create_plate_queue_with_alpha_positions(["A1", "B3", "E6"])
+
+        result = assembled.assign(queue)
+
+        assert result.cells[0].grid_position == "A1"
+        assert result.cells[1].grid_position == "B3"
+        assert result.cells[2].grid_position == "E6"
+
+    @pytest.mark.parametrize("sampler,layout", [("Vanquish", "Vanquish_54"), ("MClass", "MClass_48")])
+    def test_already_split_cells_unchanged(self, config, sampler: str, layout: str) -> None:
+        """Cells that already have row/col populated are not re-split."""
+        pattern = config.queue_patterns.get_pattern("Proteomics", "noqc")
+        assembled = create_assembled_sampler(sampler, "plate", config, "Proteomics", pattern, layout)
+        cells = [
+            PlateCell(
+                sample=VialSample(
+                    sample_name="S1",
+                    sample_id=1000,
+                    tube_id="12345/0",
+                    container_id=12345,
+                ),
+                position=1,
+                grid_position="B3",
+                plate_id=1,
+                row="B",
+                col=3,
+            ),
+        ]
+        plates = {1: Plate(plate_id=1, tray=None, nr_samples=1)}
+        batches = {12345: ContainerBatch(container_id=12345)}
+        queue = PlateQueue(batches=batches, plates=plates, cells=cells)
+
+        result = assembled.assign(queue)
+
+        assert result.cells[0].row == "B"
+        assert result.cells[0].col == 3
 
 
 # =============================================================================

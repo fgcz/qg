@@ -112,7 +112,8 @@ class _PositionPoolWell:
         self.position_fun = get_position_function(sampler.position_fun)
         self.trays = sampler.trays
 
-        # Use precomputed reserved QC positions
+        # Store precomputed QC layout and its reserved positions
+        self.qc_layout = qc_layout
         self.reserved = qc_layout.reserved
 
         # Generate all positions and filter out reserved
@@ -138,7 +139,8 @@ class _PositionPoolTip:
         self.position_fun = get_position_function(sampler.position_fun)
         self.trays = sampler.trays
 
-        # Use precomputed reserved QC positions
+        # Store precomputed QC layout and its reserved positions
+        self.qc_layout = qc_layout
         self.reserved = qc_layout.reserved
 
         # Generate all positions (don't filter - Evosep uses consumable tips)
@@ -158,7 +160,8 @@ class _PlateValidatorWellConfig:
     """Validates PlateQueue positions against QC reservations (well-plate samplers).
 
     For Plate mode: user provides PlateQueue with positions already assigned.
-    This class validates that user positions don't conflict with QC positions.
+    This class validates that user positions don't conflict with QC positions,
+    and splits alpha grid_position into row/col components.
     """
 
     def __init__(
@@ -168,6 +171,11 @@ class _PlateValidatorWellConfig:
         qc_layout: QCLayoutWell,
     ) -> None:
         self.pool = _PositionPoolWell(sampler, plate_layout, qc_layout)
+        self.plate_layout = plate_layout
+
+    @property
+    def qc_layout(self) -> QCLayoutWell:
+        return self.pool.qc_layout
 
     def _check_collisions(self, queue: PlateQueue) -> None:
         """Check that no user positions conflict with QC positions."""
@@ -181,10 +189,19 @@ class _PlateValidatorWellConfig:
                 )
 
     def assign(self, queue: PlateQueue, *, one_container_per_tray: bool = False) -> PlateQueue:  # noqa: ARG002
-        """Assign trays to plates and validate no QC conflicts."""
+        """Assign trays to plates, validate no QC conflicts, populate row/col."""
         queue = _assign_trays_if_missing(queue, self.pool.trays)
         self._check_collisions(queue)
-        return queue
+        # B-Fabric provides grid_position="A1" but row="" and col=0.
+        # Split alpha grid_position into row and col components for format_table().
+        split_cells = []
+        for cell in queue.cells:
+            if isinstance(cell.grid_position, str) and cell.row == "":
+                row, col = self.plate_layout.split_alpha(cell.grid_position)
+                split_cells.append(cell.model_copy(update={"row": row, "col": col}))
+            else:
+                split_cells.append(cell)
+        return PlateQueue(batches=queue.batches, plates=queue.plates, cells=split_cells)
 
 
 class _PlateValidatorTipConfig:
@@ -203,6 +220,10 @@ class _PlateValidatorTipConfig:
     ) -> None:
         self.pool = _PositionPoolTip(sampler, plate_layout, qc_layout)
         self.plate_layout = plate_layout
+
+    @property
+    def qc_layout(self) -> QCLayoutTip:
+        return self.pool.qc_layout
 
     def assign(self, queue: PlateQueue, *, one_container_per_tray: bool = False) -> PlateQueue:  # noqa: ARG002
         """Assign trays to plates and populate row/col from alpha grid_position."""
@@ -238,6 +259,10 @@ class _VialPlateAssignerWellConfig:
         qc_layout: QCLayoutWell,
     ) -> None:
         self.pool = _PositionPoolWell(sampler, plate_layout, qc_layout)
+
+    @property
+    def qc_layout(self) -> QCLayoutWell:
+        return self.pool.qc_layout
 
     def assign(self, queue: VialQueue, *, one_container_per_tray: bool = False) -> PlateQueue:
         """Transform VialQueue to PlateQueue by assigning positions."""
@@ -283,6 +308,10 @@ class _VialPlateAssignerTipConfig:
     ) -> None:
         self.pool = _PositionPoolTip(sampler, plate_layout, qc_layout)
 
+    @property
+    def qc_layout(self) -> QCLayoutTip:
+        return self.pool.qc_layout
+
     def assign(self, queue: VialQueue, *, one_container_per_tray: bool = False) -> PlateQueue:  # noqa: ARG002
         """Transform VialQueue to PlateQueue by assigning positions."""
         n_samples = len(queue.samples)
@@ -300,6 +329,9 @@ class _VialPlateAssignerTipConfig:
 class PlateValidator(Protocol):
     """Protocol for classes that validate PlateQueue positions (Plate mode)."""
 
+    @property
+    def qc_layout(self) -> QCLayoutWell | QCLayoutTip: ...
+
     def assign(self, queue: PlateQueue, *, one_container_per_tray: bool = False) -> PlateQueue:
         """Assign trays and validate positions."""
         ...
@@ -307,6 +339,9 @@ class PlateValidator(Protocol):
 
 class VialAssigner(Protocol):
     """Protocol for classes that assign positions to VialQueue (Vial mode)."""
+
+    @property
+    def qc_layout(self) -> QCLayoutWell | QCLayoutTip: ...
 
     def assign(self, queue: VialQueue, *, one_container_per_tray: bool = False) -> PlateQueue:
         """Assign positions and trays."""

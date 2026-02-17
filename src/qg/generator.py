@@ -266,10 +266,6 @@ class QueueGenerator:
         # Pattern existence validated in QueueParameters.create()
         self.pattern = config.queue_patterns.get_pattern(params.tech_area, params.queue_pattern)
 
-        # Store info needed for QC position provider (created later in build_rows)
-        self._sampler_name = params.sampler
-        self._plate_layout_name = params.plate_layout
-
         # Create assembled sampler for position assignment
         assembled_sampler = create_assembled_sampler(
             sampler_name=params.sampler,
@@ -279,6 +275,10 @@ class QueueGenerator:
             pattern=self.pattern,
             plate_layout_name=params.plate_layout,
         )
+
+        # Store QC layout and plate layout from assembled sampler (avoid recomputation)
+        self._qc_layout = assembled_sampler.qc_layout
+        self._plate_layout = config.plate_layouts.get_layout(params.plate_layout)
 
         # Transform/validate queue to get PlateQueue
         if isinstance(queue_input, VialQueueInput):
@@ -310,8 +310,7 @@ class QueueGenerator:
     def generate(self) -> pl.DataFrame:
         """Execute pipeline and return formatted DataFrame."""
         rows = self.build_rows()
-        plate_layout = self._config.plate_layouts.get_layout(self._plate_layout_name)
-        return format_table(rows, self.output_format, plate_layout)
+        return format_table(rows, self.output_format, self._plate_layout)
 
     def write(self) -> str:
         """Generate queue and return as string in the appropriate format."""
@@ -343,15 +342,12 @@ class QueueGenerator:
             groups, self.pattern, default_sample_id, params.qc_frequency_override
         )
 
-        # Create QC position provider (Evosep validates capacity upfront using slot_entries)
+        # Create QC position provider (reuses qc_layout from assembled sampler)
         qc_provider = create_qc_position_provider(
-            sampler_name=self._sampler_name,
-            config=self._config,
-            tech_area=params.tech_area,
-            pattern=self.pattern,
-            plate_layout_name=self._plate_layout_name,
+            qc_layout=self._qc_layout,
             slot_entries=slot_entries,
             default_sample_id=default_sample_id,
+            plate_layout=self._plate_layout,
         )
 
         # Build slots

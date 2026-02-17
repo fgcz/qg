@@ -12,15 +12,10 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from qg.config_models.loader import QGConfiguration
 from qg.config_models.positions import PlateLayout
-from qg.config_models.structure import QueuePattern
-from qg.qc_layout import QCLayoutTip, QCLayoutWell, create_qc_layout
+from qg.qc_layout import QCLayoutTip, QCLayoutWell
 from qg.queue_structure import SlotEntry
-from qg.utils import (
-    Position,
-    get_position_function,
-)
+from qg.utils import Position
 
 # =============================================================================
 # QC Position Provider Protocol
@@ -123,35 +118,20 @@ class _QCPositionProviderTip:
 
 
 def create_qc_position_provider(
-    sampler_name: str,
-    config: QGConfiguration,
-    tech_area: str,
-    pattern: QueuePattern,
-    plate_layout_name: str,
+    qc_layout: QCLayoutWell | QCLayoutTip,
     slot_entries: list[SlotEntry],
     default_sample_id: str,
+    plate_layout: PlateLayout,
 ) -> QCPositionProvider:
-    """Factory to create QC position provider.
+    """Factory to create QC position provider from a pre-computed QC layout.
 
     Args:
-        sampler_name: "Vanquish", "MClass", or "Evosep"
-        config: QGConfiguration
-        tech_area: e.g., "Proteomics"
-        pattern: Queue pattern (used to resolve QC layout; empty patterns yield no QC positions)
-        plate_layout_name: e.g., "Vanquish_54"
+        qc_layout: Pre-computed QC layout (well or tip)
         slot_entries: List of SlotEntry - used by Evosep to validate capacity
         default_sample_id: The default sample ID for user samples
+        plate_layout: Plate layout for tip position arithmetic
     """
-    sampler = config.samplers.get_sampler(sampler_name)
-    position_fun = get_position_function(sampler.position_fun)
-    plate_layout = config.plate_layouts.get_layout(plate_layout_name)
-
-    # Create QC layout (empty when pattern has no QC references)
-    qc_layout = create_qc_layout(
-        config, tech_area, pattern, plate_layout_name, sampler_name, position_fun, plate_layout
-    )
-
-    if sampler.is_tip:
+    if isinstance(qc_layout, QCLayoutTip):
         return _QCPositionProviderTip(qc_layout, slot_entries, default_sample_id, plate_layout)
     else:
         return _QCPositionProviderWell(qc_layout, slot_entries)

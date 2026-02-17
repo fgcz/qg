@@ -776,8 +776,7 @@ def _(config, queue_input, queue_parameters):
             _generator = QueueGenerator(config, queue_input)
             _queue_rows = _generator.build_rows()
             raw_queue_df = _queue_rows.to_table()
-            _plate_layout = _generator._config.plate_layouts.get_layout(_generator._plate_layout_name)
-            generated_queue_df = format_table(_queue_rows, _generator.output_format, _plate_layout)
+            generated_queue_df = format_table(_queue_rows, _generator.output_format, _generator._plate_layout)
             queue_output_str = write_queue(generated_queue_df, _generator.output_format)
             output_file_extension = _generator.file_extension
         except ValueError as e:
