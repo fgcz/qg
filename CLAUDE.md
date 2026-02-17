@@ -104,7 +104,7 @@ CSV Output
 |--------|---------|
 | `generator.py` | `QueueGenerator` class (config resolution + pipeline execution), `QueueRow` dataclass |
 | `queue_structure.py` | `build_queue_structure()`, `compute_queue_counts()`, `SlotEntry` |
-| `positions.py` | `GridPositionGenerator`, `EvosepPositionGenerator`, `QCLayoutPattern`, factory function |
+| `positions.py` | `QCLayoutWell`, `QCLayoutTip`, factory function |
 | `config.py` | `ConfigBundle`, `qg_config()`, validation functions |
 | `config_models.py` | Pydantic models for config files (Sample, Instrument, QueuePattern, etc.) |
 | `config_models_samplers.py` | Sampler config models (GridSampler, EvosepSampler) |
@@ -171,8 +171,8 @@ qg_configs/
 │   ├── sampler.toml
 │   ├── samples.csv
 │   ├── queue_patterns.toml
-│   ├── qc_layouts_grid.csv
-│   ├── qc_layouts_evosep.csv
+│   ├── qc_layouts_well.csv
+│   ├── qc_layouts_tip.csv
 │   ├── instruments.csv
 │   ├── output_formats.toml
 │   └── methods/
@@ -186,8 +186,8 @@ qg_configs/
 | `sampler.toml` | `core/` | Physical sampler layouts (Vanquish, MClass48, Evosep) |
 | `samples.csv` | `core/` | QC sample definitions (per technology, inj_vol, file_name_template) |
 | `queue_patterns.toml` | `core/` | QC injection patterns (start/middle/end/separation) |
-| `qc_layouts_grid.csv` | `core/` | QC positions for grid samplers (Vanquish, MClass48) |
-| `qc_layouts_evosep.csv` | `core/` | QC tip ranges for Evosep (consumable tips) |
+| `qc_layouts_well.csv` | `core/` | QC positions for well-plate samplers (Vanquish, MClass) |
+| `qc_layouts_tip.csv` | `core/` | QC tip ranges for tip-plate samplers (consumable tips) |
 | `instruments.csv` | `core/` | Instrument -> methods_file, path_template mapping |
 | `output_formats.toml` | `core/` | Column mappings for xcalibur/chronos/hystar |
 | `methods/<tech>/<instr>_methods.csv` | `core/` | Methods with polarity column |
@@ -207,9 +207,9 @@ qg_configs/
 
 ### Samplers
 
-- `Vanquish` (vial/plate) - GridPositionGenerator
-- `MClass48` (vial/plate) - GridPositionGenerator
-- `Evosep` (vial/plate) - EvosepPositionGenerator
+- `Vanquish` (vial/plate) - well-plate sampler
+- `MClass` (vial/plate) - well-plate sampler
+- `Evosep` (vial/plate) - tip-plate sampler
 
 ## Testing
 

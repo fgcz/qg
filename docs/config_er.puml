@@ -111,10 +111,10 @@ entity "QC Layout" as qclayout <<qc_layouts.toml>> {
   // Try "Sampler.container" first,
   // fall back to "Sampler"
   --
-  // Grid samplers
+  // Well-plate samplers
   sample_id : position_string
   --
-  // Evosep
+  // Tip-plate samplers
   sample_id : {tray, pos_start, pos_end}
 }
 
