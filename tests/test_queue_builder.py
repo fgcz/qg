@@ -56,36 +56,21 @@ class TestVialMode:
                 "tube_id": ["1/1", "1/2", "1/3"],
             }
         )
-        result = (
-            QueueBuilder(config)
-            .with_parameters(queue_parameters, layout_mode="vial")
-            .add_samples_from_dataframe(df)
-            .build()
-        )
+        result = QueueBuilder(config).with_parameters(queue_parameters).add_samples_from_dataframe(df).build()
 
         assert isinstance(result, VialQueueInput)
         assert len(result.queue.batches) == 1
         assert len(result.queue.samples) == 3
 
     def test_build_multiple_containers(self, config, queue_parameters, sample_df):
-        result = (
-            QueueBuilder(config)
-            .with_parameters(queue_parameters, layout_mode="vial")
-            .add_samples_from_dataframe(sample_df)
-            .build()
-        )
+        result = QueueBuilder(config).with_parameters(queue_parameters).add_samples_from_dataframe(sample_df).build()
 
         assert isinstance(result, VialQueueInput)
         assert len(result.queue.batches) == 2
         assert len(result.queue.samples) == 5
 
     def test_samples_have_container_id_fk(self, config, queue_parameters, sample_df):
-        result = (
-            QueueBuilder(config)
-            .with_parameters(queue_parameters, layout_mode="vial")
-            .add_samples_from_dataframe(sample_df)
-            .build()
-        )
+        result = QueueBuilder(config).with_parameters(queue_parameters).add_samples_from_dataframe(sample_df).build()
         container_1_samples = [s for s in result.queue.samples if s.container_id == 1]
         container_2_samples = [s for s in result.queue.samples if s.container_id == 2]
         assert len(container_1_samples) == 3
@@ -93,6 +78,21 @@ class TestVialMode:
 
 
 class TestPlateMode:
+    @pytest.fixture
+    def queue_parameters(self):
+        return QueueParameters(
+            tech_area="Proteomics",
+            instrument="ASTRAL_1",
+            sampler="Vanquish",
+            output_format="xcalibur",
+            queue_pattern="standard",
+            queue_type="Plate",
+            plate_layout="Vanquish_54",
+            polarity=["pos"],
+            date="20260123",
+            user="test",
+        )
+
     @pytest.fixture
     def plate_df(self):
         return pl.DataFrame(
@@ -107,12 +107,7 @@ class TestPlateMode:
         )
 
     def test_build_plate_input(self, config, queue_parameters, plate_df):
-        result = (
-            QueueBuilder(config)
-            .with_parameters(queue_parameters, layout_mode="plate")
-            .add_samples_from_dataframe(plate_df)
-            .build()
-        )
+        result = QueueBuilder(config).with_parameters(queue_parameters).add_samples_from_dataframe(plate_df).build()
 
         assert isinstance(result, PlateQueueInput)
         assert len(result.queue.batches) == 1
@@ -120,21 +115,11 @@ class TestPlateMode:
         assert len(result.queue.cells) == 3
 
     def test_plate_has_correct_sample_count(self, config, queue_parameters, plate_df):
-        result = (
-            QueueBuilder(config)
-            .with_parameters(queue_parameters, layout_mode="plate")
-            .add_samples_from_dataframe(plate_df)
-            .build()
-        )
+        result = QueueBuilder(config).with_parameters(queue_parameters).add_samples_from_dataframe(plate_df).build()
         assert result.queue.plates[1001].nr_samples == 3
 
     def test_cells_have_positions(self, config, queue_parameters, plate_df):
-        result = (
-            QueueBuilder(config)
-            .with_parameters(queue_parameters, layout_mode="plate")
-            .add_samples_from_dataframe(plate_df)
-            .build()
-        )
+        result = QueueBuilder(config).with_parameters(queue_parameters).add_samples_from_dataframe(plate_df).build()
         positions = [c.grid_position for c in result.queue.cells]
         assert positions == ["A1", "A2", "A3"]
 
@@ -150,12 +135,7 @@ class TestPlateMode:
                 "grid_position": ["A1", "A2", "A3"],
             }
         )
-        result = (
-            QueueBuilder(config)
-            .with_parameters(queue_parameters, layout_mode="plate")
-            .add_samples_from_dataframe(df)
-            .build()
-        )
+        result = QueueBuilder(config).with_parameters(queue_parameters).add_samples_from_dataframe(df).build()
         assert isinstance(result, PlateQueueInput)
         assert result.queue.plates[1001].tray is None
         assert len(result.queue.cells) == 3
@@ -169,7 +149,7 @@ class TestPlateMode:
             }
         )
         with pytest.raises(ValueError, match="Plate mode requires"):
-            (QueueBuilder(config).with_parameters(queue_parameters, layout_mode="plate").add_samples_from_dataframe(df))
+            (QueueBuilder(config).with_parameters(queue_parameters).add_samples_from_dataframe(df))
 
 
 class TestBuilderErrors:
@@ -179,16 +159,12 @@ class TestBuilderErrors:
             builder.add_samples_from_dataframe(sample_df)
 
     def test_build_without_samples_raises(self, config, queue_parameters):
-        builder = QueueBuilder(config).with_parameters(queue_parameters, layout_mode="vial")
+        builder = QueueBuilder(config).with_parameters(queue_parameters)
         with pytest.raises(ValueError, match="No samples"):
             builder.build()
 
     def test_build_twice_raises(self, config, queue_parameters, sample_df):
-        builder = (
-            QueueBuilder(config)
-            .with_parameters(queue_parameters, layout_mode="vial")
-            .add_samples_from_dataframe(sample_df)
-        )
+        builder = QueueBuilder(config).with_parameters(queue_parameters).add_samples_from_dataframe(sample_df)
         builder.build()
         with pytest.raises(RuntimeError, match="already used"):
             builder.build()
@@ -196,7 +172,7 @@ class TestBuilderErrors:
     def test_missing_container_id_raises(self, config, queue_parameters):
         df = pl.DataFrame({"sample_name": ["S1"], "sample_id": [101]})
         with pytest.raises(ValueError, match="container_id"):
-            (QueueBuilder(config).with_parameters(queue_parameters, layout_mode="vial").add_samples_from_dataframe(df))
+            (QueueBuilder(config).with_parameters(queue_parameters).add_samples_from_dataframe(df))
 
 
 class TestRandomizationValidation:
@@ -214,12 +190,7 @@ class TestRandomizationValidation:
             date="20260123",
             randomization="blocked",
         )
-        result = (
-            QueueBuilder(config)
-            .with_parameters(params, layout_mode="vial")
-            .add_samples_from_dataframe(sample_df)
-            .build()
-        )
+        result = QueueBuilder(config).with_parameters(params).add_samples_from_dataframe(sample_df).build()
         assert result.parameters.randomization == "blocked"
         assert len(result.queue.samples) == 5
 
@@ -244,5 +215,5 @@ class TestRandomizationValidation:
             date="20260123",
             randomization="blocked",
         )
-        result = QueueBuilder(config).with_parameters(params, layout_mode="vial").add_samples_from_dataframe(df).build()
+        result = QueueBuilder(config).with_parameters(params).add_samples_from_dataframe(df).build()
         assert result.parameters.randomization == "blocked"

@@ -37,12 +37,12 @@ class QueueBuilder:
         self._plate_cells: list[PlateCell] = []
         self._built = False
 
-    def with_parameters(self, parameters: QueueParameters, layout_mode: LayoutMode) -> Self:
-        """Set queue parameters and layout mode."""
+    def with_parameters(self, parameters: QueueParameters) -> Self:
+        """Set queue parameters. Layout mode derived from parameters.queue_type."""
         if self._built:
             raise RuntimeError("Builder already used.")
         self._parameters = parameters
-        self._layout_mode = layout_mode
+        self._layout_mode = LayoutMode.PLATE if parameters.queue_type == "Plate" else LayoutMode.VIAL
         return self
 
     def add_samples_from_dataframe(self, df: pl.DataFrame) -> Self:

@@ -645,11 +645,6 @@ def _(
         _method_fields = {"pos": method_field_pos, "neg": method_field_neg}
         method_dict = {pol: field.value for pol, field in _method_fields.items() if field is not None and field.value}
 
-        # Derive layout_mode from queue_type (Vial -> vial, Plate -> plate)
-        from qg.utils import LayoutMode
-
-        layout_mode = LayoutMode.VIAL if queue_type_field.value == "Vial" else LayoutMode.PLATE
-
         queue_parameters = QueueParameters.model_validate(
             {
                 "tech_area": tech_area_field.value,
@@ -671,8 +666,7 @@ def _(
     except pydantic.ValidationError as e:
         queue_parameters_err = e
         queue_parameters = None
-        layout_mode = None
-    return layout_mode, queue_parameters, queue_parameters_err
+    return queue_parameters, queue_parameters_err
 
 
 # =============================================================================
@@ -722,17 +716,14 @@ def _(sample_df, samples_table, selected_orders):
 
 
 @app.cell
-def _(config, layout_mode, queue_parameters, sample_df, selected_orders):
+def _(config, queue_parameters, sample_df, selected_orders):
     # Build QueueInput once — shared by Parameters tab and queue generation
     queue_input = None
     queue_input_err = None
-    if queue_parameters and layout_mode and selected_orders and sample_df is not None and not sample_df.is_empty():
+    if queue_parameters and selected_orders and sample_df is not None and not sample_df.is_empty():
         try:
             queue_input = (
-                QueueBuilder(config)
-                .with_parameters(queue_parameters, layout_mode)
-                .add_samples_from_dataframe(sample_df)
-                .build()
+                QueueBuilder(config).with_parameters(queue_parameters).add_samples_from_dataframe(sample_df).build()
             )
         except ValueError as e:
             queue_input_err = str(e)
