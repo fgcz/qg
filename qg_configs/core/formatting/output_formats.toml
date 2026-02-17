@@ -1,24 +1,31 @@
 # Output Format Definitions
-# Maps internal fields to output column names
-# See ALGORITHM.md for field documentation
+# Maps internal fields to output column names for each instrument software.
+# See ALGORITHM.md for field documentation.
 #
 # grid_position_format: How to combine row + col for display
 #   "{row},{col}"       -> "F,7"  (Xcalibur with comma)
 #   "{row}{col}"        -> "F7"   (XcaliburSII, no comma)
 #   "{grid_position}"   -> "15"   (Evosep integer passthrough)
+#
+# [xcalibur]     Thermo XCalibur CSV. position_format "{tray}:{grid_position}" e.g. "Y:F,7"
+# [xcalibur_sii] Thermo XCalibur SII CSV (ASCEND). position_format "{tray}:{grid_position}" e.g. "1:F7"
+# [chronos]      Chronos CSV (Evosep). position is numeric 1-96, tray is separate column.
+#                grid_position_conversion "alpha_to_flat": A1 → 1 for Chronos Source Vial
+# [hystar]       Bruker HyStar XML (TimsTOF). position_format "S{tray}-{grid_position}" e.g. "S1-A1"
+#                SampleComment, ResultDatafile, ACQEND_EXECUTE are added by the XML writer (hardcoded/derived)
 
 [xcalibur]
 description = "Thermo XCalibur format (Exploris 1/2, Lumos2, Qexactive 1, Vanquish instruments)"
 file_extension = ".csv"
 writer = "xcalibur_csv"
-position_format = "{tray}:{grid_position}"  # e.g., "1:F,7" or "Y:A,1"
+position_format = "{tray}:{grid_position}"
 grid_position_format = "{row},{col}"
 grid_position_conversion = "identity"
 
 [xcalibur.columns]
 "File Name" = "file_name"
-"Path" = "data_path"
-"Position" = "position"
+Path = "data_path"
+Position = "position"
 "Inj Vol" = "inj_vol"
 "L3 Laboratory" = "literal:FGCZ"
 "Sample ID" = "sample_id"
@@ -29,14 +36,14 @@ grid_position_conversion = "identity"
 description = "Thermo XCalibur SII format (ASCEND_1)"
 file_extension = ".csv"
 writer = "xcalibur_csv"
-position_format = "{tray}:{grid_position}"  # e.g., "1:F7"
+position_format = "{tray}:{grid_position}"
 grid_position_format = "{row}{col}"
 grid_position_conversion = "identity"
 
 [xcalibur_sii.columns]
 "File Name" = "file_name"
-"Path" = "data_path"
-"Position" = "position"
+Path = "data_path"
+Position = "position"
 "Inj Vol" = "inj_vol"
 "L3 Laboratory" = "literal:FGCZ"
 "Sample ID" = "sample_id"
@@ -47,35 +54,34 @@ grid_position_conversion = "identity"
 description = "Chronos autosampler format (Evosep)"
 file_extension = ".csv"
 writer = "csv"
-position_format = "{grid_position}"  # Evosep: position is numeric (1-96), tray is separate column
+position_format = "{grid_position}"
 grid_position_format = "{grid_position}"
-grid_position_conversion = "alpha_to_flat"  # A1 → 1 for Chronos Source Vial
+grid_position_conversion = "alpha_to_flat"
 
 [chronos.columns]
 "Sample Name" = "sample_name"
 "Source Vial" = "grid_position"
 "Source Tray" = "tray"
-"Method" = "method"
+Method = "method"
 "Data File" = "file_name"
 "Xcalibur Method" = "xcalibur_method"
 "Xcalibur Filename" = "file_name"
 "Xcalibur Post Acquisition Program" = "post_acquisition"
 "Xcalibur Output Dir" = "data_path"
-"Comment" = "comment"
+Comment = "comment"
 "Analysis Method" = "analysis_method"
 
 [hystar]
 description = "Bruker HyStar sequence format for TimsTOF"
 file_extension = ".xml"
 writer = "hystar_xml"
-position_format = "S{tray}-{grid_position}"  # e.g., "S1-A1"
+position_format = "S{tray}-{grid_position}"
 grid_position_format = "{row}{col}"
 grid_position_conversion = "identity"
 
 [hystar.columns]
-"Position" = "position"
-"SampleID" = "file_name"
-"Volume" = "inj_vol"
-"DataPath" = "data_path"
-"SuperMethod" = "method"
-# SampleComment, ResultDatafile, ACQEND_EXECUTE - added by XML writer (hardcoded/derived)
+Position = "position"
+SampleID = "file_name"
+Volume = "inj_vol"
+DataPath = "data_path"
+SuperMethod = "method"

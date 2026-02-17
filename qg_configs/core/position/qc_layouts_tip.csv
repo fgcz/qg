@@ -1,11 +1,8 @@
 tech_area,qc_layout_name,plate_layout,sample_id,tray,position_start,position_end
-# Proteomics - Plate_96 (Tray 5: QC samples, Tray 6: clean/wash)
-# Alpha ranges (row-major): A1=1, D12=48, E1=49, E2=50, H12=96
 Proteomics,standard,Plate_96,QC01,5,A1,D12
 Proteomics,standard,Plate_96,QC03dia,5,E1,H12
 Proteomics,standard,Plate_96,QC03dda,5,E1,H12
 Proteomics,standard,Plate_96,clean,6,A1,H12
-# Proteomics - Plate_96 evosep_qc (Tray 6: QC03 positions A1-E1=49 tips, clean E2-H12=47 tips)
 Proteomics,evosep_qc,Plate_96,QC03dia,6,A1,E1
 Proteomics,evosep_qc,Plate_96,QC03dda,6,A1,E1
 Proteomics,evosep_qc,Plate_96,clean,6,E2,H12
