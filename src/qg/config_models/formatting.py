@@ -113,6 +113,7 @@ class OutputFormatsConfig(BaseModel):
     config_path: ClassVar[Path] = Path("core/formatting/output_formats.toml")
 
     formats: dict[str, OutputFormat] = Field(default_factory=dict)
+    header_comments: str = ""
 
     def get_format_names(self) -> list[str]:
         """Get list of all defined output format names."""
@@ -161,10 +162,15 @@ class OutputFormatsConfig(BaseModel):
         Returns:
             OutputFormatsConfig with all formats loaded
         """
+        from .loader import read_header_comments
+
         path = config_dir / cls.config_path
+        raw_text = path.read_text()
         with open(path, "rb") as f:
             data = tomllib.load(f)
-        return cls.from_dict(data)
+        result = cls.from_dict(data)
+        result.header_comments = read_header_comments(raw_text)
+        return result
 
 
 # =============================================================================

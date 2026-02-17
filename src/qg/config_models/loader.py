@@ -52,95 +52,26 @@ def _compact_toml(toml_str: str) -> str:
     return re.sub(pattern, replace_array, toml_str)
 
 
-def _extract_inline_comment(line: str) -> str | None:
-    """Extract inline comment from a TOML line, ignoring # inside quoted strings."""
-    # Replace quoted strings with same-length spaces to preserve character positions
-    cleaned = re.sub(r'"[^"]*"', lambda m: " " * len(m.group()), line)
-    cleaned = re.sub(r"'[^']*'", lambda m: " " * len(m.group()), cleaned)
-    idx = cleaned.find("#")
-    if idx >= 0 and "=" in cleaned[:idx]:
-        comment = line[idx + 1 :].strip()
-        return comment if comment else None
-    return None
+def read_header_comments(text: str) -> str:
+    """Extract leading comment and blank lines from TOML text.
 
+    Reads lines until the first non-comment, non-blank line is found.
+    Trailing blank lines are trimmed, and a blank-line separator is appended.
 
-def _collect_all_comments(path: Path) -> str:
-    """Collect all comments from a TOML file, reformatting body comments as header lines.
-
-    Header comments (leading # lines before any [section]) are preserved as-is.
-    Body comments are moved to the header with section context:
-      - Standalone comment lines become: # [Section] comment text
-      - Inline comments (after values) become: # [Section] key: comment text
-    Decorative separator lines (# ====) are dropped.
+    Returns:
+        Header block ending with ``\\n\\n``, or empty string if no comments.
     """
-    if not path.exists():
-        return ""
-
-    file_lines = path.read_text().splitlines()
-    header_lines: list[str] = []
-    body_comments: list[str] = []
-    current_section: str | None = None
-    pending: list[str] = []
-    in_header = True
-
-    for line in file_lines:
+    lines: list[str] = []
+    for line in text.splitlines():
         stripped = line.strip()
-
-        # Header phase: collect leading comments and blank lines
-        if in_header:
-            if stripped.startswith("#") or stripped == "":
-                header_lines.append(line)
-                continue
-            in_header = False
-            while header_lines and header_lines[-1].strip() == "":
-                header_lines.pop()
-
-        # Section header [name]
-        section_match = re.match(r"^\[([^\]]+)\]", stripped)
-        if section_match:
-            new_section = section_match.group(1)
-            for c in pending:
-                body_comments.append(f"# [{new_section}] {c}")
-            pending = []
-            current_section = new_section
-            continue
-
-        # Standalone comment line
-        if stripped.startswith("#"):
-            comment_text = stripped.lstrip("# ")
-            if not comment_text:
-                continue
-            # Skip decorative separators (lines of = - * _)
-            if all(c in "=-*_ " for c in comment_text):
-                continue
-            pending.append(comment_text)
-            continue
-
-        # Key-value line (possibly with inline comment)
-        if "=" in stripped and current_section:
-            for c in pending:
-                body_comments.append(f"# [{current_section}] {c}")
-            pending = []
-            inline = _extract_inline_comment(line)
-            if inline:
-                key = stripped.split("=", 1)[0].strip().strip('"')
-                body_comments.append(f"# [{current_section}] {key}: {inline}")
-
-    # Flush remaining pending comments
-    if pending and current_section:
-        for c in pending:
-            body_comments.append(f"# [{current_section}] {c}")
-
-    all_lines = header_lines
-    if body_comments:
-        if all_lines:
-            all_lines.append("")
-        all_lines.extend(body_comments)
-
-    while all_lines and all_lines[-1].strip() == "":
-        all_lines.pop()
-
-    return "\n".join(all_lines) + "\n\n" if all_lines else ""
+        if stripped.startswith("#") or stripped == "":
+            lines.append(line)
+        else:
+            break
+    # Trim trailing blank lines
+    while lines and lines[-1].strip() == "":
+        lines.pop()
+    return "\n".join(lines) + "\n\n" if lines else ""
 
 
 def _default_config_dir() -> Path:
@@ -526,7 +457,7 @@ class QGConfiguration:
         for cfg in toml_configs:
             path = config_dir / cfg.config_path
             path.parent.mkdir(parents=True, exist_ok=True)
-            header = _collect_all_comments(path)
+            header = cfg.header_comments
             body = _compact_toml(tomli_w.dumps(cfg.to_dict()))
             path.write_text(header + body)
             written.append(str(cfg.config_path))

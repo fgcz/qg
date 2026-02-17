@@ -51,6 +51,7 @@ class QueuePatternsConfig(BaseModel):
     config_path: ClassVar[Path] = Path("core/structure/queue_patterns.toml")
 
     patterns: dict[str, dict[str, QueuePattern]] = Field(default_factory=dict)
+    header_comments: str = ""
 
     def get_technologies(self) -> list[str]:
         """Get list of all technologies with patterns defined."""
@@ -120,7 +121,12 @@ class QueuePatternsConfig(BaseModel):
         Returns:
             QueuePatternsConfig with all patterns loaded
         """
+        from .loader import read_header_comments
+
         path = config_dir / cls.config_path
+        raw_text = path.read_text()
         with open(path, "rb") as f:
             data = tomllib.load(f)
-        return cls.from_dict(data)
+        result = cls.from_dict(data)
+        result.header_comments = read_header_comments(raw_text)
+        return result

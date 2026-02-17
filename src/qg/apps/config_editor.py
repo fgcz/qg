@@ -21,6 +21,7 @@ with app.setup:
         ConfigValidationError,
         QGConfiguration,
         qg_configuration,
+        read_header_comments,
     )
     from qg.config_models.positions import (
         PlateLayoutsConfig,
@@ -117,28 +118,28 @@ def _(cfg):
 
 @app.cell
 def _(cfg, compact_toml):
-    samplers_toml = compact_toml(tomli_w.dumps(cfg.samplers.to_dict()))
+    samplers_toml = cfg.samplers.header_comments + compact_toml(tomli_w.dumps(cfg.samplers.to_dict()))
     samplers_editor = mo.ui.code_editor(samplers_toml, language="toml", min_height=200)
     return (samplers_editor,)
 
 
 @app.cell
 def _(cfg, compact_toml):
-    plate_layouts_toml = compact_toml(tomli_w.dumps(cfg.plate_layouts.to_dict()))
+    plate_layouts_toml = cfg.plate_layouts.header_comments + compact_toml(tomli_w.dumps(cfg.plate_layouts.to_dict()))
     plate_layouts_editor = mo.ui.code_editor(plate_layouts_toml, language="toml", min_height=200)
     return (plate_layouts_editor,)
 
 
 @app.cell
 def _(cfg, compact_toml):
-    queue_patterns_toml = compact_toml(tomli_w.dumps(cfg.queue_patterns.to_dict()))
+    queue_patterns_toml = cfg.queue_patterns.header_comments + compact_toml(tomli_w.dumps(cfg.queue_patterns.to_dict()))
     queue_patterns_editor = mo.ui.code_editor(queue_patterns_toml, language="toml", min_height=400)
     return (queue_patterns_editor,)
 
 
 @app.cell
 def _(cfg, compact_toml):
-    output_formats_toml = compact_toml(tomli_w.dumps(cfg.output_formats.to_dict()))
+    output_formats_toml = cfg.output_formats.header_comments + compact_toml(tomli_w.dumps(cfg.output_formats.to_dict()))
     output_formats_editor = mo.ui.code_editor(output_formats_toml, language="toml", min_height=400)
     return (output_formats_editor,)
 
@@ -615,6 +616,19 @@ def _(
     mo.stop(not save_button.value)
 
     try:
+        # Parse TOML editors, preserving header comments from editor text
+        samplers_cfg = SamplersConfig.from_dict(tomllib.loads(samplers_editor.value))
+        samplers_cfg.header_comments = read_header_comments(samplers_editor.value)
+
+        plate_layouts_cfg = PlateLayoutsConfig.from_dict(tomllib.loads(plate_layouts_editor.value))
+        plate_layouts_cfg.header_comments = read_header_comments(plate_layouts_editor.value)
+
+        queue_patterns_cfg = QueuePatternsConfig.from_dict(tomllib.loads(queue_patterns_editor.value))
+        queue_patterns_cfg.header_comments = read_header_comments(queue_patterns_editor.value)
+
+        output_formats_cfg = OutputFormatsConfig.from_dict(tomllib.loads(output_formats_editor.value))
+        output_formats_cfg.header_comments = read_header_comments(output_formats_editor.value)
+
         # Rebuild configs from editor values
         cfg_to_save = QGConfiguration.create(
             instruments=InstrumentsConfig.from_table(instruments_editor.value),
@@ -623,10 +637,10 @@ def _(
             qc_layouts_tip=QCLayoutsTipConfig.from_table(qc_layouts_tip_editor.value),
             instrument_configs=InstrumentConfigsConfig.from_table(instrument_configs_editor.value),
             sampler_plate_layouts=SamplerPlateLayoutsConfig.from_table(sampler_plate_layouts_editor.value),
-            samplers=SamplersConfig.from_dict(tomllib.loads(samplers_editor.value)),
-            plate_layouts=PlateLayoutsConfig.from_dict(tomllib.loads(plate_layouts_editor.value)),
-            queue_patterns=QueuePatternsConfig.from_dict(tomllib.loads(queue_patterns_editor.value)),
-            output_formats=OutputFormatsConfig.from_dict(tomllib.loads(output_formats_editor.value)),
+            samplers=samplers_cfg,
+            plate_layouts=plate_layouts_cfg,
+            queue_patterns=queue_patterns_cfg,
+            output_formats=output_formats_cfg,
             methods=cfg.methods,  # Keep existing methods
         )
 
