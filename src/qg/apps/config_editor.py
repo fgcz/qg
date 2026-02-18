@@ -13,6 +13,10 @@ with app.setup:
     import tomli_w
     from loguru import logger
 
+    from qg.logging_setup import configure_logging
+
+    configure_logging()
+
     from qg.config_models.formatting import (
         InstrumentsConfig,
         OutputFormatsConfig,
@@ -51,10 +55,19 @@ with app.setup:
 
 @app.cell
 def _():
-    # Config directory
-    config_dir = Path(__file__).parent.parent.parent.parent / "qg_configs"
+    # Config directory — from CLI arg or default
+    cli_args = mo.cli_args()
+    config_dir = (
+        Path(cli_args["config-dir"])
+        if "config-dir" in cli_args
+        else Path(__file__).parent.parent.parent.parent / "qg_configs"
+    )
     cfg = qg_configuration(config_dir)
-    return cfg, config_dir
+    # Capture original contents for in-memory diff (review mode)
+    original_contents = cfg.serialize_all()
+    REVIEW_MODE_STARTUP = "review" in cli_args
+    logger.info("Config editor started | config_dir={} | review_mode={}", config_dir, REVIEW_MODE_STARTUP)
+    return cfg, config_dir, original_contents
 
 
 @app.cell
@@ -589,6 +602,7 @@ def _(
             mo.md("**All validations passed!**"),
             kind="success",
         )
+        logger.info("Validation passed")
     except (ConfigValidationError, Exception) as e:
         validation_result = mo.callout(
             mo.vstack(
@@ -599,6 +613,7 @@ def _(
             ),
             kind="danger",
         )
+        logger.warning("Validation failed: {}", e)
 
     validation_result
     return
@@ -662,6 +677,7 @@ def _(
             mo.md(f"**Saved {len(written)} file(s) successfully!**"),
             kind="success",
         )
+        logger.info("Saved {} config file(s) to {}", len(written), config_dir)
     except (ConfigValidationError, Exception) as e:
         save_result = mo.callout(
             mo.vstack(
@@ -672,6 +688,7 @@ def _(
             ),
             kind="danger",
         )
+        logger.error("Save failed: {}", e)
 
     save_result
     return
@@ -689,7 +706,7 @@ def _(REVIEW_MODE):
     gitlab_unavailable_reason = ""
     if REVIEW_MODE:
         try:
-            from qg.gitlab.config_bridge import submit_config_dir as _submit  # noqa: F401
+            from qg.gitlab.config_bridge import submit_config_changes as _submit  # noqa: F401
             from qg.gitlab.settings import load_gitlab_settings
 
             load_gitlab_settings()
@@ -721,6 +738,7 @@ def _(gitlab_available):
 @app.cell
 def _(
     gitlab_available,
+    gitlab_unavailable_reason,
     review_author_input,
     review_description_input,
     submit_review_button,
@@ -734,6 +752,11 @@ def _(
                 submit_review_button,
             ]
         )
+    elif gitlab_unavailable_reason:
+        review_ui = mo.callout(
+            mo.md(f"**Submit for Review unavailable:** {gitlab_unavailable_reason}"),
+            kind="warn",
+        )
     else:
         review_ui = mo.md("")
 
@@ -745,7 +768,7 @@ def _(
 def _(
     gitlab_available,
     cfg,
-    config_dir,
+    original_contents,
     instruments_editor,
     samples_editor,
     qc_layouts_well_editor,
@@ -762,7 +785,7 @@ def _(
 ):
     mo.stop(not gitlab_available or not submit_review_button or not submit_review_button.value)
 
-    from qg.gitlab.config_bridge import submit_config_dir
+    from qg.gitlab.config_bridge import submit_config_changes
 
     _author = review_author_input.value if review_author_input else ""
     _description = review_description_input.value if review_description_input else ""
@@ -774,42 +797,49 @@ def _(
         )
     else:
         try:
-            # Save editor contents to disk before submitting
-            samplers_cfg = SamplersConfig.from_dict(tomllib.loads(samplers_editor.value))
-            samplers_cfg.header_comments = read_header_comments(samplers_editor.value)
-            plate_layouts_cfg = PlateLayoutsConfig.from_dict(tomllib.loads(plate_layouts_editor.value))
-            plate_layouts_cfg.header_comments = read_header_comments(plate_layouts_editor.value)
-            queue_patterns_cfg = QueuePatternsConfig.from_dict(tomllib.loads(queue_patterns_editor.value))
-            queue_patterns_cfg.header_comments = read_header_comments(queue_patterns_editor.value)
-            output_formats_cfg = OutputFormatsConfig.from_dict(tomllib.loads(output_formats_editor.value))
-            output_formats_cfg.header_comments = read_header_comments(output_formats_editor.value)
+            # Build validated config from editor contents (no disk write)
+            _samplers_cfg = SamplersConfig.from_dict(tomllib.loads(samplers_editor.value))
+            _samplers_cfg.header_comments = read_header_comments(samplers_editor.value)
+            _plate_layouts_cfg = PlateLayoutsConfig.from_dict(tomllib.loads(plate_layouts_editor.value))
+            _plate_layouts_cfg.header_comments = read_header_comments(plate_layouts_editor.value)
+            _queue_patterns_cfg = QueuePatternsConfig.from_dict(tomllib.loads(queue_patterns_editor.value))
+            _queue_patterns_cfg.header_comments = read_header_comments(queue_patterns_editor.value)
+            _output_formats_cfg = OutputFormatsConfig.from_dict(tomllib.loads(output_formats_editor.value))
+            _output_formats_cfg.header_comments = read_header_comments(output_formats_editor.value)
 
-            cfg_to_save = QGConfiguration.create(
+            _cfg_to_submit = QGConfiguration.create(
                 instruments=InstrumentsConfig.from_table(instruments_editor.value),
                 samples=SamplesConfig.from_table(samples_editor.value),
                 qc_layouts_well=QCLayoutsWellConfig.from_table(qc_layouts_well_editor.value),
                 qc_layouts_tip=QCLayoutsTipConfig.from_table(qc_layouts_tip_editor.value),
                 instrument_configs=InstrumentConfigsConfig.from_table(instrument_configs_editor.value),
                 sampler_plate_layouts=SamplerPlateLayoutsConfig.from_table(sampler_plate_layouts_editor.value),
-                samplers=samplers_cfg,
-                plate_layouts=plate_layouts_cfg,
-                queue_patterns=queue_patterns_cfg,
-                output_formats=output_formats_cfg,
+                samplers=_samplers_cfg,
+                plate_layouts=_plate_layouts_cfg,
+                queue_patterns=_queue_patterns_cfg,
+                output_formats=_output_formats_cfg,
                 methods=cfg.methods,
             )
-            cfg_to_save.write_all(config_dir)
 
-            mr_url = submit_config_dir(config_dir, author=_author, description=_description)
+            # In-memory diff: serialize edited config, compare to original snapshot
+            _edited_contents = _cfg_to_submit.serialize_all()
+            _changed_count = sum(1 for k in _edited_contents if _edited_contents[k] != original_contents.get(k))
+            logger.info("Review submitted | author={} | changed_files={}", _author, _changed_count)
+            mr_url = submit_config_changes(
+                original_contents, _edited_contents, author=_author, description=_description
+            )
             if mr_url:
                 review_result = mo.callout(
                     mo.md(f"**Merge request created!** [Open MR]({mr_url})"),
                     kind="success",
                 )
+                logger.info("MR created: {}", mr_url)
             else:
                 review_result = mo.callout(
                     mo.md("**Nothing changed** — no config files differ from the current version."),
                     kind="info",
                 )
+                logger.info("Review submitted but no files changed")
         except Exception as e:
             logger.exception("GitLab submission failed")
             review_result = mo.callout(

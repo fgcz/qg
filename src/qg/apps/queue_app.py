@@ -4,7 +4,6 @@ __generated_with = "0.19.4"
 app = marimo.App(width="full", sql_output="polars")
 
 with app.setup:
-    import logging
     from datetime import date
     from pathlib import Path
 
@@ -12,8 +11,11 @@ with app.setup:
     import polars as pl
     import pydantic
     from bfabric import Bfabric
+    from loguru import logger
 
-    logger = logging.getLogger(__name__)
+    from qg.logging_setup import configure_logging
+
+    configure_logging()
 
     from qg.bfabric_utils import BfabricHelper
     from qg.config_models.formatting import SamplesConfig
@@ -55,8 +57,11 @@ def _():
 
 @app.cell
 def _():
-    # Load configs via qg_configuration() - uses default path
-    config = qg_configuration()
+    # Load configs via qg_configuration() — from CLI arg or default path
+    _args = mo.cli_args()
+    _config_dir = Path(_args["config-dir"]) if "config-dir" in _args else None
+    config = qg_configuration(_config_dir)
+    logger.info("Queue app started | config_dir={}", _config_dir or "default")
     return (config,)
 
 
@@ -779,6 +784,15 @@ def _(config, queue_input, queue_parameters):
             generated_queue_df = format_table(_queue_rows, _generator.output_format, _generator._plate_layout)
             queue_output_str = write_queue(generated_queue_df, _generator.output_format)
             output_file_extension = _generator.file_extension
+            _params = queue_input.parameters
+            logger.info(
+                "Queue generated | instrument={} | sampler={} | pattern={} | samples={} | rows={}",
+                _params.instrument,
+                _params.sampler,
+                _params.queue_pattern,
+                len(queue_input.queue.cells),
+                len(generated_queue_df),
+            )
         except ValueError as e:
             # Config errors - provide user-friendly message
             logger.exception("Queue generation failed")

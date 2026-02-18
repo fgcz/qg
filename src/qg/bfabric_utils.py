@@ -1,14 +1,12 @@
 """Utilities for loading B-Fabric data into typed DataFrames."""
 
-import logging
 from pathlib import Path
 
 import polars as pl
 from bfabric import Bfabric
+from loguru import logger
 
 from qg.sample_rows import PlateSampleRow, VialSampleRow
-
-logger = logging.getLogger(__name__)
 
 # =============================================================================
 # Public API
@@ -52,7 +50,7 @@ class BfabricHelper:
             dump_dir.mkdir(parents=True, exist_ok=True)
             path = dump_dir / f"samples_{container_id}_{container_type}.csv"
             df.write_csv(path)
-            logger.info("Dumped %d samples to %s", len(df), path)
+            logger.info("Dumped {} samples to {}", len(df), path)
 
         return df
 

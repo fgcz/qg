@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 import polars as pl
+from loguru import logger
 from pydantic import BaseModel
 
 from qg.config_models.formatting import OutputFormat, Sample, SamplesConfig
@@ -333,6 +334,12 @@ class QueueGenerator:
         """Execute the queue generation pipeline."""
         params = self.queue_input.parameters
         default_sample_id = self.samples_config.DEFAULT_SAMPLE_ID
+        logger.info(
+            "Building queue | instrument={} | sampler={} | samples={}",
+            params.instrument,
+            params.sampler,
+            len(self.plate_queue.cells),
+        )
 
         # Apply randomization (within plate/container boundaries)
         plate_queue = randomize_plate_queue(self.plate_queue, params.randomization)
@@ -374,4 +381,6 @@ class QueueGenerator:
         expanded = _format_file_names(expanded, params.date)
 
         # Build queue rows
-        return _build_queue_rows(expanded, self.data_path, params.inj_vol_override, default_sample_id)
+        result = _build_queue_rows(expanded, self.data_path, params.inj_vol_override, default_sample_id)
+        logger.info("Queue built | rows={} | format={}", len(result.rows), params.output_format)
+        return result

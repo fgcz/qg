@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import Annotated
 
 import cyclopts
+from loguru import logger
 
 from qg.config_models.loader import qg_configuration
 from qg.generator import QueueGenerator
@@ -41,11 +41,8 @@ def cli_main() -> None:
     ) -> None:
         """Generate queue from input JSON (CSV or XML based on output_format)."""
         # Configure logging
-        if verbose:
-            logging.basicConfig(
-                level=logging.INFO,
-                format="%(name)s: %(message)s",
-            )
+        if not verbose:
+            logger.disable("qg")
 
         config = qg_configuration(config_dir)
 
