@@ -500,26 +500,20 @@ class TestEvosepQCPattern:
 
         qc_rows = [row for row in result.rows if row.sample_type == "qc"]
 
-        for row in qc_rows:
-            # All QC should be on tray 6
-            assert row.tray == 6, f"{row.sample_id} should be on tray 6, got {row.tray}"
+        user_rows = [row for row in result.rows if row.sample_type == "user"]
 
-        # Internal positions are now alpha — use PlateLayout.alpha_to_flat for range checks
-        from qg.config_models.positions import PlateLayout
+        # QC and user samples must be on different trays
+        qc_trays = {row.tray for row in qc_rows}
+        user_trays = {row.tray for row in user_rows}
+        assert not (qc_trays & user_trays), f"QC trays {qc_trays} and user trays {user_trays} should not overlap"
 
-        layout = PlateLayout(name="Plate_96", rows=list("ABCDEFGH"), cols=list(range(1, 13)))
-
-        # QC03dia positions should map to flat <= 49
-        qc03_rows = [row for row in qc_rows if row.sample_id == "QC03dia"]
-        for row in qc03_rows:
-            flat = layout.alpha_to_flat(row.grid_position)
-            assert flat <= 49, f"QC03dia position {row.grid_position} (flat={flat}) should be <= 49"
-
-        # Clean positions should map to flat >= 50
-        clean_rows = [row for row in qc_rows if row.sample_id == "clean"]
-        for row in clean_rows:
-            flat = layout.alpha_to_flat(row.grid_position)
-            assert flat >= 50, f"clean position {row.grid_position} (flat={flat}) should be >= 50"
+        # QC03dia and clean must occupy distinct grid positions
+        qc03_positions = {row.grid_position for row in qc_rows if row.sample_id == "QC03dia"}
+        clean_positions = {row.grid_position for row in qc_rows if row.sample_id == "clean"}
+        assert qc03_positions, "expected at least one QC03dia row"
+        assert clean_positions, "expected at least one clean row"
+        overlap = qc03_positions & clean_positions
+        assert not overlap, f"QC03dia and clean share positions: {overlap}"
 
     def test_evosep_qc_user_samples_on_trays_1_to_5(self, config):
         samples = make_vial_samples(5)

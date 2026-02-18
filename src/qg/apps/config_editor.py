@@ -729,7 +729,7 @@ def _(
         review_ui = mo.vstack(
             [
                 mo.md("### Submit for Review"),
-                mo.md("_Save locally first, then submit changes as a GitLab merge request for review._"),
+                mo.md("_Saves editor contents and submits changes as a GitLab merge request for review._"),
                 mo.hstack([review_author_input, review_description_input], widths=[1, 3]),
                 submit_review_button,
             ]
@@ -744,7 +744,18 @@ def _(
 @app.cell
 def _(
     gitlab_available,
+    cfg,
     config_dir,
+    instruments_editor,
+    samples_editor,
+    qc_layouts_well_editor,
+    qc_layouts_tip_editor,
+    instrument_configs_editor,
+    sampler_plate_layouts_editor,
+    samplers_editor,
+    plate_layouts_editor,
+    queue_patterns_editor,
+    output_formats_editor,
     review_author_input,
     review_description_input,
     submit_review_button,
@@ -763,6 +774,31 @@ def _(
         )
     else:
         try:
+            # Save editor contents to disk before submitting
+            samplers_cfg = SamplersConfig.from_dict(tomllib.loads(samplers_editor.value))
+            samplers_cfg.header_comments = read_header_comments(samplers_editor.value)
+            plate_layouts_cfg = PlateLayoutsConfig.from_dict(tomllib.loads(plate_layouts_editor.value))
+            plate_layouts_cfg.header_comments = read_header_comments(plate_layouts_editor.value)
+            queue_patterns_cfg = QueuePatternsConfig.from_dict(tomllib.loads(queue_patterns_editor.value))
+            queue_patterns_cfg.header_comments = read_header_comments(queue_patterns_editor.value)
+            output_formats_cfg = OutputFormatsConfig.from_dict(tomllib.loads(output_formats_editor.value))
+            output_formats_cfg.header_comments = read_header_comments(output_formats_editor.value)
+
+            cfg_to_save = QGConfiguration.create(
+                instruments=InstrumentsConfig.from_table(instruments_editor.value),
+                samples=SamplesConfig.from_table(samples_editor.value),
+                qc_layouts_well=QCLayoutsWellConfig.from_table(qc_layouts_well_editor.value),
+                qc_layouts_tip=QCLayoutsTipConfig.from_table(qc_layouts_tip_editor.value),
+                instrument_configs=InstrumentConfigsConfig.from_table(instrument_configs_editor.value),
+                sampler_plate_layouts=SamplerPlateLayoutsConfig.from_table(sampler_plate_layouts_editor.value),
+                samplers=samplers_cfg,
+                plate_layouts=plate_layouts_cfg,
+                queue_patterns=queue_patterns_cfg,
+                output_formats=output_formats_cfg,
+                methods=cfg.methods,
+            )
+            cfg_to_save.write_all(config_dir)
+
             mr_url = submit_config_dir(config_dir, author=_author, description=_description)
             if mr_url:
                 review_result = mo.callout(

@@ -3,6 +3,6 @@ Proteomics,standard,Plate_96,QC01,5,A1,D12
 Proteomics,standard,Plate_96,QC03dia,5,E1,H12
 Proteomics,standard,Plate_96,QC03dda,5,E1,H12
 Proteomics,standard,Plate_96,clean,6,A1,H12
-Proteomics,evosep_qc,Plate_96,QC03dia,6,A1,E1
-Proteomics,evosep_qc,Plate_96,QC03dda,6,A1,E1
-Proteomics,evosep_qc,Plate_96,clean,6,E2,H12
+Proteomics,evosep_qc,Plate_96,QC03dia,6,A1,D12
+Proteomics,evosep_qc,Plate_96,QC03dda,6,A1,D12
+Proteomics,evosep_qc,Plate_96,clean,6,E1,H12
