@@ -409,6 +409,59 @@ class QGConfiguration:
             instrument_configs=instrument_configs,
         )
 
+    def serialize_all(self) -> dict[str, str]:
+        """Serialize all configs to strings without writing to disk.
+
+        Returns:
+            Dict mapping repo-relative paths to file contents as strings.
+
+        Raises:
+            ConfigValidationError: If cross-validation fails.
+        """
+        errors = _validate_configs(
+            samples=self.samples,
+            queue_patterns=self.queue_patterns,
+            qc_layouts_well=self.qc_layouts_well,
+            qc_layouts_tip=self.qc_layouts_tip,
+        )
+        if errors:
+            raise ConfigValidationError(errors)
+
+        contents: dict[str, str] = {}
+
+        # CSV configs (use config_path ClassVar as single source of truth)
+        csv_configs = [
+            self.instruments,
+            self.samples,
+            self.sampler_plate_layouts,
+            self.qc_layouts_well,
+            self.qc_layouts_tip,
+            self.instrument_configs,
+        ]
+        for cfg in csv_configs:
+            contents[str(cfg.config_path)] = cfg.to_table().write_csv()
+
+        # TOML configs (use config_path ClassVar as single source of truth)
+        toml_configs = [
+            self.output_formats,
+            self.plate_layouts,
+            self.samplers,
+            self.queue_patterns,
+        ]
+        for cfg in toml_configs:
+            header = cfg.header_comments
+            body = _compact_toml(tomli_w.dumps(cfg.to_dict()))
+            contents[str(cfg.config_path)] = header + body
+
+        # Methods (multiple CSV files, use config_folder ClassVar)
+        methods_base = MethodsConfig.config_folder
+        for (tech_area, instrument), df in self.methods.to_tables().items():
+            instr = self.instruments.get_instrument(tech_area, instrument)
+            relative_path = instr.methods_file.removeprefix("methods/")
+            contents[str(methods_base / relative_path)] = df.write_csv()
+
+        return contents
+
     def write_all(self, config_dir: Path) -> list[str]:
         """Write all configs to disk after validation.
 

@@ -1,11 +1,7 @@
-"""Bridge between local config files and GitLab merge requests."""
-
-import subprocess
-from pathlib import Path
+"""Bridge between in-memory config edits and GitLab merge requests."""
 
 from loguru import logger
 
-from qg.gitlab._git import find_repo_root
 from qg.gitlab.service import GitLabConfigService
 from qg.gitlab.settings import load_gitlab_settings
 
@@ -13,52 +9,27 @@ from qg.gitlab.settings import load_gitlab_settings
 _CONFIG_REPO_PREFIX = "qg_configs"
 
 
-def _get_changed_config_files(repo_root: Path, config_dir: Path) -> list[Path]:
-    """Use git to find config files that differ from HEAD."""
-    config_rel = config_dir.relative_to(repo_root)
-    result = subprocess.run(
-        ["git", "diff", "--name-only", "HEAD", "--", str(config_rel)],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-        timeout=10,
-    )
-    if result.returncode != 0:
-        logger.warning("git diff failed: {}", result.stderr.strip())
-        return []
-
-    changed = []
-    for line in result.stdout.strip().splitlines():
-        path = repo_root / line
-        if path.is_file():
-            changed.append(path)
-    return changed
-
-
-def submit_config_dir(config_dir: Path, author: str, description: str) -> str:
-    """Read changed config files from disk and submit as GitLab MR.
-
-    This is the bridge between QGConfiguration.write_all() (which writes to disk)
-    and GitLab (which needs file contents as strings).
-
-    Only files that differ from the current git HEAD are included in the MR.
+def submit_config_changes(
+    original: dict[str, str],
+    edited: dict[str, str],
+    author: str,
+    description: str,
+) -> str:
+    """Diff two in-memory config snapshots and submit changes as a GitLab MR.
 
     Args:
-        config_dir: Path to the local qg_configs directory.
+        original: Snapshot of file contents at startup (from serialize_all()).
+        edited: Serialized editor contents (from serialize_all()).
         author: Author name for the merge request.
         description: Change description for the merge request.
 
     Returns:
-        Merge request web URL.
+        Merge request web URL, or empty string if nothing changed.
 
     Raises:
-        FileNotFoundError: If config_dir doesn't exist or settings file is missing.
-        ValueError: If author or description is empty, or no files changed.
+        FileNotFoundError: If settings file is missing.
+        ValueError: If author or description is empty.
     """
-    if not config_dir.is_dir():
-        msg = f"Config directory not found: {config_dir}"
-        raise FileNotFoundError(msg)
-
     if not author.strip():
         msg = "Author name is required"
         raise ValueError(msg)
@@ -67,17 +38,14 @@ def submit_config_dir(config_dir: Path, author: str, description: str) -> str:
         msg = "Change description is required"
         raise ValueError(msg)
 
-    # Only collect files that actually changed vs HEAD
-    repo_root = find_repo_root(config_dir)
-    changed_paths = _get_changed_config_files(repo_root, config_dir)
+    # Diff: find files that changed or were added
+    changed = {k: v for k, v in edited.items() if v != original.get(k)}
 
-    if not changed_paths:
+    if not changed:
         return ""
 
-    file_contents: dict[str, str] = {}
-    for file_path in sorted(changed_paths):
-        repo_relative = f"{_CONFIG_REPO_PREFIX}/{file_path.relative_to(config_dir)}"
-        file_contents[repo_relative] = file_path.read_text(encoding="utf-8")
+    # Prepend repo-relative prefix to each key
+    file_contents = {f"{_CONFIG_REPO_PREFIX}/{k}": v for k, v in changed.items()}
 
     logger.info("Found {} changed config file(s): {}", len(file_contents), list(file_contents.keys()))
 

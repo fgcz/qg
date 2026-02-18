@@ -10,7 +10,8 @@ _SETTINGS_FILENAME = ".qg_settings.toml"
 
 
 def _find_settings_file() -> Path:
-    """Search for settings file by walking up from this file's directory."""
+    """Search for settings file by walking up from this file's directory, then user home."""
+    # 1. Walk up from this file's directory (works for dev / editable installs)
     current = Path(__file__).resolve().parent
     for _ in range(10):
         candidate = current / _SETTINGS_FILENAME
@@ -21,14 +22,20 @@ def _find_settings_file() -> Path:
             break
         current = parent
 
+    # 2. User home directory (works for uv-installed packages)
+    home_candidate = Path.home() / _SETTINGS_FILENAME
+    if home_candidate.exists():
+        return home_candidate
+
     msg = (
         f"Cannot find {_SETTINGS_FILENAME}. "
-        f"Copy .qg_settings.toml.example to {_SETTINGS_FILENAME} and fill in your GitLab credentials."
+        f"Place it in your project root or home directory (~/{_SETTINGS_FILENAME}). "
+        f"Copy .qg_settings.toml.example and fill in your GitLab credentials."
     )
     raise FileNotFoundError(msg)
 
 
-def load_gitlab_settings(path: Path | None = None) -> dict:
+def load_gitlab_settings(path: Path | None = None) -> dict[str, str]:
     """Load GitLab settings from .qg_settings.toml.
 
     Searches: explicit path -> project root -> repo root.

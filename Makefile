@@ -36,7 +36,7 @@ app-review:
 
 # Run the config editor with git pull (review workflow)
 editor-review:
-	uv run qg-config
+	uv run qg-editor
 
 # Validate all configuration files
 validate:

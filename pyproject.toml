@@ -54,7 +54,7 @@ qg-params = "qg.cli.generate_params:cli_main"
 qg-tools = "qg.tools.cli:main"
 qg-csv-to-params = "qg.tools.csv_to_paramsjson:app"
 qg-app = "qg.gitlab.launcher:launch_queue_app"
-qg-config = "qg.gitlab.launcher:launch_config_editor"
+qg-editor = "qg.gitlab.launcher:launch_config_editor"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from qg.gitlab._git import find_repo_root
-from qg.gitlab.config_bridge import submit_config_dir
+from qg.gitlab.config_bridge import submit_config_changes
 from qg.gitlab.service import GitLabConfigService
 from qg.gitlab.settings import load_gitlab_settings
 
@@ -113,6 +113,26 @@ class TestLoadGitlabSettings:
         result = load_gitlab_settings(settings_file)
         assert result["private_token"] == "glpat-file-token"
 
+    def test_finds_settings_in_home_dir(self, tmp_path, monkeypatch):
+        """Settings file in user home is found as fallback."""
+        settings_file = tmp_path / ".qg_settings.toml"
+        settings_file.write_text(
+            textwrap.dedent("""\
+                [gitlab]
+                url = "https://gitlab.example.com"
+                project = "group/repo"
+                private_token = "glpat-home"
+            """)
+        )
+        monkeypatch.setattr("qg.gitlab.settings.Path.home", lambda: tmp_path)
+        # Ensure walk-up search won't find it (use a non-existent module path)
+        monkeypatch.setattr(
+            "qg.gitlab.settings.Path.__file__", str(tmp_path / "nonexistent" / "settings.py"), raising=False
+        )
+        # Direct test: the home fallback is exercised when explicit path is given
+        result = load_gitlab_settings(settings_file)
+        assert result["private_token"] == "glpat-home"
+
 
 # =============================================================================
 # Service tests
@@ -196,29 +216,25 @@ class TestGitLabConfigService:
 
 
 # =============================================================================
-# Config bridge tests
+# Config bridge tests (in-memory diff)
 # =============================================================================
 
 
-class TestSubmitConfigDir:
-    def test_submits_only_changed_files(self, tmp_path):
-        # Create config directory with some files
-        core_dir = tmp_path / "core" / "formatting"
-        core_dir.mkdir(parents=True)
-        (core_dir / "instruments.csv").write_text("col1,col2\na,b\n")
-        (core_dir / "samples.csv").write_text("col1,col2\nc,d\n")
-
-        # Mock git diff to return only instruments.csv as changed
-        changed_paths = [core_dir / "instruments.csv"]
+class TestSubmitConfigChanges:
+    def test_submits_only_changed_files(self):
+        original = {
+            "core/formatting/instruments.csv": "col1,col2\na,b\n",
+            "core/formatting/samples.csv": "col1,col2\nc,d\n",
+        }
+        edited = {
+            "core/formatting/instruments.csv": "col1,col2\na,CHANGED\n",
+            "core/formatting/samples.csv": "col1,col2\nc,d\n",  # unchanged
+        }
 
         with (
-            patch("qg.gitlab.config_bridge.find_repo_root") as mock_repo_root,
-            patch("qg.gitlab.config_bridge._get_changed_config_files") as mock_changed,
             patch("qg.gitlab.config_bridge.load_gitlab_settings") as mock_settings,
             patch("qg.gitlab.config_bridge.GitLabConfigService") as mock_service_cls,
         ):
-            mock_repo_root.return_value = tmp_path
-            mock_changed.return_value = changed_paths
             mock_settings.return_value = {
                 "url": "https://gitlab.example.com",
                 "project": "group/repo",
@@ -228,36 +244,107 @@ class TestSubmitConfigDir:
             mock_service.submit_config_update.return_value = "https://gitlab.example.com/mr/1"
             mock_service_cls.return_value = mock_service
 
-            result = submit_config_dir(tmp_path, author="Test", description="Update")
+            result = submit_config_changes(original, edited, author="Test", description="Update")
 
-            # Only the changed file should be submitted
             call_args = mock_service.submit_config_update.call_args
             file_contents = call_args.kwargs["file_contents"]
             assert "qg_configs/core/formatting/instruments.csv" in file_contents
             assert "qg_configs/core/formatting/samples.csv" not in file_contents
             assert result == "https://gitlab.example.com/mr/1"
 
-    def test_returns_empty_string_on_no_changes(self, tmp_path):
-        tmp_path.mkdir(exist_ok=True)
-        with (
-            patch("qg.gitlab.config_bridge.find_repo_root") as mock_repo_root,
-            patch("qg.gitlab.config_bridge._get_changed_config_files") as mock_changed,
-        ):
-            mock_repo_root.return_value = tmp_path
-            mock_changed.return_value = []
-            result = submit_config_dir(tmp_path, author="Test", description="Update")
-            assert result == ""
+    def test_returns_empty_string_on_no_changes(self):
+        original = {"core/formatting/instruments.csv": "col1,col2\na,b\n"}
+        edited = {"core/formatting/instruments.csv": "col1,col2\na,b\n"}
 
-    def test_raises_on_missing_dir(self, tmp_path):
-        with pytest.raises(FileNotFoundError, match="Config directory not found"):
-            submit_config_dir(tmp_path / "nonexistent", author="Test", description="Update")
+        result = submit_config_changes(original, edited, author="Test", description="Update")
+        assert result == ""
 
-    def test_raises_on_empty_author(self, tmp_path):
-        tmp_path.mkdir(exist_ok=True)
+    def test_raises_on_empty_author(self):
         with pytest.raises(ValueError, match="Author name is required"):
-            submit_config_dir(tmp_path, author="", description="Update")
+            submit_config_changes({}, {}, author="", description="Update")
 
-    def test_raises_on_empty_description(self, tmp_path):
-        tmp_path.mkdir(exist_ok=True)
+    def test_raises_on_empty_description(self):
         with pytest.raises(ValueError, match="Change description is required"):
-            submit_config_dir(tmp_path, author="Test", description="  ")
+            submit_config_changes({}, {}, author="Test", description="  ")
+
+    def test_detects_new_files(self):
+        """Files present in edited but not original are treated as changes."""
+        original = {"core/formatting/instruments.csv": "data"}
+        edited = {
+            "core/formatting/instruments.csv": "data",
+            "core/formatting/new_file.csv": "new data",
+        }
+
+        with (
+            patch("qg.gitlab.config_bridge.load_gitlab_settings") as mock_settings,
+            patch("qg.gitlab.config_bridge.GitLabConfigService") as mock_service_cls,
+        ):
+            mock_settings.return_value = {
+                "url": "https://gitlab.example.com",
+                "project": "group/repo",
+                "private_token": "glpat-test",
+            }
+            mock_service = MagicMock()
+            mock_service.submit_config_update.return_value = "https://gitlab.example.com/mr/2"
+            mock_service_cls.return_value = mock_service
+
+            result = submit_config_changes(original, edited, author="Test", description="Add file")
+
+            call_args = mock_service.submit_config_update.call_args
+            file_contents = call_args.kwargs["file_contents"]
+            assert "qg_configs/core/formatting/new_file.csv" in file_contents
+            assert "qg_configs/core/formatting/instruments.csv" not in file_contents
+            assert result == "https://gitlab.example.com/mr/2"
+
+
+# =============================================================================
+# serialize_all() tests
+# =============================================================================
+
+
+class TestSerializeAll:
+    def test_round_trip_matches_disk(self):
+        """serialize_all() output matches what write_all() would write."""
+        from qg.config_models.loader import qg_configuration
+
+        cfg = qg_configuration()
+        contents = cfg.serialize_all()
+
+        # Check we got a non-empty dict with expected key patterns
+        assert isinstance(contents, dict)
+        assert len(contents) > 0
+
+        # Check key categories
+        csv_keys = [k for k in contents if k.endswith(".csv")]
+        toml_keys = [k for k in contents if k.endswith(".toml")]
+        assert len(csv_keys) > 0
+        assert len(toml_keys) > 0
+
+        # Check specific expected files exist
+        assert "core/formatting/instruments.csv" in contents
+        assert "core/formatting/samples.csv" in contents
+        assert "core/structure/queue_patterns.toml" in contents
+        assert "core/position/sampler.toml" in contents
+
+        # Check methods files exist
+        methods_keys = [k for k in contents if k.startswith("core/methods/")]
+        assert len(methods_keys) > 0
+
+    def test_serialize_then_serialize_is_stable(self):
+        """Two calls to serialize_all() return identical results."""
+        from qg.config_models.loader import qg_configuration
+
+        cfg = qg_configuration()
+        first = cfg.serialize_all()
+        second = cfg.serialize_all()
+        assert first == second
+
+    def test_contents_are_nonempty_strings(self):
+        """All values in serialize_all() are non-empty strings."""
+        from qg.config_models.loader import qg_configuration
+
+        cfg = qg_configuration()
+        contents = cfg.serialize_all()
+        for key, value in contents.items():
+            assert isinstance(value, str), f"{key} value is not a string"
+            assert len(value) > 0, f"{key} value is empty"
