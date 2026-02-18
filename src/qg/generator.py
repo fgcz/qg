@@ -227,6 +227,13 @@ def format_table(queue_rows: QueueRowTable, output_format: OutputFormat, plate_l
         .alias("grid_position")
     )
 
+    # Apply tray format (e.g., 1 → "EvoSlot 1" for Chronos)
+    if output_format.tray_format:
+        tray_fmt = output_format.tray_format
+        df = df.with_columns(
+            pl.col("tray").map_elements(lambda t: tray_fmt.format(tray=t), return_dtype=pl.Utf8).alias("tray")
+        )
+
     gp_fmt = output_format.grid_position_format
     pos_fmt = output_format.position_format
     df = df.with_columns(

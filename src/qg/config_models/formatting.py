@@ -101,6 +101,7 @@ class OutputFormat(BaseModel):
     position_format: str  # How to format {tray, grid_position} into position string
     grid_position_format: str = "{row}{col}"  # How to format {row, col, grid_position} for display
     grid_position_conversion: GridPositionConversion = GridPositionConversion.IDENTITY
+    tray_format: str | None = None  # Format string for tray values, e.g. "EvoSlot {tray}"
     columns: dict[str, str]  # output_column_name -> internal_field_name or "literal:VALUE"
 
 
@@ -127,7 +128,7 @@ class OutputFormatsConfig(BaseModel):
 
     def to_dict(self) -> dict:
         """Convert to dict for TOML serialization."""
-        return {name: fmt.model_dump() for name, fmt in self.formats.items()}
+        return {name: fmt.model_dump(exclude_none=True) for name, fmt in self.formats.items()}
 
     @classmethod
     def from_dict(cls, data: dict) -> Self:
@@ -148,6 +149,7 @@ class OutputFormatsConfig(BaseModel):
                 position_format=format_data["position_format"],
                 grid_position_format=format_data.get("grid_position_format", "{row}{col}"),
                 grid_position_conversion=format_data.get("grid_position_conversion", "identity"),
+                tray_format=format_data.get("tray_format"),
                 columns=format_data.get("columns", {}),
             )
         return cls(formats=formats)

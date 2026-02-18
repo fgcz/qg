@@ -21,6 +21,13 @@ def _write_xcalibur_csv(df: pl.DataFrame) -> str:
     return preamble + df.write_csv()
 
 
+def _write_chronos_csv(df: pl.DataFrame) -> str:
+    """Write Chronos CSV with 1-based row counter as first column."""
+    counter = pl.Series("", range(1, len(df) + 1))
+    df = df.insert_column(0, counter)
+    return df.write_csv()
+
+
 def _write_hystar_xml(df: pl.DataFrame) -> str:
     """Write HyStar XML, returning string."""
     from qg.hystar_xml_writer import write_hystar_xml
@@ -32,6 +39,7 @@ def _write_hystar_xml(df: pl.DataFrame) -> str:
 
 _WRITERS: dict[str, WriterFn] = {
     "csv": _write_csv,
+    "chronos_csv": _write_chronos_csv,
     "xcalibur_csv": _write_xcalibur_csv,
     "hystar_xml": _write_hystar_xml,
 }

@@ -676,6 +676,107 @@ class TestChronosNonRowA:
         assert vials == [str(i) for i in range(1, 16)]
 
 
+class TestChronosFormat:
+    """Chronos CSV must have exact column order, EvoSlot tray format, and correct literal values."""
+
+    @staticmethod
+    def _make_chronos_generator(config, num_samples: int = 3):
+        samples = make_vial_samples(num_samples)
+        params = QueueParameters(
+            tech_area="Proteomics",
+            instrument="ASTRAL_1",
+            sampler="Evosep",
+            output_format="chronos",
+            queue_pattern="noqc",
+            queue_type="Vial",
+            plate_layout="Plate_96",
+            polarity=["pos"],
+            date="20260116",
+            user="test",
+        )
+        queue_input = make_vial_queue_input(params, samples)
+        return QueueGenerator(config, queue_input)
+
+    def test_chronos_column_order(self, config):
+        """Chronos columns must appear in exact positional order."""
+        generator = self._make_chronos_generator(config)
+        result = generator.generate()
+
+        expected_columns = [
+            "Analysis Method",
+            "Source Tray",
+            "Source Vial",
+            "Sample Name",
+            "Xcalibur Method",
+            "Xcalibur Filename",
+            "Column H",
+            "Xcalibur Post Acquisition Program",
+            "Xcalibur Output Dir",
+            "Comment",
+        ]
+        assert result.columns == expected_columns
+
+    def test_chronos_source_tray_evoslot_format(self, config):
+        """Source Tray values must be 'EvoSlot N', not raw integers."""
+        generator = self._make_chronos_generator(config)
+        result = generator.generate()
+
+        trays = result["Source Tray"].to_list()
+        assert all(t.startswith("EvoSlot ") for t in trays)
+
+    def test_chronos_empty_literal_columns(self, config):
+        """Analysis Method, Xcalibur Method, Column H, Comment must be empty strings."""
+        generator = self._make_chronos_generator(config)
+        result = generator.generate()
+
+        for col_name in ["Analysis Method", "Xcalibur Method", "Column H", "Comment"]:
+            values = result[col_name].to_list()
+            assert all(v == "" for v in values), f"{col_name} should be empty, got {values}"
+
+    def test_chronos_post_acquisition_path(self, config):
+        """Xcalibur Post Acquisition Program must be the biobeamer bat path."""
+        generator = self._make_chronos_generator(config)
+        result = generator.generate()
+
+        values = result["Xcalibur Post Acquisition Program"].to_list()
+        assert all(v == "c:\\FGCZ\\BioBeamer\\biobeamer.bat" for v in values)
+
+
+class TestChronosWriter:
+    """Chronos CSV writer must prepend a 1-based row counter column."""
+
+    def test_chronos_writer_prepends_counter(self, config):
+        """write() output has empty-header counter 1..N as first CSV column."""
+        import csv
+        import io
+
+        samples = make_vial_samples(5)
+        params = QueueParameters(
+            tech_area="Proteomics",
+            instrument="ASTRAL_1",
+            sampler="Evosep",
+            output_format="chronos",
+            queue_pattern="noqc",
+            queue_type="Vial",
+            plate_layout="Plate_96",
+            polarity=["pos"],
+            date="20260116",
+            user="test",
+        )
+        queue_input = make_vial_queue_input(params, samples)
+
+        generator = QueueGenerator(config, queue_input)
+        csv_text = generator.write()
+
+        reader = csv.reader(io.StringIO(csv_text))
+        header = next(reader)
+        # First column header should be empty (unnamed counter)
+        assert header[0] == "", f"First column header should be empty, got '{header[0]}'"
+        # Data rows: first column should be 1, 2, 3, 4, 5
+        for i, row in enumerate(reader, start=1):
+            assert row[0] == str(i), f"Row {i} counter should be {i}, got '{row[0]}'"
+
+
 class TestQueueInputRoundTrip:
     """Round-trip: write_queue_input -> read_queue_input preserves data."""
 
