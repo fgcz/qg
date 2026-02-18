@@ -526,14 +526,25 @@ def _(tabs):
 
 @app.cell
 def _():
+    _args = mo.cli_args()
+    # --review (no value) yields "" which is falsy; treat key presence as True
+    REVIEW_MODE = "review" in _args
+    return (REVIEW_MODE,)
+
+
+@app.cell
+def _(REVIEW_MODE):
     validate_button = mo.ui.run_button(label="Validate", kind="neutral")
-    save_button = mo.ui.run_button(label="Save All", kind="success")
+    save_button = mo.ui.run_button(label="Save All", kind="success") if not REVIEW_MODE else None
     return save_button, validate_button
 
 
 @app.cell
 def _(save_button, validate_button):
-    mo.hstack([validate_button, save_button], justify="start")
+    buttons = [validate_button]
+    if save_button is not None:
+        buttons.append(save_button)
+    mo.hstack(buttons, justify="start")
     return
 
 
@@ -614,7 +625,7 @@ def _(
     output_formats_editor,
     save_button,
 ):
-    mo.stop(not save_button.value)
+    mo.stop(save_button is None or not save_button.value)
 
     try:
         # Parse TOML editors, preserving header comments from editor text
@@ -672,20 +683,21 @@ def _(
 
 
 @app.cell
-def _():
-    # Check if GitLab integration is available
+def _(REVIEW_MODE):
+    # Check if GitLab integration is available (only in review mode)
     gitlab_available = False
     gitlab_unavailable_reason = ""
-    try:
-        from qg.gitlab.config_bridge import submit_config_dir as _submit  # noqa: F401
-        from qg.gitlab.settings import load_gitlab_settings
+    if REVIEW_MODE:
+        try:
+            from qg.gitlab.config_bridge import submit_config_dir as _submit  # noqa: F401
+            from qg.gitlab.settings import load_gitlab_settings
 
-        load_gitlab_settings()
-        gitlab_available = True
-    except FileNotFoundError as e:
-        gitlab_unavailable_reason = str(e)
-    except ValueError as e:
-        gitlab_unavailable_reason = str(e)
+            load_gitlab_settings()
+            gitlab_available = True
+        except FileNotFoundError as e:
+            gitlab_unavailable_reason = str(e)
+        except ValueError as e:
+            gitlab_unavailable_reason = str(e)
     return gitlab_available, gitlab_unavailable_reason
 
 

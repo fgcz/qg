@@ -11,8 +11,8 @@ Proteomics,LUMOS_2,MClass,xcalibur,standard
 Proteomics,QEXACTIVE_1,MClass,xcalibur,standard
 Proteomics,TIMSTOF_1,Evosep,hystar,evosep_qc
 Proteomics,TIMSTOFFLEX_1,Evosep,hystar,evosep_qc
-Metabolomics,EXPLORIS_3,Vanquish,xcalibur,standard
-Metabolomics,QEXACTIVEHF_2,Vanquish,xcalibur,standard
-Metabolomics,QUANTIVA_1,Vanquish,xcalibur,simple
-Lipidomics,EXPLORIS_3,Vanquish,xcalibur,standard
-Lipidomics,EXPLORIS_4,Vanquish,xcalibur,standard
+Metabolomics,EXPLORIS_3,Vanquish,xcalibur_sii,standard
+Metabolomics,QEXACTIVEHF_2,Vanquish,xcalibur_sii,standard
+Metabolomics,QUANTIVA_1,Vanquish,xcalibur_sii,simple
+Lipidomics,EXPLORIS_3,Vanquish,xcalibur_sii,standard
+Lipidomics,EXPLORIS_4,Vanquish,xcalibur_sii,standard

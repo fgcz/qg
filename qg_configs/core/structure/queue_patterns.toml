@@ -99,9 +99,9 @@ end = []
 description = "Standard metabolomics with dilution series for linearity"
 qc_layout_name = "standard"
 run_QC_after_n_samples = 10
-start = ["blank", "108mix_AA", "pooledQC", "blank", "pooledQCDil1", "pooledQCDil2", "pooledQCDil3", "pooledQCDil4", "pooledQCDil5", "pooledQCDil6", "blank"]
-middle = ["blank", "108mix_AA", "pooledQC"]
-end = ["108mix_AA", "pooledQC", "blank"]
+start = ["blank", "108mix_AA", "108mix_OAP" , "pooledQC", "blank", "pooledQCDil1", "pooledQCDil2", "pooledQCDil3", "pooledQCDil4", "pooledQCDil5", "pooledQCDil6", "blank"]
+middle = ["blank", "108mix_AA","108mix_OAP", "pooledQC"]
+end = ["108mix_AA", "108mix_OAP", "pooledQC", "blank"]
 separation = ["blank", "pooledQC"]
 middle_extended = ["pooledQCDil1", "pooledQCDil2", "pooledQCDil3", "pooledQCDil4", "pooledQCDil5", "pooledQCDil6"]
 middle_extended_frequency_multiplier = 2
@@ -110,9 +110,9 @@ middle_extended_frequency_multiplier = 2
 description = "Simple metabolomics without dilution series"
 qc_layout_name = "standard"
 run_QC_after_n_samples = 10
-start = ["blank", "108mix_AA", "pooledQC", "blank"]
+start = ["blank", "108mix_AA", "108mix_OAP", "pooledQC", "blank"]
 middle = ["blank", "pooledQC"]
-end = ["108mix_AA", "pooledQC", "blank"]
+end = ["108mix_AA", "108mix_OAP", "pooledQC", "blank"]
 
 [Metabolomics.blank]
 description = "Blank runs only for system conditioning"
