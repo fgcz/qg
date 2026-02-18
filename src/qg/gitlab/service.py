@@ -1,5 +1,6 @@
 """GitLab API service for config review workflow."""
 
+import re
 from datetime import UTC, datetime
 
 import gitlab
@@ -40,7 +41,7 @@ class GitLabConfigService:
             gitlab.exceptions.GitlabError: On any GitLab API failure.
         """
         timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-        safe_author = author.replace(" ", "_").lower()
+        safe_author = re.sub(r"[^a-z0-9_-]", "", author.lower().replace(" ", "_"))
         branch_name = f"config-update/{timestamp}-{safe_author}"
 
         try:

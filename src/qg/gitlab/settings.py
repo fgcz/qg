@@ -1,5 +1,6 @@
 """Load GitLab settings from .qg_settings.toml."""
 
+import os
 import tomllib
 from pathlib import Path
 
@@ -9,17 +10,12 @@ _SETTINGS_FILENAME = ".qg_settings.toml"
 
 
 def _find_settings_file() -> Path:
-    """Search for settings file: project root (next to pyproject.toml) → repo root."""
-    # Walk up from this file to find the project root
+    """Search for settings file by walking up from this file's directory."""
     current = Path(__file__).resolve().parent
     for _ in range(10):
         candidate = current / _SETTINGS_FILENAME
         if candidate.exists():
             return candidate
-        # Also check for pyproject.toml as project root marker
-        if (current / "pyproject.toml").exists():
-            if candidate.exists():
-                return candidate
         parent = current.parent
         if parent == current:
             break
@@ -35,7 +31,9 @@ def _find_settings_file() -> Path:
 def load_gitlab_settings(path: Path | None = None) -> dict:
     """Load GitLab settings from .qg_settings.toml.
 
-    Searches: explicit path → project root → repo root.
+    Searches: explicit path -> project root -> repo root.
+    Token can be overridden via QG_GITLAB_TOKEN environment variable.
+
     Raises FileNotFoundError with clear message if missing.
     """
     if path is not None:
@@ -60,5 +58,15 @@ def load_gitlab_settings(path: Path | None = None) -> dict:
     if missing:
         msg = f"Missing keys in [gitlab] section: {', '.join(missing)}"
         raise ValueError(msg)
+
+    if not gitlab_section["url"].startswith("https://"):
+        msg = f"GitLab URL must use HTTPS, got: {gitlab_section['url']}"
+        raise ValueError(msg)
+
+    # Environment variable overrides file token
+    env_token = os.environ.get("QG_GITLAB_TOKEN")
+    if env_token:
+        logger.info("Using GitLab token from QG_GITLAB_TOKEN environment variable")
+        gitlab_section["private_token"] = env_token
 
     return gitlab_section

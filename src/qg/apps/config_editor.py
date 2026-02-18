@@ -11,6 +11,7 @@ with app.setup:
     import marimo as mo
     import polars as pl
     import tomli_w
+    from loguru import logger
 
     from qg.config_models.formatting import (
         InstrumentsConfig,
@@ -681,10 +682,6 @@ def _():
 
         load_gitlab_settings()
         gitlab_available = True
-    except ImportError:
-        gitlab_unavailable_reason = (
-            "python-gitlab is not installed. Run `uv pip install python-gitlab` to enable GitLab integration."
-        )
     except FileNotFoundError as e:
         gitlab_unavailable_reason = str(e)
     except ValueError as e:
@@ -693,7 +690,7 @@ def _():
 
 
 @app.cell
-def _(gitlab_available, gitlab_unavailable_reason):
+def _(gitlab_available):
     if gitlab_available:
         review_author_input = mo.ui.text(label="Author", placeholder="your name")
         review_description_input = mo.ui.text(
@@ -712,7 +709,6 @@ def _(gitlab_available, gitlab_unavailable_reason):
 @app.cell
 def _(
     gitlab_available,
-    gitlab_unavailable_reason,
     review_author_input,
     review_description_input,
     submit_review_button,
@@ -727,10 +723,7 @@ def _(
             ]
         )
     else:
-        review_ui = mo.callout(
-            mo.md(f"**GitLab integration not available:** {gitlab_unavailable_reason}"),
-            kind="info",
-        )
+        review_ui = mo.md("")
 
     review_ui
     return
@@ -770,13 +763,9 @@ def _(
                     kind="info",
                 )
         except Exception as e:
+            logger.exception("GitLab submission failed")
             review_result = mo.callout(
-                mo.vstack(
-                    [
-                        mo.md("**Submission failed:**"),
-                        mo.md(f"```\n{e}\n```"),
-                    ]
-                ),
+                mo.md(f"**Submission failed:** {type(e).__name__} — check logs for details."),
                 kind="danger",
             )
 

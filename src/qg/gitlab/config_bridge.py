@@ -5,25 +5,12 @@ from pathlib import Path
 
 from loguru import logger
 
+from qg.gitlab._git import find_repo_root
 from qg.gitlab.service import GitLabConfigService
 from qg.gitlab.settings import load_gitlab_settings
 
 # Repo-relative prefix for config files
 _CONFIG_REPO_PREFIX = "qg_configs"
-
-
-def _find_repo_root(config_dir: Path) -> Path:
-    """Walk up from config_dir to find the git repo root."""
-    current = config_dir.resolve()
-    for _ in range(10):
-        if (current / ".git").exists():
-            return current
-        parent = current.parent
-        if parent == current:
-            break
-        current = parent
-    msg = "Cannot find git repository root"
-    raise FileNotFoundError(msg)
 
 
 def _get_changed_config_files(repo_root: Path, config_dir: Path) -> list[Path]:
@@ -81,7 +68,7 @@ def submit_config_dir(config_dir: Path, author: str, description: str) -> str:
         raise ValueError(msg)
 
     # Only collect files that actually changed vs HEAD
-    repo_root = _find_repo_root(config_dir)
+    repo_root = find_repo_root(config_dir)
     changed_paths = _get_changed_config_files(repo_root, config_dir)
 
     if not changed_paths:

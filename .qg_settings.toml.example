@@ -5,4 +5,5 @@
 [gitlab]
 url = "https://gitlab.bfabric.org"
 project = "metabolomics/queue-gen"
+# Token needs scope: api (or write_repository + read_api)
 private_token = "glpat-xxxxxxxxxxxxxxxxxxxx"

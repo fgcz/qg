@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help app app-all editor validate projects projects-all deploy-test
+.PHONY: help app app-all app-review editor editor-review validate projects projects-all deploy-test
 
 help:
 	@echo "Queue Generation System"
@@ -10,7 +10,9 @@ help:
 	@echo "Targets:"
 	@echo "  app            Run the marimo GUI app (active projects)"
 	@echo "  app-all        Run the marimo GUI app (all projects)"
+	@echo "  app-review     Run the queue app with git pull (production)"
 	@echo "  editor         Run the config editor app"
+	@echo "  editor-review  Run the config editor with git pull (review workflow)"
 	@echo "  validate       Validate all configuration files"
 	@echo "  projects       Fetch active projects from B-Fabric"
 	@echo "  projects-all   Fetch all projects from B-Fabric (no status filter)"
@@ -27,6 +29,14 @@ app-all:
 # Run the config editor
 editor:
 	uv run marimo run src/qg/apps/config_editor.py
+
+# Run the queue app with git pull (production)
+app-review:
+	uv run qg-app
+
+# Run the config editor with git pull (review workflow)
+editor-review:
+	uv run qg-config
 
 # Validate all configuration files
 validate:
