@@ -74,9 +74,9 @@ end = ["QC01", "QC03dia", "clean"]
 [Proteomics.evosep_qc]
 description = "Evosep: clean-QC03 bookends, no QC01"
 qc_layout_name = "evosep_qc"
-run_QC_after_n_samples = 1000
+run_QC_after_n_samples = 12
 start = ["clean", "QC03dia"]
-middle = []
+middle = ["QC03dia"]
 end = ["clean", "QC03dia"]
 
 [Proteomics.conditioning]
@@ -99,8 +99,8 @@ end = []
 description = "Standard metabolomics with dilution series for linearity"
 qc_layout_name = "standard"
 run_QC_after_n_samples = 10
-start = ["blank", "108mix_AA", "108mix_OAP" , "pooledQC", "blank", "pooledQCDil1", "pooledQCDil2", "pooledQCDil3", "pooledQCDil4", "pooledQCDil5", "pooledQCDil6", "blank"]
-middle = ["blank", "108mix_AA","108mix_OAP", "pooledQC"]
+start = ["blank", "108mix_AA", "108mix_OAP", "pooledQC", "blank", "pooledQCDil1", "pooledQCDil2", "pooledQCDil3", "pooledQCDil4", "pooledQCDil5", "pooledQCDil6", "blank"]
+middle = ["blank", "108mix_AA", "108mix_OAP", "pooledQC"]
 end = ["108mix_AA", "108mix_OAP", "pooledQC", "blank"]
 separation = ["blank", "pooledQC"]
 middle_extended = ["pooledQCDil1", "pooledQCDil2", "pooledQCDil3", "pooledQCDil4", "pooledQCDil5", "pooledQCDil6"]

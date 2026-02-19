@@ -564,8 +564,8 @@ class TestEvosepQCPattern:
         for row in user_rows:
             assert row.tray in (1, 2, 3, 4, 5), f"User sample tray {row.tray} should be 1-5"
 
-    def test_evosep_qc_no_middle_insertions(self, config):
-        # With 50 samples, the high run_QC_after_n_samples (1000) should prevent middle QC
+    def test_evosep_qc_middle_insertions(self, config):
+        # With 50 samples and run_QC_after_n_samples=12, expect middle QC insertions
         samples = make_vial_samples(50)
         params = QueueParameters(
             tech_area="Proteomics",
@@ -585,8 +585,8 @@ class TestEvosepQCPattern:
         generator = QueueGenerator(config, queue_input)
         result = generator.build_rows()
 
-        # start(2) + 50 samples + end(2) = 54 total, no middle QC
-        assert len(result.rows) == 54
+        # start(2) + 50 samples + 4 middle QC (every 12 samples) + end(2) = 58
+        assert len(result.rows) == 58
 
 
 class TestEvosepChronosOutputFormat:
