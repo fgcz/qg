@@ -76,7 +76,7 @@ class QueueParameters(BaseModel):
     queue_pattern: str
     queue_type: Literal["Vial", "Plate"]
     plate_layout: str
-    qc_layout_name: str = ""
+    qc_layout_name: str
     polarity: list[Literal["pos", "neg"]] = Field(default_factory=list)
     date: str  # YYYYMMDD
     user: str = ""
@@ -100,7 +100,7 @@ class QueueParameters(BaseModel):
         queue_pattern: str,
         queue_type: Literal["Vial", "Plate"],
         plate_layout: str,
-        qc_layout_name: str = "",
+        qc_layout_name: str | None = None,
         polarity: list[Literal["pos", "neg"]],
         date: str,
         user: str = "",
@@ -131,7 +131,7 @@ class QueueParameters(BaseModel):
             raise ValueError(f"Plate layout '{plate_layout}' not valid for {sampler}/{queue_type}")
 
         # Default qc_layout_name from pattern if not provided
-        if not qc_layout_name:
+        if qc_layout_name is None:
             qc_layout_name = pattern.qc_layout_name
 
         return cls(

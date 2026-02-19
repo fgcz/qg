@@ -66,6 +66,7 @@ def make_queue_input(
     queue_pattern: str = "standard",
     queue_type: str = "Vial",
     plate_layout: str = "Vanquish_54",
+    qc_layout_name: str = "standard",
     output_format: str = "xcalibur",
     container_id: int = 12345,
 ) -> VialQueueInput:
@@ -98,6 +99,7 @@ def make_queue_input(
         queue_pattern=queue_pattern,
         queue_type=queue_type,
         plate_layout=plate_layout,
+        qc_layout_name=qc_layout_name,
         polarity=["pos"],
         date=date.today().strftime("%Y%m%d"),
         user="testuser",

@@ -745,7 +745,7 @@ def _(
                 "queue_pattern": pattern_field.value,
                 "queue_type": queue_type_field.value,
                 "plate_layout": plate_layout_field.value,
-                "qc_layout_name": qc_layout_field.value or "",
+                "qc_layout_name": qc_layout_field.value,
                 "polarity": _polarity,
                 "date": date_field.value.strftime("%Y%m%d"),
                 "user": user_field.value.strip(),

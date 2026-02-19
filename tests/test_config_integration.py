@@ -384,6 +384,7 @@ class TestQueueInputCreate:
             queue_pattern="standard",
             queue_type="Plate",
             plate_layout="Plate_96",
+            qc_layout_name="standard",
             polarity=["pos"],
             date="20260122",
         )
@@ -409,6 +410,7 @@ class TestQueueInputCreate:
             queue_pattern="standard",
             queue_type="Vial",
             plate_layout="Vanquish_54",
+            qc_layout_name="standard",
             polarity=["pos"],
             date="20260122",
         )
