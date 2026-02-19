@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help app app-all app-review editor editor-review validate projects projects-all deploy-test
+.PHONY: help app app-all app-review editor editor-review validate projects projects-all deploy-test deploy-queue deploy-editor
 
 help:
 	@echo "Queue Generation System"
@@ -16,7 +16,9 @@ help:
 	@echo "  validate       Validate all configuration files"
 	@echo "  projects       Fetch active projects from B-Fabric"
 	@echo "  projects-all   Fetch all projects from B-Fabric (no status filter)"
-	@echo "  deploy-test    Build and start Docker test deployment"
+	@echo "  deploy-test    Build and start Docker test deployment (bfabric app, port 9505)"
+	@echo "  deploy-queue   Build and start queue app (marimo, port 9506)"
+	@echo "  deploy-editor  Build and start config editor (marimo, port 9507)"
 
 # Run the marimo GUI app (active projects)
 app:
@@ -53,3 +55,11 @@ projects-all:
 deploy-test:
 	docker compose -f docker-compose-test.yml build app
 	docker compose -f docker-compose-test.yml up -d --force-recreate
+
+deploy-queue:
+	docker compose -f docker-compose-queue.yml build queue-app
+	docker compose -f docker-compose-queue.yml up -d --force-recreate
+
+deploy-editor:
+	docker compose -f docker-compose-editor.yml build config-editor
+	docker compose -f docker-compose-editor.yml up -d --force-recreate
