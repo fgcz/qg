@@ -28,9 +28,9 @@ app:
 app-all:
 	uv run marimo run src/qg/apps/queue_app.py -- --all-projects
 
-# Run the config editor
+# Run the config editor (no review workflow)
 editor:
-	uv run marimo run src/qg/apps/config_editor.py
+	uv run marimo run src/qg/apps/config_editor.py -- --no-review
 
 # Run the queue app with git pull (production)
 app-review:

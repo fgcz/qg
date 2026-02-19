@@ -40,14 +40,12 @@ def _git_pull(repo_root: Path) -> None:
 def _launch_marimo_app(
     app_relative_path: str,
     *,
-    review: bool = False,
     config_dir: str | None = None,
 ) -> None:
     """Git pull then start a marimo app.
 
     Args:
         app_relative_path: Path to the marimo app relative to the repo root.
-        review: If True, pass --review flag to the app.
         config_dir: If set, pass --config-dir to the app.
     """
     repo_root = find_repo_root(Path(__file__).parent)
@@ -64,8 +62,6 @@ def _launch_marimo_app(
 
     # Collect extra args to pass after "--"
     extra_args: list[str] = []
-    if review:
-        extra_args += ["--review"]
     if config_dir:
         extra_args += ["--config-dir", config_dir]
     if extra_args:
@@ -104,6 +100,6 @@ def launch_config_editor() -> None:
         ] = None,
     ) -> None:
         """Pull latest configs and start the config editor."""
-        _launch_marimo_app("src/qg/apps/config_editor.py", review=True, config_dir=config_dir)
+        _launch_marimo_app("src/qg/apps/config_editor.py", config_dir=config_dir)
 
     app()

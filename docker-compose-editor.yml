@@ -1,0 +1,43 @@
+name: qg-editor
+services:
+  config-editor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: qg-config-editor:latest
+    environment:
+      - SECRET_KEY=tueS8enudrae81-mnnoardunou9e8uelnudronudobpQA
+    expose:
+      - "8000"
+    entrypoint:
+      ["/app/.venv/bin/uvicorn", "qg.apps.bfabric_app_editor:app",
+       "--host", "0.0.0.0", "--port", "8000"]
+    volumes:
+      - ~/qg_configs_production/qg_configs:/app/qg_configs:rw
+      - ${HOME}/.qg_settings.toml:/root/.qg_settings.toml:ro
+      - logs:/root/.qg/logs:rw
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "9507:443"
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    volumes:
+      - caddy_data:/data
+    depends_on:
+      - config-editor
+    restart: unless-stopped
+
+configs:
+  caddyfile:
+    content: |
+      localhost fgcz-r-039 fgcz-r-039.uzh.ch {
+        tls internal
+        reverse_proxy config-editor:8000
+      }
+
+volumes:
+  caddy_data:
+  logs:

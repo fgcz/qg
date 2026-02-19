@@ -65,7 +65,7 @@ def _():
     cfg = qg_configuration(config_dir)
     # Capture original contents for in-memory diff (review mode)
     original_contents = cfg.serialize_all()
-    REVIEW_MODE_STARTUP = "review" in cli_args
+    REVIEW_MODE_STARTUP = "no-review" not in cli_args
     logger.info("Config editor started | config_dir={} | review_mode={}", config_dir, REVIEW_MODE_STARTUP)
     return cfg, config_dir, original_contents
 
@@ -540,8 +540,8 @@ def _(tabs):
 @app.cell
 def _():
     _args = mo.cli_args()
-    # --review (no value) yields "" which is falsy; treat key presence as True
-    REVIEW_MODE = "review" in _args
+    # Review ON by default; pass --no-review to disable
+    REVIEW_MODE = "no-review" not in _args
     return (REVIEW_MODE,)
 
 
