@@ -49,11 +49,11 @@ uv run python qg_configs/validate_config_pydantic.py
 - Lipidomics (with pos/neg polarity)
 
 ### Samplers
-| Sampler | Status | Instruments |
-|---------|--------|-------------|
-| Vanquish | ✅ Implemented | ASTRAL_1, EXPLORIS_3/4/5, QEXACTIVEHF_2, QUANTIVA_1 |
-| MClass48 | ⚠️ Partial | ASCEND_1, EXPLORIS_1/2, LUMOS_2, QEXACTIVE_1 |
-| Evosep | ⚠️ Partial | ASTRAL_1, EXPLORIS_1/2, TIMSTOF_1, TIMSTOFFLEX_1 |
+| Sampler | Instruments |
+|---------|-------------|
+| Vanquish | ASTRAL_1, EXPLORIS_3/4/5, QEXACTIVEHF_2, QUANTIVA_1 |
+| MClass | ASCEND_1, EXPLORIS_1/2, LUMOS_2, QEXACTIVE_1 |
+| Evosep | ASTRAL_1, EXPLORIS_1/2, TIMSTOF_1, TIMSTOFFLEX_1 |
 
 ### Output Formats
 - XCalibur (`.csv`)
