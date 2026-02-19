@@ -11,7 +11,6 @@ from collections.abc import Callable
 
 from qg.config_models.loader import QGConfiguration
 from qg.config_models.positions import PlateLayout, QCSampleTip, QCSampleWell
-from qg.config_models.structure import QueuePattern
 from qg.utils import Position
 
 
@@ -61,7 +60,8 @@ class QCLayoutTip:
 def create_qc_layout(
     config: QGConfiguration,
     tech_area: str,
-    pattern: QueuePattern,
+    qc_layout_name: str,
+    pattern_sample_ids: set[str],
     plate_layout_name: str,
     sampler_name: str,
     position_fun: Callable[[str, int], str],
@@ -72,7 +72,8 @@ def create_qc_layout(
     Args:
         config: Configuration bundle.
         tech_area: Technology area (e.g., "Proteomics").
-        pattern: Queue pattern (checked for QC sample references).
+        qc_layout_name: QC layout name (e.g., "standard", "evosep_qc").
+        pattern_sample_ids: Sample IDs referenced by the pattern.
         plate_layout_name: Plate layout name (e.g., "Vanquish_54").
         sampler_name: Sampler name (used to look up Sampler config).
         position_fun: Position function for well-plate samplers (ignored for tip samplers).
@@ -85,12 +86,11 @@ def create_qc_layout(
     is_tip = sampler.is_tip
 
     # If the pattern references no QC samples, return an empty layout
-    if not pattern.get_all_sample_ids():
+    if not pattern_sample_ids:
         if is_tip:
             return QCLayoutTip([], plate_layout)
         return QCLayoutWell([], position_fun)
 
-    qc_layout_name = pattern.qc_layout_name
     qc_samples = config.get_qc_samples(tech_area, qc_layout_name, plate_layout_name, sampler)
 
     if is_tip:

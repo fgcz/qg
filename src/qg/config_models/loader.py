@@ -210,6 +210,63 @@ def _validate_layout_sample_refs(
     return errors
 
 
+def _validate_pattern_layout_compatibility(
+    queue_patterns: QueuePatternsConfig,
+    qc_layouts_well: QCLayoutsWellConfig,
+    qc_layouts_tip: QCLayoutsTipConfig,
+) -> list[str]:
+    """Validate that each pattern has at least one compatible QC layout.
+
+    For each pattern, checks that at least one QC layout exists (across all
+    plate_layouts) whose sample_ids are a superset of the pattern's required IDs.
+    Patterns with no QC references (empty sample_ids) are always valid.
+
+    Returns:
+        List of validation error messages
+    """
+    errors: list[str] = []
+    logger.info("Validating pattern/layout compatibility...")
+
+    all_ok = True
+    for tech_area in queue_patterns.get_technologies():
+        for pattern_name, pattern in queue_patterns.get_patterns_for_tech_area(tech_area).items():
+            required = pattern.get_all_sample_ids()
+            if not required:
+                continue
+
+            # Collect all (qc_layout_name, plate_layout) → sample_ids from both well and tip
+            found_compatible = False
+            for qc_sample in qc_layouts_well.samples:
+                if qc_sample.tech_area != tech_area:
+                    continue
+                available = qc_layouts_well.get_sample_ids(tech_area, qc_sample.qc_layout_name, qc_sample.plate_layout)
+                if required <= available:
+                    found_compatible = True
+                    break
+
+            if not found_compatible:
+                for qc_sample in qc_layouts_tip.samples:
+                    if qc_sample.tech_area != tech_area:
+                        continue
+                    available = qc_layouts_tip.get_sample_ids(
+                        tech_area, qc_sample.qc_layout_name, qc_sample.plate_layout
+                    )
+                    if required <= available:
+                        found_compatible = True
+                        break
+
+            if not found_compatible:
+                msg = f"{tech_area}.{pattern_name} requires {required} but no QC layout provides all of them"
+                errors.append(msg)
+                logger.warning(msg)
+                all_ok = False
+
+    if all_ok:
+        logger.info("  OK: All patterns have at least one compatible QC layout")
+
+    return errors
+
+
 def _validate_configs(
     *,
     samples: SamplesConfig,
@@ -226,6 +283,7 @@ def _validate_configs(
 
     errors.extend(_validate_pattern_sample_refs(samples, queue_patterns))
     errors.extend(_validate_layout_sample_refs(samples, qc_layouts_well, qc_layouts_tip))
+    errors.extend(_validate_pattern_layout_compatibility(queue_patterns, qc_layouts_well, qc_layouts_tip))
 
     if errors:
         logger.error(f"{len(errors)} cross-validation error(s):")
@@ -295,38 +353,63 @@ class QGConfiguration:
     def to_overview_table(self) -> pl.DataFrame:
         """Return denormalized table of all valid config combinations.
 
-        Joins: instrument_configs → sampler_plate_layouts → queue_patterns (all patterns)
+        Joins: instrument_configs → sampler_plate_layouts → (qc_layout × compatible patterns)
 
-        Each (instrument, sampler, plate_layout) combination appears multiple times -
-        once per available pattern for that tech_area.
+        Each (instrument, sampler, plate_layout, qc_layout) combination appears once
+        per compatible pattern. Patterns are filtered by QC layout compatibility:
+        pattern.get_all_sample_ids() ⊆ qc_layout.get_sample_ids().
 
         Returns:
             DataFrame with columns: tech_area, instrument, sampler, plate_layout,
-            queue_type, output_format, default_pattern, pattern_name, qc_layout_name
+            queue_type, output_format, default_pattern, qc_layout_name, pattern_name
         """
-        # Start with instrument_configs
+        # Start with instrument_configs joined with sampler_plate_layouts
         df = self.instrument_configs.to_table()
-
-        # Join sampler_plate_layouts on sampler
         spl = self.sampler_plate_layouts.to_table()
         df = df.join(spl, on="sampler", how="left")
 
-        # Build patterns table: (tech_area, pattern_name, qc_layout_name)
-        patterns_rows = [
-            {
-                "tech_area": tech,
-                "pattern_name": name,
-                "qc_layout_name": pattern.qc_layout_name,
-            }
-            for tech, patterns in self.queue_patterns.patterns.items()
-            for name, pattern in patterns.items()
-        ]
-        patterns_df = pl.DataFrame(patterns_rows)
+        # Build (qc_layout, pattern) pairs filtered by compatibility
+        layout_pattern_rows: list[dict[str, str]] = []
+        for row in df.to_dicts():
+            tech_area = row["tech_area"]
+            sampler_name = row["sampler"]
+            plate_layout = row["plate_layout"]
+            sampler = self.samplers.get_sampler(sampler_name)
 
-        # Cross join: each instrument config gets ALL patterns for its tech_area
-        df = df.join(patterns_df, on="tech_area", how="left")
+            qc_layouts = self.get_available_qc_layouts(tech_area, plate_layout, sampler)
+            for qc_layout_name in qc_layouts:
+                available_ids = self.get_qc_layout_sample_ids(tech_area, qc_layout_name, plate_layout, sampler)
+                compatible = self.queue_patterns.get_compatible_patterns(tech_area, available_ids)
+                for pattern_name in compatible:
+                    layout_pattern_rows.append(
+                        {
+                            "tech_area": tech_area,
+                            "sampler": sampler_name,
+                            "plate_layout": plate_layout,
+                            "qc_layout_name": qc_layout_name,
+                            "pattern_name": pattern_name,
+                        }
+                    )
 
-        # Select final columns
+        if not layout_pattern_rows:
+            # Return empty DataFrame with correct schema
+            return pl.DataFrame(
+                schema={
+                    "tech_area": pl.Utf8,
+                    "instrument": pl.Utf8,
+                    "sampler": pl.Utf8,
+                    "plate_layout": pl.Utf8,
+                    "queue_type": pl.Utf8,
+                    "output_format": pl.Utf8,
+                    "default_pattern": pl.Utf8,
+                    "qc_layout_name": pl.Utf8,
+                    "pattern_name": pl.Utf8,
+                }
+            )
+
+        lp_df = pl.DataFrame(layout_pattern_rows).unique()
+        df = df.join(lp_df, on=["tech_area", "sampler", "plate_layout"], how="left")
+
         return df.select(
             [
                 "tech_area",
@@ -336,10 +419,24 @@ class QGConfiguration:
                 "queue_type",
                 "output_format",
                 "default_pattern",
-                "pattern_name",
                 "qc_layout_name",
+                "pattern_name",
             ]
         )
+
+    def get_available_qc_layouts(self, tech_area: str, plate_layout: str, sampler: Sampler) -> list[str]:
+        """Get QC layout names available for (tech_area, plate_layout, sampler_type)."""
+        if sampler.is_tip:
+            return self.qc_layouts_tip.get_layout_names(tech_area, plate_layout)
+        return self.qc_layouts_well.get_layout_names(tech_area, plate_layout)
+
+    def get_qc_layout_sample_ids(
+        self, tech_area: str, qc_layout_name: str, plate_layout: str, sampler: Sampler
+    ) -> set[str]:
+        """Get sample_ids available in a QC layout."""
+        if sampler.is_tip:
+            return self.qc_layouts_tip.get_sample_ids(tech_area, qc_layout_name, plate_layout)
+        return self.qc_layouts_well.get_sample_ids(tech_area, qc_layout_name, plate_layout)
 
     def get_qc_samples(
         self,

@@ -76,6 +76,14 @@ class QueuePatternsConfig(BaseModel):
         """Get all pattern names for a tech_area."""
         return list(self.patterns.get(tech_area, {}).keys())
 
+    def get_compatible_patterns(self, tech_area: str, available_sample_ids: set[str]) -> dict[str, QueuePattern]:
+        """Return patterns whose sample_ids are all available in the given set."""
+        return {
+            name: p
+            for name, p in self.get_patterns_for_tech_area(tech_area).items()
+            if p.get_all_sample_ids() <= available_sample_ids
+        }
+
     def get_all_sample_ids(self, tech_area: str) -> set[str]:
         """Get all sample IDs referenced by patterns for a tech_area."""
         sample_ids: set[str] = set()

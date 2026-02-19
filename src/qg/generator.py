@@ -275,14 +275,18 @@ class QueueGenerator:
         # Pattern existence validated in QueueParameters.create()
         self.pattern = config.queue_patterns.get_pattern(params.tech_area, params.queue_pattern)
 
+        # Resolve qc_layout_name: use params if set, else fall back to pattern default
+        qc_layout_name = params.qc_layout_name or self.pattern.qc_layout_name
+
         # Create assembled sampler for position assignment
         assembled_sampler = create_assembled_sampler(
             sampler_name=params.sampler,
             layout_mode=layout_mode,
             config=config,
             tech_area=params.tech_area,
-            pattern=self.pattern,
+            pattern_sample_ids=self.pattern.get_all_sample_ids(),
             plate_layout_name=params.plate_layout,
+            qc_layout_name=qc_layout_name,
         )
 
         # Store QC layout and plate layout from assembled sampler (avoid recomputation)

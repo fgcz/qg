@@ -20,7 +20,6 @@ from qg.config_models.positions import (
     PlateLayout,
     Sampler,
 )
-from qg.config_models.structure import QueuePattern
 from qg.params_models import (
     Plate,
     PlateCell,
@@ -356,8 +355,9 @@ def create_assembled_sampler(
     layout_mode: LayoutMode,
     config: QGConfiguration,
     tech_area: str,
-    pattern: QueuePattern,
+    pattern_sample_ids: set[str],
     plate_layout_name: str,
+    qc_layout_name: str,
 ) -> AssembledSampler:
     """Factory to create correct sampler class based on mode and sampler type.
 
@@ -366,8 +366,9 @@ def create_assembled_sampler(
         layout_mode: LayoutMode.VIAL or LayoutMode.PLATE
         config: QGConfiguration with all config data
         tech_area: Technology area (e.g., "Proteomics")
-        pattern: Queue pattern (used to resolve QC layout; empty patterns yield no reservations)
+        pattern_sample_ids: Sample IDs referenced by the pattern (empty for noqc)
         plate_layout_name: Plate layout name (e.g., "Vanquish_54")
+        qc_layout_name: QC layout name (e.g., "standard", "evosep_qc")
 
     Returns:
         One of 4 AssembledSampler classes based on layout_mode + sampler type
@@ -379,7 +380,14 @@ def create_assembled_sampler(
 
     # Create QC layout (empty when pattern has no QC references)
     qc_layout = create_qc_layout(
-        config, tech_area, pattern, plate_layout.name, sampler_name, position_fun, plate_layout
+        config,
+        tech_area,
+        qc_layout_name,
+        pattern_sample_ids,
+        plate_layout.name,
+        sampler_name,
+        position_fun,
+        plate_layout,
     )
 
     # Return correct class based on layout_mode + sampler type

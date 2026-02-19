@@ -289,6 +289,16 @@ class QCLayoutsWellConfig(BaseModel):
             if s.tech_area == tech_area and s.qc_layout_name == qc_layout_name and s.plate_layout == plate_layout
         ]
 
+    def get_layout_names(self, tech_area: str, plate_layout: str) -> list[str]:
+        """Get distinct qc_layout_name values for (tech_area, plate_layout)."""
+        return sorted(
+            {s.qc_layout_name for s in self.samples if s.tech_area == tech_area and s.plate_layout == plate_layout}
+        )
+
+    def get_sample_ids(self, tech_area: str, qc_layout_name: str, plate_layout: str) -> set[str]:
+        """Get sample_ids available in a specific layout."""
+        return {s.sample_id for s in self.get_samples(tech_area, qc_layout_name, plate_layout)}
+
     def to_table(self) -> pl.DataFrame:
         """Convert to polars DataFrame."""
         return pl.DataFrame([s.model_dump() for s in self.samples])
@@ -350,6 +360,16 @@ class QCLayoutsTipConfig(BaseModel):
             for s in self.samples
             if s.tech_area == tech_area and s.qc_layout_name == qc_layout_name and s.plate_layout == plate_layout
         ]
+
+    def get_layout_names(self, tech_area: str, plate_layout: str) -> list[str]:
+        """Get distinct qc_layout_name values for (tech_area, plate_layout)."""
+        return sorted(
+            {s.qc_layout_name for s in self.samples if s.tech_area == tech_area and s.plate_layout == plate_layout}
+        )
+
+    def get_sample_ids(self, tech_area: str, qc_layout_name: str, plate_layout: str) -> set[str]:
+        """Get sample_ids available in a specific layout."""
+        return {s.sample_id for s in self.get_samples(tech_area, qc_layout_name, plate_layout)}
 
     def to_table(self) -> pl.DataFrame:
         """Convert to polars DataFrame."""

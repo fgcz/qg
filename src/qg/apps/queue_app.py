@@ -103,12 +103,12 @@ def _(table_by_instrument, sampler_field):
 
 
 @app.cell
-def _(table_by_sampler, pattern_field):
+def _(table_by_qc_layout, pattern_field):
     # Final filtered table with all selections
     if pattern_field.value:
-        filtered_table = table_by_sampler.filter(pl.col("pattern_name") == pattern_field.value)
+        filtered_table = table_by_qc_layout.filter(pl.col("pattern_name") == pattern_field.value)
     else:
-        filtered_table = table_by_sampler
+        filtered_table = table_by_qc_layout
     return (filtered_table,)
 
 
@@ -161,10 +161,10 @@ def _(table_by_instrument, instrument_field):
 
 
 @app.cell
-def _(table_by_sampler, sampler_field):
-    # Pattern dropdown - options based on selected sampler, with default first
-    if sampler_field.value:
-        _df = table_by_sampler.select(["pattern_name", "default_pattern"]).unique()
+def _(table_by_qc_layout, qc_layout_field):
+    # Pattern dropdown - filtered by QC layout compatibility, with default first
+    if qc_layout_field.value:
+        _df = table_by_qc_layout.select(["pattern_name", "default_pattern"]).unique()
         _default_patterns = _df.filter(pl.col("pattern_name") == pl.col("default_pattern"))["pattern_name"].to_list()
         _others = (
             _df.filter(pl.col("pattern_name") != pl.col("default_pattern"))["pattern_name"].unique().sort().to_list()
@@ -230,6 +230,51 @@ def _(table_by_queue_type, queue_type_field):
 
 
 @app.cell
+def _(table_by_queue_type, plate_layout_field):
+    # Filter by plate_layout for QC layout options
+    if plate_layout_field.value:
+        table_by_plate_layout = table_by_queue_type.filter(pl.col("plate_layout") == plate_layout_field.value)
+    else:
+        table_by_plate_layout = table_by_queue_type
+    return (table_by_plate_layout,)
+
+
+@app.cell
+def _(table_by_plate_layout, plate_layout_field):
+    # QC layout dropdown - options based on (tech_area, sampler, plate_layout)
+    if plate_layout_field.value and "qc_layout_name" in table_by_plate_layout.columns:
+        _all_layouts = sorted(table_by_plate_layout["qc_layout_name"].unique().to_list())
+        # Auto-select: prefer the default_pattern's qc_layout_name, else first
+        _default_rows = table_by_plate_layout.filter(pl.col("pattern_name") == pl.col("default_pattern"))
+        if not _default_rows.is_empty():
+            _default_qc = _default_rows["qc_layout_name"].to_list()[0]
+        else:
+            _default_qc = _all_layouts[0] if _all_layouts else None
+        _options = _all_layouts
+        _default = _default_qc if _default_qc in _all_layouts else (_all_layouts[0] if _all_layouts else None)
+    else:
+        _options = []
+        _default = None
+
+    qc_layout_field = mo.ui.dropdown(
+        options=_options,
+        value=_default,
+        label="QC Layout",
+    )
+    return (qc_layout_field,)
+
+
+@app.cell
+def _(table_by_plate_layout, qc_layout_field):
+    # Filter by qc_layout for pattern options
+    if qc_layout_field.value:
+        table_by_qc_layout = table_by_plate_layout.filter(pl.col("qc_layout_name") == qc_layout_field.value)
+    else:
+        table_by_qc_layout = table_by_plate_layout
+    return (table_by_qc_layout,)
+
+
+@app.cell
 def _(filtered_table, sampler_field):
     # Output format is derived (determined by instrument+sampler combination)
     if sampler_field.value and not filtered_table.is_empty():
@@ -250,6 +295,7 @@ def _(
     pattern_field,
     queue_type_field,
     plate_layout_field,
+    qc_layout_field,
 ):
     # Validate that all parameters are set and a valid QC layout exists
     validation_errors = []
@@ -265,6 +311,8 @@ def _(
         validation_errors.append("Queue type not selected")
     if not plate_layout_field.value:
         validation_errors.append("Plate layout not selected")
+    if not qc_layout_field.value:
+        validation_errors.append("QC layout not selected")
     if not pattern_field.value:
         validation_errors.append("Pattern not selected")
 
@@ -272,20 +320,19 @@ def _(
     if not validation_errors and filtered_table.is_empty():
         validation_errors.append("No valid combination found")
 
-    # Check QC layout exists for this combination (skip for patterns with no QC references)
-    if not validation_errors and plate_layout_field.value:
+    # Check QC layout has samples for this combination (skip for patterns with no QC references)
+    if not validation_errors and plate_layout_field.value and qc_layout_field.value:
         _pattern = config.queue_patterns.get_pattern(tech_area_field.value, pattern_field.value)
         if _pattern and _pattern.get_all_sample_ids():
-            _qc_layout_name = _pattern.qc_layout_name
             _qc_samples = config.get_qc_samples(
                 tech_area_field.value,
-                _qc_layout_name,
+                qc_layout_field.value,
                 plate_layout_field.value,
                 config.samplers.get_sampler(sampler_field.value),
             )
             if not _qc_samples:
                 validation_errors.append(
-                    f"No QC layout for {tech_area_field.value}/{_qc_layout_name}/{plate_layout_field.value}"
+                    f"No QC samples for {tech_area_field.value}/{qc_layout_field.value}/{plate_layout_field.value}"
                 )
 
     config_valid = len(validation_errors) == 0
@@ -439,6 +486,38 @@ def _():
 
 
 # =============================================================================
+# QC Layout Preview (sidebar bottom)
+# =============================================================================
+
+
+@app.cell
+def _(config, tech_area_field, sampler_field, plate_layout_field, qc_layout_field):
+    # Build a small summary table of the selected QC layout's sample positions
+    qc_layout_preview = None
+    if tech_area_field.value and sampler_field.value and plate_layout_field.value and qc_layout_field.value:
+        _sampler = config.samplers.get_sampler(sampler_field.value)
+        _samples = config.get_qc_samples(
+            tech_area_field.value,
+            qc_layout_field.value,
+            plate_layout_field.value,
+            _sampler,
+        )
+        if _samples:
+            _rows = []
+            if _sampler.is_tip:
+                for s in _samples:
+                    _rows.append(
+                        {"sample_id": s.sample_id, "tray": s.tray, "range": f"{s.position_start}-{s.position_end}"}
+                    )
+                qc_layout_preview = pl.DataFrame(_rows)
+            else:
+                for s in _samples:
+                    _rows.append({"sample_id": s.sample_id, "tray": s.tray, "pos": f"{s.row}{s.col}"})
+                qc_layout_preview = pl.DataFrame(_rows)
+    return (qc_layout_preview,)
+
+
+# =============================================================================
 # Sidebar Layout
 # =============================================================================
 
@@ -455,6 +534,8 @@ def _(
     plate_layout_field,
     polarity_group,
     qc_frequency_field,
+    qc_layout_field,
+    qc_layout_preview,
     queue_type_field,
     randomization_field,
     sampler_field,
@@ -462,15 +543,14 @@ def _(
     user_field,
     validation_status,
 ):
-    _queue_items = [pattern_field, polarity_group]
+    _queue_items = [qc_layout_field, pattern_field, polarity_group]
     if method_field_pos is not None:
         _queue_items.append(method_field_pos)
     if method_field_neg is not None:
         _queue_items.append(method_field_neg)
 
     _sidebar_items = [
-        mo.md("# Queue Generator"),
-        mo.md("### Instrument"),
+        mo.md("## Queue Generator"),
         tech_area_field,
         instrument_field,
         sampler_field,
@@ -490,7 +570,12 @@ def _(
     if validation_status is not None:
         _sidebar_items.append(validation_status)
 
-    mo.sidebar(mo.vstack(_sidebar_items))
+    # Add QC layout preview table at the bottom
+    if qc_layout_preview is not None:
+        _sidebar_items.append(mo.md(f"**QC Positions** _{qc_layout_field.value}_"))
+        _sidebar_items.append(qc_layout_preview)
+
+    mo.sidebar(mo.vstack(_sidebar_items), width="22rem")
     return
 
 
@@ -634,6 +719,7 @@ def _(
     plate_layout_field,
     polarity_group,
     qc_frequency_field,
+    qc_layout_field,
     queue_type_field,
     randomization_field,
     sampler_field,
@@ -659,6 +745,7 @@ def _(
                 "queue_pattern": pattern_field.value,
                 "queue_type": queue_type_field.value,
                 "plate_layout": plate_layout_field.value,
+                "qc_layout_name": qc_layout_field.value or "",
                 "polarity": _polarity,
                 "date": date_field.value.strftime("%Y%m%d"),
                 "user": user_field.value.strip(),
@@ -858,6 +945,7 @@ def _(
     pattern_field,
     queue_type_field,
     plate_layout_field,
+    qc_layout_field,
 ):
     # Valid Combinations tab content - shows ALL combinations with matching rows highlighted
     # Build match condition based on current selections
@@ -873,6 +961,9 @@ def _(
     if sampler_field.value:
         _match_conditions.append(pl.col("sampler") == sampler_field.value)
         _active_filters.append(f"**sampler** = {sampler_field.value}")
+    if qc_layout_field.value:
+        _match_conditions.append(pl.col("qc_layout_name") == qc_layout_field.value)
+        _active_filters.append(f"**qc_layout** = {qc_layout_field.value}")
     if pattern_field.value:
         _match_conditions.append(pl.col("pattern_name") == pattern_field.value)
         _active_filters.append(f"**pattern_name** = {pattern_field.value}")

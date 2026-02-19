@@ -76,6 +76,7 @@ class QueueParameters(BaseModel):
     queue_pattern: str
     queue_type: Literal["Vial", "Plate"]
     plate_layout: str
+    qc_layout_name: str = ""
     polarity: list[Literal["pos", "neg"]] = Field(default_factory=list)
     date: str  # YYYYMMDD
     user: str = ""
@@ -99,6 +100,7 @@ class QueueParameters(BaseModel):
         queue_pattern: str,
         queue_type: Literal["Vial", "Plate"],
         plate_layout: str,
+        qc_layout_name: str = "",
         polarity: list[Literal["pos", "neg"]],
         date: str,
         user: str = "",
@@ -117,7 +119,7 @@ class QueueParameters(BaseModel):
         from qg.config_models.structure import SamplesConfig
 
         # These raise KeyError with descriptive message if not found
-        configs.queue_patterns.get_pattern(tech_area, queue_pattern)
+        pattern = configs.queue_patterns.get_pattern(tech_area, queue_pattern)
         configs.output_formats.get_format(output_format)
         configs.instruments.get_instrument(tech_area, instrument)
         configs.samplers.get_sampler(sampler)
@@ -128,6 +130,10 @@ class QueueParameters(BaseModel):
         if plate_layout not in valid_layouts:
             raise ValueError(f"Plate layout '{plate_layout}' not valid for {sampler}/{queue_type}")
 
+        # Default qc_layout_name from pattern if not provided
+        if not qc_layout_name:
+            qc_layout_name = pattern.qc_layout_name
+
         return cls(
             tech_area=tech_area,
             instrument=instrument,
@@ -136,6 +142,7 @@ class QueueParameters(BaseModel):
             queue_pattern=queue_pattern,
             queue_type=queue_type,
             plate_layout=plate_layout,
+            qc_layout_name=qc_layout_name,
             polarity=polarity,
             date=date,
             user=user,
