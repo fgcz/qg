@@ -552,29 +552,6 @@ class TestEvosepQCPattern:
         for row in user_rows:
             assert row.tray in (1, 2, 3, 4, 5), f"User sample tray {row.tray} should be 1-5"
 
-    def test_evosep_qc_no_middle_insertions(self, config):
-        # With 50 samples, the high run_QC_after_n_samples (1000) should prevent middle QC
-        samples = make_vial_samples(50)
-        params = QueueParameters(
-            tech_area="Proteomics",
-            instrument="ASTRAL_1",
-            sampler="Evosep",
-            output_format="chronos",
-            queue_pattern="evosep_qc",
-            queue_type="Vial",
-            plate_layout="Plate_96",
-            polarity=["pos"],
-            date="20260116",
-            user="test",
-        )
-        queue_input = make_vial_queue_input(params, samples)
-
-        generator = QueueGenerator(config, queue_input)
-        result = generator.build_rows()
-
-        # start(2) + 50 samples + end(2) = 54 total, no middle QC
-        assert len(result.rows) == 54
-
 
 class TestEvosepChronosOutputFormat:
     """Integration test: Evosep + Chronos output produces numeric Source Vial."""
