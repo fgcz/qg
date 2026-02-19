@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help app app-all app-review editor editor-review validate projects projects-all deploy-test deploy-queue deploy-editor
+.PHONY: help app app-all app-review editor editor-review validate projects projects-all deploy-app deploy-editor
 
 help:
 	@echo "Queue Generation System"
@@ -11,14 +11,13 @@ help:
 	@echo "  app            Run the marimo GUI app (active projects)"
 	@echo "  app-all        Run the marimo GUI app (all projects)"
 	@echo "  app-review     Run the queue app with git pull (production)"
-	@echo "  editor         Run the config editor app"
+	@echo "  editor         Run the config editor app (no review workflow)"
 	@echo "  editor-review  Run the config editor with git pull (review workflow)"
 	@echo "  validate       Validate all configuration files"
 	@echo "  projects       Fetch active projects from B-Fabric"
 	@echo "  projects-all   Fetch all projects from B-Fabric (no status filter)"
-	@echo "  deploy-test    Build and start Docker test deployment (bfabric app, port 9505)"
-	@echo "  deploy-queue   Build and start queue app (marimo, port 9506)"
-	@echo "  deploy-editor  Build and start config editor (marimo, port 9507)"
+	@echo "  deploy-app     Build and start queue app (Docker, port 9505)"
+	@echo "  deploy-editor  Build and start config editor (Docker, port 9506)"
 
 # Run the marimo GUI app (active projects)
 app:
@@ -52,13 +51,9 @@ projects:
 projects-all:
 	uv run qg-find-projects --all
 
-deploy-test:
+deploy-app:
 	docker compose -f docker-compose-test.yml build app
 	docker compose -f docker-compose-test.yml up -d --force-recreate
-
-deploy-queue:
-	docker compose -f docker-compose-queue.yml build queue-app
-	docker compose -f docker-compose-queue.yml up -d --force-recreate
 
 deploy-editor:
 	docker compose -f docker-compose-editor.yml build config-editor

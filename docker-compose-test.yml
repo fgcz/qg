@@ -20,6 +20,7 @@ services:
       ]
     volumes:
       - ./bfabric_cache:/app/bfabric_cache:rw
+      - logs:/root/.qg/logs:rw
   caddy:
     image: caddy:2-alpine
     ports:
@@ -43,3 +44,4 @@ configs:
 
 volumes:
   caddy_data:
+  logs:

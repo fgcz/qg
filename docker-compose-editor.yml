@@ -13,14 +13,13 @@ services:
       ["/app/.venv/bin/uvicorn", "qg.apps.bfabric_app_editor:app",
        "--host", "0.0.0.0", "--port", "8000"]
     volumes:
-      - ~/qg_configs_production/qg_configs:/app/qg_configs:rw
       - ${HOME}/.qg_settings.toml:/root/.qg_settings.toml:ro
       - logs:/root/.qg/logs:rw
 
   caddy:
     image: caddy:2-alpine
     ports:
-      - "9507:443"
+      - "9506:443"
     configs:
       - source: caddyfile
         target: /etc/caddy/Caddyfile

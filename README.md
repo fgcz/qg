@@ -115,15 +115,16 @@ All apps are deployed on `fgcz-r-039` in `/scratch/A401_queue_gen`.
 
 | App | Description | Compose file | Port | Make target |
 |-----|-------------|-------------|------|-------------|
-| B-Fabric app (uvicorn) | B-Fabric Application 401 — receives orders from B-Fabric and launches queue generation | `docker-compose-test.yml` | 9505 | `deploy-test` |
-| Queue app (marimo) | Interactive GUI for manual queue generation | `docker-compose-queue.yml` | 9506 | `deploy-queue` |
-| Config editor (marimo) | Edit config files with GitLab review/merge-request workflow | `docker-compose-editor.yml` | 9507 | `deploy-editor` |
+| Queue app | B-Fabric authenticated queue generation GUI | `docker-compose-test.yml` | 9505 | `deploy-app` |
+| Config editor | Edit config files with GitLab review/merge-request workflow | `docker-compose-editor.yml` | 9506 | `deploy-editor` |
 
 ### How it works
 
-The queue app and config editor containers bind-mount a host-side git checkout of the configs repository (`~/qg_configs_production`). At container startup, each app runs `git pull --ff-only` to pick up the latest configs from `main`, then starts the marimo app pointing at `/configs/qg_configs`. No separate git-sync sidecar is needed.
+Both apps are served by uvicorn (FastAPI + B-Fabric auth + marimo ASGI). They run continuously — when a user connects from B-Fabric, they hit the already-running server.
 
-Config changes merged on GitLab are picked up on next container restart (`make deploy-queue` / `make deploy-editor`) — no image rebuild required.
+**Queue app:** Code and configs are baked into the Docker image. To pick up config changes merged on GitLab, rebuild the image: `make deploy-app`.
+
+**Config editor:** Code and configs are baked into the image. The only external mount is `~/.qg_settings.toml` (GitLab API credentials for the review/merge-request workflow). The editor reads configs from the image, diffs changes in memory, and submits them to GitLab via the Commits API — it never writes to disk.
 
 ### First-time setup
 
@@ -134,13 +135,7 @@ cd /scratch/A401_queue_gen
 git clone https://gitlab.bfabric.org/metabolomics/queue-gen.git .
 ```
 
-Clone the configs repository on the host (this checkout is bind-mounted into containers):
-
-```bash
-git clone https://gitlab.bfabric.org/metabolomics/queue-gen.git ~/qg_configs_production
-```
-
-**Config editor only** — create `~/.qg_settings.toml` with GitLab credentials (needed for the review/merge-request workflow):
+**Config editor only** — create `~/.qg_settings.toml` with GitLab credentials:
 
 ```bash
 cp .qg_settings.toml.example ~/.qg_settings.toml
@@ -165,21 +160,15 @@ The token can also be overridden via the `QG_GITLAB_TOKEN` environment variable.
 ssh bfabric@localhost
 cd /scratch/A401_queue_gen
 git pull
-
-# B-Fabric app (port 9505)
-make deploy-test
-
-# Queue app (port 9506)
-make deploy-queue
-
-# Config editor (port 9507)
+# Queue app (port 9505)
+make deploy-app
+# Config editor (port 9506)
 make deploy-editor
 ```
 
 ### Verify
 
 ```bash
-curl -k https://localhost:9505    # B-Fabric app
-curl -k https://localhost:9506    # Queue app
-curl -k https://localhost:9507    # Config editor
+curl -k https://localhost:9505    # Queue app
+curl -k https://localhost:9506    # Config editor
 ```
