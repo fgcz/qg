@@ -36,62 +36,51 @@ with app.setup:
     from qg.config_models.structure import QueuePatternsConfig, SamplesConfig
     from qg.config_models.ui import InstrumentConfigsConfig
 
+
+# =============================================================================
+# Helper functions (must be in a cell, not app.setup, for marimo name resolution)
+# =============================================================================
+
+
+@app.cell
+def _():
     def compact_toml(toml_str: str) -> str:
         """Convert multiline arrays to inline format for readability."""
-        # Match arrays that span multiple lines
         pattern = r"(\w+)\s*=\s*\[\s*\n((?:\s+[^\]]+,?\s*\n)+)\s*\]"
 
         def replace_array(match):
             key = match.group(1)
             items_block = match.group(2)
-            # Extract items, strip whitespace
             items = [item.strip().rstrip(",") for item in items_block.strip().split("\n") if item.strip()]
             return f"{key} = [{', '.join(items)}]"
 
         return re.sub(pattern, replace_array, toml_str)
 
-    # -- TOML config classes that support from_dict + header_comments --
-    _TOML_CONFIG_CLASSES: dict[str, type] = {
+    TOML_CONFIG_CLASSES: dict[str, type] = {
         "samplers": SamplersConfig,
         "plate_layouts": PlateLayoutsConfig,
         "queue_patterns": QueuePatternsConfig,
         "output_formats": OutputFormatsConfig,
     }
 
-    def _parse_toml_editor(editor_value: str, config_cls: type, *, preserve_comments: bool = False):
-        """Parse a TOML code-editor value into a config object.
-
-        Args:
-            editor_value: Raw text from mo.ui.code_editor.
-            config_cls: Config class with a from_dict() classmethod.
-            preserve_comments: If True, extract and attach header comments.
-        """
+    def parse_toml_editor(editor_value: str, config_cls: type, *, preserve_comments: bool = False):
+        """Parse a TOML code-editor value into a config object."""
         cfg = config_cls.from_dict(tomllib.loads(editor_value))
         if preserve_comments:
             cfg.header_comments = read_header_comments(editor_value)
         return cfg
 
-    def _build_config_from_editors(
+    def build_config_from_editors(
         editors: dict,
         methods,
         *,
         preserve_comments: bool = False,
     ) -> QGConfiguration:
-        """Build a validated QGConfiguration from editor widget values.
-
-        Args:
-            editors: Dict with keys matching QGConfiguration.create() params.
-                     CSV editors provide pl.DataFrame values; TOML editors
-                     provide raw text strings.
-            methods: MethodsConfig to pass through (edited separately).
-            preserve_comments: Whether to preserve header comments on TOML configs.
-        """
-        # Parse TOML editors
+        """Build a validated QGConfiguration from editor widget values."""
         toml_configs = {
-            name: _parse_toml_editor(editors[name], cls, preserve_comments=preserve_comments)
-            for name, cls in _TOML_CONFIG_CLASSES.items()
+            name: parse_toml_editor(editors[name], cls, preserve_comments=preserve_comments)
+            for name, cls in TOML_CONFIG_CLASSES.items()
         }
-        # Parse CSV editors
         return QGConfiguration.create(
             instruments=InstrumentsConfig.from_table(editors["instruments"]),
             samples=SamplesConfig.from_table(editors["samples"]),
@@ -103,12 +92,14 @@ with app.setup:
             **toml_configs,
         )
 
-    def _error_callout(title: str, error: Exception):
+    def error_callout(title: str, error: Exception):
         """Build a danger callout with title and formatted error message."""
         return mo.callout(
             mo.vstack([mo.md(f"**{title}**"), mo.md(f"```\n{error}\n```")]),
             kind="danger",
         )
+
+    return build_config_from_editors, compact_toml, error_callout
 
 
 @app.cell
@@ -673,15 +664,15 @@ def _(save_button, validate_button):
 
 
 @app.cell
-def _(cfg, editor_values, validate_button):
+def _(build_config_from_editors, error_callout, cfg, editor_values, validate_button):
     mo.stop(not validate_button.value)
 
     try:
-        _build_config_from_editors(editor_values, cfg.methods)
+        build_config_from_editors(editor_values, cfg.methods)
         validation_result = mo.callout(mo.md("**All validations passed!**"), kind="success")
         logger.info("Validation passed")
     except Exception as e:
-        validation_result = _error_callout("Validation failed:", e)
+        validation_result = error_callout("Validation failed:", e)
         logger.warning("Validation failed: {}", e)
 
     validation_result
@@ -694,19 +685,25 @@ def _(cfg, editor_values, validate_button):
 
 
 @app.cell
-def _(cfg, config_dir, editor_values, save_button):
+def _(build_config_from_editors, error_callout, cfg, config_dir, original_contents, editor_values, save_button):
     mo.stop(save_button is None or not save_button.value)
 
     try:
-        cfg_to_save = _build_config_from_editors(editor_values, cfg.methods, preserve_comments=True)
-        written = cfg_to_save.write_all(config_dir)
-        save_result = mo.callout(
-            mo.md(f"**Saved {len(written)} file(s) successfully!**"),
-            kind="success",
-        )
-        logger.info("Saved {} config file(s) to {}", len(written), config_dir)
+        cfg_to_save = build_config_from_editors(editor_values, cfg.methods, preserve_comments=True)
+        written = cfg_to_save.write_all(config_dir, original_contents=original_contents)
+        if written:
+            save_result = mo.callout(
+                mo.md(f"**Saved {len(written)} changed file(s):** {', '.join(written)}"),
+                kind="success",
+            )
+        else:
+            save_result = mo.callout(
+                mo.md("**Nothing changed** — no config files differ from the loaded version."),
+                kind="info",
+            )
+        logger.info("Saved {} changed config file(s) to {}", len(written), config_dir)
     except Exception as e:
-        save_result = _error_callout("Cannot save:", e)
+        save_result = error_callout("Cannot save:", e)
         logger.error("Save failed: {}", e)
 
     save_result
@@ -785,6 +782,8 @@ def _(
 
 @app.cell
 def _(
+    build_config_from_editors,
+    error_callout,
     gitlab_available,
     cfg,
     original_contents,
@@ -807,7 +806,7 @@ def _(
         )
     else:
         try:
-            _cfg_to_submit = _build_config_from_editors(editor_values, cfg.methods, preserve_comments=True)
+            _cfg_to_submit = build_config_from_editors(editor_values, cfg.methods, preserve_comments=True)
 
             # In-memory diff: serialize edited config, compare to original snapshot
             _edited_contents = _cfg_to_submit.serialize_all()
@@ -830,7 +829,7 @@ def _(
                 logger.info("Review submitted but no files changed")
         except Exception as e:
             logger.exception("GitLab submission failed")
-            review_result = _error_callout("Submission failed:", e)
+            review_result = error_callout("Submission failed:", e)
 
     review_result
     return

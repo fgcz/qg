@@ -558,11 +558,17 @@ class QGConfiguration:
 
         return contents
 
-    def write_all(self, config_dir: Path) -> list[str]:
-        """Write all configs to disk after validation.
+    def write_all(
+        self,
+        config_dir: Path,
+        original_contents: dict[str, str] | None = None,
+    ) -> list[str]:
+        """Write configs to disk after validation, skipping unchanged files.
 
         Args:
             config_dir: Directory to write configs to.
+            original_contents: If provided, only files whose serialized content
+                differs from original_contents are written.
 
         Returns:
             List of written file paths (relative to config_dir).
@@ -570,60 +576,18 @@ class QGConfiguration:
         Raises:
             ConfigValidationError: If cross-validation fails.
         """
-        errors = _validate_configs(
-            samples=self.samples,
-            queue_patterns=self.queue_patterns,
-            qc_layouts_well=self.qc_layouts_well,
-            qc_layouts_tip=self.qc_layouts_tip,
-        )
-        if errors:
-            raise ConfigValidationError(errors)
+        contents = self.serialize_all()  # validates internally
 
         written: list[str] = []
-
-        # CSV configs (use config_path ClassVar as single source of truth)
-        csv_configs = [
-            self.instruments,
-            self.samples,
-            self.sampler_plate_layouts,
-            self.qc_layouts_well,
-            self.qc_layouts_tip,
-            self.instrument_configs,
-        ]
-        for cfg in csv_configs:
-            path = config_dir / cfg.config_path
+        for rel_path, content in contents.items():
+            if original_contents and content == original_contents.get(rel_path):
+                continue
+            path = config_dir / rel_path
             path.parent.mkdir(parents=True, exist_ok=True)
-            cfg.to_table().write_csv(path)
-            written.append(str(cfg.config_path))
+            path.write_text(content)
+            written.append(rel_path)
 
-        # TOML configs (use config_path ClassVar as single source of truth)
-        toml_configs = [
-            self.output_formats,
-            self.plate_layouts,
-            self.samplers,
-            self.queue_patterns,
-        ]
-        for cfg in toml_configs:
-            path = config_dir / cfg.config_path
-            path.parent.mkdir(parents=True, exist_ok=True)
-            header = cfg.header_comments
-            body = _compact_toml(tomli_w.dumps(cfg.to_dict()))
-            path.write_text(header + body)
-            written.append(str(cfg.config_path))
-
-        # Methods (multiple CSV files, use config_folder ClassVar)
-        methods_base = MethodsConfig.config_folder
-        for (tech_area, instrument), df in self.methods.to_tables().items():
-            instr = self.instruments.get_instrument(tech_area, instrument)
-            # methods_file is like "methods/proteomics/ASTRAL_1_methods.csv"
-            # Remove the "methods/" prefix to get relative path from methods_base
-            relative_path = instr.methods_file.removeprefix("methods/")
-            path = config_dir / methods_base / relative_path
-            path.parent.mkdir(parents=True, exist_ok=True)
-            df.write_csv(path)
-            written.append(str(methods_base / relative_path))
-
-        logger.info("Wrote {} config files to {}", len(written), config_dir)
+        logger.info("Wrote {} changed config file(s) to {}", len(written), config_dir)
         return written
 
 
