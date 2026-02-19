@@ -378,7 +378,7 @@ def test_sampler_strategy():
 |------|---------|
 | `ALGORITHM.md` | Queue generation algorithm details |
 | `CONFIG.md` | Configuration file documentation |
-| `PRIVATE.md` | Internal development notes |
+| `HISTORY.md` | Development chronology (Jan–Feb 2026 rewrite) |
 
 Generated formats (.html, .pdf, .svg, .png) are also available.
 
