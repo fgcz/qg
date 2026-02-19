@@ -22,7 +22,6 @@ with app.setup:
         OutputFormatsConfig,
     )
     from qg.config_models.loader import (
-        ConfigValidationError,
         QGConfiguration,
         qg_configuration,
         read_header_comments,
@@ -51,6 +50,66 @@ with app.setup:
 
         return re.sub(pattern, replace_array, toml_str)
 
+    # -- TOML config classes that support from_dict + header_comments --
+    _TOML_CONFIG_CLASSES: dict[str, type] = {
+        "samplers": SamplersConfig,
+        "plate_layouts": PlateLayoutsConfig,
+        "queue_patterns": QueuePatternsConfig,
+        "output_formats": OutputFormatsConfig,
+    }
+
+    def _parse_toml_editor(editor_value: str, config_cls: type, *, preserve_comments: bool = False):
+        """Parse a TOML code-editor value into a config object.
+
+        Args:
+            editor_value: Raw text from mo.ui.code_editor.
+            config_cls: Config class with a from_dict() classmethod.
+            preserve_comments: If True, extract and attach header comments.
+        """
+        cfg = config_cls.from_dict(tomllib.loads(editor_value))
+        if preserve_comments:
+            cfg.header_comments = read_header_comments(editor_value)
+        return cfg
+
+    def _build_config_from_editors(
+        editors: dict,
+        methods,
+        *,
+        preserve_comments: bool = False,
+    ) -> QGConfiguration:
+        """Build a validated QGConfiguration from editor widget values.
+
+        Args:
+            editors: Dict with keys matching QGConfiguration.create() params.
+                     CSV editors provide pl.DataFrame values; TOML editors
+                     provide raw text strings.
+            methods: MethodsConfig to pass through (edited separately).
+            preserve_comments: Whether to preserve header comments on TOML configs.
+        """
+        # Parse TOML editors
+        toml_configs = {
+            name: _parse_toml_editor(editors[name], cls, preserve_comments=preserve_comments)
+            for name, cls in _TOML_CONFIG_CLASSES.items()
+        }
+        # Parse CSV editors
+        return QGConfiguration.create(
+            instruments=InstrumentsConfig.from_table(editors["instruments"]),
+            samples=SamplesConfig.from_table(editors["samples"]),
+            qc_layouts_well=QCLayoutsWellConfig.from_table(editors["qc_layouts_well"]),
+            qc_layouts_tip=QCLayoutsTipConfig.from_table(editors["qc_layouts_tip"]),
+            instrument_configs=InstrumentConfigsConfig.from_table(editors["instrument_configs"]),
+            sampler_plate_layouts=SamplerPlateLayoutsConfig.from_table(editors["sampler_plate_layouts"]),
+            methods=methods,
+            **toml_configs,
+        )
+
+    def _error_callout(title: str, error: Exception):
+        """Build a danger callout with title and formatted error message."""
+        return mo.callout(
+            mo.vstack([mo.md(f"**{title}**"), mo.md(f"```\n{error}\n```")]),
+            kind="danger",
+        )
+
 
 @app.cell
 def _():
@@ -72,89 +131,161 @@ def _():
 @app.cell
 def _():
     mo.md("""
-    # Queue Generation Config Editor (New Config)
+    # Queue Generation Config Editor
     """)
     return
 
 
 # =============================================================================
-# CSV Editors
-# =============================================================================
-
-
-@app.cell
-def _(cfg):
-    instruments_df = cfg.instruments.to_table()
-    instruments_editor = mo.ui.data_editor(instruments_df, label="Instruments")
-    return instruments_df, instruments_editor
-
-
-@app.cell
-def _(cfg):
-    samples_df = cfg.samples.to_table()
-    samples_editor = mo.ui.data_editor(samples_df, label="Samples")
-    return samples_df, samples_editor
-
-
-@app.cell
-def _(cfg):
-    qc_layouts_well_df = cfg.qc_layouts_well.to_table()
-    qc_layouts_well_editor = mo.ui.data_editor(qc_layouts_well_df, label="QC Layouts - Well Plates")
-    return qc_layouts_well_df, qc_layouts_well_editor
-
-
-@app.cell
-def _(cfg):
-    qc_layouts_tip_df = cfg.qc_layouts_tip.to_table()
-    qc_layouts_tip_editor = mo.ui.data_editor(qc_layouts_tip_df, label="QC Layouts - Tip Plates")
-    return qc_layouts_tip_df, qc_layouts_tip_editor
-
-
-@app.cell
-def _(cfg):
-    instrument_configs_df = cfg.instrument_configs.to_table()
-    instrument_configs_editor = mo.ui.data_editor(instrument_configs_df, label="Instrument Configs")
-    return instrument_configs_df, instrument_configs_editor
-
-
-@app.cell
-def _(cfg):
-    sampler_plate_layouts_df = cfg.sampler_plate_layouts.to_table()
-    sampler_plate_layouts_editor = mo.ui.data_editor(sampler_plate_layouts_df, label="Sampler Plate Layouts")
-    return sampler_plate_layouts_df, sampler_plate_layouts_editor
-
-
-# =============================================================================
-# TOML Editors
+# CSV & TOML Editors (initialized once from cfg — never re-created)
 # =============================================================================
 
 
 @app.cell
 def _(cfg, compact_toml):
-    samplers_toml = cfg.samplers.header_comments + compact_toml(tomli_w.dumps(cfg.samplers.to_dict()))
-    samplers_editor = mo.ui.code_editor(samplers_toml, language="toml", min_height=200)
-    return (samplers_editor,)
+    instruments_editor = mo.ui.data_editor(cfg.instruments.to_table(), label="Instruments")
+    output_formats_editor = mo.ui.code_editor(
+        cfg.output_formats.header_comments + compact_toml(tomli_w.dumps(cfg.output_formats.to_dict())),
+        language="toml",
+        min_height=400,
+    )
+    formatting_tab = mo.vstack(
+        [
+            mo.md("### Instruments (instruments.csv)"),
+            instruments_editor,
+            mo.md("### Output Formats (output_formats.toml)"),
+            output_formats_editor,
+        ]
+    )
+    return formatting_tab, instruments_editor, output_formats_editor
+
+
+@app.cell
+def _(cfg):
+    samples_editor = mo.ui.data_editor(cfg.samples.to_table(), label="Samples")
+    samples_tab = mo.vstack(
+        [
+            mo.md("### Samples (samples.csv)"),
+            samples_editor,
+        ]
+    )
+    return samples_editor, samples_tab
+
+
+@app.cell
+def _(cfg):
+    qc_layouts_well_editor = mo.ui.data_editor(cfg.qc_layouts_well.to_table(), label="QC Layouts - Well Plates")
+    qc_layouts_well_tab = mo.vstack(
+        [
+            mo.md("### QC Layouts Well (qc_layouts_well.csv)"),
+            mo.md("_Columns: tech_area, qc_layout_name, plate_layout, sample_id, tray, row, col_"),
+            qc_layouts_well_editor,
+        ]
+    )
+    return qc_layouts_well_editor, qc_layouts_well_tab
+
+
+@app.cell
+def _(cfg):
+    qc_layouts_tip_editor = mo.ui.data_editor(cfg.qc_layouts_tip.to_table(), label="QC Layouts - Tip Plates")
+    qc_layouts_tip_tab = mo.vstack(
+        [
+            mo.md("### QC Layouts Tip (qc_layouts_tip.csv)"),
+            mo.md("_Columns: tech_area, qc_layout_name, plate_layout, sample_id, tray, position_start, position_end_"),
+            qc_layouts_tip_editor,
+        ]
+    )
+    return qc_layouts_tip_editor, qc_layouts_tip_tab
+
+
+@app.cell
+def _(cfg):
+    instrument_configs_editor = mo.ui.data_editor(cfg.instrument_configs.to_table(), label="Instrument Configs")
+    ui_tab = mo.vstack(
+        [
+            mo.md("### UI — Instrument Configs (instrument_config.csv)"),
+            mo.md("_Valid (instrument, sampler, output_format, default_pattern) combinations for the UI_"),
+            instrument_configs_editor,
+        ]
+    )
+    return instrument_configs_editor, ui_tab
 
 
 @app.cell
 def _(cfg, compact_toml):
-    plate_layouts_toml = cfg.plate_layouts.header_comments + compact_toml(tomli_w.dumps(cfg.plate_layouts.to_dict()))
-    plate_layouts_editor = mo.ui.code_editor(plate_layouts_toml, language="toml", min_height=200)
-    return (plate_layouts_editor,)
+    samplers_editor = mo.ui.code_editor(
+        cfg.samplers.header_comments + compact_toml(tomli_w.dumps(cfg.samplers.to_dict())),
+        language="toml",
+        min_height=200,
+    )
+    plate_layouts_editor = mo.ui.code_editor(
+        cfg.plate_layouts.header_comments + compact_toml(tomli_w.dumps(cfg.plate_layouts.to_dict())),
+        language="toml",
+        min_height=200,
+    )
+    sampler_plate_layouts_editor = mo.ui.data_editor(
+        cfg.sampler_plate_layouts.to_table(), label="Sampler Plate Layouts"
+    )
+    position_tab = mo.vstack(
+        [
+            mo.md("### Samplers (sampler.toml)"),
+            samplers_editor,
+            mo.md("### Plate Layouts (plate_layouts.toml)"),
+            plate_layouts_editor,
+            mo.md("### Sampler Plate Layouts (sampler_plate_layouts.csv)"),
+            sampler_plate_layouts_editor,
+        ]
+    )
+    return plate_layouts_editor, position_tab, sampler_plate_layouts_editor, samplers_editor
+
+
+# =============================================================================
+# Collected editor values (single dependency for validate/save/review cells)
+# =============================================================================
+
+
+@app.cell
+def _(
+    instruments_editor,
+    samples_editor,
+    qc_layouts_well_editor,
+    qc_layouts_tip_editor,
+    instrument_configs_editor,
+    sampler_plate_layouts_editor,
+    samplers_editor,
+    plate_layouts_editor,
+    queue_patterns_editor,
+    output_formats_editor,
+):
+    editor_values = {
+        "instruments": instruments_editor.value,
+        "samples": samples_editor.value,
+        "qc_layouts_well": qc_layouts_well_editor.value,
+        "qc_layouts_tip": qc_layouts_tip_editor.value,
+        "instrument_configs": instrument_configs_editor.value,
+        "sampler_plate_layouts": sampler_plate_layouts_editor.value,
+        "samplers": samplers_editor.value,
+        "plate_layouts": plate_layouts_editor.value,
+        "queue_patterns": queue_patterns_editor.value,
+        "output_formats": output_formats_editor.value,
+    }
+    return (editor_values,)
 
 
 @app.cell
 def _(cfg, compact_toml):
-    queue_patterns_toml = cfg.queue_patterns.header_comments + compact_toml(tomli_w.dumps(cfg.queue_patterns.to_dict()))
-    queue_patterns_editor = mo.ui.code_editor(queue_patterns_toml, language="toml", min_height=400)
-    return (queue_patterns_editor,)
-
-
-@app.cell
-def _(cfg, compact_toml):
-    output_formats_toml = cfg.output_formats.header_comments + compact_toml(tomli_w.dumps(cfg.output_formats.to_dict()))
-    output_formats_editor = mo.ui.code_editor(output_formats_toml, language="toml", min_height=400)
-    return (output_formats_editor,)
+    queue_patterns_editor = mo.ui.code_editor(
+        cfg.queue_patterns.header_comments + compact_toml(tomli_w.dumps(cfg.queue_patterns.to_dict())),
+        language="toml",
+        min_height=400,
+    )
+    structure_tab = mo.vstack(
+        [
+            mo.md("### Queue Patterns (queue_patterns.toml)"),
+            queue_patterns_editor,
+        ]
+    )
+    return queue_patterns_editor, structure_tab
 
 
 # =============================================================================
@@ -185,130 +316,14 @@ def _(cfg, methods_dropdown, methods_options):
     instr_methods = cfg.methods.get_methods(tech_area, instrument)
     methods_df = instr_methods.to_table() if instr_methods else pl.DataFrame()
     methods_editor = mo.ui.data_editor(methods_df, label="Methods")
-    return methods_editor, tech_area, instrument
-
-
-# =============================================================================
-# Tabs (organized by config folder structure)
-# =============================================================================
-
-
-@app.cell
-def _(instruments_editor, output_formats_editor):
-    # core/formatting/ - instruments.csv, output_formats.toml
-    formatting_tab = mo.vstack(
-        [
-            mo.md("## core/formatting/"),
-            mo.md("### Instruments (instruments.csv)"),
-            instruments_editor,
-            mo.md("### Output Formats (output_formats.toml)"),
-            output_formats_editor,
-        ]
-    )
-    return (formatting_tab,)
-
-
-@app.cell
-def _(
-    samplers_editor,
-    plate_layouts_editor,
-    sampler_plate_layouts_editor,
-):
-    # core/position/ - sampler.toml, plate_layouts.toml, sampler_plate_layouts.csv
-    position_tab = mo.vstack(
-        [
-            mo.md("## core/position/"),
-            mo.md("### Samplers (sampler.toml)"),
-            samplers_editor,
-            mo.md("### Plate Layouts (plate_layouts.toml)"),
-            plate_layouts_editor,
-            mo.md("### Sampler Plate Layouts (sampler_plate_layouts.csv)"),
-            sampler_plate_layouts_editor,
-        ]
-    )
-    return (position_tab,)
-
-
-@app.cell
-def _(qc_layouts_well_editor):
-    # core/position/ - qc_layouts_well.csv
-    qc_layouts_well_tab = mo.vstack(
-        [
-            mo.md("## core/position/"),
-            mo.md("### QC Layouts - Well Plates (qc_layouts_well.csv)"),
-            mo.md("_Columns: tech_area, qc_layout_name, plate_layout, sample_id, tray, row, col_"),
-            qc_layouts_well_editor,
-        ]
-    )
-    return (qc_layouts_well_tab,)
-
-
-@app.cell
-def _(qc_layouts_tip_editor):
-    # core/position/ - qc_layouts_tip.csv
-    qc_layouts_tip_tab = mo.vstack(
-        [
-            mo.md("## core/position/"),
-            mo.md("### QC Layouts - Tip Plates (qc_layouts_tip.csv)"),
-            mo.md("_Columns: tech_area, qc_layout_name, plate_layout, sample_id, tray, position_start, position_end_"),
-            qc_layouts_tip_editor,
-        ]
-    )
-    return (qc_layouts_tip_tab,)
-
-
-@app.cell
-def _(queue_patterns_editor):
-    # core/structure/ - queue_patterns.toml
-    structure_tab = mo.vstack(
-        [
-            mo.md("## core/structure/"),
-            mo.md("### Queue Patterns (queue_patterns.toml)"),
-            queue_patterns_editor,
-        ]
-    )
-    return (structure_tab,)
-
-
-@app.cell
-def _(samples_editor):
-    # core/structure/ - samples.csv
-    samples_tab = mo.vstack(
-        [
-            mo.md("## core/structure/"),
-            mo.md("### Samples (samples.csv)"),
-            samples_editor,
-        ]
-    )
-    return (samples_tab,)
-
-
-@app.cell
-def _(methods_dropdown, methods_editor):
-    # core/methods/ - per-instrument method CSV files
     methods_tab = mo.vstack(
         [
-            mo.md("## core/methods/"),
-            mo.md("### Methods Files"),
+            mo.md("### Methods"),
             methods_dropdown,
             methods_editor,
         ]
     )
-    return (methods_tab,)
-
-
-@app.cell
-def _(instrument_configs_editor):
-    # ui/ - instrument_config.csv
-    ui_tab = mo.vstack(
-        [
-            mo.md("## ui/"),
-            mo.md("### Instrument Configs (instrument_config.csv)"),
-            mo.md("_Valid (instrument, sampler, output_format, default_pattern) combinations for the UI_"),
-            instrument_configs_editor,
-        ]
-    )
-    return (ui_tab,)
+    return methods_editor, methods_tab, tech_area, instrument
 
 
 # =============================================================================
@@ -380,9 +395,26 @@ def _(sampler_dropdown, filtered_by_instr):
 
 
 @app.cell
-def _(filtered_by_sampler):
-    # Step 5: pattern dropdown (filtered by sampler selection)
-    pattern_options = filtered_by_sampler["pattern_name"].unique().sort().to_list()
+def _(plate_layout_dropdown, filtered_by_sampler):
+    # Step 5: qc_layout dropdown (filtered by plate_layout)
+    mo.stop(not plate_layout_dropdown.value)
+    _plate_layout = plate_layout_dropdown.value.split(" (")[0]
+    filtered_by_plate = filtered_by_sampler.filter(pl.col("plate_layout") == _plate_layout)
+    qc_layout_options = filtered_by_plate["qc_layout_name"].unique().sort().to_list()
+    qc_layout_dropdown = mo.ui.dropdown(
+        options=qc_layout_options,
+        value=qc_layout_options[0] if qc_layout_options else None,
+        label="QC Layout",
+    )
+    return qc_layout_dropdown, filtered_by_plate
+
+
+@app.cell
+def _(qc_layout_dropdown, filtered_by_plate):
+    # Step 6: pattern dropdown (filtered by qc_layout compatibility)
+    mo.stop(not qc_layout_dropdown.value)
+    _filtered = filtered_by_plate.filter(pl.col("qc_layout_name") == qc_layout_dropdown.value)
+    pattern_options = _filtered["pattern_name"].unique().sort().to_list()
     pattern_dropdown = mo.ui.dropdown(
         options=pattern_options,
         value=pattern_options[0] if pattern_options else None,
@@ -396,6 +428,8 @@ def _(
     tech_dropdown,
     instr_dropdown,
     sampler_dropdown,
+    plate_layout_dropdown,
+    qc_layout_dropdown,
     pattern_dropdown,
     cfg,
 ):
@@ -406,6 +440,8 @@ def _(
     _instr = instr_dropdown.value
     _sampler = sampler_dropdown.value
     _pattern_name = pattern_dropdown.value
+    _plate_layout = plate_layout_dropdown.value.split(" (")[0] if plate_layout_dropdown.value else ""
+    _qc_layout_name = qc_layout_dropdown.value or ""
 
     # Get sampler config
     _sampler_cfg = cfg.samplers.get_sampler(_sampler)
@@ -419,7 +455,6 @@ def _(
     _pattern_info = {}
     if _pattern_cfg:
         _pattern_info = {
-            "qc_layout_name": _pattern_cfg.qc_layout_name,
             "run_QC_after_n_samples": _pattern_cfg.run_QC_after_n_samples,
             "start": _pattern_cfg.start,
             "middle": _pattern_cfg.middle,
@@ -437,6 +472,14 @@ def _(
     _methods = cfg.methods.get_methods(_tech, _instr)
     _methods_preview = _methods.to_table().head(5) if _methods else None
 
+    # Get QC layout samples
+    _sampler_obj = cfg.samplers.get_sampler(_sampler)
+    if _sampler_obj and _sampler_obj.is_tip:
+        _qc_samples = cfg.qc_layouts_tip.get_samples(_tech, _qc_layout_name, _plate_layout)
+    else:
+        _qc_samples = cfg.qc_layouts_well.get_samples(_tech, _qc_layout_name, _plate_layout)
+    _qc_preview = pl.DataFrame([s.model_dump() for s in _qc_samples]) if _qc_samples else None
+
     selected_cfg = {
         "tech": _tech,
         "instrument": _instr,
@@ -446,6 +489,8 @@ def _(
         "pattern_info": _pattern_info,
         "instr_info": _instr_info,
         "methods_preview": _methods_preview,
+        "qc_layout_name": _qc_layout_name,
+        "qc_preview": _qc_preview,
     }
     return (selected_cfg,)
 
@@ -455,6 +500,8 @@ def _(
     tech_dropdown,
     instr_dropdown,
     sampler_dropdown,
+    plate_layout_dropdown,
+    qc_layout_dropdown,
     pattern_dropdown,
     selected_cfg,
 ):
@@ -467,7 +514,7 @@ def _(
         return pl.DataFrame(rows) if rows else None
 
     _dropdowns = mo.hstack(
-        [tech_dropdown, instr_dropdown, sampler_dropdown, pattern_dropdown],
+        [tech_dropdown, instr_dropdown, sampler_dropdown, plate_layout_dropdown, qc_layout_dropdown, pattern_dropdown],
         gap=1,
     )
 
@@ -490,8 +537,8 @@ def _(
             mo.md("---"),
             mo.hstack(
                 [
-                    _section(f"Sampler: {selected_cfg['sampler']}", _sampler_df),
-                    _section(f"Pattern: {selected_cfg['pattern']}", _pattern_df),
+                    _section(f"Position → Samplers: {selected_cfg['sampler']}", _sampler_df),
+                    _section(f"Queue Patterns: {selected_cfg['pattern']}", _pattern_df),
                 ],
                 widths="equal",
                 gap=2,
@@ -499,12 +546,14 @@ def _(
             mo.md("---"),
             mo.hstack(
                 [
-                    _section("Instrument Config", _instr_df),
-                    _section("Methods (first 5)", selected_cfg["methods_preview"]),
+                    _section("UI → Instrument Configs", _instr_df),
+                    _section(f"QC Layouts → {selected_cfg['qc_layout_name']}", selected_cfg["qc_preview"]),
                 ],
                 widths="equal",
                 gap=2,
             ),
+            mo.md("---"),
+            _section("Methods", selected_cfg["methods_preview"]),
         ]
     )
     return (overview_tab,)
@@ -533,7 +582,30 @@ def _(overview_df):
 
 
 @app.cell
+def _():
+    _section_names = [
+        "Overview",
+        "Queue Patterns",
+        "Samples",
+        "QC Layouts Well",
+        "QC Layouts Tip",
+        "UI",
+        "Formatting",
+        "Position",
+        "Methods",
+        "All Combinations",
+    ]
+    section_selector = mo.ui.radio(
+        options=_section_names,
+        value="Overview",
+        inline=True,
+    )
+    return (section_selector,)
+
+
+@app.cell
 def _(
+    section_selector,
     overview_tab,
     all_combinations_tab,
     formatting_tab,
@@ -545,26 +617,24 @@ def _(
     methods_tab,
     ui_tab,
 ):
-    tabs = mo.ui.tabs(
-        {
-            "Overview": overview_tab,
-            "All Combinations": all_combinations_tab,
-            "Formatting": formatting_tab,
-            "Position": position_tab,
-            "QC Layouts Well": qc_layouts_well_tab,
-            "QC Layouts Tip": qc_layouts_tip_tab,
-            "Queue Patterns": structure_tab,
-            "Samples": samples_tab,
-            "Methods": methods_tab,
-            "UI": ui_tab,
-        }
-    )
-    return (tabs,)
-
-
-@app.cell
-def _(tabs):
-    tabs
+    _sections = {
+        "Overview": overview_tab,
+        "All Combinations": all_combinations_tab,
+        "Formatting": formatting_tab,
+        "Position": position_tab,
+        "QC Layouts Well": qc_layouts_well_tab,
+        "QC Layouts Tip": qc_layouts_tip_tab,
+        "Queue Patterns": structure_tab,
+        "Samples": samples_tab,
+        "Methods": methods_tab,
+        "UI": ui_tab,
+    }
+    # CSS display:none keeps all widgets in the DOM (data_editor preserves visual state)
+    _panels = [
+        mo.md(f'<div style="display: {"block" if _name == section_selector.value else "none"}">{_content}</div>')
+        for _name, _content in _sections.items()
+    ]
+    mo.vstack([section_selector, *_panels])
     return
 
 
@@ -603,52 +673,15 @@ def _(save_button, validate_button):
 
 
 @app.cell
-def _(
-    cfg,
-    instruments_editor,
-    samples_editor,
-    qc_layouts_well_editor,
-    qc_layouts_tip_editor,
-    instrument_configs_editor,
-    sampler_plate_layouts_editor,
-    samplers_editor,
-    plate_layouts_editor,
-    queue_patterns_editor,
-    output_formats_editor,
-    validate_button,
-):
+def _(cfg, editor_values, validate_button):
     mo.stop(not validate_button.value)
 
     try:
-        # Rebuild configs from editor values (validation happens in create())
-        QGConfiguration.create(
-            instruments=InstrumentsConfig.from_table(instruments_editor.value),
-            samples=SamplesConfig.from_table(samples_editor.value),
-            qc_layouts_well=QCLayoutsWellConfig.from_table(qc_layouts_well_editor.value),
-            qc_layouts_tip=QCLayoutsTipConfig.from_table(qc_layouts_tip_editor.value),
-            instrument_configs=InstrumentConfigsConfig.from_table(instrument_configs_editor.value),
-            sampler_plate_layouts=SamplerPlateLayoutsConfig.from_table(sampler_plate_layouts_editor.value),
-            samplers=SamplersConfig.from_dict(tomllib.loads(samplers_editor.value)),
-            plate_layouts=PlateLayoutsConfig.from_dict(tomllib.loads(plate_layouts_editor.value)),
-            queue_patterns=QueuePatternsConfig.from_dict(tomllib.loads(queue_patterns_editor.value)),
-            output_formats=OutputFormatsConfig.from_dict(tomllib.loads(output_formats_editor.value)),
-            methods=cfg.methods,  # Keep existing methods (edited separately)
-        )
-        validation_result = mo.callout(
-            mo.md("**All validations passed!**"),
-            kind="success",
-        )
+        _build_config_from_editors(editor_values, cfg.methods)
+        validation_result = mo.callout(mo.md("**All validations passed!**"), kind="success")
         logger.info("Validation passed")
-    except (ConfigValidationError, Exception) as e:
-        validation_result = mo.callout(
-            mo.vstack(
-                [
-                    mo.md("**Validation failed:**"),
-                    mo.md(f"```\n{e}\n```"),
-                ]
-            ),
-            kind="danger",
-        )
+    except Exception as e:
+        validation_result = _error_callout("Validation failed:", e)
         logger.warning("Validation failed: {}", e)
 
     validation_result
@@ -661,69 +694,19 @@ def _(
 
 
 @app.cell
-def _(
-    cfg,
-    config_dir,
-    instruments_editor,
-    samples_editor,
-    qc_layouts_well_editor,
-    qc_layouts_tip_editor,
-    instrument_configs_editor,
-    sampler_plate_layouts_editor,
-    samplers_editor,
-    plate_layouts_editor,
-    queue_patterns_editor,
-    output_formats_editor,
-    save_button,
-):
+def _(cfg, config_dir, editor_values, save_button):
     mo.stop(save_button is None or not save_button.value)
 
     try:
-        # Parse TOML editors, preserving header comments from editor text
-        samplers_cfg = SamplersConfig.from_dict(tomllib.loads(samplers_editor.value))
-        samplers_cfg.header_comments = read_header_comments(samplers_editor.value)
-
-        plate_layouts_cfg = PlateLayoutsConfig.from_dict(tomllib.loads(plate_layouts_editor.value))
-        plate_layouts_cfg.header_comments = read_header_comments(plate_layouts_editor.value)
-
-        queue_patterns_cfg = QueuePatternsConfig.from_dict(tomllib.loads(queue_patterns_editor.value))
-        queue_patterns_cfg.header_comments = read_header_comments(queue_patterns_editor.value)
-
-        output_formats_cfg = OutputFormatsConfig.from_dict(tomllib.loads(output_formats_editor.value))
-        output_formats_cfg.header_comments = read_header_comments(output_formats_editor.value)
-
-        # Rebuild configs from editor values
-        cfg_to_save = QGConfiguration.create(
-            instruments=InstrumentsConfig.from_table(instruments_editor.value),
-            samples=SamplesConfig.from_table(samples_editor.value),
-            qc_layouts_well=QCLayoutsWellConfig.from_table(qc_layouts_well_editor.value),
-            qc_layouts_tip=QCLayoutsTipConfig.from_table(qc_layouts_tip_editor.value),
-            instrument_configs=InstrumentConfigsConfig.from_table(instrument_configs_editor.value),
-            sampler_plate_layouts=SamplerPlateLayoutsConfig.from_table(sampler_plate_layouts_editor.value),
-            samplers=samplers_cfg,
-            plate_layouts=plate_layouts_cfg,
-            queue_patterns=queue_patterns_cfg,
-            output_formats=output_formats_cfg,
-            methods=cfg.methods,  # Keep existing methods
-        )
-
-        # Write all configs to disk
+        cfg_to_save = _build_config_from_editors(editor_values, cfg.methods, preserve_comments=True)
         written = cfg_to_save.write_all(config_dir)
         save_result = mo.callout(
             mo.md(f"**Saved {len(written)} file(s) successfully!**"),
             kind="success",
         )
         logger.info("Saved {} config file(s) to {}", len(written), config_dir)
-    except (ConfigValidationError, Exception) as e:
-        save_result = mo.callout(
-            mo.vstack(
-                [
-                    mo.md("**Cannot save:**"),
-                    mo.md(f"```\n{e}\n```"),
-                ]
-            ),
-            kind="danger",
-        )
+    except Exception as e:
+        save_result = _error_callout("Cannot save:", e)
         logger.error("Save failed: {}", e)
 
     save_result
@@ -805,16 +788,7 @@ def _(
     gitlab_available,
     cfg,
     original_contents,
-    instruments_editor,
-    samples_editor,
-    qc_layouts_well_editor,
-    qc_layouts_tip_editor,
-    instrument_configs_editor,
-    sampler_plate_layouts_editor,
-    samplers_editor,
-    plate_layouts_editor,
-    queue_patterns_editor,
-    output_formats_editor,
+    editor_values,
     review_author_input,
     review_description_input,
     submit_review_button,
@@ -833,29 +807,7 @@ def _(
         )
     else:
         try:
-            # Build validated config from editor contents (no disk write)
-            _samplers_cfg = SamplersConfig.from_dict(tomllib.loads(samplers_editor.value))
-            _samplers_cfg.header_comments = read_header_comments(samplers_editor.value)
-            _plate_layouts_cfg = PlateLayoutsConfig.from_dict(tomllib.loads(plate_layouts_editor.value))
-            _plate_layouts_cfg.header_comments = read_header_comments(plate_layouts_editor.value)
-            _queue_patterns_cfg = QueuePatternsConfig.from_dict(tomllib.loads(queue_patterns_editor.value))
-            _queue_patterns_cfg.header_comments = read_header_comments(queue_patterns_editor.value)
-            _output_formats_cfg = OutputFormatsConfig.from_dict(tomllib.loads(output_formats_editor.value))
-            _output_formats_cfg.header_comments = read_header_comments(output_formats_editor.value)
-
-            _cfg_to_submit = QGConfiguration.create(
-                instruments=InstrumentsConfig.from_table(instruments_editor.value),
-                samples=SamplesConfig.from_table(samples_editor.value),
-                qc_layouts_well=QCLayoutsWellConfig.from_table(qc_layouts_well_editor.value),
-                qc_layouts_tip=QCLayoutsTipConfig.from_table(qc_layouts_tip_editor.value),
-                instrument_configs=InstrumentConfigsConfig.from_table(instrument_configs_editor.value),
-                sampler_plate_layouts=SamplerPlateLayoutsConfig.from_table(sampler_plate_layouts_editor.value),
-                samplers=_samplers_cfg,
-                plate_layouts=_plate_layouts_cfg,
-                queue_patterns=_queue_patterns_cfg,
-                output_formats=_output_formats_cfg,
-                methods=cfg.methods,
-            )
+            _cfg_to_submit = _build_config_from_editors(editor_values, cfg.methods, preserve_comments=True)
 
             # In-memory diff: serialize edited config, compare to original snapshot
             _edited_contents = _cfg_to_submit.serialize_all()
@@ -872,16 +824,13 @@ def _(
                 logger.info("MR created: {}", mr_url)
             else:
                 review_result = mo.callout(
-                    mo.md("**Nothing changed** — no config files differ from the current version."),
+                    mo.md("**Nothing changed** -- no config files differ from the current version."),
                     kind="info",
                 )
                 logger.info("Review submitted but no files changed")
         except Exception as e:
             logger.exception("GitLab submission failed")
-            review_result = mo.callout(
-                mo.md(f"**Submission failed:** {type(e).__name__} — check logs for details."),
-                kind="danger",
-            )
+            review_result = _error_callout("Submission failed:", e)
 
     review_result
     return
