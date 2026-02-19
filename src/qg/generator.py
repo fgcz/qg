@@ -383,4 +383,10 @@ class QueueGenerator:
         # Build queue rows
         result = _build_queue_rows(expanded, self.data_path, params.inj_vol_override, default_sample_id)
         logger.info("Queue built | rows={} | format={}", len(result.rows), params.output_format)
+
+        # Save artifacts for audit/debugging
+        from qg.artifacts import save_artifacts
+
+        save_artifacts(self.queue_input, result)
+
         return result

@@ -18,6 +18,16 @@ from qg.params_models import (
 CONFIG_DIR = Path(__file__).parent.parent / "qg_configs"
 
 
+def _output_col(config, format_name: str, internal_field: str) -> str:
+    """Look up the output column name that maps to an internal field."""
+    fmt = config.output_formats.get_format(format_name)
+    for col_name, field in fmt.columns.items():
+        if field == internal_field:
+            return col_name
+    msg = f"No column maps to '{internal_field}' in format '{format_name}'"
+    raise KeyError(msg)
+
+
 @pytest.fixture
 def config():
     return qg_configuration(CONFIG_DIR)
@@ -214,8 +224,8 @@ class TestOutputFormats:
         assert isinstance(result, pl.DataFrame)
         assert len(result.columns) > 0
 
-    def test_xcalibur_has_literal_l3_laboratory(self, config):
-        """Xcalibur output includes L3 Laboratory column with constant 'FGCZ'."""
+    def test_xcalibur_literal_columns(self, config):
+        """Xcalibur output includes literal columns with correct constant values."""
         samples = make_vial_samples(3)
         params = QueueParameters(
             tech_area="Proteomics",
@@ -234,12 +244,16 @@ class TestOutputFormats:
         generator = QueueGenerator(config, queue_input)
         result = generator.generate()
 
-        assert "L3 Laboratory" in result.columns
-        assert result["L3 Laboratory"].to_list() == ["FGCZ"] * 3
-        # Verify column order: L3 Laboratory between Inj Vol and Sample ID
-        cols = result.columns
-        assert cols.index("L3 Laboratory") == cols.index("Inj Vol") + 1
-        assert cols.index("L3 Laboratory") == cols.index("Sample ID") - 1
+        # Verify all literal columns from config have expected constant values
+        xcalibur_fmt = config.output_formats.get_format("xcalibur")
+        for col_name, mapping in xcalibur_fmt.columns.items():
+            if mapping.startswith("literal:"):
+                expected_value = mapping[len("literal:") :]
+                assert col_name in result.columns, f"Missing literal column {col_name}"
+                assert result[col_name].to_list() == [expected_value] * len(result)
+
+        # Verify column order matches config
+        assert result.columns == list(xcalibur_fmt.columns.keys())
 
     @pytest.mark.parametrize("output_format", ["xcalibur", "chronos", "hystar"])
     def test_single_sample_row_count(self, config, output_format: str):
@@ -584,9 +598,10 @@ class TestEvosepChronosOutputFormat:
         generator = QueueGenerator(config, queue_input)
         result = generator.generate()
 
-        # Source Vial should contain numeric 1-96 (alpha_to_flat conversion)
-        assert "Source Vial" in result.columns
-        vials = result["Source Vial"].to_list()
+        # grid_position column should contain numeric 1-96 (alpha_to_flat conversion)
+        vial_col = _output_col(config, "chronos", "grid_position")
+        assert vial_col in result.columns
+        vials = result[vial_col].to_list()
         assert vials == ["1", "2", "3"]
 
 
@@ -613,8 +628,9 @@ class TestEvosepHystarOutputFormat:
         result = generator.generate()
 
         # Position should be S{tray}-{row}{col} format
-        assert "Position" in result.columns
-        positions = result["Position"].to_list()
+        pos_col = _output_col(config, "hystar", "position")
+        assert pos_col in result.columns
+        positions = result[pos_col].to_list()
         assert positions[0] == "S1-A1"
         assert positions[1] == "S1-A2"
         assert positions[2] == "S1-A3"
@@ -671,7 +687,8 @@ class TestChronosNonRowA:
         generator = QueueGenerator(config, queue_input)
         result = generator.generate()
 
-        vials = result["Source Vial"].to_list()
+        vial_col = _output_col(config, "chronos", "grid_position")
+        vials = result[vial_col].to_list()
         # 15 samples: A1-A12 -> 1-12, B1-B3 -> 13-15
         assert vials == [str(i) for i in range(1, 16)]
 
@@ -698,22 +715,12 @@ class TestChronosFormat:
         return QueueGenerator(config, queue_input)
 
     def test_chronos_column_order(self, config):
-        """Chronos columns must appear in exact positional order."""
+        """Chronos columns must match the output_formats config."""
         generator = self._make_chronos_generator(config)
         result = generator.generate()
 
-        expected_columns = [
-            "Analysis Method",
-            "Source Tray",
-            "Source Vial",
-            "Sample Name",
-            "Xcalibur Method",
-            "Xcalibur Filename",
-            "Column H",
-            "Xcalibur Post Acquisition Program",
-            "Xcalibur Output Dir",
-            "Comment",
-        ]
+        chronos_format = config.output_formats.get_format("chronos")
+        expected_columns = list(chronos_format.columns.keys())
         assert result.columns == expected_columns
 
     def test_chronos_source_tray_evoslot_format(self, config):
@@ -725,21 +732,32 @@ class TestChronosFormat:
         assert all(t.startswith("EvoSlot ") for t in trays)
 
     def test_chronos_empty_literal_columns(self, config):
-        """Analysis Method, Xcalibur Method, Column H, Comment must be empty strings."""
+        """Columns mapped to 'literal:' (empty literal) must contain empty strings."""
         generator = self._make_chronos_generator(config)
         result = generator.generate()
 
-        for col_name in ["Analysis Method", "Xcalibur Method", "Column H", "Comment"]:
+        chronos_format = config.output_formats.get_format("chronos")
+        empty_literal_cols = [name for name, value in chronos_format.columns.items() if value == "literal:"]
+        assert empty_literal_cols, "Config should have at least one empty-literal column"
+        for col_name in empty_literal_cols:
             values = result[col_name].to_list()
             assert all(v == "" for v in values), f"{col_name} should be empty, got {values}"
 
-    def test_chronos_post_acquisition_path(self, config):
-        """Xcalibur Post Acquisition Program must be the biobeamer bat path."""
+    def test_chronos_non_empty_literal_columns(self, config):
+        """Non-empty literal columns must have the value defined in config."""
         generator = self._make_chronos_generator(config)
         result = generator.generate()
 
-        values = result["Xcalibur Post Acquisition Program"].to_list()
-        assert all(v == "c:\\FGCZ\\BioBeamer\\biobeamer.bat" for v in values)
+        chronos_format = config.output_formats.get_format("chronos")
+        non_empty_literals = {
+            name: value[len("literal:") :]
+            for name, value in chronos_format.columns.items()
+            if value.startswith("literal:") and value != "literal:"
+        }
+        assert non_empty_literals, "Config should have at least one non-empty literal column"
+        for col_name, expected in non_empty_literals.items():
+            values = result[col_name].to_list()
+            assert all(v == expected for v in values), f"{col_name} should be '{expected}', got {values}"
 
 
 class TestChronosWriter:
