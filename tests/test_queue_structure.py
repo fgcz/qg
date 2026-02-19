@@ -5,9 +5,8 @@ from pathlib import Path
 import pytest
 from loguru import logger
 
-from qg.config_models.formatting import SamplesConfig
 from qg.config_models.loader import qg_configuration
-from qg.config_models.structure import QueuePattern
+from qg.config_models.structure import QueuePattern, SamplesConfig
 from qg.queue_structure import (
     _compute_extended_positions,
     _compute_middle_block_positions,

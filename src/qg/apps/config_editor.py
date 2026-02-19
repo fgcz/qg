@@ -20,7 +20,6 @@ with app.setup:
     from qg.config_models.formatting import (
         InstrumentsConfig,
         OutputFormatsConfig,
-        SamplesConfig,
     )
     from qg.config_models.loader import (
         ConfigValidationError,
@@ -35,7 +34,7 @@ with app.setup:
         SamplerPlateLayoutsConfig,
         SamplersConfig,
     )
-    from qg.config_models.structure import QueuePatternsConfig
+    from qg.config_models.structure import QueuePatternsConfig, SamplesConfig
     from qg.config_models.ui import InstrumentConfigsConfig
 
     def compact_toml(toml_str: str) -> str:
@@ -195,15 +194,13 @@ def _(cfg, methods_dropdown, methods_options):
 
 
 @app.cell
-def _(instruments_editor, samples_editor, output_formats_editor):
-    # core/formatting/ - instruments.csv, samples.csv, output_formats.toml
+def _(instruments_editor, output_formats_editor):
+    # core/formatting/ - instruments.csv, output_formats.toml
     formatting_tab = mo.vstack(
         [
             mo.md("## core/formatting/"),
             mo.md("### Instruments (instruments.csv)"),
             instruments_editor,
-            mo.md("### Samples (samples.csv)"),
-            samples_editor,
             mo.md("### Output Formats (output_formats.toml)"),
             output_formats_editor,
         ]
@@ -216,10 +213,8 @@ def _(
     samplers_editor,
     plate_layouts_editor,
     sampler_plate_layouts_editor,
-    qc_layouts_well_editor,
-    qc_layouts_tip_editor,
 ):
-    # core/position/ - sampler.toml, plate_layouts.toml, sampler_plate_layouts.csv, qc_layouts_*.csv
+    # core/position/ - sampler.toml, plate_layouts.toml, sampler_plate_layouts.csv
     position_tab = mo.vstack(
         [
             mo.md("## core/position/"),
@@ -229,15 +224,37 @@ def _(
             plate_layouts_editor,
             mo.md("### Sampler Plate Layouts (sampler_plate_layouts.csv)"),
             sampler_plate_layouts_editor,
+        ]
+    )
+    return (position_tab,)
+
+
+@app.cell
+def _(qc_layouts_well_editor):
+    # core/position/ - qc_layouts_well.csv
+    qc_layouts_well_tab = mo.vstack(
+        [
+            mo.md("## core/position/"),
             mo.md("### QC Layouts - Well Plates (qc_layouts_well.csv)"),
             mo.md("_Columns: tech_area, qc_layout_name, plate_layout, sample_id, tray, row, col_"),
             qc_layouts_well_editor,
+        ]
+    )
+    return (qc_layouts_well_tab,)
+
+
+@app.cell
+def _(qc_layouts_tip_editor):
+    # core/position/ - qc_layouts_tip.csv
+    qc_layouts_tip_tab = mo.vstack(
+        [
+            mo.md("## core/position/"),
             mo.md("### QC Layouts - Tip Plates (qc_layouts_tip.csv)"),
             mo.md("_Columns: tech_area, qc_layout_name, plate_layout, sample_id, tray, position_start, position_end_"),
             qc_layouts_tip_editor,
         ]
     )
-    return (position_tab,)
+    return (qc_layouts_tip_tab,)
 
 
 @app.cell
@@ -251,6 +268,19 @@ def _(queue_patterns_editor):
         ]
     )
     return (structure_tab,)
+
+
+@app.cell
+def _(samples_editor):
+    # core/structure/ - samples.csv
+    samples_tab = mo.vstack(
+        [
+            mo.md("## core/structure/"),
+            mo.md("### Samples (samples.csv)"),
+            samples_editor,
+        ]
+    )
+    return (samples_tab,)
 
 
 @app.cell
@@ -508,7 +538,10 @@ def _(
     all_combinations_tab,
     formatting_tab,
     position_tab,
+    qc_layouts_well_tab,
+    qc_layouts_tip_tab,
     structure_tab,
+    samples_tab,
     methods_tab,
     ui_tab,
 ):
@@ -518,7 +551,10 @@ def _(
             "All Combinations": all_combinations_tab,
             "Formatting": formatting_tab,
             "Position": position_tab,
-            "Structure": structure_tab,
+            "QC Layouts Well": qc_layouts_well_tab,
+            "QC Layouts Tip": qc_layouts_tip_tab,
+            "Queue Patterns": structure_tab,
+            "Samples": samples_tab,
             "Methods": methods_tab,
             "UI": ui_tab,
         }

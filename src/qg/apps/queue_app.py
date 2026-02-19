@@ -18,8 +18,8 @@ with app.setup:
     configure_logging()
 
     from qg.bfabric_utils import BfabricHelper
-    from qg.config_models.formatting import SamplesConfig
     from qg.config_models.loader import qg_configuration
+    from qg.config_models.structure import SamplesConfig
     from qg.generator import QueueGenerator, format_table, write_queue
     from qg.params_models import QueueParameters
     from qg.queue_builder import QueueBuilder

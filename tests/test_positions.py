@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from qg.config_models.formatting import SamplesConfig
 from qg.config_models.loader import qg_configuration
+from qg.config_models.structure import SamplesConfig
 from qg.params_models import ContainerBatch, Plate, PlateCell, PlateQueue, VialQueue, VialSample
 from qg.positionV2 import create_assembled_sampler
 from qg.qc_positions import create_qc_position_provider

@@ -49,7 +49,7 @@ class MethodsForInstrument(BaseModel):
         Returns:
             Method if found, None otherwise. Falls back to 'default' sample_type.
         """
-        from qg.config_models.formatting import SamplesConfig
+        from qg.config_models.structure import SamplesConfig
 
         for m in self.methods:
             if m.sample_type == sample_type and m.polarity == polarity:

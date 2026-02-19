@@ -322,7 +322,7 @@ class TestSerializeAll:
 
         # Check specific expected files exist
         assert "core/formatting/instruments.csv" in contents
-        assert "core/formatting/samples.csv" in contents
+        assert "core/structure/samples.csv" in contents
         assert "core/structure/queue_patterns.toml" in contents
         assert "core/position/sampler.toml" in contents
 

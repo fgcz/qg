@@ -18,7 +18,6 @@ from loguru import logger
 from .formatting import (
     InstrumentsConfig,
     OutputFormatsConfig,
-    SamplesConfig,
 )
 from .methods import MethodsConfig
 from .positions import (
@@ -31,7 +30,7 @@ from .positions import (
     SamplerPlateLayoutsConfig,
     SamplersConfig,
 )
-from .structure import QueuePatternsConfig
+from .structure import QueuePatternsConfig, SamplesConfig
 from .ui import InstrumentConfigsConfig
 
 # =============================================================================
@@ -251,7 +250,6 @@ class QGConfiguration:
 
     Attributes:
         # formatting/
-        samples: Sample definitions (QC samples and defaults)
         instruments: Instrument definitions with methods file paths
         output_formats: Output format definitions (xcalibur, chronos, hystar)
 
@@ -263,6 +261,7 @@ class QGConfiguration:
         qc_layouts_tip: QC sample positions for tip-plate samplers
 
         # structure/
+        samples: Sample definitions (QC samples and defaults)
         queue_patterns: Queue pattern definitions (QC injection sequences)
 
         # methods/
@@ -273,7 +272,6 @@ class QGConfiguration:
     """
 
     # formatting/
-    samples: SamplesConfig
     instruments: InstrumentsConfig
     output_formats: OutputFormatsConfig
 
@@ -285,6 +283,7 @@ class QGConfiguration:
     qc_layouts_tip: QCLayoutsTipConfig
 
     # structure/
+    samples: SamplesConfig
     queue_patterns: QueuePatternsConfig
 
     # methods/
@@ -559,7 +558,6 @@ def qg_configuration(config_dir: Path | None = None) -> QGConfiguration:
 
     # Load configs using ClassVar paths as single source of truth
     # formatting/
-    samples = SamplesConfig.load(config_dir)
     instruments = InstrumentsConfig.load(config_dir)
     output_formats = OutputFormatsConfig.load(config_dir)
 
@@ -571,6 +569,7 @@ def qg_configuration(config_dir: Path | None = None) -> QGConfiguration:
     qc_layouts_tip = QCLayoutsTipConfig.load(config_dir)
 
     # structure/
+    samples = SamplesConfig.load(config_dir)
     queue_patterns = QueuePatternsConfig.load(config_dir)
 
     # methods/ (requires instruments for dynamic loading)

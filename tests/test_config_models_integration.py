@@ -33,9 +33,9 @@ class TestFormattingConfigs:
 
     def test_load_samples(self):
         """Load samples.csv into SamplesConfig."""
-        from qg.config_models.formatting import SamplesConfig
+        from qg.config_models.structure import SamplesConfig
 
-        path = CONFIG_ROOT / "core" / "formatting" / "samples.csv"
+        path = CONFIG_ROOT / "core" / "structure" / "samples.csv"
         df = pl.read_csv(path)
         config = SamplesConfig.from_table(df)
 

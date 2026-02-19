@@ -9,10 +9,11 @@ import polars as pl
 from loguru import logger
 from pydantic import BaseModel
 
-from qg.config_models.formatting import OutputFormat, Sample, SamplesConfig
+from qg.config_models.formatting import OutputFormat
 from qg.config_models.loader import QGConfiguration
 from qg.config_models.methods import MethodsConfig
 from qg.config_models.positions import PlateLayout, get_grid_position_converter
+from qg.config_models.structure import Sample, SamplesConfig
 from qg.params_models import PlateCell, PlateQueue, PlateQueueInput, QueueInput, VialQueueInput
 from qg.positionV2 import create_assembled_sampler
 from qg.qc_positions import Position, QCPositionProvider, create_qc_position_provider

@@ -114,7 +114,7 @@ class QueueParameters(BaseModel):
             KeyError: If any config reference (pattern, format, instrument, sampler, sample) is invalid.
             ValueError: If plate_layout is not valid for the sampler/queue_type combination.
         """
-        from qg.config_models.formatting import SamplesConfig
+        from qg.config_models.structure import SamplesConfig
 
         # These raise KeyError with descriptive message if not found
         configs.queue_patterns.get_pattern(tech_area, queue_pattern)

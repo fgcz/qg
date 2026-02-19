@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from qg.config_models.formatting import SamplesConfig
 from qg.config_models.loader import qg_configuration
+from qg.config_models.structure import SamplesConfig
 from qg.queue_structure import build_multi_container_queue_structure
 
 DEFAULT_SAMPLE_ID = SamplesConfig.DEFAULT_SAMPLE_ID
