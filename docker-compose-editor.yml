@@ -5,15 +5,20 @@ services:
       context: .
       dockerfile: Dockerfile
     image: qg-config-editor:latest
-    environment:
-      - SECRET_KEY=tueS8enudrae81-mnnoardunou9e8uelnudronudobpQA
+    env_file: ".env"
     expose:
       - "8000"
     entrypoint:
-      ["/app/.venv/bin/uvicorn", "qg.apps.bfabric_app_editor:app",
-       "--host", "0.0.0.0", "--port", "8000"]
+      [
+        "/app/.venv/bin/uvicorn",
+        "qg.apps.bfabric_app_editor:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+      ]
     volumes:
-      - ${HOME}/.qg_settings.toml:/root/.qg_settings.toml:ro
+      - ${HOME}/.qg_settings.toml:/root/.qg_settings.toml:ro,shared
       - logs:/root/.qg/logs:rw
 
   caddy:

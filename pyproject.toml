@@ -1,5 +1,5 @@
 [project]
-name = "qg-dump"
+name = "qg"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -8,6 +8,7 @@ dependencies = [
     "altair>=6.0.0",
     "bfabric>=1.16.1",
     "bfabric-asgi-auth",
+    "bfabric-rest-proxy",
     "cyclopts>=4.4.4",
     "fastapi>=0.128.0",
     "ipython>=9.9.0",
@@ -28,6 +29,7 @@ dependencies = [
 [tool.uv.sources]
 bfabric = { git = "https://github.com/fgcz/bfabricPy", subdirectory = "bfabric", rev = "main" }
 bfabric-asgi-auth = { git = "https://github.com/fgcz/bfabricPy", subdirectory = "bfabric_asgi_auth", rev = "main" }
+bfabric-rest-proxy = { git = "https://github.com/fgcz/bfabricPy", subdirectory = "bfabric_rest_proxy", rev = "main" }
 
 [build-system]
 requires = ["hatchling"]
