@@ -4,9 +4,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    environment:
-      # TODO real deploy should change this!
-      - SECRET_KEY=tueS8enudrae81-mnnoardunou9e8uelnudronudobpQA
+    env_file: ".env"
     expose:
       - "8000"
     entrypoint:

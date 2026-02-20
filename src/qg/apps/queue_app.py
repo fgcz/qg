@@ -1,16 +1,24 @@
 import marimo
 
-__generated_with = "0.19.4"
+__generated_with = "0.18.4"
 app = marimo.App(width="full", sql_output="polars")
 
 with app.setup:
+    import base64
+    import importlib.metadata
+    import json
     from datetime import date
     from pathlib import Path
 
     import marimo as mo
     import polars as pl
     import pydantic
+    import yaml
     from bfabric import Bfabric
+    from bfabric_rest_proxy.feeder_operations.create_workunit import (
+        CreateWorkunitParams,
+        create_workunit,
+    )
     from loguru import logger
 
     from qg.logging_setup import configure_logging
@@ -25,24 +33,33 @@ with app.setup:
     from qg.queue_builder import QueueBuilder
 
 
-# =============================================================================
-# Configuration Loading
-# =============================================================================
+@app.cell
+def _():
+    _request = mo.app_meta().request
+    if _request.user and _request.user.is_authenticated and hasattr(_request.user, "get_bfabric_user_client"):
+        client = _request.user.get_bfabric_user_client()
+        feeder_client = _request.user.get_bfabric_feeder_client()
+        _content = f"Authenticated user: {client.auth.login}"
+    else:
+        _content = "No user information in request. Using default configuration."
+        client = Bfabric.connect(config_file_env="TEST")
+        try:
+            feeder_client = Bfabric.connect(config_file_env="TEST_pfeeder")
+        except KeyError:
+            feeder_client = None
+            _content += " **Error**: No feeder client available!"
+
+    bfabric = BfabricHelper(client)
+    mo.md(_content)
+    return bfabric, client, feeder_client
 
 
 @app.cell
 def _():
-    _request = mo.app_meta().request
-    if _request.user and _request.user.is_authenticated and hasattr(_request.user, "get_bfabric_client"):
-        client = _request.user.get_bfabric_client()
-        _content = f"Authenticated user: {client.auth.login}"
-    else:
-        _content = "No user information in request. Using default configuration."
-        client = Bfabric.connect()
-
-    bfabric = BfabricHelper(client)
-    mo.md(_content)
-    return (bfabric,)
+    app_version = importlib.metadata.version("qg")
+    # TODO this should be configured from the outside
+    bfabric_application_id = 401
+    return app_version, bfabric_application_id
 
 
 @app.cell
@@ -83,7 +100,7 @@ def _(master_table, tech_area_field):
 
 
 @app.cell
-def _(table_by_tech, instrument_field):
+def _(instrument_field, table_by_tech):
     # Filter by instrument for sampler options
     if instrument_field.value:
         table_by_instrument = table_by_tech.filter(pl.col("instrument") == instrument_field.value)
@@ -93,7 +110,7 @@ def _(table_by_tech, instrument_field):
 
 
 @app.cell
-def _(table_by_instrument, sampler_field):
+def _(sampler_field, table_by_instrument):
     # Filter by sampler for pattern options
     if sampler_field.value:
         table_by_sampler = table_by_instrument.filter(pl.col("sampler") == sampler_field.value)
@@ -103,18 +120,13 @@ def _(table_by_instrument, sampler_field):
 
 
 @app.cell
-def _(table_by_qc_layout, pattern_field):
+def _(pattern_field, table_by_qc_layout):
     # Final filtered table with all selections
     if pattern_field.value:
         filtered_table = table_by_qc_layout.filter(pl.col("pattern_name") == pattern_field.value)
     else:
         filtered_table = table_by_qc_layout
     return (filtered_table,)
-
-
-# =============================================================================
-# Sidebar: Instrument Configuration Fields
-# =============================================================================
 
 
 @app.cell
@@ -147,7 +159,7 @@ def _(table_by_tech, tech_area_field):
 
 
 @app.cell
-def _(table_by_instrument, instrument_field):
+def _(instrument_field, table_by_instrument):
     # Sampler dropdown - options based on selected instrument
     _options = sorted(table_by_instrument["sampler"].unique().to_list()) if instrument_field.value else []
     _default = _options[0] if _options else None
@@ -161,7 +173,7 @@ def _(table_by_instrument, instrument_field):
 
 
 @app.cell
-def _(table_by_qc_layout, qc_layout_field):
+def _(qc_layout_field, table_by_qc_layout):
     # Pattern dropdown - filtered by QC layout compatibility, with default first
     if qc_layout_field.value:
         _df = table_by_qc_layout.select(["pattern_name", "default_pattern"]).unique()
@@ -184,7 +196,7 @@ def _(table_by_qc_layout, qc_layout_field):
 
 
 @app.cell
-def _(table_by_sampler, sampler_field):
+def _(sampler_field, table_by_sampler):
     # Queue type dropdown - options based on selected sampler
     if sampler_field.value:
         _options = sorted(table_by_sampler["queue_type"].unique().to_list())
@@ -202,7 +214,7 @@ def _(table_by_sampler, sampler_field):
 
 
 @app.cell
-def _(table_by_sampler, sampler_field, queue_type_field):
+def _(queue_type_field, table_by_sampler):
     # Filter by queue_type for plate_layout options
     if queue_type_field.value:
         table_by_queue_type = table_by_sampler.filter(pl.col("queue_type") == queue_type_field.value)
@@ -212,7 +224,7 @@ def _(table_by_sampler, sampler_field, queue_type_field):
 
 
 @app.cell
-def _(table_by_queue_type, queue_type_field):
+def _(queue_type_field, table_by_queue_type):
     # Plate layout dropdown - options based on selected sampler + queue_type
     if queue_type_field.value:
         _options = sorted(table_by_queue_type["plate_layout"].unique().to_list())
@@ -230,7 +242,7 @@ def _(table_by_queue_type, queue_type_field):
 
 
 @app.cell
-def _(table_by_queue_type, plate_layout_field):
+def _(plate_layout_field, table_by_queue_type):
     # Filter by plate_layout for QC layout options
     if plate_layout_field.value:
         table_by_plate_layout = table_by_queue_type.filter(pl.col("plate_layout") == plate_layout_field.value)
@@ -240,7 +252,7 @@ def _(table_by_queue_type, plate_layout_field):
 
 
 @app.cell
-def _(table_by_plate_layout, plate_layout_field):
+def _(plate_layout_field, table_by_plate_layout):
     # QC layout dropdown - options based on (tech_area, sampler, plate_layout)
     if plate_layout_field.value and "qc_layout_name" in table_by_plate_layout.columns:
         _all_layouts = sorted(table_by_plate_layout["qc_layout_name"].unique().to_list())
@@ -265,7 +277,7 @@ def _(table_by_plate_layout, plate_layout_field):
 
 
 @app.cell
-def _(table_by_plate_layout, qc_layout_field):
+def _(qc_layout_field, table_by_plate_layout):
     # Filter by qc_layout for pattern options
     if qc_layout_field.value:
         table_by_qc_layout = table_by_plate_layout.filter(pl.col("qc_layout_name") == qc_layout_field.value)
@@ -289,13 +301,13 @@ def _(filtered_table, sampler_field):
 def _(
     config,
     filtered_table,
-    tech_area_field,
     instrument_field,
-    sampler_field,
     pattern_field,
-    queue_type_field,
     plate_layout_field,
     qc_layout_field,
+    queue_type_field,
+    sampler_field,
+    tech_area_field,
 ):
     # Validate that all parameters are set and a valid QC layout exists
     validation_errors = []
@@ -340,7 +352,14 @@ def _(
 
 
 @app.cell
-def _(config, config_valid, queue_type_field, sample_df, sampler_field, validation_errors):
+def _(
+    config,
+    config_valid,
+    queue_type_field,
+    sample_df,
+    sampler_field,
+    validation_errors,
+):
     # Combine config validation with dynamic plate capacity check
     _all_errors = list(validation_errors)
 
@@ -485,13 +504,14 @@ def _():
     return (date_field,)
 
 
-# =============================================================================
-# QC Layout Preview (sidebar bottom)
-# =============================================================================
-
-
 @app.cell
-def _(config, tech_area_field, sampler_field, plate_layout_field, qc_layout_field):
+def _(
+    config,
+    plate_layout_field,
+    qc_layout_field,
+    sampler_field,
+    tech_area_field,
+):
     # Build a small summary table of the selected QC layout's sample positions
     qc_layout_preview = None
     if tech_area_field.value and sampler_field.value and plate_layout_field.value and qc_layout_field.value:
@@ -517,13 +537,9 @@ def _(config, tech_area_field, sampler_field, plate_layout_field, qc_layout_fiel
     return (qc_layout_preview,)
 
 
-# =============================================================================
-# Sidebar Layout
-# =============================================================================
-
-
 @app.cell
 def _(
+    app_version,
     date_field,
     inj_vol_field,
     instrument_field,
@@ -575,13 +591,8 @@ def _(
         _sidebar_items.append(mo.md(f"**QC Positions** _{qc_layout_field.value}_"))
         _sidebar_items.append(qc_layout_preview)
 
-    mo.sidebar(mo.vstack(_sidebar_items), width="22rem")
+    mo.sidebar(mo.vstack(_sidebar_items), footer=mo.md(f"Version: {app_version}"), width="22rem")
     return
-
-
-# =============================================================================
-# Project Selection
-# =============================================================================
 
 
 @app.cell
@@ -598,7 +609,7 @@ def _(BFABRIC_CACHE_DIR, USE_ALL_PROJECTS):
 
 
 @app.cell
-def _(projects_df, tech_area_field, queue_type_field):
+def _(projects_df, queue_type_field, tech_area_field):
     # Map tech_area to bfabric Area values
     _area_map = {
         "Proteomics": ["Proteomics"],
@@ -618,6 +629,7 @@ def _(projects_df, tech_area_field, queue_type_field):
         data=_filtered,
         selection="multi",
         label="Select orders (multi-select)",
+        show_download=False,
     )
     return (project_table,)
 
@@ -633,11 +645,6 @@ def _(project_table):
         ]
         container_type = selected_orders[0][2]
     return container_type, selected_orders
-
-
-# =============================================================================
-# Sample Loading
-# =============================================================================
 
 
 @app.cell
@@ -664,7 +671,13 @@ def _(all_plates, selected_orders):
 
 
 @app.cell
-def _(BFABRIC_CACHE_DIR, bfabric, container_type, plates_select, selected_orders):
+def _(
+    BFABRIC_CACHE_DIR,
+    bfabric,
+    container_type,
+    plates_select,
+    selected_orders,
+):
     # Load samples from all selected orders (empty DataFrame if no orders selected)
     all_samples_dfs = []
 
@@ -700,11 +713,6 @@ def _(full_samples_df):
 def _(full_samples_df, samples_table):
     sample_df = samples_table.value if not samples_table.value.is_empty() else full_samples_df
     return (sample_df,)
-
-
-# =============================================================================
-# Queue Parameters
-# =============================================================================
 
 
 @app.cell
@@ -759,11 +767,6 @@ def _(
         queue_parameters_err = e
         queue_parameters = None
     return queue_parameters, queue_parameters_err
-
-
-# =============================================================================
-# Main Content Layout
-# =============================================================================
 
 
 @app.cell
@@ -823,7 +826,13 @@ def _(config, queue_parameters, sample_df, selected_orders):
 
 
 @app.cell
-def _(queue_input, queue_input_err, queue_parameters, queue_parameters_err, sample_df):
+def _(
+    queue_input,
+    queue_input_err,
+    queue_parameters,
+    queue_parameters_err,
+    sample_df,
+):
     # Parameters tab content — uses shared queue_input
     _output = None
     _download_button = None
@@ -831,8 +840,6 @@ def _(queue_input, queue_input_err, queue_parameters, queue_parameters_err, samp
         _output = queue_input.model_dump(mode="json")
 
         # Create download button for JSON
-        import json
-
         _json_data = json.dumps(_output, indent=2)
         _ids_str = "_".join(str(c) for c in sample_df["container_id"].unique().sort().to_list())
         _filename = f"{queue_parameters.tech_area}_{queue_parameters.sampler.replace('.', '_')}_c{_ids_str}_n{len(sample_df)}.json"
@@ -845,11 +852,59 @@ def _(queue_input, queue_input_err, queue_parameters, queue_parameters_err, samp
     _err_msg = queue_input_err or (str(queue_parameters_err) if queue_parameters_err else "Select orders")
     parameters_content = mo.vstack(
         [
-            _download_button if _download_button else None,
+            _download_button,
             mo.callout(_output, kind="info") if _output else mo.callout(_err_msg, kind="danger"),
         ]
     )
     return (parameters_content,)
+
+
+@app.cell
+def _(
+    app_version,
+    bfabric_application_id,
+    queue_input,
+    queue_output_filename,
+    queue_output_str,
+    target_container_id_field,
+):
+    def gather_workunit_parameters() -> CreateWorkunitParams | None:
+        if queue_input is None:
+            return None
+
+        parameters = queue_input.parameters.model_dump()
+        for key in parameters:
+            if isinstance(parameters[key], list | dict):
+                parameters[key] = yaml.safe_dump(parameters[key], default_flow_style=True).strip()
+            else:
+                parameters[key] = str(parameters[key])
+
+        _queue_params_filename = "parameters.json"
+        return CreateWorkunitParams(
+            container_id=target_container_id_field.value,
+            application_id=bfabric_application_id,
+            workunit_name=queue_output_filename.split(".")[0],
+            parameters=parameters,
+            resources={
+                queue_output_filename: base64.b64encode(queue_output_str.encode("utf8")),
+                _queue_params_filename: base64.b64encode(queue_input.model_dump_json(indent=2).encode("utf8")),
+            },
+            links={},
+            input_resource_ids=[],
+            description=f"Queue configuration generated with qg version {app_version}.",
+        )
+
+    return (gather_workunit_parameters,)
+
+
+@app.cell
+def _(client, feeder_client, gather_workunit_parameters):
+    def upload_workunit():
+        params = gather_workunit_parameters()
+        result = create_workunit(user_client=client, feeder_client=feeder_client, params=params)
+        return mo.md(f"Created [Workunit {result.id}]({result.uri})")
+
+    return (upload_workunit,)
 
 
 @app.cell
@@ -884,25 +939,77 @@ def _(config, queue_input, queue_parameters):
                 )
             else:
                 generation_error = _err_str
-    return generated_queue_df, generation_error, output_file_extension, queue_output_str, raw_queue_df
+    return (
+        generated_queue_df,
+        generation_error,
+        output_file_extension,
+        queue_output_str,
+        raw_queue_df,
+    )
 
 
 @app.cell
 def _():
-    formatted_ticket_toggle = mo.ui.checkbox(True, label="Formatted")
+    formatted_ticket_toggle = mo.ui.checkbox(True, label="Formatted Preview")
     return (formatted_ticket_toggle,)
 
 
 @app.cell
+def _():
+    target_upload_checkbox = mo.ui.checkbox(value=True)
+    return (target_upload_checkbox,)
+
+
+@app.cell
+def _(selected_orders, target_upload_checkbox):
+    _container_ids = sorted((str(o[0]) for o in selected_orders), reverse=True) if selected_orders else []
+    if _container_ids and target_upload_checkbox.value:
+        target_container_id_field = mo.ui.dropdown(
+            options=_container_ids,
+            value=_container_ids[0],
+            allow_select_none=False,
+        )
+    else:
+        target_container_id_field = None
+    return (target_container_id_field,)
+
+
+@app.cell
+def _(output_file_extension, queue_parameters, selected_orders):
+    _container_ids = [o[0] for o in selected_orders] if selected_orders else []
+    _ids_str = "_".join(str(c) for c in _container_ids) if _container_ids else "queue"
+    queue_output_filename = f"{queue_parameters.date}_{queue_parameters.instrument}_{_ids_str}{output_file_extension}"
+    return (queue_output_filename,)
+
+
+@app.cell
+def _(queue_output_str, target_upload_checkbox, upload_workunit):
+    dl_button_result_md = [None]
+
+    def dl_button_callback() -> bytes:
+        if target_upload_checkbox.value:
+            dl_button_result_md[0] = upload_workunit()
+
+        # Download uses the pre-computed output string (same data as displayed)
+        return queue_output_str.encode("utf-8")
+
+    return dl_button_callback, dl_button_result_md
+
+
+@app.cell
 def _(
+    dl_button_callback,
+    dl_button_result_md,
     formatted_ticket_toggle,
     generated_queue_df,
     generation_error,
     output_file_extension,
+    queue_output_filename,
     queue_output_str,
     queue_parameters,
     raw_queue_df,
-    selected_orders,
+    target_container_id_field,
+    target_upload_checkbox,
 ):
     # Queue Preview tab content
     if generation_error:
@@ -910,25 +1017,23 @@ def _(
     elif generated_queue_df is not None and queue_output_str is not None:
         _display_df = generated_queue_df if formatted_ticket_toggle.value else raw_queue_df
 
-        # Download uses the pre-computed output string (same data as displayed)
-        _container_ids = [o[0] for o in selected_orders] if selected_orders else []
-        _ids_str = "_".join(str(c) for c in _container_ids) if _container_ids else "queue"
-        _ext = output_file_extension
-        _filename = f"{queue_parameters.date}_{queue_parameters.instrument}_{_ids_str}{_ext}"
         _download_button = mo.download(
-            data=queue_output_str.encode("utf-8"),
-            filename=_filename,
-            label=f"Download {_ext.upper()[1:]}",
+            data=dl_button_callback,
+            filename=queue_output_filename,
+            label=f"Download {output_file_extension.upper()[1:]}",
         )
 
         _rand_label = (
             f" | randomization: {queue_parameters.randomization}" if queue_parameters.randomization != "no" else ""
         )
+        _target_field = f"to container {target_container_id_field}" if target_upload_checkbox.value else ""
         queue_preview_content = mo.vstack(
             [
-                mo.hstack([formatted_ticket_toggle, _download_button], justify="start", gap=1),
-                mo.md(f"**{len(_display_df)} rows{_rand_label}**"),
-                mo.ui.table(_display_df, show_column_summaries=False),
+                mo.md(f"Auto upload {target_upload_checkbox} {_target_field}"),
+                *([dl_button_result_md[0]] if dl_button_result_md[0] else []),
+                mo.md(f"{_download_button}"),
+                mo.md(f"**{len(_display_df)} rows{_rand_label}** {formatted_ticket_toggle}"),
+                mo.ui.table(_display_df, show_column_summaries=False, show_download=False),
             ]
         )
     else:
@@ -938,14 +1043,14 @@ def _(
 
 @app.cell
 def _(
-    master_table,
-    tech_area_field,
     instrument_field,
-    sampler_field,
+    master_table,
     pattern_field,
-    queue_type_field,
     plate_layout_field,
     qc_layout_field,
+    queue_type_field,
+    sampler_field,
+    tech_area_field,
 ):
     # Valid Combinations tab content - shows ALL combinations with matching rows highlighted
     # Build match condition based on current selections

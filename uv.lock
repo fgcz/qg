@@ -128,6 +128,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bfabric-rest-proxy"
+version = "0.0.0"
+source = { git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric_rest_proxy&rev=main#a818bfe9c8a266046933e21f484070410b70da71" }
+dependencies = [
+    { name = "bfabric" },
+    { name = "fastapi" },
+    { name = "pydantic-settings" },
+]
+
+[[package]]
 name = "certifi"
 version = "2026.1.4"
 source = { registry = "https://pypi.org/simple" }
@@ -1120,13 +1130,14 @@ wheels = [
 ]
 
 [[package]]
-name = "qg-dump"
+name = "qg"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "altair" },
     { name = "bfabric" },
     { name = "bfabric-asgi-auth" },
+    { name = "bfabric-rest-proxy" },
     { name = "cyclopts" },
     { name = "fastapi" },
     { name = "ipython" },
@@ -1159,6 +1170,7 @@ requires-dist = [
     { name = "altair", specifier = ">=6.0.0" },
     { name = "bfabric", git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric&rev=main" },
     { name = "bfabric-asgi-auth", git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric_asgi_auth&rev=main" },
+    { name = "bfabric-rest-proxy", git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric_rest_proxy&rev=main" },
     { name = "cyclopts", specifier = ">=4.4.4" },
     { name = "fastapi", specifier = ">=0.128.0" },
     { name = "ipython", specifier = ">=9.9.0" },

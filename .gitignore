@@ -6,6 +6,9 @@ dist/
 wheels/
 *.egg-info
 
+# Config files
+.env
+
 # Virtual environments
 .venv
 __marimo__/
