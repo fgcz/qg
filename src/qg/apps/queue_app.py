@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.18.4"
+__generated_with = "0.19.4"
 app = marimo.App(width="full", sql_output="polars")
 
 with app.setup:
@@ -42,12 +42,8 @@ def _():
         _content = f"Authenticated user: {client.auth.login}"
     else:
         _content = "No user information in request. Using default configuration."
-        client = Bfabric.connect(config_file_env="TEST")
-        try:
-            feeder_client = Bfabric.connect(config_file_env="TEST_pfeeder")
-        except KeyError:
-            feeder_client = None
-            _content += " **Error**: No feeder client available!"
+        client = Bfabric.connect()
+        feeder_client = None
 
     bfabric = BfabricHelper(client)
     mo.md(_content)
@@ -899,7 +895,7 @@ def _(
 
 @app.cell
 def _(client, feeder_client, gather_workunit_parameters):
-    def upload_workunit():
+    def upload_workunit() -> mo.Html:
         params = gather_workunit_parameters()
         result = create_workunit(user_client=client, feeder_client=feeder_client, params=params)
         return mo.md(f"Created [Workunit {result.id}]({result.uri})")
@@ -983,23 +979,32 @@ def _(output_file_extension, queue_parameters, selected_orders):
 
 
 @app.cell
-def _(queue_output_str, target_upload_checkbox, upload_workunit):
-    dl_button_result_md = [None]
-
+def _(
+    feeder_client,
+    queue_output_str,
+    target_upload_checkbox,
+    upload_workunit,
+):
     def dl_button_callback() -> bytes:
-        if target_upload_checkbox.value:
-            dl_button_result_md[0] = upload_workunit()
+        if feeder_client is not None:
+            if target_upload_checkbox.value:
+                result_md = upload_workunit()
+        else:
+            result_md = mo.md(
+                f"No upload was performed because feeder is None (requested = {target_upload_checkbox.value})."
+            )
+
+        mo.output.append(result_md)
 
         # Download uses the pre-computed output string (same data as displayed)
         return queue_output_str.encode("utf-8")
 
-    return dl_button_callback, dl_button_result_md
+    return (dl_button_callback,)
 
 
 @app.cell
 def _(
     dl_button_callback,
-    dl_button_result_md,
     formatted_ticket_toggle,
     generated_queue_df,
     generation_error,
@@ -1030,7 +1035,6 @@ def _(
         queue_preview_content = mo.vstack(
             [
                 mo.md(f"Auto upload {target_upload_checkbox} {_target_field}"),
-                *([dl_button_result_md[0]] if dl_button_result_md[0] else []),
                 mo.md(f"{_download_button}"),
                 mo.md(f"**{len(_display_df)} rows{_rand_label}** {formatted_ticket_toggle}"),
                 mo.ui.table(_display_df, show_column_summaries=False, show_download=False),
