@@ -11,5 +11,5 @@ Proteomics,TIMSTOF_1,methods/Proteomics/TIMSTOF_1_methods.csv,D:\Data2San\p{cont
 Metabolomics,EXPLORIS_3,methods/Metabolomics/EXPLORIS_3_methods.csv,D:\Data2San\p{container}\Metabolomics\EXPLORIS_3\{user}_{date}
 Metabolomics,QEXACTIVEHF_2,methods/Metabolomics/QEXACTIVEHF_2_methods.csv,D:\Data2San\p{container}\Metabolomics\QEXACTIVEHF_2\{user}_{date}
 Metabolomics,QUANTIVA_1,methods/Metabolomics/QUANTIVA_1_methods.csv,D:\Data2San\p{container}\Metabolomics\QUANTIVA_1\{user}_{date}
-Lipidomics,EXPLORIS_3,methods/Lipidomics/EXPLORIS_3_methods.csv,D:\Data2San\p{container}\Lipidomics\EXPLORIS_3\{user}_{date}
-Lipidomics,EXPLORIS_4,methods/Lipidomics/EXPLORIS_4_methods.csv,D:\Data2San\p{container}\Lipidomics\EXPLORIS_4\{user}_{date}
+Lipidomics,EXPLORIS_3,methods/Lipidomics/EXPLORIS_3_methods.csv,D:\Data2San\p{container}\Metabolomics\EXPLORIS_3\{user}_{date}
+Lipidomics,EXPLORIS_4,methods/Lipidomics/EXPLORIS_4_methods.csv,D:\Data2San\p{container}\Metabolomics\EXPLORIS_4\{user}_{date}

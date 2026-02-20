@@ -184,7 +184,8 @@ class TestMethodsConfigs:
 
         path = CONFIG_ROOT / "core" / "methods" / "Proteomics" / "ASTRAL_1_methods.csv"
         df = pl.read_csv(path)
-        methods = MethodsForInstrument.from_table(df)
+        config_path = Path("core/methods/Proteomics/ASTRAL_1_methods.csv")
+        methods = MethodsForInstrument.from_table(df, config_path=config_path)
 
         assert len(methods.methods) > 0
         # Check default method exists

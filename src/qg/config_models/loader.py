@@ -549,12 +549,9 @@ class QGConfiguration:
             body = _compact_toml(tomli_w.dumps(cfg.to_dict()))
             contents[str(cfg.config_path)] = header + body
 
-        # Methods (multiple CSV files, use config_folder ClassVar)
-        methods_base = MethodsConfig.config_folder
-        for (tech_area, instrument), df in self.methods.to_tables().items():
-            instr = self.instruments.get_instrument(tech_area, instrument)
-            relative_path = instr.methods_file.removeprefix("methods/")
-            contents[str(methods_base / relative_path)] = df.write_csv()
+        # Methods — each MethodsForInstrument tracks its own config_path
+        for _, instr_methods in self.methods.iter_methods():
+            contents[str(instr_methods.config_path)] = instr_methods.to_table().write_csv()
 
         return contents
 

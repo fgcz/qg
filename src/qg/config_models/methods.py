@@ -31,6 +31,7 @@ class Method(BaseModel):
 class MethodsForInstrument(BaseModel):
     """Methods for a single instrument."""
 
+    config_path: Path = Field(..., description="Repo-relative path this methods file was loaded from")
     methods: list[Method]
 
     def get_method(
@@ -83,17 +84,18 @@ class MethodsForInstrument(BaseModel):
         return pl.DataFrame([m.model_dump() for m in self.methods])
 
     @classmethod
-    def from_table(cls, df: pl.DataFrame) -> Self:
+    def from_table(cls, df: pl.DataFrame, config_path: Path) -> Self:
         """Create MethodsForInstrument from a DataFrame.
 
         Args:
             df: DataFrame with columns: sample_type, polarity, method_name, method_path
+            config_path: Repo-relative path this methods file was loaded from
 
         Returns:
             MethodsForInstrument with all methods loaded
         """
         methods = [Method(**row) for row in df.to_dicts()]
-        return cls(methods=methods)
+        return cls(config_path=config_path, methods=methods)
 
 
 class MethodsConfig(BaseModel):
@@ -150,19 +152,28 @@ class MethodsConfig(BaseModel):
                 tables[(tech_area, instrument)] = instr_methods.to_table()
         return tables
 
+    def iter_methods(self):
+        """Iterate over all (tech_area, instrument), MethodsForInstrument pairs."""
+        for tech_area, tech_methods in self.methods.items():
+            for instrument, instr_methods in tech_methods.items():
+                yield (tech_area, instrument), instr_methods
+
     @classmethod
     def from_tables(cls, tables: dict[tuple[str, str], pl.DataFrame]) -> Self:
         """Create MethodsConfig from a dict of DataFrames.
 
         Args:
-            tables: Dict mapping (tech_area, instrument) -> DataFrame
+            tables: Dict mapping (tech_area, instrument) -> DataFrame.
+                Each MethodsForInstrument gets a canonical config_path
+                of ``core/methods/{tech_area}/{instrument}_methods.csv``.
 
         Returns:
             MethodsConfig with all methods loaded
         """
         config = cls()
         for (tech_area, instrument), df in tables.items():
-            methods = MethodsForInstrument.from_table(df)
+            canonical = cls.config_folder / tech_area / f"{instrument}_methods.csv"
+            methods = MethodsForInstrument.from_table(df, config_path=canonical)
             config.add_instrument_methods(tech_area, instrument, methods)
         return config
 
@@ -184,7 +195,7 @@ class MethodsConfig(BaseModel):
         tables: dict[tuple[str, str], pl.DataFrame] = {}
 
         for instr in instruments.instruments:
-            # methods_file is like "methods/proteomics/ASTRAL_1_methods.csv"
+            # methods_file is like "methods/Proteomics/ASTRAL_1_methods.csv"
             # Remove the "methods/" prefix to get relative path from methods_dir
             relative_path = instr.methods_file.removeprefix("methods/")
             methods_file = methods_dir / relative_path
@@ -194,6 +205,12 @@ class MethodsConfig(BaseModel):
                 continue
 
             df = pl.read_csv(methods_file)
-            tables[(instr.tech_area, instr.instrument)] = df
+            # Store the actual file path (repo-relative) the data was loaded from
+            config_path = cls.config_folder / relative_path
+            tables[(instr.tech_area, instr.instrument)] = (df, config_path)
 
-        return cls.from_tables(tables)
+        config = cls()
+        for (tech_area, instrument), (df, config_path) in tables.items():
+            methods = MethodsForInstrument.from_table(df, config_path=config_path)
+            config.add_instrument_methods(tech_area, instrument, methods)
+        return config
