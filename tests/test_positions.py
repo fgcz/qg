@@ -52,7 +52,7 @@ class TestAssignVanquish:
             "Proteomics",
             pattern.get_all_sample_ids(),
             "Vanquish_54",
-            pattern.qc_layout_name,
+            "standard",
         )
         queue = create_vial_queue(3)
 
@@ -75,7 +75,7 @@ class TestAssignVanquish:
             "Proteomics",
             pattern.get_all_sample_ids(),
             "Vanquish_54",
-            pattern.qc_layout_name,
+            "standard",
         )
         queue = create_vial_queue(15)
 
@@ -97,7 +97,7 @@ class TestAssignVanquish:
             "Proteomics",
             pattern.get_all_sample_ids(),
             "Vanquish_54",
-            pattern.qc_layout_name,
+            "standard",
         )
         # Vanquish_54 = 6 rows x 9 cols = 54 positions per plate
         queue = create_vial_queue(60)
@@ -116,7 +116,7 @@ class TestAssignMClass:
     def test_assigns_positions(self, config) -> None:
         pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
         sampler = create_assembled_sampler(
-            "MClass", "vial", config, "Proteomics", pattern.get_all_sample_ids(), "MClass_48", pattern.qc_layout_name
+            "MClass", "vial", config, "Proteomics", pattern.get_all_sample_ids(), "MClass_48", "standard"
         )
         queue = create_vial_queue(3)
 
@@ -130,7 +130,7 @@ class TestAssignMClass:
     def test_row_major_order(self, config) -> None:
         pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
         sampler = create_assembled_sampler(
-            "MClass", "vial", config, "Proteomics", pattern.get_all_sample_ids(), "MClass_48", pattern.qc_layout_name
+            "MClass", "vial", config, "Proteomics", pattern.get_all_sample_ids(), "MClass_48", "standard"
         )
         # MClass_48 has 8 columns per row
         queue = create_vial_queue(10)
@@ -151,7 +151,7 @@ class TestAssignEvosep:
     def test_assigns_positions(self, config) -> None:
         pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
         sampler = create_assembled_sampler(
-            "Evosep", "vial", config, "Proteomics", pattern.get_all_sample_ids(), "Plate_96", pattern.qc_layout_name
+            "Evosep", "vial", config, "Proteomics", pattern.get_all_sample_ids(), "Plate_96", "standard"
         )
         queue = create_vial_queue(3)
 
@@ -166,7 +166,7 @@ class TestAssignEvosep:
     def test_sequential_order(self, config) -> None:
         pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
         sampler = create_assembled_sampler(
-            "Evosep", "vial", config, "Proteomics", pattern.get_all_sample_ids(), "Plate_96", pattern.qc_layout_name
+            "Evosep", "vial", config, "Proteomics", pattern.get_all_sample_ids(), "Plate_96", "standard"
         )
         # Test positions across a slot boundary (row-major: A1..A12, B1..B12, ...)
         queue = create_vial_queue(100)
@@ -188,7 +188,7 @@ class TestAssignEvosep:
     def test_raises_when_full(self, config) -> None:
         pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
         sampler = create_assembled_sampler(
-            "Evosep", "vial", config, "Proteomics", pattern.get_all_sample_ids(), "Plate_96", pattern.qc_layout_name
+            "Evosep", "vial", config, "Proteomics", pattern.get_all_sample_ids(), "Plate_96", "standard"
         )
         # 6 trays x 96 = 576, request more
         queue = create_vial_queue(600)
@@ -210,7 +210,7 @@ class TestGridSamplerExhaustion:
             "Proteomics",
             pattern.get_all_sample_ids(),
             "Vanquish_54",
-            pattern.qc_layout_name,
+            "standard",
         )
         queue = create_vial_queue(220)  # More than 216
 
@@ -221,7 +221,7 @@ class TestGridSamplerExhaustion:
         """MClass_48 has 4 trays × 48 = 192 positions."""
         pattern = config.queue_patterns.get_pattern("Proteomics", "noqc")
         sampler = create_assembled_sampler(
-            "MClass", "vial", config, "Proteomics", pattern.get_all_sample_ids(), "MClass_48", pattern.qc_layout_name
+            "MClass", "vial", config, "Proteomics", pattern.get_all_sample_ids(), "MClass_48", "standard"
         )
         queue = create_vial_queue(200)  # More than 192
 
@@ -241,7 +241,7 @@ class TestAssignNoQC:
             "Proteomics",
             pattern.get_all_sample_ids(),
             "Vanquish_54",
-            pattern.qc_layout_name,
+            "standard",
         )
         queue = create_vial_queue(5)
 
@@ -293,7 +293,7 @@ class TestOneContainerPerTray:
             "Proteomics",
             pattern.get_all_sample_ids(),
             "Vanquish_54",
-            pattern.qc_layout_name,
+            "standard",
         )
         # Two containers with 3 samples each
         queue = create_multi_container_vial_queue([(100, 3), (200, 3)])
@@ -319,7 +319,7 @@ class TestOneContainerPerTray:
             "Proteomics",
             pattern.get_all_sample_ids(),
             "Vanquish_54",
-            pattern.qc_layout_name,
+            "standard",
         )
         # Two containers with 3 samples each
         queue = create_multi_container_vial_queue([(100, 3), (200, 3)])
@@ -341,7 +341,7 @@ class TestOneContainerPerTray:
             "Proteomics",
             pattern.get_all_sample_ids(),
             "Vanquish_54",
-            pattern.qc_layout_name,
+            "standard",
         )
         # Vanquish has 4 trays, try with 5 containers
         queue = create_multi_container_vial_queue([(100, 1), (200, 1), (300, 1), (400, 1), (500, 1)])
@@ -359,7 +359,7 @@ class TestOneContainerPerTray:
             "Proteomics",
             pattern.get_all_sample_ids(),
             "Vanquish_54",
-            pattern.qc_layout_name,
+            "standard",
         )
         # Vanquish_54 has 54 positions per tray, try with 60 samples in one container
         queue = create_multi_container_vial_queue([(100, 60)])
@@ -394,7 +394,7 @@ class TestGetQCPosition:
             "Proteomics",
             pattern.get_all_sample_ids(),
             "Vanquish_54",
-            pattern.qc_layout_name,
+            "standard",
         )
         plate_layout = config.plate_layouts.get_layout("Vanquish_54")
         provider = create_qc_position_provider(
@@ -413,7 +413,7 @@ class TestGetQCPosition:
         # Evosep needs slot_entries to validate capacity
         pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
         sampler = create_assembled_sampler(
-            "Evosep", "vial", config, "Proteomics", pattern.get_all_sample_ids(), "Plate_96", pattern.qc_layout_name
+            "Evosep", "vial", config, "Proteomics", pattern.get_all_sample_ids(), "Plate_96", "standard"
         )
         plate_layout = config.plate_layouts.get_layout("Plate_96")
         slot_entries = [MockSlotEntry("QC01")]
@@ -433,7 +433,7 @@ class TestGetQCPosition:
         # Evosep needs slot_entries - we need 2 QC01 entries since we call get_position twice
         pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
         sampler = create_assembled_sampler(
-            "Evosep", "vial", config, "Proteomics", pattern.get_all_sample_ids(), "Plate_96", pattern.qc_layout_name
+            "Evosep", "vial", config, "Proteomics", pattern.get_all_sample_ids(), "Plate_96", "standard"
         )
         plate_layout = config.plate_layouts.get_layout("Plate_96")
         slot_entries = [MockSlotEntry("QC01"), MockSlotEntry("QC01")]
@@ -484,7 +484,7 @@ class TestEvosepPlateAlphaPassthrough:
         """Alpha positions stay as alpha (no conversion to numeric)."""
         pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
         sampler = create_assembled_sampler(
-            "Evosep", "plate", config, "Proteomics", pattern.get_all_sample_ids(), "Plate_96", pattern.qc_layout_name
+            "Evosep", "plate", config, "Proteomics", pattern.get_all_sample_ids(), "Plate_96", "standard"
         )
         queue = _create_plate_queue_with_alpha_positions(["A1", "D8", "H12"])
 
@@ -498,7 +498,7 @@ class TestEvosepPlateAlphaPassthrough:
         """Row and col components are split from alpha grid_position."""
         pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
         sampler = create_assembled_sampler(
-            "Evosep", "plate", config, "Proteomics", pattern.get_all_sample_ids(), "Plate_96", pattern.qc_layout_name
+            "Evosep", "plate", config, "Proteomics", pattern.get_all_sample_ids(), "Plate_96", "standard"
         )
         queue = _create_plate_queue_with_alpha_positions(["A1", "D8", "H12"])
 
@@ -515,7 +515,7 @@ class TestEvosepPlateAlphaPassthrough:
         """Test all four corners of 96-well plate stay as alpha."""
         pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
         sampler = create_assembled_sampler(
-            "Evosep", "plate", config, "Proteomics", pattern.get_all_sample_ids(), "Plate_96", pattern.qc_layout_name
+            "Evosep", "plate", config, "Proteomics", pattern.get_all_sample_ids(), "Plate_96", "standard"
         )
         queue = _create_plate_queue_with_alpha_positions(["A1", "A12", "H1", "H12"])
 
@@ -540,7 +540,7 @@ class TestWellPlateModeRowColSplit:
         """Row and col components are split from alpha grid_position."""
         pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
         assembled = create_assembled_sampler(
-            sampler, "plate", config, "Proteomics", pattern.get_all_sample_ids(), layout, pattern.qc_layout_name
+            sampler, "plate", config, "Proteomics", pattern.get_all_sample_ids(), layout, "standard"
         )
         # Use positions in rows A-E to avoid QC positions (F6-F9)
         queue = _create_plate_queue_with_alpha_positions(["A1", "B3", "E6"])
@@ -559,7 +559,7 @@ class TestWellPlateModeRowColSplit:
         """Alpha grid_position is preserved after splitting."""
         pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
         assembled = create_assembled_sampler(
-            sampler, "plate", config, "Proteomics", pattern.get_all_sample_ids(), layout, pattern.qc_layout_name
+            sampler, "plate", config, "Proteomics", pattern.get_all_sample_ids(), layout, "standard"
         )
         queue = _create_plate_queue_with_alpha_positions(["A1", "B3", "E6"])
 
@@ -574,7 +574,7 @@ class TestWellPlateModeRowColSplit:
         """Cells that already have row/col populated are not re-split."""
         pattern = config.queue_patterns.get_pattern("Proteomics", "noqc")
         assembled = create_assembled_sampler(
-            sampler, "plate", config, "Proteomics", pattern.get_all_sample_ids(), layout, pattern.qc_layout_name
+            sampler, "plate", config, "Proteomics", pattern.get_all_sample_ids(), layout, "standard"
         )
         cells = [
             PlateCell(

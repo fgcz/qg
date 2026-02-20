@@ -122,3 +122,11 @@ development task documents before archival.
 - Chronos requires: row counter, exact column order, "EvoSlot N" tray format;
   dedicated Chronos writer with tray_format field
   (`DONE_chronos_formatting`)
+
+**Remove qc_layout_name from QueuePattern** (Feb 20)
+- Removed redundant `qc_layout_name` field from `QueuePattern` model and
+  `queue_patterns.toml`; pattern–layout compatibility is now solely determined
+  by subset check (`pattern.get_all_sample_ids() ⊆ layout.get_sample_ids()`)
+- Made `qc_layout_name` a required parameter in `QueueParameters.create()`
+  (caller must always provide it explicitly; no fallback from pattern)
+  (`TODO_qc_layout_pattern_relation`)

@@ -86,7 +86,6 @@ class TestStructureConfigs:
         # Check standard pattern exists
         pattern = config.get_pattern("Proteomics", "standard")
         assert pattern is not None
-        assert pattern.qc_layout_name == "standard"
         assert pattern.run_QC_after_n_samples > 0
 
 

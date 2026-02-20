@@ -253,6 +253,7 @@ class TestQueueParametersCreate:
             queue_pattern="standard",
             queue_type="Vial",
             plate_layout="Vanquish_54",
+            qc_layout_name="standard",
             polarity=["pos"],
             date="20260122",
             user="testuser",
@@ -274,6 +275,7 @@ class TestQueueParametersCreate:
                 queue_pattern="nonexistent",
                 queue_type="Vial",
                 plate_layout="Vanquish_54",
+                qc_layout_name="standard",
                 polarity=["pos"],
                 date="20260122",
             )
@@ -292,6 +294,7 @@ class TestQueueParametersCreate:
                 queue_pattern="standard",
                 queue_type="Vial",
                 plate_layout="Vanquish_54",
+                qc_layout_name="standard",
                 polarity=["pos"],
                 date="20260122",
             )
@@ -310,6 +313,7 @@ class TestQueueParametersCreate:
                 queue_pattern="standard",
                 queue_type="Vial",
                 plate_layout="Vanquish_54",
+                qc_layout_name="standard",
                 polarity=["pos"],
                 date="20260122",
             )
@@ -328,6 +332,7 @@ class TestQueueParametersCreate:
                 queue_pattern="standard",
                 queue_type="Vial",
                 plate_layout="Vanquish_54",
+                qc_layout_name="standard",
                 polarity=["pos"],
                 date="20260122",
             )
@@ -346,6 +351,7 @@ class TestQueueParametersCreate:
                 queue_pattern="standard",
                 queue_type="Vial",
                 plate_layout="MClass_48",  # Invalid for Vanquish
+                qc_layout_name="standard",
                 polarity=["pos"],
                 date="20260122",
             )

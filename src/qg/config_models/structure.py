@@ -14,7 +14,6 @@ class QueuePattern(BaseModel):
     """A queue pattern defining QC injection sequences."""
 
     description: str = Field(..., description="Human-readable description")
-    qc_layout_name: str = Field(..., description="Reference to qc_layout in qc_layouts_*.csv")
     run_QC_after_n_samples: int = Field(..., gt=0, description="Insert QC block after this many samples")
     start: list[str] = Field(default_factory=list, description="QC samples at queue start")
     middle: list[str] = Field(default_factory=list, description="QC samples between sample batches")
