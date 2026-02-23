@@ -122,7 +122,7 @@ All apps are deployed on `fgcz-r-039` in `/scratch/A401_queue_gen`.
 
 Both apps are served by uvicorn (FastAPI + B-Fabric auth + marimo ASGI). They run continuously — when a user connects from B-Fabric, they hit the already-running server.
 
-**Queue app:** Code and configs are baked into the Docker image. To pick up config changes merged on GitLab, rebuild the image: `make deploy-app`.
+**Queue app:** Code and configs (`qg_configs/`) are baked into the Docker image. To pick up config changes merged on GitLab, rebuild the image: `make deploy-app`. The `bfabric_cache/` directory is bind-mounted from the host, so running `make projects` updates the project list without rebuilding.
 
 **Config editor:** Code and configs are baked into the image. The only external mount is `~/.qg_settings.toml` (GitLab API credentials for the review/merge-request workflow). The editor reads configs from the image, diffs changes in memory, and submits them to GitLab via the Commits API — it never writes to disk.
 
