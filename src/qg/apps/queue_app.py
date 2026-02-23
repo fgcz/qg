@@ -24,6 +24,7 @@ with app.setup:
     configure_logging()
 
     from qg.bfabric_utils import BfabricHelper, make_feeder_uploader
+    from qg.cli.find_projects import ContainerCache
     from qg.config_models.loader import qg_configuration
     from qg.config_models.structure import SamplesConfig
     from qg.generator import QueueGenerator, format_table, write_queue
@@ -66,8 +67,9 @@ def _():
     DEBUG_DUMP_DIR = Path.home() / ".qg" / "logs"
     # Use --all-projects flag to load all containers (no status filter)
     _args = mo.cli_args()
-    USE_ALL_PROJECTS = _args.get("all-projects", False)
-    return BFABRIC_CACHE_DIR, DEBUG_DUMP_DIR, USE_ALL_PROJECTS
+    USE_ALL_PROJECTS = "all-projects" in _args
+    USE_CONTAINER_TYPE = "container-type" in _args
+    return BFABRIC_CACHE_DIR, DEBUG_DUMP_DIR, USE_ALL_PROJECTS, USE_CONTAINER_TYPE
 
 
 @app.cell
@@ -194,10 +196,15 @@ def _(qc_layout_field, table_by_qc_layout):
 
 
 @app.cell
-def _(sampler_field, table_by_sampler):
-    # Queue type dropdown - options based on selected sampler
+def _(container_has_plates, sampler_field, table_by_sampler):
+    # Queue type dropdown - constrained by plate availability
     if sampler_field.value:
-        _options = sorted(table_by_sampler["queue_type"].unique().to_list())
+        _all_options = sorted(table_by_sampler["queue_type"].unique().to_list())
+        # No plates found for selected containers → restrict to Vial only
+        if container_has_plates is False:
+            _options = [o for o in _all_options if o == "Vial"]
+        else:
+            _options = _all_options
         _default = _options[0] if _options else None
     else:
         _options = []
@@ -594,35 +601,42 @@ def _(
 
 
 @app.cell
-def _(BFABRIC_CACHE_DIR, USE_ALL_PROJECTS):
-    # Load orders and projects data (use _all suffix when --all-projects is set)
-    _suffix = "_all" if USE_ALL_PROJECTS else ""
-    _orders_data = pl.read_csv(BFABRIC_CACHE_DIR / f"bfabric_order{_suffix}.csv")
-    _projects_data = pl.read_csv(BFABRIC_CACHE_DIR / f"bfabric_project{_suffix}.csv")
+def _():
+    get_refresh, set_refresh = mo.state(0)
+    refresh_projects_button = mo.ui.run_button(label="Refresh Projects")
+    return get_refresh, refresh_projects_button, set_refresh
 
-    projects_df = pl.concat((_orders_data, _projects_data), how="diagonal_relaxed").sort(
-        "Container ID", descending=True
-    )
+
+@app.cell
+def _(USE_ALL_PROJECTS, client, get_refresh, refresh_projects_button, set_refresh):
+    if refresh_projects_button.value:
+        ContainerCache(client, active_only=not USE_ALL_PROJECTS).write_containers()
+        set_refresh(get_refresh() + 1)
+    return
+
+
+@app.cell
+def _(BFABRIC_CACHE_DIR, USE_ALL_PROJECTS, USE_CONTAINER_TYPE, get_refresh):
+    # Load merged container cache; --container-type loads the _type variant with Vials/Plates rows
+    _ = get_refresh()  # re-read CSV when refresh button is clicked
+    _suffix = "_all" if USE_ALL_PROJECTS else ""
+    _name = "bfabric_container_type" if USE_CONTAINER_TYPE else "bfabric_container"
+    projects_df = pl.read_csv(BFABRIC_CACHE_DIR / f"{_name}{_suffix}.csv")
+    projects_df = projects_df.sort("Container ID", descending=True)
     return (projects_df,)
 
 
 @app.cell
-def _(projects_df, queue_type_field, tech_area_field):
+def _(projects_df, tech_area_field):
     # Map tech_area to bfabric Area values
     _area_map = {
         "Proteomics": ["Proteomics"],
         "Metabolomics": ["Metabolomics/Biophysics"],
         "Lipidomics": ["Metabolomics/Biophysics"],
     }
-    # Map queue_type to bfabric Type values (Vial -> Vials, Plate -> Plates)
-    _type_map = {
-        "Vial": ["Vials"],
-        "Plate": ["Plates"],
-    }
     _allowed_areas = _area_map.get(tech_area_field.value, [])
-    _allowed_types = _type_map.get(queue_type_field.value, [])
 
-    _filtered = projects_df.filter(pl.col("Area").is_in(_allowed_areas) & pl.col("Type").is_in(_allowed_types))
+    _filtered = projects_df.filter(pl.col("Area").is_in(_allowed_areas))
     project_table = mo.ui.table(
         data=_filtered,
         selection="multi",
@@ -636,13 +650,9 @@ def _(projects_df, queue_type_field, tech_area_field):
 def _(project_table):
     if project_table.value.is_empty():
         selected_orders = []
-        container_type = "Vials"
     else:
-        selected_orders = [
-            (int(row["Container ID"]), row["Area"], row["Type"]) for row in project_table.value.to_dicts()
-        ]
-        container_type = selected_orders[0][2]
-    return container_type, selected_orders
+        selected_orders = [(int(row["Container ID"]), row["Area"]) for row in project_table.value.to_dicts()]
+    return (selected_orders,)
 
 
 @app.cell
@@ -652,6 +662,24 @@ def _(bfabric, selected_orders):
     for _container_id, *_ in selected_orders:
         all_plates[_container_id] = bfabric.get_plates(_container_id)
     return (all_plates,)
+
+
+@app.cell
+def _(all_plates, selected_orders):
+    # Check if any selected container has plates (queried live by all_plates cell)
+    if not selected_orders:
+        container_has_plates = None
+    else:
+        container_has_plates = any(bool(all_plates.get(o[0])) for o in selected_orders)
+    return (container_has_plates,)
+
+
+@app.cell
+def _(queue_type_field):
+    # Derive container_type for BfabricHelper.get_samples() from queue type dropdown
+    _type_map = {"Vial": "Vials", "Plate": "Plates"}
+    container_type = _type_map.get(queue_type_field.value, "Vials")
+    return (container_type,)
 
 
 @app.cell
@@ -769,10 +797,14 @@ def _(
 
 
 @app.cell
-def _(project_table):
+def _(project_table, refresh_projects_button):
     mo.vstack(
         [
-            mo.md("## Order Selection"),
+            mo.hstack(
+                [mo.md("## Order Selection"), refresh_projects_button],
+                justify="space-between",
+                align="center",
+            ),
             project_table,
         ]
     )

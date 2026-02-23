@@ -1,9 +1,10 @@
-"""Find proteomics and metabolomics containers with samples in B-Fabric."""
+"""Find proteomics and metabolomics containers in B-Fabric and write cache CSVs."""
 
-import argparse
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Annotated
 
+import cyclopts
 import polars as pl
 from bfabric import Bfabric
 from loguru import logger
@@ -17,6 +18,8 @@ ACTIVE_STATUSES = [
     "analyzing",
 ]
 
+TECHNOLOGY_IDS = [2, 4]
+
 
 def get_cache_dir() -> Path:
     """Get the bfabric_cache directory path.
@@ -26,138 +29,128 @@ def get_cache_dir() -> Path:
     return Path(__file__).parents[3] / "bfabric_cache"
 
 
-def read_containers(
-    client: Bfabric,
-    endpoint: str,
-    max_results: int | None,
-    technology_ids: Sequence[int],
-    *,
-    active_only: bool = True,
-) -> pl.DataFrame:
-    """Read containers from B-Fabric API.
+class ContainerCache:
+    """Fetches B-Fabric containers (orders + projects) and writes cache CSVs.
 
-    :param client: B-Fabric client instance.
-    :param endpoint: API endpoint ('order' or 'project').
-    :param max_results: Maximum results to fetch.
-    :param technology_ids: Technology IDs to filter by.
-    :param active_only: If True, filter by active statuses. If False, fetch all.
-    :return: Containers with samples.
+    Two public methods, each writes exactly one file:
+    - write_containers()            → bfabric_container{suffix}.csv
+    - write_containers_with_plates() → bfabric_container_type{suffix}.csv
     """
-    query: dict = {"technologyid": technology_ids}
-    if active_only:
-        query["status"] = ACTIVE_STATUSES
-    result = client.read(endpoint, query, max_results=max_results)
-    return result.to_polars(flatten=True).filter(pl.col("countsamples") > 0)
 
+    def __init__(self, client: Bfabric, *, active_only: bool = True) -> None:
+        self._client = client
+        self._active_only = active_only
+        self._suffix = "" if active_only else "_all"
+        self._cache_dir = get_cache_dir()
+        self._cache_dir.mkdir(exist_ok=True)
 
-def find_containers_with_plates(client: Bfabric, container_ids: Sequence[int]) -> set[int]:
-    """Check which containers have plates by querying the plate endpoint.
+    def _fetch(self) -> list[pl.DataFrame]:
+        """Query orders and projects from B-Fabric."""
+        return [self._read_endpoint(endpoint) for endpoint in ("order", "project")]
 
-    :param client: B-Fabric client instance.
-    :param container_ids: Container IDs to check.
-    :return: Set of container IDs that have plates.
-    """
-    has_plates: set[int] = set()
-    for cid in container_ids:
-        result = client.read("plate", {"containerid": cid}, max_results=1)
-        if len(result) > 0:
-            has_plates.add(cid)
-    logger.info(f"Found {len(has_plates)}/{len(container_ids)} containers with plates")
-    return has_plates
+    def _read_endpoint(self, endpoint: str) -> pl.DataFrame:
+        """Read containers from a single B-Fabric endpoint."""
+        query: dict = {"technologyid": TECHNOLOGY_IDS}
+        if self._active_only:
+            query["status"] = ACTIVE_STATUSES
+        result = self._client.read(endpoint, query, max_results=None)
+        return result.to_polars(flatten=True).filter(pl.col("countsamples") > 0)
 
+    def _find_plates(self, container_ids: Sequence[int]) -> set[int]:
+        """Check which containers have plates (one query per container, slow)."""
+        has_plates: set[int] = set()
+        for cid in container_ids:
+            result = self._client.read("plate", {"containerid": cid}, max_results=1)
+            if len(result) > 0:
+                has_plates.add(cid)
+        logger.info(f"Found {len(has_plates)}/{len(container_ids)} containers with plates")
+        return has_plates
 
-def extract_output(containers_df: pl.DataFrame, containers_with_plates: set[int]) -> pl.DataFrame:
-    """Extract containers for queue app.
+    def _format(self, dfs: list[pl.DataFrame], containers_with_plates: set[int]) -> pl.DataFrame:
+        """Format and merge raw container DataFrames.
 
-    All containers get a "Vials" row. Containers that also have plates
-    get an additional "Plates" row.
+        Each container gets a "Vials" row. Containers in containers_with_plates
+        also get a "Plates" row.
+        """
+        return pl.concat(
+            [self._format_one(df, containers_with_plates) for df in dfs],
+            how="diagonal_relaxed",
+        ).sort("Container ID", descending=True)
 
-    :param containers_df: Raw containers DataFrame.
-    :param containers_with_plates: Container IDs that have plates.
-    :return: Formatted DataFrame with Container ID, Name, Project ID, PI,
-        Samples, Type, Status, Area.
-    """
-    optional_columns = {"project_id"}
-    missing_columns = optional_columns - set(containers_df.columns)
-    containers_df = containers_df.with_columns(**{col: pl.lit(None) for col in missing_columns})
+    @staticmethod
+    def _format_one(containers_df: pl.DataFrame, containers_with_plates: set[int]) -> pl.DataFrame:
+        """Format a single raw DataFrame (orders or projects)."""
+        optional_columns = {"project_id"}
+        missing_columns = optional_columns - set(containers_df.columns)
+        containers_df = containers_df.with_columns(**{col: pl.lit(None) for col in missing_columns})
 
-    base = containers_df.select(
-        pl.col("id").alias("Container ID"),
-        pl.col("name").alias("Container Name"),
-        pl.col("project_id").alias("Project ID"),
-        pl.col("billingcustomer").alias("PI"),
-        pl.col("countsamples").alias("Samples"),
-        pl.col("status").alias("Status"),
-        pl.col("technology").list.first().alias("Area"),
-    )
-
-    vials = base.with_columns(pl.lit("Vials").alias("Type"))
-
-    if containers_with_plates:
-        plates = base.filter(pl.col("Container ID").is_in(containers_with_plates)).with_columns(
-            pl.lit("Plates").alias("Type")
-        )
-        return pl.concat([vials, plates]).sort("Container ID", descending=True)
-
-    return vials
-
-
-def generate_bfabric_cache(
-    client: Bfabric,
-    update_orders: bool = True,
-    update_projects: bool = True,
-    *,
-    active_only: bool = True,
-) -> None:
-    """Generate B-Fabric cache files.
-
-    Writes CSV files to bfabric_cache/:
-    - active_only=True:  bfabric_order.csv, bfabric_project.csv
-    - active_only=False: bfabric_order_all.csv, bfabric_project_all.csv
-
-    :param client: B-Fabric client instance.
-    :param update_orders: Fetch and cache orders.
-    :param update_projects: Fetch and cache projects.
-    :param active_only: If True, filter by active statuses. If False, fetch all.
-    """
-    technology_ids = [2, 4]
-    suffix = "" if active_only else "_all"
-
-    dfs = {}
-    if update_orders:
-        dfs["order"] = read_containers(
-            client, "order", max_results=None, technology_ids=technology_ids, active_only=active_only
-        )
-    if update_projects:
-        dfs["project"] = read_containers(
-            client, "project", max_results=None, technology_ids=technology_ids, active_only=active_only
+        base = containers_df.select(
+            pl.col("id").alias("Container ID"),
+            pl.col("name").alias("Container Name"),
+            pl.col("project_id").alias("Project ID"),
+            pl.col("billingcustomer").alias("PI"),
+            pl.col("countsamples").alias("Samples"),
+            pl.col("status").alias("Status"),
+            pl.col("technology").list.first().alias("Area"),
         )
 
-    all_ids = [cid for df in dfs.values() for cid in df["id"].to_list()]
-    containers_with_plates = find_containers_with_plates(client, all_ids)
+        vials = base.with_columns(pl.lit("Vials").alias("Type"))
 
-    outputs = {key: extract_output(df, containers_with_plates) for key, df in dfs.items()}
+        if containers_with_plates:
+            plates = base.filter(pl.col("Container ID").is_in(containers_with_plates)).with_columns(
+                pl.lit("Plates").alias("Type")
+            )
+            return pl.concat([vials, plates]).sort("Container ID", descending=True)
 
-    cache_path = get_cache_dir()
-    cache_path.mkdir(exist_ok=True)
-    for key, output in outputs.items():
-        path = cache_path / f"bfabric_{key}{suffix}.csv"
-        output.write_csv(path)
-        logger.success(f"Written {len(output)} entries to {path}")
+        return vials
+
+    def _write(self, name: str, df: pl.DataFrame) -> Path:
+        """Write a DataFrame to the cache directory and return the path."""
+        path = self._cache_dir / f"{name}{self._suffix}.csv"
+        df.write_csv(path)
+        logger.success(f"Written {len(df)} entries to {path}")
+        return path
+
+    def write_containers(self) -> Path:
+        """Fetch containers and write bfabric_container.csv (fast, no plate detection)."""
+        dfs = self._fetch()
+        merged = self._format(dfs, containers_with_plates=set())
+        output = merged.drop("Type").unique(subset=["Container ID"]).sort("Container ID", descending=True)
+        return self._write("bfabric_container", output)
+
+    def write_containers_with_plates(self) -> Path:
+        """Fetch containers with plate detection and write bfabric_container_type.csv (slow)."""
+        dfs = self._fetch()
+        all_ids = [cid for df in dfs for cid in df["id"].to_list()]
+        containers_with_plates = self._find_plates(all_ids)
+        output = self._format(dfs, containers_with_plates)
+        return self._write("bfabric_container_type", output)
 
 
 def main() -> None:
     """CLI entry point for qg-find-projects."""
-    parser = argparse.ArgumentParser(description="Fetch B-Fabric containers and cache locally.")
-    parser.add_argument(
-        "--all",
-        action="store_true",
-        help="Fetch all containers (no status filter). Writes to bfabric_order_all.csv / bfabric_project_all.csv.",
-    )
-    args = parser.parse_args()
+    app = cyclopts.App(help="Fetch B-Fabric containers and cache locally.")
 
-    client = Bfabric.connect(config_file_env="PRODUCTION")
-    generate_bfabric_cache(client=client, active_only=not args.all)
+    @app.default
+    def run(
+        *,
+        all_projects: Annotated[
+            bool,
+            cyclopts.Parameter(("--all",), help="Fetch all containers (no status filter)."),
+        ] = False,
+        check_plates: Annotated[
+            bool,
+            cyclopts.Parameter(help="Query B-Fabric plate endpoint for each container (slow)."),
+        ] = False,
+    ) -> None:
+        client = Bfabric.connect(config_file_env="PRODUCTION")
+        cache = ContainerCache(client, active_only=not all_projects)
+        if check_plates:
+            cache.write_containers_with_plates()
+        else:
+            cache.write_containers()
+
+    app()
 
 
 if __name__ == "__main__":
