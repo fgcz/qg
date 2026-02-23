@@ -3,7 +3,7 @@
 # Each pattern specifies QC sample injection sequences
 # Sample IDs reference samples from samples.csv under the same tech_area
 #
-# PROTEOMICS patterns: noqc, standard, frequent, simple, dda, minimal, qc_only, evosep_qc, conditioning
+# PROTEOMICS patterns: noqc, standard, frequent, simple, simple_clean dda, minimal, qc_only, evosep_qc, conditioning
 # METABOLOMICS patterns: noqc, standard, simple, blank
 # LIPIDOMICS patterns: noqc, standard
 #
@@ -16,7 +16,6 @@
 
 [Proteomics.noqc]
 description = "No QC - no QC samples"
-
 run_QC_after_n_samples = 1000
 start = []
 middle = []
@@ -24,7 +23,6 @@ end = []
 
 [Proteomics.standard]
 description = "Standard proteomics: clean-qc pairs, clean-qc-qc ending"
-
 run_QC_after_n_samples = 16
 start = ["QC03dia", "QC01"]
 middle = ["clean", "QC01"]
@@ -33,7 +31,6 @@ separation = ["clean", "QC01", "clean"]
 
 [Proteomics.frequent]
 description = "Frequent QC (every 8 samples) for sensitive experiments"
-
 run_QC_after_n_samples = 8
 start = ["QC03dia", "QC01"]
 middle = ["clean", "QC01"]
@@ -41,15 +38,21 @@ end = ["clean", "QC01", "QC03dia", "clean"]
 
 [Proteomics.simple]
 description = "Simple: QC only, no column cleaning in middle"
-
 run_QC_after_n_samples = 16
 start = ["QC01"]
 middle = ["QC01"]
 end = ["clean", "QC01", "QC03dda"]
 
+[Proteomics.simple_clean]
+description = "Simple clean: cleans in between each samples"
+run_QC_after_n_samples = 1
+start = ["QC03dia", "QC01"]
+middle = ["clean"]
+end = ["clean", "QC01", "QC03dda"]
+separation = ["clean", "QC01", "clean"]
+
 [Proteomics.dda]
 description = "DDA-focused pattern using QC03dda benchmark"
-
 run_QC_after_n_samples = 16
 start = ["QC03dda", "QC01"]
 middle = ["clean", "QC01"]
@@ -57,7 +60,6 @@ end = ["clean", "QC01", "QC03dda", "clean"]
 
 [Proteomics.minimal]
 description = "Minimal QC for high-throughput runs"
-
 run_QC_after_n_samples = 32
 start = ["QC01"]
 middle = ["QC01"]
@@ -65,7 +67,6 @@ end = ["clean", "QC01"]
 
 [Proteomics.qc_only]
 description = "QC only - no samples, just system check"
-
 run_QC_after_n_samples = 1
 start = ["clean", "QC01", "QC03dia"]
 middle = []
@@ -73,7 +74,6 @@ end = ["QC01", "QC03dia", "clean"]
 
 [Proteomics.evosep_qc]
 description = "Evosep: clean-QC03 bookends, no QC01"
-
 run_QC_after_n_samples = 12
 start = ["clean", "QC03dia"]
 middle = ["QC03dia"]
@@ -81,7 +81,6 @@ end = ["clean", "QC03dia"]
 
 [Proteomics.conditioning]
 description = "Column conditioning - multiple cleans"
-
 run_QC_after_n_samples = 1
 start = ["clean", "clean", "clean", "QC01"]
 middle = []
@@ -89,7 +88,6 @@ end = ["clean"]
 
 [Metabolomics.noqc]
 description = "No QC - no QC samples"
-
 run_QC_after_n_samples = 1
 start = []
 middle = []
@@ -97,7 +95,6 @@ end = []
 
 [Metabolomics.standard]
 description = "Standard metabolomics with dilution series for linearity"
-
 run_QC_after_n_samples = 10
 start = ["blank", "108mix_AA", "108mix_OAP", "pooledQC", "blank", "pooledQCDil1", "pooledQCDil2", "pooledQCDil3", "pooledQCDil4", "pooledQCDil5", "pooledQCDil6", "blank"]
 middle = ["blank", "108mix_AA", "108mix_OAP", "pooledQC"]
@@ -108,7 +105,6 @@ middle_extended_frequency_multiplier = 2
 
 [Metabolomics.simple]
 description = "Simple metabolomics without dilution series"
-
 run_QC_after_n_samples = 10
 start = ["blank", "108mix_AA", "108mix_OAP", "pooledQC", "blank"]
 middle = ["blank", "pooledQC"]
@@ -116,7 +112,6 @@ end = ["108mix_AA", "108mix_OAP", "pooledQC", "blank"]
 
 [Metabolomics.blank]
 description = "Blank runs only for system conditioning"
-
 run_QC_after_n_samples = 10
 start = ["blank", "blank", "blank"]
 middle = []
@@ -124,7 +119,6 @@ end = ["blank", "blank", "blank"]
 
 [Lipidomics.noqc]
 description = "No QC - no QC samples"
-
 run_QC_after_n_samples = 1
 start = []
 middle = []
@@ -132,7 +126,6 @@ end = []
 
 [Lipidomics.standard]
 description = "Lipidomics with EquiSPLASH standard"
-
 run_QC_after_n_samples = 10
 start = ["blank", "EquiSPLASH", "pooledQC", "blank", "pooledQCDil1", "pooledQCDil2", "pooledQCDil3", "pooledQCDil4", "pooledQCDil5", "pooledQCDil6", "blank"]
 middle = ["blank", "EquiSPLASH", "pooledQC"]
