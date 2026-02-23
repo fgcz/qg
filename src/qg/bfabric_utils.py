@@ -4,6 +4,10 @@ from pathlib import Path
 
 import polars as pl
 from bfabric import Bfabric
+from bfabric_rest_proxy.feeder_operations.create_workunit import (
+    CreateWorkunitParams,
+    create_workunit,
+)
 from loguru import logger
 
 from qg.sample_rows import PlateSampleRow, VialSampleRow
@@ -100,3 +104,41 @@ class BfabricHelper:
                     )
                 )
         return rows
+
+
+# =============================================================================
+# Feeder uploaders
+# =============================================================================
+
+
+class BfabricFeederUploader:
+    """Real uploader using B-Fabric feeder client."""
+
+    def __init__(self, user_client: Bfabric, feeder_client) -> None:
+        self._user_client = user_client
+        self._feeder_client = feeder_client
+
+    def upload(self, params: CreateWorkunitParams) -> str:
+        result = create_workunit(
+            user_client=self._user_client,
+            feeder_client=self._feeder_client,
+            params=params,
+        )
+        return f"Created [Workunit {result.id}]({result.uri})"
+
+
+class MockFeederUploader:
+    """Mock uploader for local testing."""
+
+    def upload(self, params: CreateWorkunitParams) -> str:
+        return (
+            f"**[Mock]** Would create workunit in container {params.container_id} "
+            f"with {len(params.resources)} resources."
+        )
+
+
+def make_feeder_uploader(user_client: Bfabric, feeder_client) -> BfabricFeederUploader | MockFeederUploader:
+    """Return a real uploader if feeder_client is available, otherwise a mock."""
+    if feeder_client is not None:
+        return BfabricFeederUploader(user_client, feeder_client)
+    return MockFeederUploader()

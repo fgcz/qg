@@ -15,17 +15,14 @@ with app.setup:
     import pydantic
     import yaml
     from bfabric import Bfabric
-    from bfabric_rest_proxy.feeder_operations.create_workunit import (
-        CreateWorkunitParams,
-        create_workunit,
-    )
+    from bfabric_rest_proxy.feeder_operations.create_workunit import CreateWorkunitParams
     from loguru import logger
 
     from qg.logging_setup import configure_logging
 
     configure_logging()
 
-    from qg.bfabric_utils import BfabricHelper
+    from qg.bfabric_utils import BfabricHelper, make_feeder_uploader
     from qg.config_models.loader import qg_configuration
     from qg.config_models.structure import SamplesConfig
     from qg.generator import QueueGenerator, format_table, write_queue
@@ -45,9 +42,11 @@ def _():
         client = Bfabric.connect()
         feeder_client = None
 
+    feeder_uploader = make_feeder_uploader(client, feeder_client)
+
     bfabric = BfabricHelper(client)
     mo.md(_content)
-    return bfabric, client, feeder_client
+    return bfabric, client, feeder_client, feeder_uploader
 
 
 @app.cell
@@ -894,11 +893,10 @@ def _(
 
 
 @app.cell
-def _(client, feeder_client, gather_workunit_parameters):
-    def upload_workunit() -> mo.Html:
+def _(feeder_uploader, gather_workunit_parameters):
+    def upload_workunit() -> str:
         params = gather_workunit_parameters()
-        result = create_workunit(user_client=client, feeder_client=feeder_client, params=params)
-        return mo.md(f"Created [Workunit {result.id}]({result.uri})")
+        return feeder_uploader.upload(params)
 
     return (upload_workunit,)
 
@@ -951,15 +949,9 @@ def _():
 
 
 @app.cell
-def _():
-    target_upload_checkbox = mo.ui.checkbox(value=True)
-    return (target_upload_checkbox,)
-
-
-@app.cell
-def _(selected_orders, target_upload_checkbox):
+def _(selected_orders):
     _container_ids = sorted((str(o[0]) for o in selected_orders), reverse=True) if selected_orders else []
-    if _container_ids and target_upload_checkbox.value:
+    if _container_ids:
         target_container_id_field = mo.ui.dropdown(
             options=_container_ids,
             value=_container_ids[0],
@@ -979,24 +971,23 @@ def _(output_file_extension, queue_parameters, selected_orders):
 
 
 @app.cell
-def _(
-    feeder_client,
-    queue_output_str,
-    target_upload_checkbox,
-    upload_workunit,
-):
+def _():
+    upload_run_button = mo.ui.run_button(label="Upload to B-Fabric")
+    return (upload_run_button,)
+
+
+@app.cell
+def _(upload_run_button, upload_workunit):
+    if upload_run_button.value:
+        upload_result = upload_workunit()
+    else:
+        upload_result = None
+    return (upload_result,)
+
+
+@app.cell
+def _(queue_output_str):
     def dl_button_callback() -> bytes:
-        if feeder_client is not None:
-            if target_upload_checkbox.value:
-                result_md = upload_workunit()
-        else:
-            result_md = mo.md(
-                f"No upload was performed because feeder is None (requested = {target_upload_checkbox.value})."
-            )
-
-        mo.output.append(result_md)
-
-        # Download uses the pre-computed output string (same data as displayed)
         return queue_output_str.encode("utf-8")
 
     return (dl_button_callback,)
@@ -1008,13 +999,13 @@ def _(
     formatted_ticket_toggle,
     generated_queue_df,
     generation_error,
-    output_file_extension,
     queue_output_filename,
     queue_output_str,
     queue_parameters,
     raw_queue_df,
     target_container_id_field,
-    target_upload_checkbox,
+    upload_result,
+    upload_run_button,
 ):
     # Queue Preview tab content
     if generation_error:
@@ -1025,17 +1016,23 @@ def _(
         _download_button = mo.download(
             data=dl_button_callback,
             filename=queue_output_filename,
-            label=f"Download {output_file_extension.upper()[1:]}",
+            label="Download Queue File",
+            disabled=upload_result is None,
         )
 
         _rand_label = (
             f" | randomization: {queue_parameters.randomization}" if queue_parameters.randomization != "no" else ""
         )
-        _target_field = f"to container {target_container_id_field}" if target_upload_checkbox.value else ""
+        _upload_items = [upload_run_button]
+        if target_container_id_field is not None:
+            _upload_items += [mo.md("to"), target_container_id_field]
+        _upload_items.append(_download_button)
+        _upload_result_msg = mo.md(upload_result) if upload_result is not None else mo.md("")
+
         queue_preview_content = mo.vstack(
             [
-                mo.md(f"Auto upload {target_upload_checkbox} {_target_field}"),
-                mo.md(f"{_download_button}"),
+                mo.hstack(_upload_items, justify="start", gap=1, align="center"),
+                _upload_result_msg,
                 mo.md(f"**{len(_display_df)} rows{_rand_label}** {formatted_ticket_toggle}"),
                 mo.ui.table(_display_df, show_column_summaries=False, show_download=False),
             ]
