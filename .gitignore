@@ -21,7 +21,9 @@ queue_files/
 *_files/
 *.png
 plans/
-bfabric_cache/
+bfabric_cache/*_all.csv
+bfabric_cache/debug/
 deprecated/
 .coverage
 .qg_settings.toml
+docs/*docx

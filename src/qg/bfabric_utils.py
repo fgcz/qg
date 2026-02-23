@@ -27,6 +27,7 @@ class BfabricHelper:
         container_type: str,
         plate_ids: list[int] | None = None,
         dump_dir: Path | None = None,
+        filename_prefix: str | None = None,
     ) -> pl.DataFrame:
         """Load samples from B-Fabric as a typed DataFrame.
 
@@ -35,6 +36,7 @@ class BfabricHelper:
             container_type: "Vials" or "Plates".
             plate_ids: Filter to specific plates (only for Plates type).
             dump_dir: If set, write the DataFrame to a CSV in this directory.
+            filename_prefix: If set, prepend to the dump filename.
 
         Returns:
             DataFrame with VialSampleRow or PlateSampleRow schema.
@@ -52,7 +54,9 @@ class BfabricHelper:
         if dump_dir is not None:
             dump_dir = Path(dump_dir)
             dump_dir.mkdir(parents=True, exist_ok=True)
-            path = dump_dir / f"samples_{container_id}_{container_type}.csv"
+            _base = f"samples_{container_id}_{container_type}.csv"
+            _name = f"{filename_prefix}_{_base}" if filename_prefix else _base
+            path = dump_dir / _name
             df.write_csv(path)
             logger.info("Dumped {} samples to {}", len(df), path)
 

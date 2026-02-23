@@ -13,28 +13,38 @@ if TYPE_CHECKING:
     from qg.generator import QueueRowTable
     from qg.params_models import QueueInput
 
-ARTIFACTS_DIR = Path.home() / ".qg" / "artifacts"
+ARTIFACTS_DIR = Path.home() / ".qg" / "logs"
 RETENTION_DAYS = 30
+
+_ARTIFACT_SUFFIXES = frozenset({".json", ".csv"})
+
+
+def build_timestamp() -> str:
+    """Return a UTC timestamp string suitable for artifact filenames: YYYYMMDD_HHMMSS."""
+    return datetime.now(tz=UTC).strftime("%Y%m%d_%H%M%S")
 
 
 def _build_stem(queue_input: QueueInput) -> str:
     """Build filename stem: {YYYYMMDD_HHMMSS}_{tech_area}_{instrument}_{sampler}."""
     params = queue_input.parameters
-    ts = datetime.now(tz=UTC).strftime("%Y%m%d_%H%M%S")
+    ts = build_timestamp()
     sampler = params.sampler.replace(".", "_")
     return f"{ts}_{params.tech_area}_{params.instrument}_{sampler}"
 
 
 def _cleanup_old_artifacts(directory: Path) -> None:
-    """Remove artifact files older than RETENTION_DAYS."""
+    """Remove old .json and .csv artifact files older than RETENTION_DAYS.
+
+    Only touches artifact files (not loguru .log files which have their own retention).
+    """
     cutoff = time.time() - RETENTION_DAYS * 86400
     for f in directory.iterdir():
-        if f.is_file() and f.stat().st_mtime < cutoff:
+        if f.is_file() and f.suffix in _ARTIFACT_SUFFIXES and f.stat().st_mtime < cutoff:
             f.unlink()
 
 
 def save_artifacts(queue_input: QueueInput, queue_rows: QueueRowTable) -> None:
-    """Save queue params JSON and raw queue CSV to ~/.qg/artifacts/.
+    """Save queue params JSON and raw queue CSV to ~/.qg/logs/.
 
     Never raises — logs errors internally so queue generation is not interrupted.
     """

@@ -18,6 +18,7 @@ with app.setup:
     from bfabric_rest_proxy.feeder_operations.create_workunit import CreateWorkunitParams
     from loguru import logger
 
+    from qg.artifacts import build_timestamp
     from qg.logging_setup import configure_logging
 
     configure_logging()
@@ -61,10 +62,12 @@ def _():
 def _():
     # B-Fabric cache directory for cached project data
     BFABRIC_CACHE_DIR = Path(__file__).parent.parent.parent.parent / "bfabric_cache"
+    # Debug/audit dump directory (shared with artifacts and loguru logs)
+    DEBUG_DUMP_DIR = Path.home() / ".qg" / "logs"
     # Use --all-projects flag to load all containers (no status filter)
     _args = mo.cli_args()
     USE_ALL_PROJECTS = _args.get("all-projects", False)
-    return BFABRIC_CACHE_DIR, USE_ALL_PROJECTS
+    return BFABRIC_CACHE_DIR, DEBUG_DUMP_DIR, USE_ALL_PROJECTS
 
 
 @app.cell
@@ -667,7 +670,7 @@ def _(all_plates, selected_orders):
 
 @app.cell
 def _(
-    BFABRIC_CACHE_DIR,
+    DEBUG_DUMP_DIR,
     bfabric,
     container_type,
     plates_select,
@@ -677,13 +680,14 @@ def _(
     all_samples_dfs = []
 
     if selected_orders:
+        _ts = build_timestamp()
         for _container_id, *_ in selected_orders:
             # Only apply plate filter to first order (for now)
             _selected_plate_ids = (
                 plates_select.value if _container_id == selected_orders[0][0] and plates_select.value else None
             )
             _df = bfabric.get_samples(
-                _container_id, container_type, _selected_plate_ids, dump_dir=BFABRIC_CACHE_DIR / "debug"
+                _container_id, container_type, _selected_plate_ids, dump_dir=DEBUG_DUMP_DIR, filename_prefix=_ts
             )
             if not _df.is_empty():
                 _df = _df.with_columns(pl.lit(_container_id).alias("container_id"))
