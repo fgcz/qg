@@ -66,6 +66,10 @@ class BfabricHelper:
         """Query plates for a container."""
         return self.client.reader.query("plate", {"containerid": container_id})
 
+    def has_plates(self, container_id: int) -> bool:
+        """Check whether a container has plates."""
+        return bool(self.get_plates(container_id))
+
     def _load_vial_samples(self, container_id: int) -> list[VialSampleRow]:
         """Load samples for a vial container."""
         df = self.client.read("sample", {"containerid": container_id}, max_results=None).to_polars(flatten=True)

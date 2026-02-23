@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help app app-all app-review editor editor-review validate projects projects-all deploy-app deploy-editor
+.PHONY: help app app-all app-type app-review editor editor-review validate projects projects-all projects-plates deploy-app deploy-editor
 
 help:
 	@echo "Queue Generation System"
@@ -8,16 +8,18 @@ help:
 	@echo "Usage: make <target>"
 	@echo ""
 	@echo "Targets:"
-	@echo "  app            Run the marimo GUI app (active projects)"
-	@echo "  app-all        Run the marimo GUI app (all projects)"
-	@echo "  app-review     Run the queue app with git pull (production)"
-	@echo "  editor         Run the config editor app (no review workflow)"
-	@echo "  editor-review  Run the config editor with git pull (review workflow)"
-	@echo "  validate       Validate all configuration files"
-	@echo "  projects       Fetch active projects from B-Fabric"
-	@echo "  projects-all   Fetch all projects from B-Fabric (no status filter)"
-	@echo "  deploy-app     Build and start queue app (Docker, port 9505)"
-	@echo "  deploy-editor  Build and start config editor (Docker, port 9506)"
+	@echo "  app              Run the marimo GUI app (active projects)"
+	@echo "  app-all          Run the marimo GUI app (all projects)"
+	@echo "  app-type         Run the marimo GUI app (with Vial/Plate type column)"
+	@echo "  app-review       Run the queue app with git pull (production)"
+	@echo "  editor           Run the config editor app (no review workflow)"
+	@echo "  editor-review    Run the config editor with git pull (review workflow)"
+	@echo "  validate         Validate all configuration files"
+	@echo "  projects         Fetch active projects from B-Fabric (fast)"
+	@echo "  projects-all     Fetch all projects from B-Fabric (no status filter)"
+	@echo "  projects-plates  Fetch active projects with plate detection (slow)"
+	@echo "  deploy-app       Build and start queue app (Docker, port 9505)"
+	@echo "  deploy-editor    Build and start config editor (Docker, port 9506)"
 
 # Run the marimo GUI app (active projects)
 app:
@@ -26,6 +28,10 @@ app:
 # Run the marimo GUI app (all projects)
 app-all:
 	uv run marimo run src/qg/apps/queue_app.py -- --all-projects
+
+# Run the marimo GUI app (with Vial/Plate type column from cache)
+app-type:
+	uv run marimo run src/qg/apps/queue_app.py -- --container-type
 
 # Run the config editor (no review workflow)
 editor:
@@ -50,6 +56,10 @@ projects:
 # Fetch all projects from B-Fabric (no status filter)
 projects-all:
 	uv run qg-find-projects --all
+
+# Fetch active projects with plate detection (slow)
+projects-plates:
+	uv run qg-find-projects --check-plates
 
 deploy-app:
 	docker compose -f docker-compose-test.yml build app
