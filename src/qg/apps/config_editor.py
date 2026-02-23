@@ -26,6 +26,7 @@ with app.setup:
         qg_configuration,
         read_header_comments,
     )
+    from qg.config_models.methods import MethodsForInstrument
     from qg.config_models.positions import (
         PlateLayoutsConfig,
         QCLayoutsTipConfig,
@@ -77,6 +78,16 @@ def _():
         preserve_comments: bool = False,
     ) -> QGConfiguration:
         """Build a validated QGConfiguration from editor widget values."""
+        # Apply methods editor changes if present
+        methods_df = editors.get("methods_editor_df")
+        if methods_df is not None and not methods_df.is_empty():
+            tech = editors["methods_tech_area"]
+            instr = editors["methods_instrument"]
+            original = methods.get_methods(tech, instr)
+            updated_instr = MethodsForInstrument.from_table(methods_df, config_path=original.config_path)
+            methods = methods.model_copy(deep=True)
+            methods.add_instrument_methods(tech, instr, updated_instr)
+
         toml_configs = {
             name: parse_toml_editor(editors[name], cls, preserve_comments=preserve_comments)
             for name, cls in TOML_CONFIG_CLASSES.items()
@@ -192,14 +203,14 @@ def _(cfg):
 @app.cell
 def _(cfg):
     instrument_configs_editor = mo.ui.data_editor(cfg.instrument_configs.to_table(), label="Instrument Configs")
-    ui_tab = mo.vstack(
+    instrument_config_tab = mo.vstack(
         [
-            mo.md("### UI — Instrument Configs (instrument_config.csv)"),
-            mo.md("_Valid (instrument, sampler, output_format, default_pattern) combinations for the UI_"),
+            mo.md("### Instrument Configs (instrument_config.csv)"),
+            mo.md("_Valid (instrument, sampler, output_format, default_pattern) combinations_"),
             instrument_configs_editor,
         ]
     )
-    return instrument_configs_editor, ui_tab
+    return instrument_configs_editor, instrument_config_tab
 
 
 @app.cell
@@ -247,6 +258,9 @@ def _(
     plate_layouts_editor,
     queue_patterns_editor,
     output_formats_editor,
+    methods_editor,
+    tech_area,
+    instrument,
 ):
     editor_values = {
         "instruments": instruments_editor.value,
@@ -259,6 +273,9 @@ def _(
         "plate_layouts": plate_layouts_editor.value,
         "queue_patterns": queue_patterns_editor.value,
         "output_formats": output_formats_editor.value,
+        "methods_editor_df": methods_editor.value,
+        "methods_tech_area": tech_area,
+        "methods_instrument": instrument,
     }
     return (editor_values,)
 
@@ -580,7 +597,7 @@ def _():
         "Samples",
         "QC Layouts Well",
         "QC Layouts Tip",
-        "UI",
+        "Instrument Config",
         "Formatting",
         "Position",
         "Methods",
@@ -606,7 +623,7 @@ def _(
     structure_tab,
     samples_tab,
     methods_tab,
-    ui_tab,
+    instrument_config_tab,
 ):
     _sections = {
         "Overview": overview_tab,
@@ -618,7 +635,7 @@ def _(
         "Queue Patterns": structure_tab,
         "Samples": samples_tab,
         "Methods": methods_tab,
-        "UI": ui_tab,
+        "Instrument Config": instrument_config_tab,
     }
     # CSS display:none keeps all widgets in the DOM (data_editor preserves visual state)
     _panels = [
