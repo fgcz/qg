@@ -30,14 +30,6 @@ class InstrumentConfigsConfig(BaseModel):
 
     configs: list[InstrumentConfig]
 
-    def get_by_instrument(self, instrument: str) -> list[InstrumentConfig]:
-        """Get all configs for an instrument (may have multiple samplers)."""
-        return [c for c in self.configs if c.instrument == instrument]
-
-    def get_by_tech_area(self, tech_area: str) -> list[InstrumentConfig]:
-        """Get all configs for a technology area."""
-        return [c for c in self.configs if c.tech_area == tech_area]
-
     def get_config(
         self,
         instrument: str,

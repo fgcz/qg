@@ -105,35 +105,37 @@ CSV Output
 
 | Module | Purpose |
 |--------|---------|
-| `generator.py` | `QueueGenerator` class (config resolution + pipeline execution), `QueueRow` dataclass |
-| `queue_structure.py` | `build_queue_structure()`, `compute_queue_counts()`, `SlotEntry` |
-| `positions.py` | `QCLayoutWell`, `QCLayoutTip`, factory function |
-| `config.py` | `ConfigBundle`, `qg_config()`, validation functions |
-| `config_models.py` | Pydantic models for config files (Sample, Instrument, QueuePattern, etc.) |
-| `config_models_samplers.py` | Sampler config models (GridSampler, EvosepSampler) |
-| `params_models.py` | `QueueInput`, `QueueParameters`, `SampleGroup`, `InputSample`, `write_params` |
+| `generator.py` | `QueueGenerator` class (config resolution + pipeline execution) |
+| `queue_structure.py` | `build_multi_container_queue_structure()`, `SlotEntry` |
+| `positionV2.py` | Position generation for well/tip samplers |
+| `qc_layout.py` | `QCLayoutWell`, `QCLayoutTip` classes |
+| `qc_positions.py` | `QCPositionProvider` |
+| `queue_builder.py` | Queue building orchestration |
+| `sample_rows.py` | Sample row generation |
+| `writers.py` | Output format writers |
+| `params_models.py` | `VialQueue`, `PlateQueue`, `QueueParameters`, `ContainerBatch` |
+| `config_models/` | Package: `loader.py`, `formatting.py`, `methods.py`, `positions.py`, `structure.py`, `ui.py` |
 | `bfabric_utils.py` | B-Fabric LIMS integration utilities |
 
 ### Config Access Rules
 
-**IMPORTANT:** The `config.py` module has only ONE public function: `qg_config()`. All other functions are private (prefixed with `_`).
+**IMPORTANT:** The `config_models/loader.py` module has only ONE public function: `qg_configuration()`. All other functions are private (prefixed with `_`).
 
 **Only these modules may read/write files in `qg_configs/`:**
-- `config.py` - loads configs via `qg_config()`
+- `config_models/loader.py` - loads configs via `qg_configuration()`
 - `apps/config_editor.py` - edits config files directly
 
-**All other modules MUST access configs through `ConfigBundle`** returned by `qg_config()`:
+**All other modules MUST access configs through `QGConfiguration`** returned by `qg_configuration()`:
 ```python
-from qg.config import qg_config
+from qg.config_models.loader import qg_configuration
 
-configs = qg_config()
-configs.instruments.to_table()  # Get DataFrame
-configs.instruments.get_instrument(tech, name)  # Get specific instrument
-configs.samples.get_sample(tech, sample_id)  # Get specific sample
-configs.methods.to_table(tech, instrument)  # Get methods as DataFrame
+config = qg_configuration()
+config.instruments.to_table()  # Get DataFrame
+config.samples.get_sample(tech, sample_id)  # Get specific sample
+config.methods.to_table(tech, instrument)  # Get methods as DataFrame
 ```
 
-**If something in `qg_configs/` is not accessible through ConfigBundle, add a new Pydantic model to `config_models.py` and load it in `config.py`.**
+**If something in `qg_configs/` is not accessible through QGConfiguration, add a new Pydantic model to `config_models/` and load it in `loader.py`.**
 
 Never use `pl.read_csv()` or `Path().read_text()` to read config files directly in application code.
 
@@ -162,7 +164,6 @@ Never use `pl.read_csv()` or `Path().read_text()` to read config files directly 
 | `apps/queue_app.py` | Main Marimo GUI for interactive queue generation |
 | `apps/config_editor.py` | Configuration file editor |
 | `tools_apps/queue_analysis_marimo.py` | Queue analysis in Marimo |
-| `tools_apps/compare_existing_generated.py` | Compare existing vs generated queues |
 
 ### Config Files (`qg_configs/`)
 
@@ -178,8 +179,7 @@ qg_configs/
 │   ├── output_formats.toml
 │   └── methods/
 └── ui/             # GUI filtering only
-    ├── combinations.csv
-    └── instrument_patterns.csv
+    └── instrument_config.csv
 ```
 
 | File | Location | Purpose |
@@ -192,8 +192,7 @@ qg_configs/
 | `instruments.csv` | `core/` | Instrument -> methods_file, path_template mapping |
 | `output_formats.toml` | `core/` | Column mappings for xcalibur/chronos/hystar |
 | `methods/<tech>/<instr>_methods.csv` | `core/` | Methods with polarity column |
-| `combinations.csv` | `ui/` | Valid (instrument, sampler, output_format) tuples |
-| `instrument_patterns.csv` | `ui/` | Valid patterns per instrument |
+| `instrument_config.csv` | `ui/` | Instrument defaults (sampler, output_format, default_pattern) |
 
 **Method Files:**
 - `core/methods/proteomics/`: 9 instruments (ASTRAL_1, ASCEND_1, EXPLORIS_1/2/5, LUMOS_2, QEXACTIVE_1, TIMSTOF_1, TIMSTOFFLEX_1)
@@ -222,8 +221,11 @@ qg_configs/
 | `test_queue_structure.py` | Queue structure building |
 | `test_queue_structure_explicit.py` | Explicit queue structure tests |
 | `test_config_integration.py` | Configuration loading and validation |
+| `test_config_models_integration.py` | Config models integration tests |
+| `test_positions.py` | Position generation tests |
+| `test_queue_builder.py` | Queue builder tests |
 | `test_cli.py` | CLI functionality |
-| `test_samplers.py` | Sampler configuration tests |
+| `test_randomize.py` | Randomization tests |
 
 ### Validation Testing (`test_data/`)
 

@@ -72,10 +72,6 @@ class PlateLayoutsConfig(BaseModel):
             raise KeyError(f"Plate layout '{name}' not found. Available: {list(self.layouts.keys())}")
         return self.layouts[name]
 
-    def get_layout_names(self) -> list[str]:
-        """Get all layout names."""
-        return list(self.layouts.keys())
-
     def to_dict(self) -> dict:
         """Convert to dict for TOML serialization."""
         return {name: {"rows": layout.rows, "cols": layout.cols} for name, layout in self.layouts.items()}
