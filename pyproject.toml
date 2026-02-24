@@ -52,9 +52,7 @@ packages = ["src/qg"]
 qg = "qg.cli.generate_queues:cli_main"
 qg-validate = "qg.cli.validate_config:cli_main"
 qg-find-projects = "qg.cli.find_projects:main"
-qg-params = "qg.cli.generate_params:cli_main"
 qg-tools = "qg.tools.cli:main"
-qg-csv-to-params = "qg.tools.csv_to_paramsjson:app"
 qg-app = "qg.gitlab.launcher:launch_queue_app"
 qg-editor = "qg.gitlab.launcher:launch_config_editor"
 

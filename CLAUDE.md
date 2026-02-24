@@ -41,7 +41,6 @@ cd test_data && snakemake -j4 all
 | `qg` | `qg.cli.generate_queues` | Main queue generation from JSON params |
 | `qg-validate` | `qg.cli.validate_config` | Validate config files |
 | `qg-find-projects` | `qg.cli.find_projects` | Project discovery utility |
-| `qg-params` | `qg.cli.generate_params` | Generate params JSON from CSV |
 | `qg-tools` | `qg.tools.cli` | Tools CLI (SLD conversion, comparison) |
 
 ## Terminology
@@ -143,7 +142,6 @@ Never use `pl.read_csv()` or `Path().read_text()` to read config files directly 
 | Module | Purpose |
 |--------|---------|
 | `generate_queues.py` | Main entry point for queue generation |
-| `generate_params.py` | Generate parameter JSONs from CSV exports |
 | `find_projects.py` | Project discovery utility |
 | `validate_config.py` | Configuration validation |
 
@@ -152,7 +150,6 @@ Never use `pl.read_csv()` or `Path().read_text()` to read config files directly 
 | Module | Purpose |
 |--------|---------|
 | `sld_to_csv.py` | Convert Thermo SLD files to CSV |
-| `csv_to_paramsjson.py` | Convert queue CSV to params JSON |
 | `compare.py` | Compare generated vs reference queues |
 | `merge.py` | Merge queue files |
 | `summarize.py` | Summarize queue data |
@@ -227,7 +224,6 @@ qg_configs/
 | `test_config_integration.py` | Configuration loading and validation |
 | `test_cli.py` | CLI functionality |
 | `test_samplers.py` | Sampler configuration tests |
-| `test_csv_to_paramsjson.py` | CSV to params JSON conversion tests |
 
 ### Validation Testing (`test_data/`)
 
@@ -236,7 +232,6 @@ Snakemake workflow comparing generated queues against reference data from instru
 ```bash
 cd test_data
 snakemake -j4 all              # Full pipeline
-snakemake marimo_orig_qgen     # View comparison results
 snakemake clean_all            # Reset
 ```
 
