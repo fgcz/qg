@@ -43,12 +43,20 @@ start = ["QC01"]
 middle = ["QC01"]
 end = ["clean", "QC01", "QC03dda"]
 
-[Proteomics.simple_clean]
+[Proteomics.simple_clean_dda]
+description = "Simple clean: cleans in between each samples"
+run_QC_after_n_samples = 1
+start = ["QC03dda", "QC01"]
+middle = ["clean"]
+end = ["clean", "QC01", "QC03dda"]
+separation = ["clean", "QC01", "clean"]
+
+[Proteomics.simple_clean_dia]
 description = "Simple clean: cleans in between each samples"
 run_QC_after_n_samples = 1
 start = ["QC03dia", "QC01"]
 middle = ["clean"]
-end = ["clean", "QC01", "QC03dda"]
+end = ["clean", "QC01", "QC03dia"]
 separation = ["clean", "QC01", "clean"]
 
 [Proteomics.dda]
