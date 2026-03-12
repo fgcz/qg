@@ -16,6 +16,7 @@ ACTIVE_STATUSES = [
     # "submitted",
     "processing",
     "analyzing",
+    "analyzed",
 ]
 
 TECHNOLOGY_IDS = [2, 4]
