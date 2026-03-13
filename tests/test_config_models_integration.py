@@ -245,5 +245,5 @@ class TestUIConfigs:
         # Check specific config
         cfg = config.get_config("ASTRAL_1", "Vanquish")
         assert cfg is not None
-        assert cfg.output_format == "xcalibur"
+        assert cfg.output_format == "xcalibur_sii"
         assert cfg.default_pattern == "standard"
