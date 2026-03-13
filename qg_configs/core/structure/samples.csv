@@ -25,3 +25,4 @@ Lipidomics,pooledQCDil4,pooledQCDil4,Pooled QC dilution 4,3.5,{date}_{run}_C{con
 Lipidomics,pooledQCDil5,pooledQCDil5,Pooled QC dilution 5,3.5,{date}_{run}_C{container}_pooledQCDil5_{polarity}
 Lipidomics,pooledQCDil6,pooledQCDil6,Pooled QC dilution 6 (lowest concentration),3.5,{date}_{run}_C{container}_pooledQCDil6_{polarity}
 Lipidomics,EquiSPLASH,EquiSPLASH,EquiSPLASH: Lipidomics internal standard mix (Avanti),3.5,{date}_{run}_C{container}_EquiSPLASH_{polarity}
+Lipidomics,NIST_Lipids,NIST_Lipids,NIST: Reference Plasma Lipidomics,3.5,{date}_{run}_C{container}_NIST_Lipids_{polarity}
