@@ -166,7 +166,9 @@ def _format_file_names(slots: list[ExpandedSlot], date: str) -> list[ExpandedSlo
 
 def _build_queue_rows(
     slots: list[ExpandedSlot],
-    data_path: str,
+    path_template: str,
+    user: str,
+    date: str,
     inj_vol_override: float | None,
     default_sample_id: str,
 ) -> QueueRowTable:
@@ -177,6 +179,10 @@ def _build_queue_rows(
         sample = cell.sample if cell else None
         sample_cfg = slot.slot.sample_config
         pos = slot.slot.position
+
+        data_path = (
+            path_template.format(container=slot.slot.container_id, user=user, date=date) if path_template else ""
+        )
 
         rows.append(
             QueueRow(
@@ -304,17 +310,11 @@ class QueueGenerator:
         self.samples_config = config.samples
         self.methods_config = config.methods
 
-        # Resolve data path (instrument validated in QueueParameters.create())
+        # Store path template for per-row formatting (container varies per slot)
         instr = config.instruments.get_instrument(params.tech_area, params.instrument)
-        self.data_path = ""
-        if instr.path_template:
-            first_batch = next(iter(queue_input.queue.batches.values()), None)
-            container_id = first_batch.container_id if first_batch else 0
-            self.data_path = instr.path_template.format(
-                container=container_id,
-                user=params.user,
-                date=params.date,
-            )
+        self._path_template = instr.path_template
+        self._user = params.user
+        self._date = params.date
 
         # Output format existence validated in QueueParameters.create()
         self.output_format = config.output_formats.get_format(params.output_format)
@@ -385,7 +385,9 @@ class QueueGenerator:
         expanded = _format_file_names(expanded, params.date)
 
         # Build queue rows
-        result = _build_queue_rows(expanded, self.data_path, params.inj_vol_override, default_sample_id)
+        result = _build_queue_rows(
+            expanded, self._path_template, self._user, self._date, params.inj_vol_override, default_sample_id
+        )
         logger.info("Queue built | rows={} | format={}", len(result.rows), params.output_format)
 
         # Save artifacts for audit/debugging
