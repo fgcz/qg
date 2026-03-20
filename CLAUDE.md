@@ -42,12 +42,14 @@ cd test_data && snakemake -j4 all
 | `qg-validate` | `qg.cli.validate_config` | Validate config files |
 | `qg-find-projects` | `qg.cli.find_projects` | Project discovery utility |
 | `qg-tools` | `qg.tools.cli` | Tools CLI (SLD conversion, comparison) |
+| `qg-app` | `qg.gitlab.launcher` | Launch queue app (GitLab deployment) |
+| `qg-editor` | `qg.gitlab.launcher` | Launch config editor (GitLab deployment) |
 
 ## Terminology
 
 | Term | Description | Location |
 |------|-------------|----------|
-| **Configs** | Static files defining system behavior (instruments, samplers, patterns, QC samples) | `qg_configs/*.csv`, `qg_configs/*.toml` |
+| **Configs** | Static files defining system behavior (instruments, samplers, patterns, QC samples) | `qg_configs/core/` subdirectories |
 | **Queue Parameters** | Runtime JSON specifying a queue run (instrument, sampler, samples) | GUI output, `test_data/params_json/` |
 
 ## Queue Parameters JSON Structure
@@ -114,7 +116,11 @@ CSV Output
 | `sample_rows.py` | Sample row generation |
 | `writers.py` | Output format writers |
 | `params_models.py` | `VialQueue`, `PlateQueue`, `QueueParameters`, `ContainerBatch` |
+| `hystar_xml_writer.py` | Hystar XML output writer |
+| `artifacts.py` | Build artifacts handling |
+| `randomize.py` | Sample randomization |
 | `config_models/` | Package: `loader.py`, `formatting.py`, `methods.py`, `positions.py`, `structure.py`, `ui.py` |
+| `gitlab/` | Package: GitLab deployment, config sync (`launcher.py`, `service.py`, `config_bridge.py`, `settings.py`, `_git.py`) |
 | `bfabric_utils.py` | B-Fabric LIMS integration utilities |
 
 ### Config Access Rules
@@ -163,41 +169,53 @@ Never use `pl.read_csv()` or `Path().read_text()` to read config files directly 
 |-----|---------|
 | `apps/queue_app.py` | Main Marimo GUI for interactive queue generation |
 | `apps/config_editor.py` | Configuration file editor |
+| `apps/bfabric_app.py` | B-Fabric integrated queue app |
+| `apps/bfabric_app_editor.py` | B-Fabric integrated config editor |
 | `tools_apps/queue_analysis_marimo.py` | Queue analysis in Marimo |
 
 ### Config Files (`qg_configs/`)
 
 ```
 qg_configs/
-├── core/           # Required for queue generation
-│   ├── sampler.toml
-│   ├── samples.csv
-│   ├── queue_patterns.toml
-│   ├── qc_layouts_well.csv
-│   ├── qc_layouts_tip.csv
-│   ├── instruments.csv
-│   ├── output_formats.toml
-│   └── methods/
-└── ui/             # GUI filtering only
+├── core/
+│   ├── formatting/
+│   │   ├── instruments.csv
+│   │   └── output_formats.toml
+│   ├── methods/
+│   │   ├── Proteomics/
+│   │   ├── Metabolomics/
+│   │   └── Lipidomics/
+│   ├── position/
+│   │   ├── sampler.toml
+│   │   ├── plate_layouts.toml
+│   │   ├── sampler_plate_layouts.csv
+│   │   ├── qc_layouts_well.csv
+│   │   └── qc_layouts_tip.csv
+│   └── structure/
+│       ├── queue_patterns.toml
+│       └── samples.csv
+└── ui/
     └── instrument_config.csv
 ```
 
 | File | Location | Purpose |
 |------|----------|---------|
-| `sampler.toml` | `core/` | Physical sampler layouts (Vanquish, MClass48, Evosep) |
-| `samples.csv` | `core/` | QC sample definitions (per technology, inj_vol, file_name_template) |
-| `queue_patterns.toml` | `core/` | QC injection patterns (start/middle/end/separation) |
-| `qc_layouts_well.csv` | `core/` | QC positions for well-plate samplers (Vanquish, MClass) |
-| `qc_layouts_tip.csv` | `core/` | QC tip ranges for tip-plate samplers (consumable tips) |
-| `instruments.csv` | `core/` | Instrument -> methods_file, path_template mapping |
-| `output_formats.toml` | `core/` | Column mappings for xcalibur/chronos/hystar |
-| `methods/<tech>/<instr>_methods.csv` | `core/` | Methods with polarity column |
+| `sampler.toml` | `core/position/` | Physical sampler layouts (Vanquish, MClass48, Evosep) |
+| `plate_layouts.toml` | `core/position/` | Plate layout definitions |
+| `sampler_plate_layouts.csv` | `core/position/` | Sampler-to-plate-layout mapping |
+| `qc_layouts_well.csv` | `core/position/` | QC positions for well-plate samplers (Vanquish, MClass) |
+| `qc_layouts_tip.csv` | `core/position/` | QC tip ranges for tip-plate samplers (consumable tips) |
+| `samples.csv` | `core/structure/` | QC sample definitions (per technology, inj_vol, file_name_template) |
+| `queue_patterns.toml` | `core/structure/` | QC injection patterns (start/middle/end/separation) |
+| `instruments.csv` | `core/formatting/` | Instrument -> methods_file, path_template mapping |
+| `output_formats.toml` | `core/formatting/` | Column mappings for xcalibur/chronos/hystar |
+| `methods/<Tech>/<instr>_methods.csv` | `core/` | Methods with polarity column |
 | `instrument_config.csv` | `ui/` | Instrument defaults (sampler, output_format, default_pattern) |
 
 **Method Files:**
-- `core/methods/proteomics/`: 9 instruments (ASTRAL_1, ASCEND_1, EXPLORIS_1/2/5, LUMOS_2, QEXACTIVE_1, TIMSTOF_1, TIMSTOFFLEX_1)
-- `core/methods/metabolomics/`: 3 instruments (EXPLORIS_3, QEXACTIVEHF_2, QUANTIVA_1)
-- `core/methods/lipidomics/`: 2 instruments (EXPLORIS_3, EXPLORIS_4)
+- `core/methods/Proteomics/`: 9 instruments (ASTRAL_1, ASCEND_1, EXPLORIS_1/2/5, LUMOS_2, QEXACTIVE_1, TIMSTOF_1, TIMSTOFFLEX_1)
+- `core/methods/Metabolomics/`: 3 instruments (EXPLORIS_3, QEXACTIVEHF_2, QUANTIVA_1)
+- `core/methods/Lipidomics/`: 2 instruments (EXPLORIS_3, EXPLORIS_4)
 
 ### Technologies
 
@@ -226,6 +244,8 @@ qg_configs/
 | `test_queue_builder.py` | Queue builder tests |
 | `test_cli.py` | CLI functionality |
 | `test_randomize.py` | Randomization tests |
+| `test_gitlab.py` | GitLab deployment tests |
+| `test_hystar_xml_writer.py` | Hystar XML writer tests |
 
 ### Validation Testing (`test_data/`)
 
@@ -376,6 +396,7 @@ def test_sampler_strategy():
 | `ALGORITHM.md` | Queue generation algorithm details |
 | `CONFIG.md` | Configuration file documentation |
 | `HISTORY.md` | Development chronology (Jan–Feb 2026 rewrite) |
+| `editor_guide.md` | Config editor usage guide |
 
 Generated formats (.html, .pdf, .svg, .png) are also available.
 
