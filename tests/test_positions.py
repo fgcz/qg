@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from qg.config_models.loader import qg_configuration
-from qg.config_models.structure import SamplesConfig
+from qg.config_models.structure import QueuePattern, SamplesConfig
 from qg.params_models import ContainerBatch, Plate, PlateCell, PlateQueue, VialQueue, VialSample
 from qg.positionV2 import create_assembled_sampler
 from qg.qc_positions import create_qc_position_provider
@@ -202,7 +202,7 @@ class TestGridSamplerExhaustion:
 
     def test_vanquish_raises_when_full(self, config) -> None:
         """Vanquish_54 has 4 trays × 54 = 216 positions."""
-        pattern = config.queue_patterns.get_pattern("Proteomics", "noqc")
+        pattern = QueuePattern(description="test", run_QC_after_n_samples=1, start=[], middle=[], end=[])
         sampler = create_assembled_sampler(
             "Vanquish",
             "vial",
@@ -219,7 +219,7 @@ class TestGridSamplerExhaustion:
 
     def test_mclass_raises_when_full(self, config) -> None:
         """MClass_48 has 4 trays × 48 = 192 positions."""
-        pattern = config.queue_patterns.get_pattern("Proteomics", "noqc")
+        pattern = QueuePattern(description="test", run_QC_after_n_samples=1, start=[], middle=[], end=[])
         sampler = create_assembled_sampler(
             "MClass", "vial", config, "Proteomics", pattern.get_all_sample_ids(), "MClass_48", "standard"
         )
@@ -233,7 +233,7 @@ class TestAssignNoQC:
     """Tests with noqc pattern (no QC positions reserved)."""
 
     def test_noqc_uses_all_positions(self, config) -> None:
-        pattern = config.queue_patterns.get_pattern("Proteomics", "noqc")
+        pattern = QueuePattern(description="test", run_QC_after_n_samples=1, start=[], middle=[], end=[])
         sampler = create_assembled_sampler(
             "Vanquish",
             "vial",
@@ -285,7 +285,7 @@ class TestOneContainerPerTray:
 
     def test_one_container_per_tray_assigns_to_different_trays(self, config) -> None:
         """Each container's samples should be on a different tray."""
-        pattern = config.queue_patterns.get_pattern("Proteomics", "noqc")
+        pattern = QueuePattern(description="test", run_QC_after_n_samples=1, start=[], middle=[], end=[])
         sampler = create_assembled_sampler(
             "Vanquish",
             "vial",
@@ -311,7 +311,7 @@ class TestOneContainerPerTray:
 
     def test_one_container_per_tray_false_mixes_on_same_tray(self, config) -> None:
         """Without one_container_per_tray, samples fill sequentially across trays."""
-        pattern = config.queue_patterns.get_pattern("Proteomics", "noqc")
+        pattern = QueuePattern(description="test", run_QC_after_n_samples=1, start=[], middle=[], end=[])
         sampler = create_assembled_sampler(
             "Vanquish",
             "vial",
@@ -333,7 +333,7 @@ class TestOneContainerPerTray:
 
     def test_one_container_per_tray_raises_when_not_enough_trays(self, config) -> None:
         """Should raise error if more containers than available trays."""
-        pattern = config.queue_patterns.get_pattern("Proteomics", "noqc")
+        pattern = QueuePattern(description="test", run_QC_after_n_samples=1, start=[], middle=[], end=[])
         sampler = create_assembled_sampler(
             "Vanquish",
             "vial",
@@ -351,7 +351,7 @@ class TestOneContainerPerTray:
 
     def test_one_container_per_tray_raises_when_container_too_large(self, config) -> None:
         """Should raise error if a container has more samples than tray capacity."""
-        pattern = config.queue_patterns.get_pattern("Proteomics", "noqc")
+        pattern = QueuePattern(description="test", run_QC_after_n_samples=1, start=[], middle=[], end=[])
         sampler = create_assembled_sampler(
             "Vanquish",
             "vial",
@@ -572,7 +572,7 @@ class TestWellPlateModeRowColSplit:
     @pytest.mark.parametrize("sampler,layout", [("Vanquish", "Vanquish_54"), ("MClass", "MClass_48")])
     def test_already_split_cells_unchanged(self, config, sampler: str, layout: str) -> None:
         """Cells that already have row/col populated are not re-split."""
-        pattern = config.queue_patterns.get_pattern("Proteomics", "noqc")
+        pattern = QueuePattern(description="test", run_QC_after_n_samples=1, start=[], middle=[], end=[])
         assembled = create_assembled_sampler(
             sampler, "plate", config, "Proteomics", pattern.get_all_sample_ids(), layout, "standard"
         )
