@@ -6,6 +6,7 @@ import polars as pl
 import pytest
 
 from qg.config_models.loader import qg_configuration
+from qg.config_models.structure import QueuePattern
 from qg.generator import QueueGenerator
 from qg.params_models import (
     ContainerBatch,
@@ -16,6 +17,16 @@ from qg.params_models import (
 )
 
 CONFIG_DIR = Path(__file__).parent.parent / "qg_configs"
+
+# Test-only patterns constructed directly (not parsed from config)
+_NOQC_PATTERN = QueuePattern(description="test: no QC", run_QC_after_n_samples=1, start=[], middle=[], end=[])
+_QC_ONLY_PATTERN = QueuePattern(
+    description="test: QC bookends",
+    run_QC_after_n_samples=1,
+    start=["clean", "QC01", "QC03dia"],
+    middle=[],
+    end=["clean", "QC01", "QC03dia"],
+)
 
 
 def _output_col(config, format_name: str, internal_field: str) -> str:
@@ -30,7 +41,11 @@ def _output_col(config, format_name: str, internal_field: str) -> str:
 
 @pytest.fixture
 def config():
-    return qg_configuration(CONFIG_DIR)
+    cfg = qg_configuration(CONFIG_DIR)
+    # Register test-only patterns so QueueGenerator can resolve them by name
+    cfg.queue_patterns.patterns.setdefault("Proteomics", {})["_test_noqc"] = _NOQC_PATTERN
+    cfg.queue_patterns.patterns.setdefault("Proteomics", {})["_test_qc_only"] = _QC_ONLY_PATTERN
+    return cfg
 
 
 def make_vial_samples(n: int, container_id: int = 99999, id_offset: int = 10000) -> list[VialSample]:
@@ -209,7 +224,7 @@ class TestOutputFormats:
             instrument="ASTRAL_1",
             sampler="Vanquish",
             output_format=output_format,
-            queue_pattern="noqc",
+            queue_pattern="_test_noqc",
             queue_type="Vial",
             plate_layout="Vanquish_54",
             qc_layout_name="standard",
@@ -233,7 +248,7 @@ class TestOutputFormats:
             instrument="ASTRAL_1",
             sampler="Vanquish",
             output_format="xcalibur",
-            queue_pattern="noqc",
+            queue_pattern="_test_noqc",
             queue_type="Vial",
             plate_layout="Vanquish_54",
             qc_layout_name="standard",
@@ -265,7 +280,7 @@ class TestOutputFormats:
             instrument="ASTRAL_1",
             sampler="Vanquish",
             output_format=output_format,
-            queue_pattern="noqc",
+            queue_pattern="_test_noqc",
             queue_type="Vial",
             plate_layout="Vanquish_54",
             qc_layout_name="standard",
@@ -290,7 +305,7 @@ class TestNoQCPattern:
             instrument="ASTRAL_1",
             sampler="Vanquish",
             output_format="xcalibur",
-            queue_pattern="noqc",
+            queue_pattern="_test_noqc",
             queue_type="Vial",
             plate_layout="Vanquish_54",
             qc_layout_name="standard",
@@ -315,7 +330,7 @@ class TestQCOnlyPattern:
             instrument="ASTRAL_1",
             sampler="Vanquish",
             output_format="xcalibur",
-            queue_pattern="qc_only",
+            queue_pattern="_test_qc_only",
             queue_type="Vial",
             plate_layout="Vanquish_54",
             qc_layout_name="standard",
@@ -347,7 +362,7 @@ class TestRandomization:
             instrument="ASTRAL_1",
             sampler="Vanquish",
             output_format="xcalibur",
-            queue_pattern="noqc",
+            queue_pattern="_test_noqc",
             queue_type="Vial",
             plate_layout="Vanquish_54",
             qc_layout_name="standard",
@@ -386,7 +401,7 @@ class TestRandomization:
             instrument="ASTRAL_1",
             sampler="Vanquish",
             output_format="xcalibur",
-            queue_pattern="noqc",
+            queue_pattern="_test_noqc",
             queue_type="Vial",
             plate_layout="Vanquish_54",
             qc_layout_name="standard",
@@ -422,7 +437,7 @@ class TestRandomization:
             instrument="ASTRAL_1",
             sampler="Vanquish",
             output_format="xcalibur",
-            queue_pattern="noqc",
+            queue_pattern="_test_noqc",
             queue_type="Vial",
             plate_layout="Vanquish_54",
             qc_layout_name="standard",
@@ -452,7 +467,7 @@ class TestDifferentSamplers:
             instrument="ASTRAL_1",
             sampler=sampler,
             output_format="xcalibur",
-            queue_pattern="noqc",
+            queue_pattern="_test_noqc",
             queue_type="Vial",
             plate_layout=plate_layout,
             qc_layout_name="standard",
@@ -599,7 +614,7 @@ class TestEvosepChronosOutputFormat:
             instrument="ASTRAL_1",
             sampler="Evosep",
             output_format="chronos",
-            queue_pattern="noqc",
+            queue_pattern="_test_noqc",
             queue_type="Vial",
             plate_layout="Plate_96",
             qc_layout_name="standard",
@@ -629,7 +644,7 @@ class TestEvosepHystarOutputFormat:
             instrument="TIMSTOF_1",
             sampler="Evosep",
             output_format="hystar",
-            queue_pattern="noqc",
+            queue_pattern="_test_noqc",
             queue_type="Vial",
             plate_layout="Plate_96",
             qc_layout_name="standard",
@@ -691,7 +706,7 @@ class TestChronosNonRowA:
             instrument="ASTRAL_1",
             sampler="Evosep",
             output_format="chronos",
-            queue_pattern="noqc",
+            queue_pattern="_test_noqc",
             queue_type="Vial",
             plate_layout="Plate_96",
             qc_layout_name="standard",
@@ -721,7 +736,7 @@ class TestChronosFormat:
             instrument="ASTRAL_1",
             sampler="Evosep",
             output_format="chronos",
-            queue_pattern="noqc",
+            queue_pattern="_test_noqc",
             queue_type="Vial",
             plate_layout="Plate_96",
             qc_layout_name="standard",
@@ -792,7 +807,7 @@ class TestChronosWriter:
             instrument="ASTRAL_1",
             sampler="Evosep",
             output_format="chronos",
-            queue_pattern="noqc",
+            queue_pattern="_test_noqc",
             queue_type="Vial",
             plate_layout="Plate_96",
             qc_layout_name="standard",
@@ -871,7 +886,7 @@ class TestQueueInputRoundTrip:
             instrument="ASTRAL_1",
             sampler="Evosep",
             output_format="chronos",
-            queue_pattern="noqc",
+            queue_pattern="_test_noqc",
             queue_type="Plate",
             plate_layout="Plate_96",
             qc_layout_name="standard",
