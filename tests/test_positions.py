@@ -637,3 +637,147 @@ class TestPlateLayoutRoundTrip:
         flats = sorted(layout.alpha_to_flat(f"{r}{c}") for r in layout.rows for c in layout.cols)
 
         assert flats == list(range(1, layout.capacity + 1))
+
+
+# =============================================================================
+# Tests for start_position offset
+# =============================================================================
+
+
+class TestStartPosition:
+    """Tests for start_position offset in Vial mode."""
+
+    def test_default_a1_matches_no_offset(self, config) -> None:
+        """start_position='A1' should produce identical results to omitting it."""
+        pattern = QueuePattern(description="test", run_QC_after_n_samples=1, start=[], middle=[], end=[])
+        sampler_default = create_assembled_sampler(
+            "Vanquish", "vial", config, "Proteomics", pattern.get_all_sample_ids(), "Vanquish_54", "standard"
+        )
+        sampler_a1 = create_assembled_sampler(
+            "Vanquish",
+            "vial",
+            config,
+            "Proteomics",
+            pattern.get_all_sample_ids(),
+            "Vanquish_54",
+            "standard",
+            start_position="A1",
+        )
+        queue = create_vial_queue(5)
+
+        result_default = sampler_default.assign(queue)
+        result_a1 = sampler_a1.assign(queue)
+
+        for c1, c2 in zip(result_default.cells, result_a1.cells, strict=True):
+            assert c1.grid_position == c2.grid_position
+
+    def test_start_position_skips_earlier_positions(self, config) -> None:
+        """Starting at B1 should skip all A-row positions on first tray."""
+        pattern = QueuePattern(description="test", run_QC_after_n_samples=1, start=[], middle=[], end=[])
+        sampler = create_assembled_sampler(
+            "Vanquish",
+            "vial",
+            config,
+            "Proteomics",
+            pattern.get_all_sample_ids(),
+            "Vanquish_54",
+            "standard",
+            start_position="B1",
+        )
+        queue = create_vial_queue(3)
+
+        result = sampler.assign(queue)
+
+        # First position should be B1 (all A-row positions skipped)
+        assert result.cells[0].grid_position == "B1"
+        assert result.cells[1].grid_position == "B2"
+        assert result.cells[2].grid_position == "B3"
+
+    def test_start_position_mid_row(self, config) -> None:
+        """Starting at A5 should skip A1-A4."""
+        pattern = QueuePattern(description="test", run_QC_after_n_samples=1, start=[], middle=[], end=[])
+        sampler = create_assembled_sampler(
+            "Vanquish",
+            "vial",
+            config,
+            "Proteomics",
+            pattern.get_all_sample_ids(),
+            "Vanquish_54",
+            "standard",
+            start_position="A5",
+        )
+        queue = create_vial_queue(3)
+
+        result = sampler.assign(queue)
+
+        assert result.cells[0].grid_position == "A5"
+        assert result.cells[1].grid_position == "A6"
+        assert result.cells[2].grid_position == "A7"
+
+    def test_start_position_reduces_capacity(self, config) -> None:
+        """Starting late should raise when not enough positions remain."""
+        pattern = QueuePattern(description="test", run_QC_after_n_samples=1, start=[], middle=[], end=[])
+        sampler = create_assembled_sampler(
+            "Vanquish",
+            "vial",
+            config,
+            "Proteomics",
+            pattern.get_all_sample_ids(),
+            "Vanquish_54",
+            "standard",
+            start_position="F9",
+        )
+        # F9 is the last position on first tray; only 1 position on tray Y + full trays R,G,B
+        # Total: 1 + 54 + 54 + 54 = 163 available positions
+        queue = create_vial_queue(200)
+
+        with pytest.raises(ValueError, match="Not enough positions"):
+            sampler.assign(queue)
+
+    def test_start_position_only_affects_first_tray(self, config) -> None:
+        """Second tray should start from A1 regardless of start_position."""
+        pattern = QueuePattern(description="test", run_QC_after_n_samples=1, start=[], middle=[], end=[])
+        sampler = create_assembled_sampler(
+            "Vanquish",
+            "vial",
+            config,
+            "Proteomics",
+            pattern.get_all_sample_ids(),
+            "Vanquish_54",
+            "standard",
+            start_position="F1",
+        )
+        # F1-F9 = 9 positions on first tray, then second tray starts at A1
+        queue = create_vial_queue(12)
+
+        result = sampler.assign(queue)
+
+        # First 9 cells on tray Y: F1-F9
+        assert result.cells[0].grid_position == "F1"
+        assert result.cells[8].grid_position == "F9"
+        # Cell 10 should be on second tray starting at A1
+        tray_10 = result.plates[result.cells[9].plate_id].tray
+        assert tray_10 == "R"
+        assert result.cells[9].grid_position == "A1"
+
+    def test_start_position_evosep(self, config) -> None:
+        """Start position should work for Evosep (tip-plate) too."""
+        pattern = QueuePattern(description="test", run_QC_after_n_samples=1, start=[], middle=[], end=[])
+        sampler = create_assembled_sampler(
+            "Evosep",
+            "vial",
+            config,
+            "Proteomics",
+            pattern.get_all_sample_ids(),
+            "Plate_96",
+            "standard",
+            start_position="B1",
+        )
+        queue = create_vial_queue(3)
+
+        result = sampler.assign(queue)
+
+        # Should skip A1-A12 (12 positions in row A for Plate_96)
+        assert result.cells[0].grid_position == "B1"
+        assert result.cells[1].grid_position == "B2"
+        assert result.cells[2].grid_position == "B3"

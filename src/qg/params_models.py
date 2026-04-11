@@ -87,6 +87,8 @@ class QueueParameters(BaseModel):
     qc_frequency_override: int | None = None
     # If True, samples from different containers are placed on separate trays (vial mode only)
     one_container_per_tray: bool = False
+    # Alpha grid position on first tray to start assigning from (e.g., "B3")
+    start_position: str = "A1"
 
     @classmethod
     def create(
@@ -109,6 +111,7 @@ class QueueParameters(BaseModel):
         inj_vol_override: float | None = None,
         qc_frequency_override: int | None = None,
         one_container_per_tray: bool = False,
+        start_position: str = "A1",
     ) -> Self:
         """Create validated QueueParameters.
 
@@ -147,6 +150,7 @@ class QueueParameters(BaseModel):
             inj_vol_override=inj_vol_override,
             qc_frequency_override=qc_frequency_override,
             one_container_per_tray=one_container_per_tray,
+            start_position=start_position,
         )
 
 

@@ -292,6 +292,7 @@ class QueueGenerator:
             pattern_sample_ids=self.pattern.get_all_sample_ids(),
             plate_layout_name=params.plate_layout,
             qc_layout_name=qc_layout_name,
+            start_position=params.start_position,
         )
 
         # Store QC layout and plate layout from assembled sampler (avoid recomputation)

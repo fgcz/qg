@@ -213,7 +213,7 @@ def _(container_has_plates, sampler_field, table_by_sampler):
     queue_type_field = mo.ui.dropdown(
         options=_options,
         value=_default,
-        label="Queue Type",
+        label="Sample Type",
     )
     return (queue_type_field,)
 
@@ -244,6 +244,22 @@ def _(queue_type_field, table_by_queue_type):
         label="Plate Layout",
     )
     return (plate_layout_field,)
+
+
+@app.cell
+def _(config, plate_layout_field, queue_type_field):
+    # Start position dropdown — only for Vial mode (skip already-used wells)
+    if queue_type_field.value == "Vial" and plate_layout_field.value:
+        _layout = config.plate_layouts.get_layout(plate_layout_field.value)
+        _positions = [f"{row}{col}" for row in _layout.rows for col in _layout.cols]
+        start_position_field = mo.ui.dropdown(
+            options=_positions,
+            value="A1",
+            label="Start Position",
+        )
+    else:
+        start_position_field = None
+    return (start_position_field,)
 
 
 @app.cell
@@ -448,10 +464,11 @@ def _(available_methods_pos, polarity_group):
     _show_pos = polarity_group.value.get("pos", False)
     if _show_pos:
         _options = [""] + available_methods_pos  # Empty string = no method
+        _label_pos = "Method Name (pos)" if polarity_group.value.get("neg", False) else "Method Name"
         method_field_pos = mo.ui.dropdown(
             options=_options,
             value=available_methods_pos[0] if available_methods_pos else "",
-            label="Method (pos)",
+            label=_label_pos,
         )
     else:
         method_field_pos = None
@@ -467,7 +484,7 @@ def _(available_methods_neg, polarity_group):
         method_field_neg = mo.ui.dropdown(
             options=_options,
             value=available_methods_neg[0] if available_methods_neg else "",
-            label="Method (neg)",
+            label="Method Name (neg)",
         )
     else:
         method_field_neg = None
@@ -560,6 +577,7 @@ def _(
     queue_type_field,
     randomization_field,
     sampler_field,
+    start_position_field,
     tech_area_field,
     user_field,
     validation_status,
@@ -577,6 +595,7 @@ def _(
         sampler_field,
         queue_type_field,
         plate_layout_field,
+        *([] if start_position_field is None else [start_position_field]),
         mo.md(f"**Output:** {output_format_value}"),
         mo.md("### Queue"),
         *_queue_items,
@@ -758,6 +777,7 @@ def _(
     queue_type_field,
     randomization_field,
     sampler_field,
+    start_position_field,
     tech_area_field,
     user_field,
 ):
@@ -788,6 +808,7 @@ def _(
                 "randomization": randomization_field.value,
                 "inj_vol_override": _inj_vol,
                 "qc_frequency_override": _qc_freq,
+                "start_position": start_position_field.value if start_position_field is not None else "A1",
             }
         )
     except pydantic.ValidationError as e:
@@ -805,6 +826,7 @@ def _(project_table, refresh_projects_button):
                 justify="space-between",
                 align="center",
             ),
+            mo.md("_Use 🔍 at the bottom of the table to search_"),
             project_table,
         ]
     )
@@ -1070,7 +1092,7 @@ def _(
                 mo.hstack(_upload_items, justify="start", gap=1, align="center"),
                 _upload_result_msg,
                 mo.md(f"**{len(_display_df)} rows{_rand_label}** {formatted_ticket_toggle}"),
-                mo.ui.table(_display_df, show_column_summaries=False, show_download=False),
+                mo.ui.table(_display_df, show_column_summaries=False, show_download=False, selection=None),
             ]
         )
     else:

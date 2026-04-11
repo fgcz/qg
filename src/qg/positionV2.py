@@ -107,6 +107,7 @@ class _PositionPoolWell:
         sampler: Sampler,
         plate_layout: PlateLayout,
         qc_layout: QCLayoutWell,
+        start_position: str = "A1",
     ) -> None:
         self.position_fun = get_position_function(sampler.position_fun)
         self.trays = sampler.trays
@@ -120,6 +121,17 @@ class _PositionPoolWell:
             sampler.trays, plate_layout.rows, plate_layout.cols, self.position_fun
         )
         self.available = [p for p in self.all_positions if p not in self.reserved]
+
+        # Apply start_position offset on first tray only
+        if start_position != "A1":
+            first_tray = str(self.trays[0])
+            start_flat = plate_layout.alpha_to_flat(start_position)
+            self.available = [
+                p
+                for p in self.available
+                if str(p.tray) != first_tray or plate_layout.alpha_to_flat(p.grid_position) >= start_flat
+            ]
+
         self.by_tray = group_by_key(self.available, key=lambda p: p.tray)
 
 
@@ -134,6 +146,7 @@ class _PositionPoolTip:
         sampler: Sampler,
         plate_layout: PlateLayout,
         qc_layout: QCLayoutTip,
+        start_position: str = "A1",
     ) -> None:
         self.position_fun = get_position_function(sampler.position_fun)
         self.trays = sampler.trays
@@ -147,6 +160,17 @@ class _PositionPoolTip:
             sampler.trays, plate_layout.rows, plate_layout.cols, self.position_fun
         )
         self.available = self.all_positions
+
+        # Apply start_position offset on first tray only
+        if start_position != "A1":
+            first_tray = str(self.trays[0])
+            start_flat = plate_layout.alpha_to_flat(start_position)
+            self.available = [
+                p
+                for p in self.available
+                if str(p.tray) != first_tray or plate_layout.alpha_to_flat(p.grid_position) >= start_flat
+            ]
+
         self.by_tray = group_by_key(self.available, key=lambda p: p.tray)
 
 
@@ -256,8 +280,9 @@ class _VialPlateAssignerWellConfig:
         sampler: Sampler,
         plate_layout: PlateLayout,
         qc_layout: QCLayoutWell,
+        start_position: str = "A1",
     ) -> None:
-        self.pool = _PositionPoolWell(sampler, plate_layout, qc_layout)
+        self.pool = _PositionPoolWell(sampler, plate_layout, qc_layout, start_position)
 
     @property
     def qc_layout(self) -> QCLayoutWell:
@@ -304,8 +329,9 @@ class _VialPlateAssignerTipConfig:
         sampler: Sampler,
         plate_layout: PlateLayout,
         qc_layout: QCLayoutTip,
+        start_position: str = "A1",
     ) -> None:
-        self.pool = _PositionPoolTip(sampler, plate_layout, qc_layout)
+        self.pool = _PositionPoolTip(sampler, plate_layout, qc_layout, start_position)
 
     @property
     def qc_layout(self) -> QCLayoutTip:
@@ -358,6 +384,7 @@ def create_assembled_sampler(
     pattern_sample_ids: set[str],
     plate_layout_name: str,
     qc_layout_name: str,
+    start_position: str = "A1",
 ) -> AssembledSampler:
     """Factory to create correct sampler class based on mode and sampler type.
 
@@ -369,6 +396,7 @@ def create_assembled_sampler(
         pattern_sample_ids: Sample IDs referenced by the pattern (empty for noqc)
         plate_layout_name: Plate layout name (e.g., "Vanquish_54")
         qc_layout_name: QC layout name (e.g., "standard", "evosep_qc")
+        start_position: Alpha grid position to start from on first tray (vial mode only)
 
     Returns:
         One of 4 AssembledSampler classes based on layout_mode + sampler type
@@ -399,6 +427,6 @@ def create_assembled_sampler(
             return _PlateValidatorWellConfig(sampler, plate_layout, qc_layout)
     else:  # vial
         if is_tip:
-            return _VialPlateAssignerTipConfig(sampler, plate_layout, qc_layout)
+            return _VialPlateAssignerTipConfig(sampler, plate_layout, qc_layout, start_position)
         else:
-            return _VialPlateAssignerWellConfig(sampler, plate_layout, qc_layout)
+            return _VialPlateAssignerWellConfig(sampler, plate_layout, qc_layout, start_position)
