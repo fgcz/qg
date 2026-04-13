@@ -3,7 +3,7 @@
 # Each pattern specifies QC sample injection sequences
 # Sample IDs reference samples from samples.csv under the same tech_area
 #
-# PROTEOMICS patterns: noqc, standard, frequent, simple, simple_clean dda, minimal, qc_only, evosep_qc, conditioning
+# PROTEOMICS patterns: noqc, standard, simple_clean, evosep_qc, conditioning
 # METABOLOMICS patterns: noqc, standard, simple, blank
 # LIPIDOMICS patterns: noqc, standard
 #
@@ -17,40 +17,25 @@
 [Proteomics.standard]
 description = "Standard proteomics: clean-qc pairs, clean-qc-qc ending"
 run_QC_after_n_samples = 8
-start = ["QC03dia", "QC01"]
+start = ["QC03", "QC01"]
 middle = ["clean", "QC01"]
-end = ["clean", "QC01", "QC03dia", "clean"]
+end = ["clean", "QC01", "QC03", "clean"]
 separation = ["clean", "QC01", "clean"]
 
-[Proteomics.simple_clean_dda]
+[Proteomics.simple_clean]
 description = "Simple clean: cleans in between each samples"
 run_QC_after_n_samples = 1
-start = ["QC03dda", "QC01"]
+start = ["QC03", "QC01"]
 middle = ["clean"]
-end = ["clean", "QC01", "QC03dda"]
+end = ["clean", "QC01", "QC03"]
 separation = ["clean", "QC01", "clean"]
-
-[Proteomics.simple_clean_dia]
-description = "Simple clean: cleans in between each samples"
-run_QC_after_n_samples = 1
-start = ["QC03dia", "QC01"]
-middle = ["clean"]
-end = ["clean", "QC01", "QC03dia"]
-separation = ["clean", "QC01", "clean"]
-
-[Proteomics.dda]
-description = "DDA-focused pattern using QC03dda benchmark"
-run_QC_after_n_samples = 8
-start = ["QC03dda", "QC01"]
-middle = ["clean", "QC01"]
-end = ["clean", "QC01", "QC03dda", "clean"]
 
 [Proteomics.evosep_qc]
 description = "Evosep: clean-QC03 bookends, no QC01"
 run_QC_after_n_samples = 12
-start = ["clean", "QC03dia"]
-middle = ["QC03dia"]
-end = ["clean", "QC03dia"]
+start = ["clean", "QC03"]
+middle = ["QC03"]
+end = ["clean", "QC03"]
 
 [Proteomics.conditioning]
 description = "Column conditioning - multiple cleans"

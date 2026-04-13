@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class Method(BaseModel):
     """A method definition from methods CSV."""
 
-    sample_type: str = Field(..., min_length=1, description="Sample type (DEFAULT_SAMPLE_ID, QC03dda, etc.)")
+    sample_type: str = Field(..., min_length=1, description="Sample type (default, QC03, QC01, clean, etc.)")
     polarity: str = Field(default="", description="Polarity (pos, neg, or empty for proteomics)")
     method_name: str = Field(..., min_length=1, description="Method name")
     method_path: str = Field(..., min_length=1, description="Full path to method file")
@@ -34,6 +34,10 @@ class MethodsForInstrument(BaseModel):
     config_path: Path = Field(..., description="Repo-relative path this methods file was loaded from")
     methods: list[Method]
 
+    def get_method_names(self, sample_type: str, polarity: str = "") -> set[str]:
+        """Get available method names for a sample_type and polarity."""
+        return {m.method_name for m in self.methods if m.sample_type == sample_type and m.polarity == polarity}
+
     def get_method(
         self,
         sample_type: str,
@@ -43,23 +47,18 @@ class MethodsForInstrument(BaseModel):
         """Get a specific method.
 
         Args:
-            sample_type: Sample type (DEFAULT_SAMPLE_ID, QC03dda, etc.)
+            sample_type: Sample type (default, QC03, QC01, clean, etc.)
             polarity: Polarity (pos, neg, or empty)
             method_name: Optional specific method name
 
         Returns:
             Method if found, None otherwise. Falls back to 'default' sample_type.
         """
-        from qg.config_models.structure import SamplesConfig
 
         for m in self.methods:
             if m.sample_type == sample_type and m.polarity == polarity:
                 if not method_name or m.method_name == method_name:
                     return m
-
-        # Fallback to default sample_type
-        if sample_type != SamplesConfig.DEFAULT_SAMPLE_ID:
-            return self.get_method(SamplesConfig.DEFAULT_SAMPLE_ID, polarity, method_name)
 
         return None
 

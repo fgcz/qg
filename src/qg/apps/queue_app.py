@@ -198,6 +198,7 @@ def _(qc_layout_field, table_by_qc_layout):
 @app.cell
 def _(container_has_plates, sampler_field, table_by_sampler):
     # Queue type dropdown - constrained by plate availability
+    sample_type_warning = None
     if sampler_field.value:
         _all_options = sorted(table_by_sampler["queue_type"].unique().to_list())
         # No plates found for selected containers → restrict to Vial only
@@ -206,6 +207,15 @@ def _(container_has_plates, sampler_field, table_by_sampler):
         else:
             _options = _all_options
         _default = _options[0] if _options else None
+
+        # Warn if B-Fabric reports plates but sampler doesn't support them
+        if container_has_plates is True and "Plate" not in _all_options:
+            _options = []
+            _default = None
+            sample_type_warning = mo.callout(
+                mo.md(f"Order has **plate** samples, but **{sampler_field.value}** only supports vials."),
+                kind="warn",
+            )
     else:
         _options = []
         _default = None
@@ -215,7 +225,7 @@ def _(container_has_plates, sampler_field, table_by_sampler):
         value=_default,
         label="Sample Type",
     )
-    return (queue_type_field,)
+    return queue_type_field, sample_type_warning
 
 
 @app.cell
@@ -442,19 +452,32 @@ def _(config, instrument_field, tech_area_field):
 
 
 @app.cell
-def _(methods_df):
-    # Get unique method names for each polarity from default sample_type
-    def _get_methods(df: pl.DataFrame, polarity: str | None) -> list[str]:
-        if df.is_empty():
+def _(config, instrument_field, methods_df, pattern_field, tech_area_field):
+    # Compute available method names as the intersection across all sample types
+    # in the selected pattern (QC samples + default for user samples).
+    def _get_methods_intersection(polarity: str) -> list[str]:
+        if methods_df.is_empty() or not tech_area_field.value or not instrument_field.value:
             return []
-        filtered = df.filter(pl.col("sample_type") == SamplesConfig.DEFAULT_SAMPLE_ID)
-        if polarity and "polarity" in filtered.columns:
-            filtered = filtered.filter(pl.col("polarity") == polarity)
-        return sorted(filtered["method_name"].unique().to_list())
+        methods_for_instr = config.methods.get_methods(tech_area_field.value, instrument_field.value)
+
+        # Collect sample_ids from pattern + "default" for user samples
+        sample_ids: set[str] = {SamplesConfig.DEFAULT_SAMPLE_ID}
+        if pattern_field.value:
+            _pattern = config.queue_patterns.get_pattern(tech_area_field.value, pattern_field.value)
+            sample_ids |= _pattern.get_all_sample_ids()
+
+        # Intersect method names across all sample types
+        sets = [methods_for_instr.get_method_names(sid, polarity) for sid in sample_ids]
+        # Only include sample types that have at least one method row;
+        # sample types with no rows in the method file are not constrained
+        non_empty = [s for s in sets if s]
+        if not non_empty:
+            return []
+        return sorted(non_empty[0].intersection(*non_empty[1:]))
 
     _has_polarity = not methods_df.is_empty() and "polarity" in methods_df.columns
-    available_methods_pos = _get_methods(methods_df, "pos" if _has_polarity else None)
-    available_methods_neg = _get_methods(methods_df, "neg" if _has_polarity else None)
+    available_methods_pos = _get_methods_intersection("pos" if _has_polarity else "")
+    available_methods_neg = _get_methods_intersection("neg" if _has_polarity else "")
     return available_methods_neg, available_methods_pos
 
 
@@ -576,6 +599,7 @@ def _(
     qc_layout_preview,
     queue_type_field,
     randomization_field,
+    sample_type_warning,
     sampler_field,
     start_position_field,
     tech_area_field,
@@ -594,6 +618,7 @@ def _(
         instrument_field,
         sampler_field,
         queue_type_field,
+        *([] if sample_type_warning is None else [sample_type_warning]),
         plate_layout_field,
         *([] if start_position_field is None else [start_position_field]),
         mo.md(f"**Output:** {output_format_value}"),
@@ -822,11 +847,10 @@ def _(project_table, refresh_projects_button):
     mo.vstack(
         [
             mo.hstack(
-                [mo.md("## Order Selection"), refresh_projects_button],
+                [mo.md("## Order Selection _(🔍 at bottom of the table to search)_"), refresh_projects_button],
                 justify="space-between",
                 align="center",
             ),
-            mo.md("_Use 🔍 at the bottom of the table to search_"),
             project_table,
         ]
     )

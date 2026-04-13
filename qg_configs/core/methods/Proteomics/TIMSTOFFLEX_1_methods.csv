@@ -1,5 +1,5 @@
 sample_type,polarity,method_name,method_path
-QC03dda,pos,DDA_60min,D:\Methods\
-QC03dia,pos,DIA_60min,D:\Methods\
-default,pos,DIA_60min,D:\Methods\
-default,pos,DDA_60min,D:\Methods\
+QC03,pos,DDA,D:\Methods\
+QC03,pos,DIA,D:\Methods\
+default,pos,DIA,D:\Methods\
+default,pos,DDA,D:\Methods\

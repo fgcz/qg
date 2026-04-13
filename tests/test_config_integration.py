@@ -142,26 +142,25 @@ class TestConfigSamplers:
 class TestMethodResolution:
     """Tests for method resolution fallback logic."""
 
-    def test_qc_sample_uses_fallback_to_default(self, config: QGConfiguration) -> None:
-        """QC sample without specific method falls back to 'default' sample_type."""
+    def test_qc_sample_without_match_returns_empty(self, config: QGConfiguration) -> None:
+        """QC sample without matching method returns empty path (no fallback)."""
         methods = config.methods.get_methods("Proteomics", "ASTRAL_1")
         # QC01 has no explicit method in ASTRAL_1_methods.csv
-        path = methods.get_method_path("QC01", "pos", "")
-        # Should fallback to default's method
-        assert path != "", "QC01 should fallback to default method"
+        path = methods.get_method_path("QC01", "pos", "DIA")
+        assert path == "", "QC01 has no DIA row, should return empty"
 
     def test_default_method_returns_path(self, config: QGConfiguration) -> None:
         """Default sample_type returns method path."""
         methods = config.methods.get_methods("Proteomics", "ASTRAL_1")
-        path = methods.get_method_path("default", "pos", "DIA_60min")
+        path = methods.get_method_path("default", "pos", "DIA")
         assert path != "", "Default method should return a non-empty path"
 
     def test_explicit_qc_method_returns_specific_path(self, config: QGConfiguration) -> None:
         """QC sample with explicit method returns that specific method."""
         methods = config.methods.get_methods("Proteomics", "ASTRAL_1")
-        # QC03dda has explicit method in ASTRAL_1_methods.csv
-        path = methods.get_method_path("QC03dda", "pos", "")
-        assert path != "", "QC03dda should return a non-empty method path"
+        # QC03 has explicit DDA method in ASTRAL_1_methods.csv
+        path = methods.get_method_path("QC03", "pos", "DDA")
+        assert path != "", "QC03 with DDA should return a non-empty method path"
 
     def test_nonexistent_method_returns_empty(self, config: QGConfiguration) -> None:
         """Nonexistent sample_type with no default fallback returns empty."""

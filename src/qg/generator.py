@@ -143,7 +143,7 @@ def _resolve_methods(
     for slot in slots:
         sample_id = slot.slot.sample_id
         polarity = slot.polarity
-        method_name = method.get(polarity, "") if sample_id == default_sample_id else ""
+        method_name = method.get(polarity, "")
         slot.method = methods_config.get_method_path(tech_area, instrument, sample_id, polarity, method_name)
     return slots
 

@@ -1,7 +1,9 @@
 sample_type,polarity,method_name,method_path
-QC03dda,pos,DDA_60min,C:\Xcalibur\methods\__autoQC\trap\autoQC03dda
-QC03dia,pos,DIA_60min,C:\Xcalibur\methods\__autoQC\trap\autoQC03dia
-default,pos,DIA_60min,C:\Xcalibur\methods\
-default,pos,DDA_60min,C:\Xcalibur\methods\
-QC01,pos,DDA_60min,C:\Xcalibur\methods\__autoQC\trap\autoQC01
-clean,pos,DDA_60min,C:\Xcalibur\methods\__clean\general_clean
+QC03,pos,DDA,C:\Xcalibur\methods\__autoQC\trap\autoQC03dda
+QC03,pos,DIA,C:\Xcalibur\methods\__autoQC\trap\autoQC03dia
+default,pos,DIA,C:\Xcalibur\methods\
+default,pos,DDA,C:\Xcalibur\methods\
+QC01,pos,DDA,C:\Xcalibur\methods\__autoQC\trap\autoQC01
+QC01,pos,DIA,C:\Xcalibur\methods\__autoQC\trap\autoQC01
+clean,pos,DDA,C:\Xcalibur\methods\__clean\general_clean
+clean,pos,DIA,C:\Xcalibur\methods\__clean\general_clean

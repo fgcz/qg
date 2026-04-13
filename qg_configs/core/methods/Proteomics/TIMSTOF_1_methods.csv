@@ -1,5 +1,5 @@
 sample_type,polarity,method_name,method_path
-QC03dda,pos,DDA_60min,D:\Methods\Proteomics\TIMSTOF_1\DDA_60min.m
-QC03dia,pos,DIA_60min,D:\Methods\Proteomics\TIMSTOF_1\DIA_60min.m
-default,pos,DIA_60min,D:\Methods\Proteomics\TIMSTOF_1\DIA_60min.m
-default,pos,DDA_60min,D:\Methods\Proteomics\TIMSTOF_1\DDA_60min.m
+QC03,pos,DDA,D:\Methods\Proteomics\TIMSTOF_1\DDA.m
+QC03,pos,DIA,D:\Methods\Proteomics\TIMSTOF_1\DIA.m
+default,pos,DIA,D:\Methods\Proteomics\TIMSTOF_1\DIA.m
+default,pos,DDA,D:\Methods\Proteomics\TIMSTOF_1\DDA.m
