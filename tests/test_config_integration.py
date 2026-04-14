@@ -170,6 +170,39 @@ class TestMethodResolution:
         assert path == ""
 
 
+class TestMethodNameIntersection:
+    """Tests for method name intersection filtering (Testing technology)."""
+
+    def test_test1_pattern_restricts_to_dda(self, config: QGConfiguration) -> None:
+        """test1_pattern has QC01 (DDA-only), so intersection with default (DDA+DIA) = DDA."""
+        methods = config.methods.get_methods("Testing", "ASTRAL_1")
+        pattern = config.queue_patterns.get_pattern("Testing", "test1_pattern")
+        sample_ids = pattern.get_all_sample_ids() | {"default"}
+        sets = [methods.get_method_names(sid, "pos") for sid in sample_ids]
+        non_empty = [s for s in sets if s]
+        result = non_empty[0].intersection(*non_empty[1:])
+        assert result == {"DDA"}
+
+    def test_test2_pattern_restricts_to_dia(self, config: QGConfiguration) -> None:
+        """test2_pattern has QC04 (DIA-only), so intersection with default (DDA+DIA) = DIA."""
+        methods = config.methods.get_methods("Testing", "ASTRAL_1")
+        pattern = config.queue_patterns.get_pattern("Testing", "test2_pattern")
+        sample_ids = pattern.get_all_sample_ids() | {"default"}
+        sets = [methods.get_method_names(sid, "pos") for sid in sample_ids]
+        non_empty = [s for s in sets if s]
+        result = non_empty[0].intersection(*non_empty[1:])
+        assert result == {"DIA"}
+
+    def test_noqc_pattern_offers_both(self, config: QGConfiguration) -> None:
+        """noqc has no QC samples, so only default is checked = DDA + DIA."""
+        methods = config.methods.get_methods("Testing", "ASTRAL_1")
+        pattern = config.queue_patterns.get_pattern("Testing", "noqc")
+        sample_ids = pattern.get_all_sample_ids() | {"default"}
+        assert sample_ids == {"default"}
+        result = methods.get_method_names("default", "pos")
+        assert result == {"DDA", "DIA"}
+
+
 class TestConfigInstrumentConfigs:
     """Tests for instrument_configs (UI) in QGConfiguration."""
 

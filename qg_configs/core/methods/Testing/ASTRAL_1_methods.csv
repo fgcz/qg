@@ -1,0 +1,5 @@
+sample_type,polarity,method_name,method_path
+default,pos,DDA,C:\Xcalibur\methods\
+default,pos,DIA,C:\Xcalibur\methods\
+QC01,pos,DDA,C:\Xcalibur\methods\__autoQC\testQC01
+QC04,pos,DIA,C:\Xcalibur\methods\__autoQC\testQC04

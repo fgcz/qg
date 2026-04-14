@@ -200,7 +200,7 @@ def _(container_has_plates, sampler_field, table_by_sampler):
     # Queue type dropdown - constrained by plate availability
     sample_type_warning = None
     if sampler_field.value:
-        _all_options = sorted(table_by_sampler["queue_type"].unique().to_list())
+        _all_options = sorted(table_by_sampler["queue_type"].unique().to_list(), reverse=True)
         # No plates found for selected containers → restrict to Vial only
         if container_has_plates is False:
             _options = [o for o in _all_options if o == "Vial"]
@@ -678,9 +678,9 @@ def _(projects_df, tech_area_field):
         "Metabolomics": ["Metabolomics/Biophysics"],
         "Lipidomics": ["Metabolomics/Biophysics"],
     }
-    _allowed_areas = _area_map.get(tech_area_field.value, [])
+    _allowed_areas = _area_map.get(tech_area_field.value)
 
-    _filtered = projects_df.filter(pl.col("Area").is_in(_allowed_areas))
+    _filtered = projects_df.filter(pl.col("Area").is_in(_allowed_areas)) if _allowed_areas else projects_df
     project_table = mo.ui.table(
         data=_filtered,
         selection="multi",

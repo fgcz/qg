@@ -46,3 +46,11 @@ Lipidomics,standard,Plate_96,pooledQCDil5,Y,H,6
 Lipidomics,standard,Plate_96,pooledQCDil6,Y,H,7
 Lipidomics,standard,Plate_96,pooledQC,Y,H,8
 Lipidomics,standard,Plate_96,EquiSPLASH,Y,H,9
+Testing,test_both,Vanquish_54,QC01,B,F,9
+Testing,test_both,Vanquish_54,QC04,B,F,8
+Testing,test1,Vanquish_54,QC01,B,F,9
+Testing,test2,Vanquish_54,QC04,B,F,8
+Testing,test_both,Plate_96,QC01,B,H,12
+Testing,test_both,Plate_96,QC04,B,H,11
+Testing,test1,Plate_96,QC01,B,H,12
+Testing,test2,Plate_96,QC04,B,H,11
