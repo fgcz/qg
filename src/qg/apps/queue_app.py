@@ -473,7 +473,7 @@ def _(config, instrument_field, methods_df, pattern_field, tech_area_field):
         non_empty = [s for s in sets if s]
         if not non_empty:
             return []
-        return sorted(non_empty[0].intersection(*non_empty[1:]))
+        return sorted(non_empty[0].intersection(*non_empty[1:]), reverse=True)
 
     _has_polarity = not methods_df.is_empty() and "polarity" in methods_df.columns
     available_methods_pos = _get_methods_intersection("pos" if _has_polarity else "")
