@@ -154,6 +154,7 @@ VALID_PLACEHOLDERS = {
     "sample_id",
     "sample_name",
     "polarity",
+    "method_name",
 }
 
 

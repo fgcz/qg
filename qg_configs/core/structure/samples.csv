@@ -1,7 +1,7 @@
 tech_area,sample_id,sample_name,description,inj_vol,file_name_template
 Proteomics,default,"",Default settings for user samples,2.0,{date}_{run}_C{container}_S{sample_id}_{sample_name}
 Proteomics,QC01,autoQC01,autoQC01: Standard peptide mix for system suitability,2.0,{date}_{run}_C{container}_autoQC01
-Proteomics,QC03,autoQC03,autoQC03: Benchmark for performance monitoring,1.0,{date}_{run}_C{container}_autoQC03
+Proteomics,QC03,autoQC03,autoQC03: Benchmark for performance monitoring,1.0,{date}_{run}_C{container}_{sample_name}{method_name}
 Proteomics,clean,clean,Buffer blank for column cleaning between sample batches,2.0,{date}_{run}_C{container}_clean
 Metabolomics,default,"",Default settings for user samples,3.5,{date}_{run}_C{container}_S{sample_id}_{sample_name}_{polarity}
 Metabolomics,blank,blank,Solvent blank for carryover assessment,3.5,{date}_{run}_C{container}_blank_{polarity}

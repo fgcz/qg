@@ -72,6 +72,7 @@ class ExpandedSlot:
     polarity: str
     run_number: int
     method: str = ""
+    method_name: str = ""
     file_name: str = ""
 
 
@@ -144,6 +145,7 @@ def _resolve_methods(
         sample_id = slot.slot.sample_id
         polarity = slot.polarity
         method_name = method.get(polarity, "")
+        slot.method_name = method_name
         slot.method = methods_config.get_method_path(tech_area, instrument, sample_id, polarity, method_name)
     return slots
 
@@ -158,8 +160,9 @@ def _format_file_names(slots: list[ExpandedSlot], date: str) -> list[ExpandedSlo
             run=f"{slot.run_number:03d}",
             container=slot.slot.container_id,
             sample_id=str(sample.sample_id) if sample else "",
-            sample_name=sample.sample_name if sample else "",
+            sample_name=sample.sample_name if sample else slot.slot.sample_config.sample_name,
             polarity=slot.polarity,
+            method_name=slot.method_name.lower(),
         )
     return slots
 
