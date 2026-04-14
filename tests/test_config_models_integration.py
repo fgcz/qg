@@ -165,8 +165,8 @@ class TestPositionConfigs:
         config = QCLayoutsTipConfig.from_table(df)
 
         assert len(config.samples) > 0
-        # Check Proteomics Evosep layout exists
-        samples = config.get_samples("Proteomics", "standard", "Plate_96")
+        # Check Testing standard tip layout exists
+        samples = config.get_samples("Testing", "standard", "Plate_96")
         assert len(samples) > 0
 
 

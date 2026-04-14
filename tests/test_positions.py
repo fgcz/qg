@@ -411,9 +411,9 @@ class TestGetQCPosition:
 
     def test_evosep_get_qc_position(self, config) -> None:
         # Evosep needs slot_entries to validate capacity
-        pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
+        pattern = config.queue_patterns.get_pattern("Testing", "test1_pattern")
         sampler = create_assembled_sampler(
-            "Evosep", "vial", config, "Proteomics", pattern.get_all_sample_ids(), "Plate_96", "standard"
+            "Evosep", "vial", config, "Testing", pattern.get_all_sample_ids(), "Plate_96", "standard"
         )
         plate_layout = config.plate_layouts.get_layout("Plate_96")
         slot_entries = [MockSlotEntry("QC01")]
@@ -431,9 +431,9 @@ class TestGetQCPosition:
 
     def test_evosep_get_qc_position_increments(self, config) -> None:
         # Evosep needs slot_entries - we need 2 QC01 entries since we call get_position twice
-        pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
+        pattern = config.queue_patterns.get_pattern("Testing", "test1_pattern")
         sampler = create_assembled_sampler(
-            "Evosep", "vial", config, "Proteomics", pattern.get_all_sample_ids(), "Plate_96", "standard"
+            "Evosep", "vial", config, "Testing", pattern.get_all_sample_ids(), "Plate_96", "standard"
         )
         plate_layout = config.plate_layouts.get_layout("Plate_96")
         slot_entries = [MockSlotEntry("QC01"), MockSlotEntry("QC01")]
