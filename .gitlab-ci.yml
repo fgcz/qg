@@ -8,6 +8,7 @@ test:
   stage: test
   tags:
     - linux
+    - docker
   script:
     - uv sync
     - uv run pytest
