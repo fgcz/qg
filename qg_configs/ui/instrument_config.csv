@@ -6,7 +6,7 @@ Proteomics,EXPLORIS_1,Evosep,chronos,evosep_qc
 Proteomics,EXPLORIS_1,MClass,xcalibur,standard
 Proteomics,EXPLORIS_2,Evosep,chronos,evosep_qc
 Proteomics,EXPLORIS_2,MClass,xcalibur,standard
-Proteomics,EXPLORIS_5,Vanquish,xcalibur,standard
+Proteomics,EXPLORIS_5,Vanquish,xcalibur_sii,standard
 Proteomics,LUMOS_2,MClass,xcalibur,standard
 Proteomics,QEXACTIVE_1,MClass,xcalibur,standard
 Proteomics,TIMSTOF_1,Evosep,hystar,evosep_qc
