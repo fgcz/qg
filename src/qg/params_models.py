@@ -89,6 +89,9 @@ class QueueParameters(BaseModel):
     one_container_per_tray: bool = False
     # Alpha grid position on first tray to start assigning from (e.g., "B3")
     start_position: str = "A1"
+    # Tray to start assigning from (e.g., "R" for Vanquish, 2 for Evosep)
+    # Empty string means use first tray of the sampler (resolved downstream)
+    start_tray: str | int = ""
 
     @classmethod
     def create(
@@ -112,6 +115,7 @@ class QueueParameters(BaseModel):
         qc_frequency_override: int | None = None,
         one_container_per_tray: bool = False,
         start_position: str = "A1",
+        start_tray: str | int = "",
     ) -> Self:
         """Create validated QueueParameters.
 
@@ -151,6 +155,7 @@ class QueueParameters(BaseModel):
             qc_frequency_override=qc_frequency_override,
             one_container_per_tray=one_container_per_tray,
             start_position=start_position,
+            start_tray=start_tray,
         )
 
 

@@ -781,3 +781,119 @@ class TestStartPosition:
         assert result.cells[0].grid_position == "B1"
         assert result.cells[1].grid_position == "B2"
         assert result.cells[2].grid_position == "B3"
+
+
+# =============================================================================
+# Tests for start_tray selection
+# =============================================================================
+
+
+class TestStartTray:
+    """Tests for start_tray selection in Vial mode."""
+
+    def test_default_first_tray(self, config) -> None:
+        """Omitting start_tray should behave same as explicitly passing first tray."""
+        pattern = QueuePattern(description="test", run_QC_after_n_samples=1, start=[], middle=[], end=[])
+        sampler_default = create_assembled_sampler(
+            "Vanquish", "vial", config, "Proteomics", pattern.get_all_sample_ids(), "Vanquish_54", "standard"
+        )
+        sampler_explicit = create_assembled_sampler(
+            "Vanquish",
+            "vial",
+            config,
+            "Proteomics",
+            pattern.get_all_sample_ids(),
+            "Vanquish_54",
+            "standard",
+            start_tray="Y",
+        )
+        queue = create_vial_queue(5)
+        result_default = sampler_default.assign(queue)
+        result_explicit = sampler_explicit.assign(queue)
+
+        for c1, c2 in zip(result_default.cells, result_explicit.cells, strict=True):
+            assert c1.grid_position == c2.grid_position
+
+    def test_start_tray_skips_earlier_trays(self, config) -> None:
+        """Starting at tray R should skip tray Y entirely."""
+        pattern = QueuePattern(description="test", run_QC_after_n_samples=1, start=[], middle=[], end=[])
+        sampler = create_assembled_sampler(
+            "Vanquish",
+            "vial",
+            config,
+            "Proteomics",
+            pattern.get_all_sample_ids(),
+            "Vanquish_54",
+            "standard",
+            start_tray="R",
+        )
+        queue = create_vial_queue(5)
+        result = sampler.assign(queue)
+
+        trays = {result.plates[c.plate_id].tray for c in result.cells}
+        assert "Y" not in trays
+        # First sample should be on tray R at A1
+        first_tray = result.plates[result.cells[0].plate_id].tray
+        assert first_tray == "R"
+        assert result.cells[0].grid_position == "A1"
+
+    def test_start_tray_and_start_position_combined(self, config) -> None:
+        """Starting at tray R, position B3 should place first sample at R:B3."""
+        pattern = QueuePattern(description="test", run_QC_after_n_samples=1, start=[], middle=[], end=[])
+        sampler = create_assembled_sampler(
+            "Vanquish",
+            "vial",
+            config,
+            "Proteomics",
+            pattern.get_all_sample_ids(),
+            "Vanquish_54",
+            "standard",
+            start_position="B3",
+            start_tray="R",
+        )
+        queue = create_vial_queue(3)
+        result = sampler.assign(queue)
+
+        first_tray = result.plates[result.cells[0].plate_id].tray
+        assert first_tray == "R"
+        assert result.cells[0].grid_position == "B3"
+        assert result.cells[1].grid_position == "B4"
+
+    def test_start_tray_reduces_capacity(self, config) -> None:
+        """Starting on later tray reduces total available positions."""
+        pattern = QueuePattern(description="test", run_QC_after_n_samples=1, start=[], middle=[], end=[])
+        # Vanquish has 4 trays × 54 positions. Starting on tray G (3rd) leaves 2 trays = 108 positions.
+        sampler = create_assembled_sampler(
+            "Vanquish",
+            "vial",
+            config,
+            "Proteomics",
+            pattern.get_all_sample_ids(),
+            "Vanquish_54",
+            "standard",
+            start_tray="G",
+        )
+        # 109 samples should fail (only 108 available on trays G + B)
+        queue = create_vial_queue(109)
+        with pytest.raises(ValueError, match="Not enough positions"):
+            sampler.assign(queue)
+
+    def test_start_tray_evosep(self, config) -> None:
+        """Start tray should work for Evosep (tip-plate) too."""
+        pattern = QueuePattern(description="test", run_QC_after_n_samples=1, start=[], middle=[], end=[])
+        sampler = create_assembled_sampler(
+            "Evosep",
+            "vial",
+            config,
+            "Proteomics",
+            pattern.get_all_sample_ids(),
+            "Plate_96",
+            "standard",
+            start_tray=3,
+        )
+        queue = create_vial_queue(3)
+        result = sampler.assign(queue)
+
+        first_tray = result.plates[result.cells[0].plate_id].tray
+        assert first_tray == 3
+        assert result.cells[0].grid_position == "A1"

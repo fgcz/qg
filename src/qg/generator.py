@@ -296,6 +296,9 @@ class QueueGenerator:
             plate_layout_name=params.plate_layout,
             qc_layout_name=qc_layout_name,
             start_position=params.start_position,
+            start_tray=params.start_tray
+            if params.start_tray != ""
+            else config.samplers.get_sampler(params.sampler).trays[0],
         )
 
         # Store QC layout and plate layout from assembled sampler (avoid recomputation)

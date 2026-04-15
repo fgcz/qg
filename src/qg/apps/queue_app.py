@@ -265,11 +265,27 @@ def _(config, plate_layout_field, queue_type_field):
         start_position_field = mo.ui.dropdown(
             options=_positions,
             value="A1",
-            label="Start Position",
+            label="& position",
         )
     else:
         start_position_field = None
     return (start_position_field,)
+
+
+@app.cell
+def _(config, queue_type_field, sampler_field):
+    # Start tray dropdown — only for Vial mode (select which tray to start on)
+    if queue_type_field.value == "Vial" and sampler_field.value:
+        _sampler = config.samplers.get_sampler(sampler_field.value)
+        _trays = [str(t) for t in _sampler.trays]
+        start_tray_field = mo.ui.dropdown(
+            options=_trays,
+            value=_trays[0],
+            label="Start: tray",
+        )
+    else:
+        start_tray_field = None
+    return (start_tray_field,)
 
 
 @app.cell
@@ -602,6 +618,7 @@ def _(
     sample_type_warning,
     sampler_field,
     start_position_field,
+    start_tray_field,
     tech_area_field,
     user_field,
     validation_status,
@@ -620,7 +637,7 @@ def _(
         queue_type_field,
         *([] if sample_type_warning is None else [sample_type_warning]),
         plate_layout_field,
-        *([] if start_position_field is None else [start_position_field]),
+        *([] if start_tray_field is None else [mo.hstack([start_tray_field, start_position_field], justify="start")]),
         mo.md(f"**Output:** {output_format_value}"),
         mo.md("### Queue"),
         *_queue_items,
@@ -803,6 +820,7 @@ def _(
     randomization_field,
     sampler_field,
     start_position_field,
+    start_tray_field,
     tech_area_field,
     user_field,
 ):
@@ -834,6 +852,7 @@ def _(
                 "inj_vol_override": _inj_vol,
                 "qc_frequency_override": _qc_freq,
                 "start_position": start_position_field.value if start_position_field is not None else "A1",
+                "start_tray": start_tray_field.value if start_tray_field is not None else "",
             }
         )
     except pydantic.ValidationError as e:

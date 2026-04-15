@@ -108,6 +108,7 @@ class _PositionPoolWell:
         plate_layout: PlateLayout,
         qc_layout: QCLayoutWell,
         start_position: str = "A1",
+        start_tray: str | int | None = None,
     ) -> None:
         self.position_fun = get_position_function(sampler.position_fun)
         self.trays = sampler.trays
@@ -116,21 +117,28 @@ class _PositionPoolWell:
         self.qc_layout = qc_layout
         self.reserved = qc_layout.reserved
 
+        # Resolve start_tray: default to first tray
+        effective_start_tray = start_tray if start_tray is not None else sampler.trays[0]
+
         # Generate all positions and filter out reserved
         self.all_positions = generate_all_positions(
             sampler.trays, plate_layout.rows, plate_layout.cols, self.position_fun
         )
         self.available = [p for p in self.all_positions if p not in self.reserved]
 
-        # Apply start_position offset on first tray only
-        if start_position != "A1":
-            first_tray = str(self.trays[0])
-            start_flat = plate_layout.alpha_to_flat(start_position)
-            self.available = [
-                p
-                for p in self.available
-                if str(p.tray) != first_tray or plate_layout.alpha_to_flat(p.grid_position) >= start_flat
-            ]
+        # Filter: skip trays before start_tray, apply start_position offset on start_tray
+        tray_strs = [str(t) for t in sampler.trays]
+        start_tray_idx = tray_strs.index(str(effective_start_tray))
+        start_flat = plate_layout.alpha_to_flat(start_position)
+        self.available = [
+            p
+            for p in self.available
+            if tray_strs.index(str(p.tray)) > start_tray_idx
+            or (
+                tray_strs.index(str(p.tray)) == start_tray_idx
+                and plate_layout.alpha_to_flat(p.grid_position) >= start_flat
+            )
+        ]
 
         self.by_tray = group_by_key(self.available, key=lambda p: p.tray)
 
@@ -147,6 +155,7 @@ class _PositionPoolTip:
         plate_layout: PlateLayout,
         qc_layout: QCLayoutTip,
         start_position: str = "A1",
+        start_tray: str | int | None = None,
     ) -> None:
         self.position_fun = get_position_function(sampler.position_fun)
         self.trays = sampler.trays
@@ -155,21 +164,28 @@ class _PositionPoolTip:
         self.qc_layout = qc_layout
         self.reserved = qc_layout.reserved
 
+        # Resolve start_tray: default to first tray
+        effective_start_tray = start_tray if start_tray is not None else sampler.trays[0]
+
         # Generate all positions (don't filter - Evosep uses consumable tips)
         self.all_positions = generate_all_positions(
             sampler.trays, plate_layout.rows, plate_layout.cols, self.position_fun
         )
         self.available = self.all_positions
 
-        # Apply start_position offset on first tray only
-        if start_position != "A1":
-            first_tray = str(self.trays[0])
-            start_flat = plate_layout.alpha_to_flat(start_position)
-            self.available = [
-                p
-                for p in self.available
-                if str(p.tray) != first_tray or plate_layout.alpha_to_flat(p.grid_position) >= start_flat
-            ]
+        # Filter: skip trays before start_tray, apply start_position offset on start_tray
+        tray_strs = [str(t) for t in sampler.trays]
+        start_tray_idx = tray_strs.index(str(effective_start_tray))
+        start_flat = plate_layout.alpha_to_flat(start_position)
+        self.available = [
+            p
+            for p in self.available
+            if tray_strs.index(str(p.tray)) > start_tray_idx
+            or (
+                tray_strs.index(str(p.tray)) == start_tray_idx
+                and plate_layout.alpha_to_flat(p.grid_position) >= start_flat
+            )
+        ]
 
         self.by_tray = group_by_key(self.available, key=lambda p: p.tray)
 
@@ -281,8 +297,9 @@ class _VialPlateAssignerWellConfig:
         plate_layout: PlateLayout,
         qc_layout: QCLayoutWell,
         start_position: str = "A1",
+        start_tray: str | int | None = None,
     ) -> None:
-        self.pool = _PositionPoolWell(sampler, plate_layout, qc_layout, start_position)
+        self.pool = _PositionPoolWell(sampler, plate_layout, qc_layout, start_position, start_tray)
 
     @property
     def qc_layout(self) -> QCLayoutWell:
@@ -330,8 +347,9 @@ class _VialPlateAssignerTipConfig:
         plate_layout: PlateLayout,
         qc_layout: QCLayoutTip,
         start_position: str = "A1",
+        start_tray: str | int | None = None,
     ) -> None:
-        self.pool = _PositionPoolTip(sampler, plate_layout, qc_layout, start_position)
+        self.pool = _PositionPoolTip(sampler, plate_layout, qc_layout, start_position, start_tray)
 
     @property
     def qc_layout(self) -> QCLayoutTip:
@@ -385,6 +403,7 @@ def create_assembled_sampler(
     plate_layout_name: str,
     qc_layout_name: str,
     start_position: str = "A1",
+    start_tray: str | int | None = None,
 ) -> AssembledSampler:
     """Factory to create correct sampler class based on mode and sampler type.
 
@@ -396,7 +415,8 @@ def create_assembled_sampler(
         pattern_sample_ids: Sample IDs referenced by the pattern (empty for noqc)
         plate_layout_name: Plate layout name (e.g., "Vanquish_54")
         qc_layout_name: QC layout name (e.g., "standard", "evosep_qc")
-        start_position: Alpha grid position to start from on first tray (vial mode only)
+        start_position: Alpha grid position to start from on start tray (vial mode only)
+        start_tray: Tray to start from (vial mode only). None = first tray.
 
     Returns:
         One of 4 AssembledSampler classes based on layout_mode + sampler type
@@ -427,6 +447,6 @@ def create_assembled_sampler(
             return _PlateValidatorWellConfig(sampler, plate_layout, qc_layout)
     else:  # vial
         if is_tip:
-            return _VialPlateAssignerTipConfig(sampler, plate_layout, qc_layout, start_position)
+            return _VialPlateAssignerTipConfig(sampler, plate_layout, qc_layout, start_position, start_tray)
         else:
-            return _VialPlateAssignerWellConfig(sampler, plate_layout, qc_layout, start_position)
+            return _VialPlateAssignerWellConfig(sampler, plate_layout, qc_layout, start_position, start_tray)
