@@ -791,15 +791,20 @@ def _(
 
 @app.cell
 def _(full_samples_df):
-    # Always-on selection table; nothing selected = all samples
-    _freeze = ["sample_name"] if "sample_name" in full_samples_df.columns else []
-    samples_table = mo.ui.table(data=full_samples_df, freeze_columns_left=_freeze)
-    return (samples_table,)
+    if not full_samples_df.is_empty():
+        _with_order = full_samples_df.with_row_index("order", offset=1).cast({"order": pl.Float64})
+        samples_editor = mo.ui.data_editor(_with_order, label="Samples (edit order to reorder)")
+    else:
+        samples_editor = None
+    return (samples_editor,)
 
 
 @app.cell
-def _(full_samples_df, samples_table):
-    sample_df = samples_table.value if not samples_table.value.is_empty() else full_samples_df
+def _(samples_editor):
+    if samples_editor is not None:
+        sample_df = samples_editor.value.sort("order").drop("order")
+    else:
+        sample_df = pl.DataFrame()
     return (sample_df,)
 
 
@@ -895,14 +900,17 @@ def _(all_plates, plates_select, selected_orders):
 
 
 @app.cell
-def _(sample_df, samples_table, selected_orders):
+def _(sample_df, samples_editor, selected_orders):
     # Sample Selection tab content
     _order_count = len(selected_orders) if selected_orders else 0
     if sample_df is not None and not sample_df.is_empty():
         _summary = mo.md(f"**{len(sample_df)} samples from {_order_count} order(s)**")
     else:
         _summary = mo.md("**No samples loaded**")
-    sample_selection_content = mo.vstack([_summary, samples_table])
+    _items = [_summary]
+    if samples_editor is not None:
+        _items.append(samples_editor)
+    sample_selection_content = mo.vstack(_items)
     return (sample_selection_content,)
 
 
@@ -1207,22 +1215,35 @@ def _(
 
 
 @app.cell
+def _():
+    tab_selector = mo.ui.radio(
+        options=["Queue Preview", "Sample Selection", "Parameters", "Valid Combinations"],
+        value="Queue Preview",
+        inline=True,
+    )
+    return (tab_selector,)
+
+
+@app.cell
 def _(
     parameters_content,
     queue_preview_content,
     sample_selection_content,
+    tab_selector,
     valid_combinations_content,
 ):
-    # Tabbed interface for the right panel
-    right_panel_tabs = mo.ui.tabs(
-        {
-            "Queue Preview": queue_preview_content,
-            "Sample Selection": sample_selection_content,
-            "Parameters": parameters_content,
-            "Valid Combinations": valid_combinations_content,
-        }
-    )
-    right_panel_tabs
+    _sections = {
+        "Queue Preview": queue_preview_content,
+        "Sample Selection": sample_selection_content,
+        "Parameters": parameters_content,
+        "Valid Combinations": valid_combinations_content,
+    }
+    # CSS display:none keeps all widgets in the DOM (data_editor preserves visual state)
+    _panels = [
+        mo.md(f'<div style="display: {"block" if _name == tab_selector.value else "none"}">{_content}</div>')
+        for _name, _content in _sections.items()
+    ]
+    mo.vstack([tab_selector, *_panels])
     return
 
 
