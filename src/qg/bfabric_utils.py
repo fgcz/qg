@@ -3,7 +3,8 @@
 from pathlib import Path
 
 import polars as pl
-from bfabric import Bfabric
+from bfabric import Bfabric, BfabricClientConfig
+from bfabric.config.config_data import ConfigData
 from bfabric_rest_proxy.feeder_operations.create_workunit import (
     CreateWorkunitParams,
     create_workunit,
@@ -145,8 +146,18 @@ class MockFeederUploader:
         )
 
 
-def make_feeder_uploader(user_client: Bfabric, feeder_client) -> BfabricFeederUploader | MockFeederUploader:
+def make_feeder_uploader(
+    user_client: Bfabric, feeder_client: Bfabric | None = None
+) -> BfabricFeederUploader | MockFeederUploader:
     """Return a real uploader if feeder_client is available, otherwise a mock."""
     if feeder_client is not None:
         return BfabricFeederUploader(user_client, feeder_client)
     return MockFeederUploader()
+
+
+def make_feeder_client(app_config, instance_url: str) -> Bfabric | None:
+    """Create a feeder Bfabric client from app config credentials, if available."""
+    creds = app_config.feeder_user_credentials.get(instance_url)
+    if creds is None:
+        return None
+    return Bfabric(ConfigData(auth=creds, client=BfabricClientConfig(base_url=instance_url)))
