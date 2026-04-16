@@ -7,8 +7,16 @@ Generate sample queues with QC injections for mass spectrometry instruments (XCa
 ### GUI (Marimo App)
 
 ```bash
-uv run marimo run main.py
+uv run marimo run src/qg/apps/queue_app.py
 ```
+
+### GUI with B-Fabric Auth
+
+```bash
+uv run python src/qg/apps/bfabric_app.py
+```
+
+Requires B-Fabric integration config (`WebappIntegrationSettings`): `VALIDATION_BFABRIC_INSTANCE`, `SUPPORTED_BFABRIC_INSTANCES`, `FEEDER_USER_CREDENTIALS`. On the deployment server these are already configured.
 
 ### CLI Tools
 
@@ -16,29 +24,16 @@ uv run marimo run main.py
 
 ```bash
 # Output to stdout
-uv run python qg_configs/queue_generator.py config.json
+uv run qg config.json
 
 # Output to file
-uv run python qg_configs/queue_generator.py config.json -o queue.csv
-```
-
-#### Batch Generate Config Files
-
-```bash
-# Generate configs for all orders in proteomics_projects.json
-uv run python generate_all_configs.py --user cpanse
-
-# Dry run
-uv run python generate_all_configs.py --dry-run --limit 5
-
-# Filter by technology
-uv run python generate_all_configs.py --technology metabolomics --user cpanse
+uv run qg config.json -o queue.csv
 ```
 
 #### Validate Configs
 
 ```bash
-uv run python qg_configs/validate_config_pydantic.py
+uv run qg-validate
 ```
 
 ## Supported Configurations
