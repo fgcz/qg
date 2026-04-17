@@ -230,6 +230,9 @@ def format_table(queue_rows: QueueRowTable, output_format: OutputFormat, plate_l
     """Format queue rows as DataFrame for the given output format."""
     df = queue_rows.to_table()
 
+    if df.is_empty():
+        return pl.DataFrame({col: pl.Series([], dtype=pl.Utf8) for col in output_format.columns})
+
     # Apply grid_position conversion (e.g., alpha→flat for Chronos)
     converter = get_grid_position_converter(output_format.grid_position_conversion, plate_layout)
     df = df.with_columns(
