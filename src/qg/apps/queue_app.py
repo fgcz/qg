@@ -809,6 +809,7 @@ def _(full_samples_df):
             initial_selection=list(range(_n)),
             label="Uncheck to exclude samples",
             show_download=False,
+            pagination=False,
         )
     else:
         samples_table = None
@@ -820,7 +821,7 @@ def _(full_samples_df, samples_table):
     if samples_table is not None:
         _kept = samples_table.value
         _with_order = _kept.with_row_index("order", offset=1).cast({"order": pl.Float64})
-        samples_editor = mo.ui.data_editor(_with_order, label="Samples (edit order to reorder)")
+        samples_editor = mo.ui.data_editor(_with_order, label="Samples (edit order to reorder)", pagination=False)
     else:
         samples_editor = None
     return (samples_editor,)
