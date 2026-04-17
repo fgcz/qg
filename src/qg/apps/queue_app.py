@@ -790,9 +790,36 @@ def _(
 
 
 @app.cell
+def _():
+    sample_mode_selector = mo.ui.radio(
+        options=["Sample Selection", "Sample Editor"],
+        value="Sample Selection",
+        inline=True,
+    )
+    return (sample_mode_selector,)
+
+
+@app.cell
 def _(full_samples_df):
     if not full_samples_df.is_empty():
-        _with_order = full_samples_df.with_row_index("order", offset=1).cast({"order": pl.Float64})
+        _n = len(full_samples_df)
+        samples_table = mo.ui.table(
+            data=full_samples_df,
+            selection="multi",
+            initial_selection=list(range(_n)),
+            label="Uncheck to exclude samples",
+            show_download=False,
+        )
+    else:
+        samples_table = None
+    return (samples_table,)
+
+
+@app.cell
+def _(full_samples_df, samples_table):
+    if samples_table is not None:
+        _kept = samples_table.value if not samples_table.value.is_empty() else full_samples_df
+        _with_order = _kept.with_row_index("order", offset=1).cast({"order": pl.Float64})
         samples_editor = mo.ui.data_editor(_with_order, label="Samples (edit order to reorder)")
     else:
         samples_editor = None
@@ -900,17 +927,22 @@ def _(all_plates, plates_select, selected_orders):
 
 
 @app.cell
-def _(sample_df, samples_editor, selected_orders):
+def _(sample_df, sample_mode_selector, samples_editor, samples_table, selected_orders):
     # Sample Selection tab content
     _order_count = len(selected_orders) if selected_orders else 0
     if sample_df is not None and not sample_df.is_empty():
         _summary = mo.md(f"**{len(sample_df)} samples from {_order_count} order(s)**")
     else:
         _summary = mo.md("**No samples loaded**")
-    _items = [_summary]
-    if samples_editor is not None:
-        _items.append(samples_editor)
-    sample_selection_content = mo.vstack(_items)
+    _panels = {
+        "Sample Selection": samples_table if samples_table is not None else mo.md("_No samples loaded_"),
+        "Sample Editor": samples_editor if samples_editor is not None else mo.md("_No samples loaded_"),
+    }
+    _panel_stack = [
+        mo.md(f'<div style="display: {"block" if _name == sample_mode_selector.value else "none"}">{_widget}</div>')
+        for _name, _widget in _panels.items()
+    ]
+    sample_selection_content = mo.vstack([_summary, sample_mode_selector, *_panel_stack])
     return (sample_selection_content,)
 
 
