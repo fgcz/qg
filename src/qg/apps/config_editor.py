@@ -47,7 +47,7 @@ with app.setup:
 def _():
     _request = mo.app_meta().request
     _user = getattr(_request, "user", None)
-    if _user and _user.is_authenticated:
+    if _user and _user.is_authenticated and hasattr(_user, "get_bfabric_client"):
         authenticated_login = _user.get_bfabric_client().auth.login
         mo.md(f"Authenticated user: **{authenticated_login}**")
     else:

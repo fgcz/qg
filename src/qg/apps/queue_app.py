@@ -36,7 +36,7 @@ with app.setup:
 def _():
     _request = mo.app_meta().request
     user = getattr(_request, "user", None)
-    if user and user.is_authenticated:
+    if user and user.is_authenticated and hasattr(user, "get_bfabric_client"):
         client = user.get_bfabric_client()
         app_config = _request.meta["app_config"]
         feeder_client = make_feeder_client(app_config, user.instance)
