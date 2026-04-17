@@ -818,7 +818,7 @@ def _(full_samples_df):
 @app.cell
 def _(full_samples_df, samples_table):
     if samples_table is not None:
-        _kept = samples_table.value if not samples_table.value.is_empty() else full_samples_df
+        _kept = samples_table.value
         _with_order = _kept.with_row_index("order", offset=1).cast({"order": pl.Float64})
         samples_editor = mo.ui.data_editor(_with_order, label="Samples (edit order to reorder)")
     else:
@@ -951,11 +951,12 @@ def _(config, queue_parameters, sample_df, selected_orders):
     # Build QueueInput once — shared by Parameters tab and queue generation
     queue_input = None
     queue_input_err = None
-    if queue_parameters and selected_orders and sample_df is not None and not sample_df.is_empty():
+    if queue_parameters and selected_orders and sample_df is not None:
         try:
-            queue_input = (
-                QueueBuilder(config).with_parameters(queue_parameters).add_samples_from_dataframe(sample_df).build()
-            )
+            _builder = QueueBuilder(config).with_parameters(queue_parameters)
+            if not sample_df.is_empty():
+                _builder = _builder.add_samples_from_dataframe(sample_df)
+            queue_input = _builder.build()
         except ValueError as e:
             queue_input_err = str(e)
     return queue_input, queue_input_err

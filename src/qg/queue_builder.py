@@ -105,10 +105,6 @@ class QueueBuilder:
         if self._parameters is None or self._layout_mode is None:
             raise ValueError("Parameters not set.")
 
-        samples = self._plate_cells if self._layout_mode == LayoutMode.PLATE else self._vial_samples
-        if not samples:
-            raise ValueError("No samples added.")
-
         self._built = True
 
         if self._layout_mode == LayoutMode.PLATE:

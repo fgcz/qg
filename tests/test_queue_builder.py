@@ -160,10 +160,11 @@ class TestBuilderErrors:
         with pytest.raises(RuntimeError, match="with_parameters"):
             builder.add_samples_from_dataframe(sample_df)
 
-    def test_build_without_samples_raises(self, config, queue_parameters):
+    def test_build_without_samples_succeeds(self, config, queue_parameters):
         builder = QueueBuilder(config).with_parameters(queue_parameters)
-        with pytest.raises(ValueError, match="No samples"):
-            builder.build()
+        result = builder.build()
+        assert isinstance(result, VialQueueInput)
+        assert result.queue.samples == []
 
     def test_build_twice_raises(self, config, queue_parameters, sample_df):
         builder = QueueBuilder(config).with_parameters(queue_parameters).add_samples_from_dataframe(sample_df)
