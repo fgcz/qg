@@ -39,6 +39,24 @@ with app.setup:
 
 
 # =============================================================================
+# Authentication
+# =============================================================================
+
+
+@app.cell
+def _():
+    _request = mo.app_meta().request
+    _user = getattr(_request, "user", None)
+    if _user and _user.is_authenticated:
+        authenticated_login = _user.get_bfabric_client().auth.login
+        mo.md(f"Authenticated user: **{authenticated_login}**")
+    else:
+        authenticated_login = None
+        mo.md("No user information in request. Using default configuration.")
+    return (authenticated_login,)
+
+
+# =============================================================================
 # Helper functions (must be in a cell, not app.setup, for marimo name resolution)
 # =============================================================================
 
@@ -752,9 +770,13 @@ def _(REVIEW_MODE):
 
 
 @app.cell
-def _(gitlab_available):
+def _(gitlab_available, authenticated_login):
     if gitlab_available:
-        review_author_input = mo.ui.text(label="Author", placeholder="your name")
+        review_author_input = mo.ui.text(
+            label="Author",
+            placeholder="your name",
+            value=authenticated_login or "",
+        )
         review_description_input = mo.ui.text(
             label="Change description",
             placeholder="what did you change and why?",

@@ -23,7 +23,7 @@ with app.setup:
 
     configure_logging()
 
-    from qg.bfabric_utils import BfabricHelper, make_feeder_uploader
+    from qg.bfabric_utils import BfabricHelper, make_feeder_client, make_feeder_uploader
     from qg.cli.find_projects import ContainerCache
     from qg.config_models.loader import qg_configuration
     from qg.config_models.structure import SamplesConfig
@@ -35,28 +35,28 @@ with app.setup:
 @app.cell
 def _():
     _request = mo.app_meta().request
-    if _request.user and _request.user.is_authenticated and hasattr(_request.user, "get_bfabric_user_client"):
-        client = _request.user.get_bfabric_user_client()
-        feeder_client = _request.user.get_bfabric_feeder_client()
-        _content = f"Authenticated user: {client.auth.login}"
+    user = getattr(_request, "user", None)
+    if user and user.is_authenticated:
+        client = user.get_bfabric_client()
+        app_config = _request.meta["app_config"]
+        feeder_client = make_feeder_client(app_config, user.instance)
+        bfabric_application_id = user.application_id
+        mo.md(f"Authenticated user: {client.auth.login}")
     else:
-        _content = "No user information in request. Using default configuration."
         client = Bfabric.connect()
         feeder_client = None
+        bfabric_application_id = 401  # fallback for local dev
+        mo.md("No user information in request. Using default configuration.")
 
     feeder_uploader = make_feeder_uploader(client, feeder_client)
-
     bfabric = BfabricHelper(client)
-    mo.md(_content)
-    return bfabric, client, feeder_client, feeder_uploader
+    return bfabric, bfabric_application_id, client, feeder_uploader
 
 
 @app.cell
 def _():
     app_version = importlib.metadata.version("qg")
-    # TODO this should be configured from the outside
-    bfabric_application_id = 401
-    return app_version, bfabric_application_id
+    return (app_version,)
 
 
 @app.cell
