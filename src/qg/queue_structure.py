@@ -84,7 +84,12 @@ def build_multi_container_queue_structure(
         List of SlotEntry with container context
     """
     if not groups:
-        return []
+        result: list[SlotEntry] = []
+        for sample_id in pattern.start:
+            result.append(SlotEntry(sample_id=sample_id, container_id=0))
+        for sample_id in pattern.end:
+            result.append(SlotEntry(sample_id=sample_id, container_id=0))
+        return result
 
     # Apply QC frequency override if specified
     run_qc_after_n = qc_frequency_override if qc_frequency_override is not None else pattern.run_QC_after_n_samples

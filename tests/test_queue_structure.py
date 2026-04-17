@@ -457,3 +457,14 @@ class TestBuildQueueStructure:
 
         expected = pattern.start + pattern.end
         assert structure == expected
+
+    def test_structure_with_no_groups_emits_qc_bookends(
+        self,
+        all_patterns: dict[str, dict[str, QueuePattern]],
+    ) -> None:
+        """Verify groups=[] still emits start+end QC blocks (QC-only queue)."""
+        pattern = all_patterns["Proteomics"]["standard"]
+        slot_entries = build_multi_container_queue_structure([], pattern, SamplesConfig.DEFAULT_SAMPLE_ID)
+
+        sample_ids = [s.sample_id for s in slot_entries]
+        assert sample_ids == pattern.start + pattern.end
