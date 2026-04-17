@@ -90,17 +90,22 @@ Key fields:
 
 ### Pipeline (Stateless Functions)
 
+Executed by `QueueGenerator.build_rows()` in `generator.py`:
+
 ```
 QueueInput (JSON)
     |
-1. validate_input(input, configs) -> ValidatedInput
-2. build_queue_structure(num_samples, pattern) -> list[str]  # ["QC01", "default", ...]
-3. generate_positions(num_samples, sampler) -> list[str]     # ["Y:A1", "Y:A2", ...]
-4. _expand_polarities(structure, polarities) -> list[tuple]   # metabolomics/lipidomics
-5. populate_rows(...) -> list[QueueRow]
-6. format_output(rows, output_format) -> CSV string
+1. randomize_plate_queue(plate_queue, randomization) -> PlateQueue
+2. build_multi_container_queue_structure(groups, pattern) -> list[SlotEntry]
+3. create_qc_position_provider(qc_layout, slot_entries) -> QCPositionProvider
+4. _build_slots(slot_entries, plate_queue, qc_provider) -> list[SlotInfo]
+5. _expand_polarities(slots, polarities) -> list[ExpandedSlot]   # metabolomics/lipidomics
+6. _resolve_methods(slots, methods_config, ...) -> list[ExpandedSlot]
+7. _format_file_names(slots, date) -> list[ExpandedSlot]
+8. _build_queue_rows(slots, ...) -> QueueRowTable
+9. format_table(queue_rows, output_format) -> pl.DataFrame
     |
-CSV Output
+CSV / XML Output
 ```
 
 ### Key Modules (`src/qg/`)
@@ -119,6 +124,7 @@ CSV Output
 | `hystar_xml_writer.py` | Hystar XML output writer |
 | `artifacts.py` | Build artifacts handling |
 | `randomize.py` | Sample randomization |
+| `logging_setup.py` | Loguru logging configuration |
 | `config_models/` | Package: `loader.py`, `formatting.py`, `methods.py`, `positions.py`, `structure.py`, `ui.py` |
 | `gitlab/` | Package: GitLab deployment, config sync (`launcher.py`, `service.py`, `config_bridge.py`, `settings.py`, `_git.py`) |
 | `bfabric_utils.py` | B-Fabric LIMS integration utilities |
@@ -169,6 +175,7 @@ Never use `pl.read_csv()` or `Path().read_text()` to read config files directly 
 |-----|---------|
 | `apps/queue_app.py` | Main Marimo GUI for interactive queue generation |
 | `apps/config_editor.py` | Configuration file editor |
+| `apps/_bfabric_auth.py` | Shared B-Fabric auth helper (hasattr guard for SimpleUser) |
 | `apps/bfabric_app.py` | B-Fabric integrated queue app |
 | `apps/bfabric_app_editor.py` | B-Fabric integrated config editor |
 | `tools_apps/queue_analysis_marimo.py` | Queue analysis in Marimo |
@@ -246,6 +253,7 @@ qg_configs/
 | `test_randomize.py` | Randomization tests |
 | `test_gitlab.py` | GitLab deployment tests |
 | `test_hystar_xml_writer.py` | Hystar XML writer tests |
+| `helpers.py` | Shared test helpers and fixtures |
 
 ### Validation Testing (`test_data/`)
 
@@ -368,6 +376,17 @@ def test_sampler_strategy():
     strategy.assign_positions_user_samples(queue_input)
 ```
 
+**Construct test patterns directly — do not load named patterns from TOML.** Pattern names in `queue_patterns.toml` can be added or removed; tests must not depend on specific names existing. Build `QueuePattern` objects inline or register them under a `_test_*` key:
+
+```python
+from qg.config_models.structure import QueuePattern
+
+_NOQC = QueuePattern(description="test", run_QC_after_n_samples=1, start=[], middle=[], end=[])
+
+# Or inject into config for integration tests:
+cfg.queue_patterns.patterns.setdefault("Proteomics", {})["_test_noqc"] = _NOQC
+```
+
 **NEVER add methods to the public interface just to make tests pass.** If changing a class interface breaks tests, update the tests to use the new interface properly. Do not add factory methods, alternative constructors, or compatibility shims solely for test convenience.
 
 ```python
@@ -397,6 +416,7 @@ def test_sampler_strategy():
 | `CONFIG.md` | Configuration file documentation |
 | `HISTORY.md` | Development chronology (Jan–Feb 2026 rewrite) |
 | `editor_guide.md` | Config editor usage guide |
+| `user_modes.md` | User-facing modes and workflows |
 
 Generated formats (.html, .pdf, .svg, .png) are also available.
 
