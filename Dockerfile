@@ -1,4 +1,4 @@
-FROM astral/uv:python3.14-trixie-slim
+FROM docker.io/astral/uv:python3.14-trixie-slim
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 COPY . /app
 WORKDIR /app
