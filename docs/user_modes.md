@@ -9,7 +9,7 @@ The app requires an authenticated user in the request. An unauthenticated sessio
 
 ## Inputs
 
-- `is_employee: bool` — obtained by calling `POST /user/is_employee` on `bfabric_rest_proxy` with the authenticated user's credentials. If the call fails (network error, non-2xx, etc.) the app fails closed and refuses to render. In the `QG_ALLOW_UNAUTHENTICATED=1` dev path, the call is skipped and `is_employee` is `True`.
+- `is_employee: bool` — obtained by calling `bfabric_rest_proxy.feeder_operations.is_employee(user_client, feeder_client)` in-process. The `user` SOAP endpoint is admin-restricted, so the feeder client performs the privileged lookup on behalf of the authenticated user. Fail-closed cases: no feeder credentials configured for the user's instance, or the lookup itself errors. In the `QG_ALLOW_UNAUTHENTICATED=1` dev path, the call is skipped and `is_employee` is `True`.
 - `container_id` (non-employees only) — supplied by the request (`entity_id`). Because B-Fabric addresses Container / Order / Project by the same `containerid` key, this one input covers all three entity classes. Auth, existence and permission are guaranteed upstream; the app does not re-check.
 
 ## Non-employee preconditions
@@ -33,7 +33,7 @@ Full order table with multi-select, refresh button, and all controls freely sele
 ## Summary of changes (tentative)
 
 - Add `QG_ALLOW_UNAUTHENTICATED` opt-in; remove silent unauthenticated fallback.
-- Call `bfabric_rest_proxy` `/user/is_employee` during the auth cell to obtain `is_employee`.
+- Call the `bfabric_rest_proxy.feeder_operations.is_employee` helper (with both user and feeder clients) during the auth cell to obtain `is_employee`.
 - Read `container_id` (from `entity_id`) for non-employees.
 - Enforce non-employee preconditions (`entity_class`, `entity_id`) at entry; halt otherwise.
 - Replace the order table with a read-only banner in non-employee mode; suppress the refresh button.

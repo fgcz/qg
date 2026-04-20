@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help app app-all app-type app-review editor editor-review validate projects projects-all projects-plates deploy-app deploy-editor
+.PHONY: help app app-all app-type app-review editor editor-review validate projects projects-all projects-plates deploy-app deploy-editor _check-not-fgcz
 
 help:
 	@echo "Queue Generation System"
@@ -21,17 +21,21 @@ help:
 	@echo "  deploy-app       Build and start queue app (Docker, port 9505)"
 	@echo "  deploy-editor    Build and start config editor (Docker, port 9506)"
 
+# Guard: dev targets below set QG_ALLOW_UNAUTHENTICATED=1 (disables auth). Refuse on fgcz* hosts.
+_check-not-fgcz:
+	@if hostname | grep -qi fgcz; then echo "Refusing dev-mode target on fgcz host — use deploy-app instead."; exit 1; fi
+
 # Run the marimo GUI app (active projects)
-app:
-	uv run marimo run src/qg/apps/queue_app.py
+app: _check-not-fgcz
+	QG_ALLOW_UNAUTHENTICATED=1 uv run marimo run src/qg/apps/queue_app.py
 
 # Run the marimo GUI app (all projects)
-app-all:
-	uv run marimo run src/qg/apps/queue_app.py -- --all-projects
+app-all: _check-not-fgcz
+	QG_ALLOW_UNAUTHENTICATED=1 uv run marimo run src/qg/apps/queue_app.py -- --all-projects
 
 # Run the marimo GUI app (with Vial/Plate type column from cache)
-app-type:
-	uv run marimo run src/qg/apps/queue_app.py -- --container-type
+app-type: _check-not-fgcz
+	QG_ALLOW_UNAUTHENTICATED=1 uv run marimo run src/qg/apps/queue_app.py -- --container-type
 
 # Run the config editor (no review workflow)
 editor:

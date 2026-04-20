@@ -7,6 +7,7 @@ with app.setup:
     import base64
     import importlib.metadata
     import json
+    import os
     from datetime import date
     from pathlib import Path
 
@@ -14,7 +15,6 @@ with app.setup:
     import polars as pl
     import pydantic
     import yaml
-    from bfabric import Bfabric
     from bfabric_rest_proxy.feeder_operations.create_workunit import CreateWorkunitParams
     from loguru import logger
 
@@ -23,7 +23,7 @@ with app.setup:
 
     configure_logging()
 
-    from qg.bfabric_utils import BfabricHelper, make_feeder_client, make_feeder_uploader
+    from qg.bfabric_utils import SessionError, resolve_app_session
     from qg.cli.find_projects import ContainerCache
     from qg.config_models.loader import qg_configuration
     from qg.config_models.structure import SamplesConfig
@@ -34,23 +34,31 @@ with app.setup:
 
 @app.cell
 def _():
-    _request = mo.app_meta().request
-    user = getattr(_request, "user", None)
-    if user and user.is_authenticated and hasattr(user, "get_bfabric_client"):
-        client = user.get_bfabric_client()
-        app_config = _request.meta["app_config"]
-        feeder_client = make_feeder_client(app_config, user.instance)
-        bfabric_application_id = user.application_id
-        mo.md(f"Authenticated user: {client.auth.login}")
-    else:
-        client = Bfabric.connect()
-        feeder_client = None
-        bfabric_application_id = 401  # fallback for local dev
-        mo.md("No user information in request. Using default configuration.")
+    try:
+        _session = resolve_app_session(
+            mo.app_meta().request,
+            allow_unauthenticated=os.environ.get("QG_ALLOW_UNAUTHENTICATED") == "1",
+        )
+    except SessionError as exc:
+        mo.stop(True, mo.callout(mo.md(f"**{exc.message}**"), kind="danger"))
 
-    feeder_uploader = make_feeder_uploader(client, feeder_client)
-    bfabric = BfabricHelper(client)
-    return bfabric, bfabric_application_id, client, feeder_uploader
+    bfabric = _session.bfabric
+    client = _session.client
+    feeder_uploader = _session.feeder_uploader
+    bfabric_application_id = _session.application_id
+    is_employee = _session.is_employee
+    entity_class = _session.entity_class
+    entity_id = _session.entity_id
+    mo.md(_session.banner_message)
+    return (
+        bfabric,
+        bfabric_application_id,
+        client,
+        entity_class,
+        entity_id,
+        feeder_uploader,
+        is_employee,
+    )
 
 
 @app.cell
@@ -662,57 +670,75 @@ def _(
 
 
 @app.cell
-def _():
-    get_refresh, set_refresh = mo.state(0)
-    refresh_projects_button = mo.ui.run_button(label="Refresh Projects")
+def _(is_employee):
+    # Refresh button + state exist only for employees; non-employees have no container list.
+    if is_employee:
+        get_refresh, set_refresh = mo.state(0)
+        refresh_projects_button = mo.ui.run_button(label="Refresh Projects")
+    else:
+        get_refresh = None
+        set_refresh = None
+        refresh_projects_button = None
     return get_refresh, refresh_projects_button, set_refresh
 
 
 @app.cell
 def _(USE_ALL_PROJECTS, client, get_refresh, refresh_projects_button, set_refresh):
-    if refresh_projects_button.value:
+    if refresh_projects_button is not None and refresh_projects_button.value:
         ContainerCache(client, active_only=not USE_ALL_PROJECTS).write_containers()
         set_refresh(get_refresh() + 1)
     return
 
 
 @app.cell
-def _(BFABRIC_CACHE_DIR, USE_ALL_PROJECTS, USE_CONTAINER_TYPE, get_refresh):
-    # Load merged container cache; --container-type loads the _type variant with Vials/Plates rows
-    _ = get_refresh()  # re-read CSV when refresh button is clicked
-    _suffix = "_all" if USE_ALL_PROJECTS else ""
-    _name = "bfabric_container_type" if USE_CONTAINER_TYPE else "bfabric_container"
-    projects_df = pl.read_csv(BFABRIC_CACHE_DIR / f"{_name}{_suffix}.csv")
-    projects_df = projects_df.sort("Container ID", descending=True)
+def _(BFABRIC_CACHE_DIR, USE_ALL_PROJECTS, USE_CONTAINER_TYPE, get_refresh, is_employee):
+    # Load merged container cache for employees only; non-employees never browse containers.
+    if not is_employee:
+        projects_df = pl.DataFrame()
+    else:
+        _ = get_refresh()  # re-read CSV when refresh button is clicked
+        _suffix = "_all" if USE_ALL_PROJECTS else ""
+        _name = "bfabric_container_type" if USE_CONTAINER_TYPE else "bfabric_container"
+        projects_df = pl.read_csv(BFABRIC_CACHE_DIR / f"{_name}{_suffix}.csv").sort("Container ID", descending=True)
     return (projects_df,)
 
 
 @app.cell
-def _(projects_df, tech_area_field):
-    # Map tech_area to bfabric Area values
-    _area_map = {
-        "Proteomics": ["Proteomics"],
-        "Metabolomics": ["Metabolomics/Biophysics"],
-        "Lipidomics": ["Metabolomics/Biophysics"],
-    }
-    _allowed_areas = _area_map.get(tech_area_field.value)
-
-    _filtered = projects_df.filter(pl.col("Area").is_in(_allowed_areas)) if _allowed_areas else projects_df
-    project_table = mo.ui.table(
-        data=_filtered,
-        selection="multi",
-        label="Select orders (multi-select)",
-        show_download=False,
-    )
-    return (project_table,)
+def _(entity_class, entity_id, is_employee, projects_df, tech_area_field):
+    # Employees browse the container cache; non-employees get a read-only banner for the fixed container.
+    if is_employee:
+        _area_map = {
+            "Proteomics": ["Proteomics"],
+            "Metabolomics": ["Metabolomics/Biophysics"],
+            "Lipidomics": ["Metabolomics/Biophysics"],
+        }
+        _allowed_areas = _area_map.get(tech_area_field.value)
+        _filtered = projects_df.filter(pl.col("Area").is_in(_allowed_areas)) if _allowed_areas else projects_df
+        project_table = mo.ui.table(
+            data=_filtered,
+            selection="multi",
+            label="Select orders (multi-select)",
+            show_download=False,
+        )
+        project_banner = None
+    else:
+        project_table = None
+        project_banner = mo.callout(
+            mo.md(f"**{entity_class} {entity_id}** (from request, read-only)"),
+            kind="info",
+        )
+    return project_banner, project_table
 
 
 @app.cell
-def _(project_table):
-    if project_table.value.is_empty():
-        selected_orders = []
+def _(entity_id, is_employee, project_table):
+    if is_employee:
+        if project_table.value.is_empty():
+            selected_orders = []
+        else:
+            selected_orders = [(int(row["Container ID"]), row["Area"]) for row in project_table.value.to_dicts()]
     else:
-        selected_orders = [(int(row["Container ID"]), row["Area"]) for row in project_table.value.to_dicts()]
+        selected_orders = [(entity_id, None)]
     return (selected_orders,)
 
 
@@ -787,6 +813,17 @@ def _(
     else:
         full_samples_df = pl.DataFrame()
     return (full_samples_df,)
+
+
+@app.cell
+def _(full_samples_df, is_employee):
+    # Non-employees have a fixed container: if it has no samples, halt with no partial data.
+    if not is_employee and full_samples_df.is_empty():
+        mo.stop(
+            True,
+            mo.callout(mo.md("**No samples found in this container.**"), kind="danger"),
+        )
+    return
 
 
 @app.cell
@@ -895,17 +932,23 @@ def _(
 
 
 @app.cell
-def _(project_table, refresh_projects_button):
-    mo.vstack(
-        [
-            mo.hstack(
-                [mo.md("## Order Selection _(🔍 at bottom of the table to search)_"), refresh_projects_button],
-                justify="space-between",
-                align="center",
-            ),
-            project_table,
-        ]
-    )
+def _(is_employee, project_banner, project_table, refresh_projects_button):
+    # Bind to a name and leave it as the cell's final expression so marimo displays the vstack;
+    # a bare `mo.vstack(...)` inside if/else is not the last top-level expression of the cell.
+    if is_employee:
+        _order_section = mo.vstack(
+            [
+                mo.hstack(
+                    [mo.md("## Order Selection _(🔍 at bottom of the table to search)_"), refresh_projects_button],
+                    justify="space-between",
+                    align="center",
+                ),
+                project_table,
+            ]
+        )
+    else:
+        _order_section = mo.vstack([mo.md("## Order"), project_banner])
+    _order_section
     return
 
 

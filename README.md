@@ -7,8 +7,10 @@ Generate sample queues with QC injections for mass spectrometry instruments (XCa
 ### GUI (Marimo App)
 
 ```bash
-uv run marimo run src/qg/apps/queue_app.py
+QG_ALLOW_UNAUTHENTICATED=1 uv run marimo run src/qg/apps/queue_app.py
 ```
+
+The app fails closed without a B-Fabric-authenticated request. `QG_ALLOW_UNAUTHENTICATED=1` bypasses auth for local dev and runs as an employee — **never set it in production**. See `docs/user_modes.md` for details.
 
 ### GUI with B-Fabric Auth
 
@@ -107,6 +109,8 @@ Located in `qg_configs/`:
 ## Deployment
 
 All apps are deployed on `fgcz-r-039` in `/scratch/A401_queue_gen`.
+
+> **Security:** never set `QG_ALLOW_UNAUTHENTICATED=1` in `.env` or the environment on a deployment host — it disables authentication and runs every request as an employee.
 
 | App | Description | Compose file | Port | Make target |
 |-----|-------------|-------------|------|-------------|
