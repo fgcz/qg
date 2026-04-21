@@ -18,6 +18,11 @@ test:
     - uv run pytest
 
 build:
+  # Cross-builds an arm64 OCI image on this amd64 runner via QEMU user-mode
+  # emulation. Prerequisite on the runner host (one-time admin setup):
+  #   apt/dnf install qemu-user-static [binfmt-support]
+  #   systemctl restart systemd-binfmt
+  # binfmt_misc is kernel-global; no in-container setup needed.
   stage: build
   tags:
     - linux
@@ -29,9 +34,12 @@ build:
     BUILDAH_ISOLATION: chroot
     TARGET_PLATFORM: linux/arm64
   before_script:
-    - dnf install -y -q qemu-user-static
-    - /usr/lib/systemd/systemd-binfmt --unregister || true
-    - /usr/lib/systemd/systemd-binfmt
+    - |
+      if [ ! -f /proc/sys/fs/binfmt_misc/qemu-aarch64 ]; then
+        echo "FATAL: qemu-aarch64 binfmt_misc handler not registered on runner host." >&2
+        echo "Install qemu-user-static on the runner host and restart systemd-binfmt." >&2
+        exit 1
+      fi
     - export VERSION="${CI_COMMIT_TAG:-${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}}"
     - export DEPLOY_DIR="/export/nfs4/container/gitlab/metabolomics/queue_gen"
     - export ARCHIVE="${DEPLOY_DIR}/queue_gen-${VERSION}.oci.tar"
