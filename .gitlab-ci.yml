@@ -27,13 +27,17 @@ build:
     STORAGE_DRIVER: vfs
     BUILDAH_FORMAT: oci
     BUILDAH_ISOLATION: chroot
+    TARGET_PLATFORM: linux/arm64
   before_script:
+    - dnf install -y -q qemu-user-static
+    - /usr/lib/systemd/systemd-binfmt --unregister || true
+    - /usr/lib/systemd/systemd-binfmt
     - export VERSION="${CI_COMMIT_TAG:-${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}}"
     - export DEPLOY_DIR="/export/nfs4/container/gitlab/metabolomics/queue_gen"
     - export ARCHIVE="${DEPLOY_DIR}/queue_gen-${VERSION}.oci.tar"
     - mkdir -p "${DEPLOY_DIR}"
   script:
-    - buildah bud --tag "queue_gen:${VERSION}" .
+    - buildah bud --platform "${TARGET_PLATFORM}" --tag "queue_gen:${VERSION}" .
     - buildah push "queue_gen:${VERSION}" "oci-archive:${ARCHIVE}"
     - chown --reference="$(dirname "${DEPLOY_DIR}")" "${DEPLOY_DIR}" "${ARCHIVE}"
     - ls -lh "${ARCHIVE}"

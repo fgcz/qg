@@ -12,6 +12,10 @@ Queue generation system for mass spectrometry instruments. Generates sample queu
 
 **Python version:** >=3.14
 
+## Release Process
+
+Each user-visible change bumps the version in `pyproject.toml` and adds an entry to `CHANGELOG.md` under a new `## [x.y.z] - YYYY-MM-DD` heading (Keep a Changelog format, `### Added/Changed/Fixed/Removed` subsections). Patch for bugfixes and CI/build-only changes, minor for new features or dependency/API refreshes. Both edits go in the same MR as the change they describe.
+
 ## Commands
 
 ```bash
