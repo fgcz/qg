@@ -15,6 +15,7 @@ ACTIVE_STATUSES = [
     "arrived",
     # "submitted",
     "processing",
+    "processed",
     "analyzing",
     "analyzed",
 ]
