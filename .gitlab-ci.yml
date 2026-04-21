@@ -22,7 +22,12 @@ build:
   # emulation. Prerequisite on the runner host (one-time admin setup):
   #   apt/dnf install qemu-user-static [binfmt-support]
   #   systemctl restart systemd-binfmt
-  # binfmt_misc is kernel-global; no in-container setup needed.
+  # binfmt_misc registrations are kernel-global, so the kernel routes arm64
+  # exec() calls through qemu-aarch64-static for every container on this host.
+  # We intentionally do NOT probe /proc/sys/fs/binfmt_misc/ from inside the
+  # job: that filesystem view is only populated in mount namespaces where it
+  # is explicitly mounted, which is not the case for the docker executor,
+  # so an "absent" file there is a false negative about kernel state.
   stage: build
   tags:
     - linux
@@ -34,12 +39,6 @@ build:
     BUILDAH_ISOLATION: chroot
     TARGET_PLATFORM: linux/arm64
   before_script:
-    - |
-      if [ ! -f /proc/sys/fs/binfmt_misc/qemu-aarch64 ]; then
-        echo "FATAL: qemu-aarch64 binfmt_misc handler not registered on runner host." >&2
-        echo "Install qemu-user-static on the runner host and restart systemd-binfmt." >&2
-        exit 1
-      fi
     - export VERSION="${CI_COMMIT_TAG:-${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}}"
     - export DEPLOY_DIR="/export/nfs4/container/gitlab/metabolomics/queue_gen"
     - export ARCHIVE="${DEPLOY_DIR}/queue_gen-${VERSION}.oci.tar"
