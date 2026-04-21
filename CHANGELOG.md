@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.1] - 2026-04-21
+
+### Changed
+- CI `build` job now cross-builds an `arm64` OCI image on the `amd64` GitLab runner via `qemu-user-static` and `buildah bud --platform linux/arm64`, matching the ARM64 deploy target.
+- `qg-find-projects` now includes orders in the `processed` state when listing active projects.
+
 ## [0.3.0] - 2026-04-20
 
 ### Changed
