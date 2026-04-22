@@ -117,7 +117,7 @@ wheels = [
 [[package]]
 name = "bfabric"
 version = "1.18.0"
-source = { git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric&rev=main#9bc20a18677aed6654c6bd4dd79dee4412f97a55" }
+source = { git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric&rev=main#837fd3dd1d7a16259891367501de9310d7fb1a99" }
 dependencies = [
     { name = "annotated-types" },
     { name = "httpx" },
@@ -136,7 +136,7 @@ dependencies = [
 [[package]]
 name = "bfabric-asgi-auth"
 version = "0.0.1"
-source = { git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric_asgi_auth&rev=main#9bc20a18677aed6654c6bd4dd79dee4412f97a55" }
+source = { git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric_asgi_auth&rev=main#837fd3dd1d7a16259891367501de9310d7fb1a99" }
 dependencies = [
     { name = "asgiref" },
     { name = "bfabric" },
@@ -148,7 +148,7 @@ dependencies = [
 [[package]]
 name = "bfabric-rest-proxy"
 version = "0.0.0"
-source = { git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric_rest_proxy&rev=main#9bc20a18677aed6654c6bd4dd79dee4412f97a55" }
+source = { git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric_rest_proxy&rev=main#837fd3dd1d7a16259891367501de9310d7fb1a99" }
 dependencies = [
     { name = "bfabric" },
     { name = "fastapi" },
@@ -869,7 +869,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess" },
+    { name = "ptyprocess", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450, upload-time = "2023-11-25T09:07:26.339Z" }
 wheels = [
@@ -1292,7 +1292,7 @@ wheels = [
 
 [[package]]
 name = "qg"
-version = "0.3.0"
+version = "0.3.2"
 source = { editable = "." }
 dependencies = [
     { name = "altair" },
