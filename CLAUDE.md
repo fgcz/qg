@@ -419,6 +419,7 @@ def test_sampler_strategy():
 | `ALGORITHM.md` | Queue generation algorithm details |
 | `CONFIG.md` | Configuration file documentation |
 | `HISTORY.md` | Development chronology (Jan–Feb 2026 rewrite) |
+| `deployment.md` | Production and test deployment reference |
 | `editor_guide.md` | Config editor usage guide |
 | `user_modes.md` | User-facing modes and workflows |
 
