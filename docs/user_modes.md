@@ -1,6 +1,8 @@
 # User Modes — Requirements
 
-Status: **ready for implementation**
+Please do not change this document without discussion since it involves security implications of the system.
+
+Status: **implemented**
 Scope: `src/qg/apps/queue_app.py`
 
 ## Authentication

@@ -108,66 +108,32 @@ Located in `qg_configs/`:
 
 ## Deployment
 
-All apps are deployed on `fgcz-r-039` in `/scratch/A401_queue_gen`.
+Both deployments run on `fgcz-r-039` as the `bfabric` user. See [`docs/deployment.md`](docs/deployment.md) for the full reference (architecture, mounts, first-time setup).
 
-> **Security:** never set `QG_ALLOW_UNAUTHENTICATED=1` in `.env` or the environment on a deployment host — it disables authentication and runs every request as an employee.
+> **Security:** never set `QG_ALLOW_UNAUTHENTICATED=1` on a deployment host — it disables auth and runs every request as an employee.
 
-| App | Description | Compose file | Port | Make target |
-|-----|-------------|-------------|------|-------------|
-| Queue app | B-Fabric authenticated queue generation GUI | `docker-compose-test.yml` | 9505 | `deploy-app` |
-| Config editor | Edit config files with GitLab review/merge-request workflow | `docker-compose-editor.yml` | 9506 | `deploy-editor` |
+### Production (queue app only)
 
-### How it works
-
-Both apps are served by uvicorn (FastAPI + B-Fabric auth + marimo ASGI). They run continuously — when a user connects from B-Fabric, they hit the already-running server.
-
-**Queue app:** Code and configs (`qg_configs/`) are baked into the Docker image. To pick up config changes merged on GitLab, rebuild the image: `make deploy-app`. The `bfabric_cache/` directory is bind-mounted from the host, so running `make projects` or pressing "Refresh Projects" in the GUI updates the project list without rebuilding.
-
-**Config editor:** Code and configs are baked into the image. The only external mount is `~/.qg_settings.toml` (GitLab API credentials for the review/merge-request workflow). The editor reads configs from the image, diffs changes in memory, and submits them to GitLab via the Commits API — it never writes to disk.
-
-### First-time setup
+Push a Git tag on `main` (locally, or via the GitLab UI under *Repository → Tags*). GitLab CI builds the OCI image. Then bump the pinned image tag in `portal/queue-gen/docker-compose.prod.yml` in the [web-apps repo](https://gitlab.bfabric.org/proteomics/web-apps), commit, and redeploy:
 
 ```bash
 ssh bfabric@localhost
-mkdir -p /scratch/A401_queue_gen
-cd /scratch/A401_queue_gen
-git clone https://gitlab.bfabric.org/metabolomics/queue-gen.git .
+cd ~/web-apps/portal/queue-gen && git pull && make deploy
 ```
 
-**Config editor only** — create `~/.qg_settings.toml` with GitLab credentials:
+The config editor is not in the production deployment — it currently runs from the test deployment below.
 
-```bash
-cp .qg_settings.toml.example ~/.qg_settings.toml
-# Edit ~/.qg_settings.toml and set your private_token
-```
+### Test deployment
 
-The file must contain:
+Built locally on the server from this repo, used to verify a branch before tagging.
 
-```toml
-[gitlab]
-url = "https://gitlab.bfabric.org"
-project = "metabolomics/queue-gen"
-# Token needs scope: api (or write_repository + read_api)
-private_token = "glpat-xxxxxxxxxxxxxxxxxxxx"
-```
-
-The token can also be overridden via the `QG_GITLAB_TOKEN` environment variable.
-
-### Deploy / update
+| App | Compose file | Port | Make target |
+|-----|--------------|------|-------------|
+| Queue app | `docker-compose-test.yml` | 9505 | `deploy-app` |
+| Config editor | `docker-compose-editor.yml` | 9506 | `deploy-editor` |
 
 ```bash
 ssh bfabric@localhost
-cd /scratch/A401_queue_gen
-git pull
-# Queue app (port 9505)
-make deploy-app
-# Config editor (port 9506)
-make deploy-editor
-```
-
-### Verify
-
-```bash
-curl -k https://localhost:9505    # Queue app
-curl -k https://localhost:9506    # Config editor
+cd /scratch/A401_queue_gen && git pull
+make deploy-app     # or deploy-editor
 ```
