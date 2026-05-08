@@ -5,5 +5,5 @@ default,pos,DIA,C:\Xcalibur\methods\
 default,pos,DDA,C:\Xcalibur\methods\
 QC01,pos,DDA,C:\Xcalibur\methods\__autoQC\trap\autoQC01
 QC01,pos,DIA,C:\Xcalibur\methods\__autoQC\trap\autoQC01
-clean,pos,DDA,C:\Xcalibur\methods\__clean\general_clean
-clean,pos,DIA,C:\Xcalibur\methods\__clean\general_clean
+clean,pos,DDA,C:\Xcalibur\methods\__Clean\general_clean
+clean,pos,DIA,C:\Xcalibur\methods\__Clean\general_clean
