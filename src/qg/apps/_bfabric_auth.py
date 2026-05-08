@@ -42,8 +42,14 @@ class _InjectMetaMiddleware:
         await self.app(scope, receive, send)
 
 
-def create_bfabric_fastapi_app(marimo_app_path: Path) -> FastAPI:
-    """Create a FastAPI app with B-Fabric auth wrapping a marimo app."""
+def create_bfabric_fastapi_app(marimo_app_path: Path, *, app_name: str, mount_path: str = "/") -> FastAPI:
+    """Create a FastAPI app with B-Fabric auth wrapping a marimo app.
+
+    `app_name` namespaces the session cookie so co-hosted apps under the same
+    domain (portal/Caddy routing /<name>/*) don't share session state.
+    `mount_path` scopes the cookie's Path attribute; pass the same value as
+    uvicorn's --root-path when set.
+    """
     app = FastAPI()
     app_config = AppConfig()
     token_validator = create_bfabric_validator(settings=app_config)
@@ -57,7 +63,11 @@ def create_bfabric_fastapi_app(marimo_app_path: Path) -> FastAPI:
     app.add_middleware(
         SessionMiddleware,
         secret_key=app_config.secret_key.get_secret_value(),
+        session_cookie=f"{app_name}_session",
+        path=mount_path,
         max_age=3600,
+        https_only=True,
+        same_site="lax",
     )
 
     server = marimo.create_asgi_app().with_app(path="/", root=str(marimo_app_path.resolve()))

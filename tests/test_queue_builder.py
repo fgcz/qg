@@ -77,6 +77,21 @@ class TestVialMode:
         assert len(container_1_samples) == 3
         assert len(container_2_samples) == 2
 
+    def test_bfabric_instance_round_trip(self, config, queue_parameters, sample_df):
+        """`with_bfabric_instance` stamps QueueParameters.bfabric_instance and survives JSON round-trip."""
+        base_url = "https://fgcz-bfabric.uzh.ch/bfabric"
+        result = (
+            QueueBuilder(config)
+            .with_parameters(queue_parameters)
+            .with_bfabric_instance(base_url)
+            .add_samples_from_dataframe(sample_df)
+            .build()
+        )
+        assert result.parameters.bfabric_instance == base_url
+
+        round_tripped = VialQueueInput.model_validate_json(result.model_dump_json())
+        assert round_tripped.parameters.bfabric_instance == base_url
+
 
 class TestPlateMode:
     @pytest.fixture

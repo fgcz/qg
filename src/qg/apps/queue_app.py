@@ -24,7 +24,7 @@ with app.setup:
     configure_logging()
 
     from qg.bfabric_utils import SessionError, resolve_app_session
-    from qg.cli.find_projects import ContainerCache
+    from qg.cli.find_projects import ContainerCache, get_cache_dir
     from qg.config_models.loader import qg_configuration
     from qg.config_models.structure import SamplesConfig
     from qg.generator import QueueGenerator, format_table, write_queue
@@ -49,10 +49,12 @@ def _():
     is_employee = _session.is_employee
     entity_class = _session.entity_class
     entity_id = _session.entity_id
+    bfabric_base_url = _session.base_url
     mo.md(_session.banner_message)
     return (
         bfabric,
         bfabric_application_id,
+        bfabric_base_url,
         client,
         entity_class,
         entity_id,
@@ -68,9 +70,9 @@ def _():
 
 
 @app.cell
-def _():
-    # B-Fabric cache directory for cached project data
-    BFABRIC_CACHE_DIR = Path(__file__).parent.parent.parent.parent / "bfabric_cache"
+def _(client):
+    # Per-instance B-Fabric cache directory for cached project data
+    BFABRIC_CACHE_DIR = get_cache_dir(client)
     # Debug/audit dump directory (shared with artifacts and loguru logs)
     DEBUG_DUMP_DIR = Path.home() / ".qg" / "logs"
     # Use --all-projects flag to load all containers (no status filter)
@@ -704,8 +706,8 @@ def _(BFABRIC_CACHE_DIR, USE_ALL_PROJECTS, USE_CONTAINER_TYPE, get_refresh, is_e
 
 
 @app.cell
-def _(entity_class, entity_id, is_employee, projects_df, tech_area_field):
-    # Employees browse the container cache; non-employees get a read-only banner for the fixed container.
+def _(is_employee, projects_df, tech_area_field):
+    # Employees browse the container cache; non-employees get only a heading from the fixed container.
     if is_employee:
         _area_map = {
             "Proteomics": ["Proteomics"],
@@ -720,14 +722,9 @@ def _(entity_class, entity_id, is_employee, projects_df, tech_area_field):
             label="Select orders (multi-select)",
             show_download=False,
         )
-        project_banner = None
     else:
         project_table = None
-        project_banner = mo.callout(
-            mo.md(f"**{entity_class} {entity_id}** (from request, read-only)"),
-            kind="info",
-        )
-    return project_banner, project_table
+    return (project_table,)
 
 
 @app.cell
@@ -932,7 +929,7 @@ def _(
 
 
 @app.cell
-def _(is_employee, project_banner, project_table, refresh_projects_button):
+def _(entity_id, is_employee, project_table, refresh_projects_button):
     # Bind to a name and leave it as the cell's final expression so marimo displays the vstack;
     # a bare `mo.vstack(...)` inside if/else is not the last top-level expression of the cell.
     if is_employee:
@@ -947,14 +944,16 @@ def _(is_employee, project_banner, project_table, refresh_projects_button):
             ]
         )
     else:
-        _order_section = mo.vstack([mo.md("## Order"), project_banner])
+        _order_section = mo.md(f"## Order {entity_id}")
     _order_section
     return
 
 
 @app.cell
-def _(container_type, selected_orders):
-    if not selected_orders:
+def _(container_type, is_employee, selected_orders):
+    if not is_employee:
+        mo.md("")
+    elif not selected_orders:
         mo.md("**Select orders from the table above**")
     else:
         _container_ids = [o[0] for o in selected_orders]
@@ -991,13 +990,13 @@ def _(sample_df, sample_mode_selector, samples_editor, samples_table, selected_o
 
 
 @app.cell
-def _(config, queue_parameters, sample_df, selected_orders):
+def _(bfabric_base_url, config, queue_parameters, sample_df, selected_orders):
     # Build QueueInput once — shared by Parameters tab and queue generation
     queue_input = None
     queue_input_err = None
     if queue_parameters and selected_orders and sample_df is not None:
         try:
-            _builder = QueueBuilder(config).with_parameters(queue_parameters)
+            _builder = QueueBuilder(config).with_parameters(queue_parameters).with_bfabric_instance(bfabric_base_url)
             if not sample_df.is_empty():
                 _builder = _builder.add_samples_from_dataframe(sample_df)
             queue_input = _builder.build()
@@ -1061,6 +1060,7 @@ def _(
                 parameters[key] = str(parameters[key])
 
         _queue_params_filename = "parameters.json"
+        _description = f"Queue configuration generated with qg version {app_version}."
         return CreateWorkunitParams(
             container_id=target_container_id_field.value,
             application_id=bfabric_application_id,
@@ -1072,7 +1072,7 @@ def _(
             },
             links={},
             input_resource_ids=[],
-            description=f"Queue configuration generated with qg version {app_version}.",
+            description=_description,
         )
 
     return (gather_workunit_parameters,)

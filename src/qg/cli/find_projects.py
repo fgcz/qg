@@ -1,5 +1,6 @@
 """Find proteomics and metabolomics containers in B-Fabric and write cache CSVs."""
 
+import os
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Annotated
@@ -7,7 +8,10 @@ from typing import Annotated
 import cyclopts
 import polars as pl
 from bfabric import Bfabric
+from bfabric.utils.cli_integration import use_client
 from loguru import logger
+
+from qg.bfabric_utils import instance_slug
 
 ACTIVE_STATUSES = [
     "running",
@@ -23,28 +27,27 @@ ACTIVE_STATUSES = [
 TECHNOLOGY_IDS = [2, 4]
 
 
-def get_cache_dir() -> Path:
-    """Get the bfabric_cache directory path.
-
-    :return: Path to project_root/bfabric_cache/.
-    """
-    return Path(__file__).parents[3] / "bfabric_cache"
+def get_cache_dir(client: Bfabric) -> Path:
+    """Per-instance cache directory. Root is `$QG_CACHE_DIR` or `<repo>/bfabric_cache`."""
+    env = os.environ.get("QG_CACHE_DIR")
+    root = Path(env) if env else Path(__file__).parents[3] / "bfabric_cache"
+    return root / instance_slug(client)
 
 
 class ContainerCache:
     """Fetches B-Fabric containers (orders + projects) and writes cache CSVs.
 
     Two public methods, each writes exactly one file:
-    - write_containers()            → bfabric_container{suffix}.csv
-    - write_containers_with_plates() → bfabric_container_type{suffix}.csv
+    - write_containers()            → <instance>/bfabric_container{suffix}.csv
+    - write_containers_with_plates() → <instance>/bfabric_container_type{suffix}.csv
     """
 
     def __init__(self, client: Bfabric, *, active_only: bool = True) -> None:
         self._client = client
         self._active_only = active_only
         self._suffix = "" if active_only else "_all"
-        self._cache_dir = get_cache_dir()
-        self._cache_dir.mkdir(exist_ok=True)
+        self._cache_dir = get_cache_dir(client)
+        self._cache_dir.mkdir(parents=True, exist_ok=True)
 
     def _fetch(self) -> list[pl.DataFrame]:
         """Query orders and projects from B-Fabric."""
@@ -134,8 +137,10 @@ def main() -> None:
     app = cyclopts.App(help="Fetch B-Fabric containers and cache locally.")
 
     @app.default
+    @use_client
     def run(
         *,
+        client: Bfabric,
         all_projects: Annotated[
             bool,
             cyclopts.Parameter(("--all",), help="Fetch all containers (no status filter)."),
@@ -145,7 +150,7 @@ def main() -> None:
             cyclopts.Parameter(help="Query B-Fabric plate endpoint for each container (slow)."),
         ] = False,
     ) -> None:
-        client = Bfabric.connect(config_file_env="PRODUCTION")
+        logger.info("Writing cache for instance {}", instance_slug(client))
         cache = ContainerCache(client, active_only=not all_projects)
         if check_plates:
             cache.write_containers_with_plates()

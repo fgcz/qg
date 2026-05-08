@@ -21,6 +21,8 @@ Before any B-Fabric query runs: `entity_class ∈ {Container, Order, Project}` a
 ## Non-employee experience
 
 - The container from the request is fixed and shown read-only. There is no order table, no refresh button, and no access to other containers' metadata.
+- B-Fabric reads use the feeder client; the user client is not used for data reads.
+- Samples on shared plates are filtered to `entity_id`; samples belonging to other containers are dropped before leaving `BfabricHelper`.
 - The container cache (`projects_df`) is never loaded.
 - All other queue-building controls and the upload button behave the same as for employees.
 - If the container has no samples, the app halts — no partial data is loaded. UX of the halted state is left to implementation.

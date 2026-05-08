@@ -117,7 +117,7 @@ wheels = [
 [[package]]
 name = "bfabric"
 version = "1.18.0"
-source = { git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric&rev=main#837fd3dd1d7a16259891367501de9310d7fb1a99" }
+source = { git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric&rev=main#723d038b8566fbec1775053b3b3692b0068616d1" }
 dependencies = [
     { name = "annotated-types" },
     { name = "httpx" },
@@ -136,7 +136,7 @@ dependencies = [
 [[package]]
 name = "bfabric-asgi-auth"
 version = "0.0.1"
-source = { git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric_asgi_auth&rev=main#837fd3dd1d7a16259891367501de9310d7fb1a99" }
+source = { git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric_asgi_auth&rev=main#723d038b8566fbec1775053b3b3692b0068616d1" }
 dependencies = [
     { name = "asgiref" },
     { name = "bfabric" },
@@ -148,7 +148,7 @@ dependencies = [
 [[package]]
 name = "bfabric-rest-proxy"
 version = "0.0.0"
-source = { git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric_rest_proxy&rev=main#837fd3dd1d7a16259891367501de9310d7fb1a99" }
+source = { git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric_rest_proxy&rev=main#723d038b8566fbec1775053b3b3692b0068616d1" }
 dependencies = [
     { name = "bfabric" },
     { name = "fastapi" },
@@ -1292,7 +1292,7 @@ wheels = [
 
 [[package]]
 name = "qg"
-version = "0.3.2"
+version = "0.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "altair" },
