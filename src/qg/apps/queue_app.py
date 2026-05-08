@@ -564,8 +564,11 @@ def _():
 
 
 @app.cell
-def _():
-    user_field = mo.ui.text(value="analytic", label="User")
+def _(client, is_employee):
+    if is_employee:
+        user_field = mo.ui.text(value="analytic", label="User")
+    else:
+        user_field = mo.ui.text(value=client.auth.login, label="User", disabled=True)
     return (user_field,)
 
 

@@ -14,7 +14,11 @@ Queue generation system for mass spectrometry instruments. Generates sample queu
 
 ## Release Process
 
-Each user-visible change bumps the version in `pyproject.toml` and adds an entry to `CHANGELOG.md` under a new `## [x.y.z] - YYYY-MM-DD` heading (Keep a Changelog format, `### Added/Changed/Fixed/Removed` subsections). Patch for bugfixes and CI/build-only changes, minor for new features or dependency/API refreshes. Both edits go in the same MR as the change they describe.
+Every bugfix or feature MR adds a one-line bullet to `CHANGELOG.md` under the existing `## [Unreleased]` heading, in the appropriate `### Added/Changed/Fixed/Removed` subsection (Keep a Changelog format). Keep bullets terse — describe the user-visible change in one short sentence; mechanism and rationale belong in the commit/MR.
+
+Bump the version in `pyproject.toml` only when the current version is already released (so the next change opens the next release line). Use patch for bugfixes and CI/build-only changes, minor for new features or dependency/API refreshes.
+
+Only create a `## [x.y.z] - YYYY-MM-DD` section when explicitly asked to cut a release; otherwise leave entries under `## [Unreleased]`.
 
 ## Commands
 
@@ -89,6 +93,7 @@ Key fields:
 - `method`: `dict[str, str]` - per-polarity methods: `{"pos": "Method_Pos", "neg": "Method_Neg"}`
 - `sample_groups`: multi-container support (container_id per group, not in parameters)
 - `qc_frequency_override`: override pattern's `run_QC_after_n_samples`
+- `user`, `date`: not output columns — substituted into the instrument's `path_template` (`{user}_{date}`) from `instruments.csv` to form the per-row data path.
 
 ## Architecture
 
@@ -183,6 +188,8 @@ Never use `pl.read_csv()` or `Path().read_text()` to read config files directly 
 | `apps/bfabric_app.py` | B-Fabric integrated queue app |
 | `apps/bfabric_app_editor.py` | B-Fabric integrated config editor |
 | `tools_apps/queue_analysis_marimo.py` | Queue analysis in Marimo |
+
+**B-Fabric session in the app:** `resolve_app_session()` in `bfabric_utils.py` returns an `AppSession` that bundles the per-request context (`client`, `is_employee`, `entity_id`, `instance_slug`, ...). The queue app's first cell unpacks it; downstream cells branch on `is_employee` (employees browse all containers; non-employees are pinned to `entity_id`).
 
 ### Config Files (`qg_configs/`)
 
