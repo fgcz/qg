@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 - Lock the `User` field to the B-Fabric login for non-employees.
+- Silence marimo "Permission denied" warnings on read-only HOME by redirecting `XDG_CONFIG_HOME` / `XDG_STATE_HOME` to `/tmp` before marimo imports.
 
 ## [0.4.0] - 2026-05-08
 
