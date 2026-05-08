@@ -38,6 +38,13 @@ uv run qg config.json -o queue.csv
 uv run qg-validate
 ```
 
+#### Seed B-Fabric Project Cache
+
+- **Dev** (single instance, local `~/.bfabricpy.yml`): `uv run qg-find-projects`
+- **Deployment** (all instances in `feeder_user_credentials`): `uv run qg-refresh-cache --all` — see [`docs/deployment.md`](docs/deployment.md)
+
+Both write `bfabric_cache/<instance>/bfabric_container.csv`, which the GUI reads; its "Refresh Projects" button re-runs the dev-style write for the running instance.
+
 ## Supported Configurations
 
 ### Technologies

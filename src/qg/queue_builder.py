@@ -35,6 +35,7 @@ class QueueBuilder:
         self._plates: dict[int, Plate] = {}
         self._vial_samples: list[VialSample] = []
         self._plate_cells: list[PlateCell] = []
+        self._bfabric_base_url: str | None = None
         self._built = False
 
     def with_parameters(self, parameters: QueueParameters) -> Self:
@@ -43,6 +44,13 @@ class QueueBuilder:
             raise RuntimeError("Builder already used.")
         self._parameters = parameters
         self._layout_mode = LayoutMode.PLATE if parameters.queue_type == "Plate" else LayoutMode.VIAL
+        return self
+
+    def with_bfabric_instance(self, base_url: str) -> Self:
+        """Provide the B-Fabric base URL; stamped on QueueParameters.bfabric_instance at build time."""
+        if self._built:
+            raise RuntimeError("Builder already used.")
+        self._bfabric_base_url = base_url
         return self
 
     def add_samples_from_dataframe(self, df: pl.DataFrame) -> Self:
@@ -107,12 +115,16 @@ class QueueBuilder:
 
         self._built = True
 
+        parameters = self._parameters
+        if self._bfabric_base_url is not None:
+            parameters = parameters.model_copy(update={"bfabric_instance": self._bfabric_base_url})
+
         if self._layout_mode == LayoutMode.PLATE:
             return PlateQueueInput(
-                parameters=self._parameters,
+                parameters=parameters,
                 queue=PlateQueue(batches=self._batches, plates=self._plates, cells=self._plate_cells),
             )
         return VialQueueInput(
-            parameters=self._parameters,
+            parameters=parameters,
             queue=VialQueue(batches=self._batches, samples=self._vial_samples),
         )

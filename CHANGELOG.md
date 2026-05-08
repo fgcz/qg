@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+## [0.4.0] - 2026-05-08
+
+Multi-instance B-Fabric support: PROD and TEST no longer overwrite each other.
+
+### Added
+- `qg-refresh-cache` CLI: refreshes container caches per configured B-Fabric instance using `feeder_user_credentials`. Bare invocation lists instances; `--all` or explicit URLs runs them.
+- `QueueParameters.bfabric_instance` stamped on saved `params.json` for provenance.
+
+### Changed
+- Container cache is per-instance: `<root>/<instance-host>/bfabric_container*.csv`. Root defaults to `<repo>/bfabric_cache`, override with `$QG_CACHE_DIR`. Re-run `qg-find-projects` once per instance.
+- `qg-find-projects` uses bfabricpy's `@use_client` instead of hardcoded `PRODUCTION`.
+- Authenticated banner shows the instance host alongside the login.
+
+### Fixed
+- Non-employee users can load plate-typed orders; shared-plate samples are filtered to the user's container.
+
 ## [0.3.2] - 2026-04-22
 
 ### Fixed

@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import polars as pl
 from bfabric import Bfabric, BfabricClientConfig
@@ -17,14 +18,25 @@ from loguru import logger
 
 from qg.sample_rows import PlateSampleRow, VialSampleRow
 
+
+def instance_slug(client: Bfabric) -> str:
+    """Return a short, human-readable slug for a B-Fabric instance.
+
+    The slug is the URL netloc (e.g. ``fgcz-bfabric.uzh.ch``) — readable in
+    ``ls`` output and stable across deployments.
+    """
+    return urlparse(client.config.base_url).netloc
+
+
 # =============================================================================
 # Public API
 # =============================================================================
 
 
 class BfabricHelper:
-    def __init__(self, client: Bfabric) -> None:
+    def __init__(self, client: Bfabric, *, restrict_to_container_id: int | None = None) -> None:
         self.client = client
+        self._restrict_to_container_id = restrict_to_container_id
 
     def get_samples(
         self,
@@ -48,7 +60,10 @@ class BfabricHelper:
         """
         if container_type == "Plates":
             plates = self.get_plates(container_id)
-            rows = self._load_plate_samples(plates, container_id, plate_ids)
+            allowed_sample_ids = (
+                self._fetch_allowed_sample_ids(container_id) if self._restrict_to_container_id is not None else None
+            )
+            rows = self._load_plate_samples(plates, container_id, plate_ids, allowed_sample_ids)
         else:
             rows = self._load_vial_samples(container_id)
 
@@ -89,19 +104,33 @@ class BfabricHelper:
             for row in df.iter_rows(named=True)
         ]
 
+    def _fetch_allowed_sample_ids(self, container_id: int) -> set[int]:
+        """Authoritative set of sample IDs in `container_id`, used to filter shared plates."""
+        df = self.client.read("sample", {"containerid": container_id}, max_results=None).to_polars(flatten=True)
+        if df.is_empty():
+            return set()
+        return set(df["id"].to_list())
+
     @staticmethod
     def _load_plate_samples(
         plates: dict,
         container_id: int,
         plate_ids: list[int] | None = None,
+        allowed_sample_ids: set[int] | None = None,
     ) -> list[PlateSampleRow]:
-        """Load samples from plates."""
+        """Load samples from plates.
+
+        If `allowed_sample_ids` is provided, samples whose ID is not in the set are dropped.
+        Used in non-employee mode where plates may be shared across containers.
+        """
         rows: list[PlateSampleRow] = []
         for uri, plate in plates.items():
             plate_id = uri.components.entity_id
             if plate_ids and plate_id not in plate_ids:
                 continue
             for sample in plate.refs.sample:
+                if allowed_sample_ids is not None and sample["id"] not in allowed_sample_ids:
+                    continue
                 _gv = sample.get("groupingvar")
                 if isinstance(_gv, dict):
                     _gv = _gv.get("name")
@@ -198,6 +227,8 @@ class AppSession:
     is_employee: bool
     entity_class: str | None
     entity_id: int | None
+    instance_slug: str
+    base_url: str
     banner_message: str
 
 
@@ -222,18 +253,29 @@ def resolve_app_session(request: Any, *, allow_unauthenticated: bool) -> AppSess
                 "Non-employee mode needs a Container, Order, or Project in the request "
                 f"(got entity_class={user.entity_class!r}, entity_id={user.entity_id!r})."
             )
+        slug = instance_slug(client)
+        # Non-employees can't read plate/sample with their own creds; route reads through
+        # the feeder and filter shared-plate samples to the request's container_id.
+        helper = (
+            BfabricHelper(client) if employee else BfabricHelper(feeder_client, restrict_to_container_id=user.entity_id)
+        )
         return AppSession(
-            bfabric=BfabricHelper(client),
+            bfabric=helper,
             client=client,
             feeder_uploader=make_feeder_uploader(client, feeder_client),
             application_id=user.application_id,
             is_employee=employee,
             entity_class=user.entity_class,
             entity_id=user.entity_id,
-            banner_message=f"Authenticated user: {client.auth.login}" + (" (employee)" if employee else ""),
+            instance_slug=slug,
+            base_url=client.config.base_url,
+            banner_message=(
+                f"### Hi {client.auth.login}!\nConnected to **{slug}**" + (" _(employee)_" if employee else "")
+            ),
         )
     if allow_unauthenticated:
         client = Bfabric.connect()
+        slug = instance_slug(client)
         return AppSession(
             bfabric=BfabricHelper(client),
             client=client,
@@ -242,6 +284,10 @@ def resolve_app_session(request: Any, *, allow_unauthenticated: bool) -> AppSess
             is_employee=True,
             entity_class=None,
             entity_id=None,
-            banner_message="⚠️ QG_ALLOW_UNAUTHENTICATED=1 — running unauthenticated as employee.",
+            instance_slug=slug,
+            base_url=client.config.base_url,
+            banner_message=(
+                f"### Hi there!\nRunning unauthenticated as employee on **{slug}** (`QG_ALLOW_UNAUTHENTICATED=1`)."
+            ),
         )
     raise SessionError("Authentication required.")

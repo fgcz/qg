@@ -4,7 +4,11 @@ from pathlib import Path
 
 from qg.apps._bfabric_auth import create_bfabric_fastapi_app
 
-app = create_bfabric_fastapi_app(Path(__file__).parent / "queue_app.py")
+app = create_bfabric_fastapi_app(
+    Path(__file__).parent / "queue_app.py",
+    app_name="queue-gen",
+    mount_path="/queue-gen",
+)
 
 if __name__ == "__main__":
     import uvicorn

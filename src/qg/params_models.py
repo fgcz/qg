@@ -92,6 +92,10 @@ class QueueParameters(BaseModel):
     # Tray to start assigning from (e.g., "R" for Vanquish, 2 for Evosep)
     # Empty string means use first tray of the sampler (resolved downstream)
     start_tray: str | int = ""
+    # B-Fabric instance base URL (e.g. "https://fgcz-bfabric.uzh.ch/bfabric").
+    # Stamped on saved params.json as queue-level provenance; per-container URIs
+    # are derivable from this + ContainerBatch.container_id.
+    bfabric_instance: str | None = None
 
     @classmethod
     def create(
@@ -116,6 +120,7 @@ class QueueParameters(BaseModel):
         one_container_per_tray: bool = False,
         start_position: str = "A1",
         start_tray: str | int = "",
+        bfabric_instance: str | None = None,
     ) -> Self:
         """Create validated QueueParameters.
 
@@ -156,6 +161,7 @@ class QueueParameters(BaseModel):
             one_container_per_tray=one_container_per_tray,
             start_position=start_position,
             start_tray=start_tray,
+            bfabric_instance=bfabric_instance,
         )
 
 
