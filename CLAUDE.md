@@ -20,6 +20,8 @@ Bump the version in `pyproject.toml` only when the current version is already re
 
 Only create a `## [x.y.z] - YYYY-MM-DD` section when explicitly asked to cut a release; otherwise leave entries under `## [Unreleased]`.
 
+When cutting a release, always run `uv lock` after bumping the version in `pyproject.toml` so `uv.lock` records the new project version, and stage `pyproject.toml`, `uv.lock`, and `CHANGELOG.md` together in the release commit.
+
 ## Commands
 
 ```bash

@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.2] -- 2026-05-11
+
+### Changed
+- Metabolomics config updated.
+
 ## [0.4.1] -- 2026-05-08
 
 ### Fixed
