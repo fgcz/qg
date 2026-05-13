@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 from urllib.parse import urlparse
 
 import polars as pl
@@ -31,6 +31,13 @@ def instance_slug(client: Bfabric) -> str:
 # =============================================================================
 # Public API
 # =============================================================================
+
+
+class ContainerComposition(NamedTuple):
+    """Three-state classification of a B-Fabric container's sample placement."""
+
+    has_plates: bool
+    has_vials: bool
 
 
 class BfabricHelper:
@@ -89,6 +96,21 @@ class BfabricHelper:
     def has_plates(self, container_id: int) -> bool:
         """Check whether a container has plates."""
         return bool(self.get_plates(container_id))
+
+    def get_container_composition(self, container_id: int) -> "ContainerComposition":
+        """Classify a container: does it hold plate samples, vial samples, or both?
+
+        A sample is "on a plate" if its ID appears in any plate.refs.sample list.
+        Any sample in the container that is not on a plate is treated as a vial.
+        """
+        plates = self.get_plates(container_id)
+        plate_sample_ids = {s["id"] for plate in plates.values() for s in plate.refs.sample}
+        all_sample_ids = self._fetch_allowed_sample_ids(container_id)
+        on_plate = all_sample_ids & plate_sample_ids
+        return ContainerComposition(
+            has_plates=bool(on_plate),
+            has_vials=bool(all_sample_ids - on_plate),
+        )
 
     def _load_vial_samples(self, container_id: int) -> list[VialSampleRow]:
         """Load samples for a vial container."""

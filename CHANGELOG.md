@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `BfabricHelper.get_container_composition()` returns a three-state classification (`has_plates`, `has_vials`) for a B-Fabric container.
+
+### Changed
+- Drop the stale "at bottom of the table" hint from the Order Selection heading in the queue app.
+
+### Fixed
+- Mixed plate+vial orders no longer block vial-only samplers in the queue app — Sample Type now reflects what the order actually contains, not just whether any plate exists.
+
 ## [0.4.2] -- 2026-05-11
 
 ### Changed

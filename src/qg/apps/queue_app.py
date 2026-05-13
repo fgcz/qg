@@ -206,24 +206,24 @@ def _(qc_layout_field, table_by_qc_layout):
 
 
 @app.cell
-def _(container_has_plates, sampler_field, table_by_sampler):
-    # Queue type dropdown - constrained by plate availability
+def _(container_has_plates, container_has_vials, sampler_field, table_by_sampler):
+    # Sample Type dropdown: intersection of what the order has and what the sampler supports.
     sample_type_warning = None
     if sampler_field.value:
-        _all_options = sorted(table_by_sampler["queue_type"].unique().to_list(), reverse=True)
-        # No plates found for selected containers → restrict to Vial only
-        if container_has_plates is False:
-            _options = [o for o in _all_options if o == "Vial"]
-        else:
-            _options = _all_options
+        _sampler_supports = set(table_by_sampler["queue_type"].unique().to_list())
+        _order_has: set[str] = set()
+        if container_has_plates:
+            _order_has.add("Plate")
+        if container_has_vials:
+            _order_has.add("Vial")
+        _usable = _sampler_supports & _order_has
+        # Vial-first display keeps Vial as the default when both are present.
+        _options = [t for t in ("Vial", "Plate") if t in _usable]
         _default = _options[0] if _options else None
 
-        # Warn if B-Fabric reports plates but sampler doesn't support them
-        if container_has_plates is True and "Plate" not in _all_options:
-            _options = []
-            _default = None
+        if _order_has and not _usable:
             sample_type_warning = mo.callout(
-                mo.md(f"Order has **plate** samples, but **{sampler_field.value}** only supports vials."),
+                mo.md(f"Sampler **{sampler_field.value}** is incompatible with this order's samples."),
                 kind="warn",
             )
     else:
@@ -364,26 +364,31 @@ def _(
     qc_layout_field,
     queue_type_field,
     sampler_field,
+    selected_orders,
     tech_area_field,
 ):
     # Validate that all parameters are set and a valid QC layout exists
     validation_errors = []
 
-    # Check required selections
-    if not tech_area_field.value:
-        validation_errors.append("Tech area not selected")
-    if not instrument_field.value:
-        validation_errors.append("Instrument not selected")
-    if not sampler_field.value:
-        validation_errors.append("Sampler not selected")
-    if not queue_type_field.value:
-        validation_errors.append("Queue type not selected")
-    if not plate_layout_field.value:
-        validation_errors.append("Plate layout not selected")
-    if not qc_layout_field.value:
-        validation_errors.append("QC layout not selected")
-    if not pattern_field.value:
-        validation_errors.append("Pattern not selected")
+    if not selected_orders:
+        # Until an order is picked nothing downstream can resolve; show a single
+        # actionable hint instead of a cascade of "X not selected" entries.
+        validation_errors.append("Please select an order")
+    else:
+        if not tech_area_field.value:
+            validation_errors.append("Tech area not selected")
+        if not instrument_field.value:
+            validation_errors.append("Instrument not selected")
+        if not sampler_field.value:
+            validation_errors.append("Sampler not selected")
+        if not queue_type_field.value:
+            validation_errors.append("Queue type not selected")
+        if not plate_layout_field.value:
+            validation_errors.append("Plate layout not selected")
+        if not qc_layout_field.value:
+            validation_errors.append("QC layout not selected")
+        if not pattern_field.value:
+            validation_errors.append("Pattern not selected")
 
     # Check combination exists in filtered table
     if not validation_errors and filtered_table.is_empty():
@@ -744,21 +749,20 @@ def _(entity_id, is_employee, project_table):
 
 @app.cell
 def _(bfabric, selected_orders):
-    # Load plates for all selected orders (only for plate-type containers)
+    # For each selected container: keep its plate entities (needed by plates_select)
+    # and classify its sample composition (plates / vials / both).
     all_plates = {}
-    for _container_id, *_ in selected_orders:
-        all_plates[_container_id] = bfabric.get_plates(_container_id)
-    return (all_plates,)
-
-
-@app.cell
-def _(all_plates, selected_orders):
-    # Check if any selected container has plates (queried live by all_plates cell)
-    if not selected_orders:
-        container_has_plates = None
-    else:
-        container_has_plates = any(bool(all_plates.get(o[0])) for o in selected_orders)
-    return (container_has_plates,)
+    container_has_plates: bool | None = None
+    container_has_vials: bool | None = None
+    if selected_orders:
+        container_has_plates = False
+        container_has_vials = False
+        for _container_id, *_ in selected_orders:
+            all_plates[_container_id] = bfabric.get_plates(_container_id)
+            _comp = bfabric.get_container_composition(_container_id)
+            container_has_plates = container_has_plates or _comp.has_plates
+            container_has_vials = container_has_vials or _comp.has_vials
+    return all_plates, container_has_plates, container_has_vials
 
 
 @app.cell
@@ -939,7 +943,7 @@ def _(entity_id, is_employee, project_table, refresh_projects_button):
         _order_section = mo.vstack(
             [
                 mo.hstack(
-                    [mo.md("## Order Selection _(🔍 at bottom of the table to search)_"), refresh_projects_button],
+                    [mo.md("## Order Selection _(🔍 to search)_"), refresh_projects_button],
                     justify="space-between",
                     align="center",
                 ),
@@ -1153,9 +1157,14 @@ def _(selected_orders):
 
 @app.cell
 def _(output_file_extension, queue_parameters, selected_orders):
-    _container_ids = [o[0] for o in selected_orders] if selected_orders else []
-    _ids_str = "_".join(str(c) for c in _container_ids) if _container_ids else "queue"
-    queue_output_filename = f"{queue_parameters.date}_{queue_parameters.instrument}_{_ids_str}{output_file_extension}"
+    if queue_parameters is None:
+        queue_output_filename = None
+    else:
+        _container_ids = [o[0] for o in selected_orders] if selected_orders else []
+        _ids_str = "_".join(str(c) for c in _container_ids) if _container_ids else "queue"
+        queue_output_filename = (
+            f"{queue_parameters.date}_{queue_parameters.instrument}_{_ids_str}{output_file_extension}"
+        )
     return (queue_output_filename,)
 
 

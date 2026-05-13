@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import polars as pl
 import pytest
 
-from qg.bfabric_utils import BfabricHelper, instance_slug
+from qg.bfabric_utils import BfabricHelper, ContainerComposition, instance_slug
 from qg.cli.find_projects import ContainerCache, get_cache_dir
 
 
@@ -100,6 +100,40 @@ def test_get_samples_plates_filters_foreign_when_restricted() -> None:
 
     assert sorted(df["sample_id"].to_list()) == [1, 2]
     assert "FOREIGN" not in df["sample_name"].to_list()
+
+
+@pytest.mark.parametrize(
+    ("all_ids", "plate_sample_ids", "expected"),
+    [
+        # plates-only: every sample in the container sits on a plate
+        ([1, 2, 3], [1, 2, 3], ContainerComposition(has_plates=True, has_vials=False)),
+        # vials-only: no plates returned at all
+        ([10, 11], [], ContainerComposition(has_plates=False, has_vials=True)),
+        # mixed: some samples on plate, some not
+        ([1, 2, 3, 4], [1, 2], ContainerComposition(has_plates=True, has_vials=True)),
+        # plate exists but its samples belong to other containers — counts as vials-only here
+        ([5, 6], [99], ContainerComposition(has_plates=False, has_vials=True)),
+        # empty container
+        ([], [], ContainerComposition(has_plates=False, has_vials=False)),
+    ],
+)
+def test_get_container_composition(
+    all_ids: list[int],
+    plate_sample_ids: list[int],
+    expected: ContainerComposition,
+) -> None:
+    fake_client = MagicMock()
+    fake_client.reader.query.return_value = (
+        _fake_plates_dict(
+            [{"id": sid} for sid in plate_sample_ids],
+        )
+        if plate_sample_ids
+        else {}
+    )
+    fake_client.read.return_value.to_polars.return_value = pl.DataFrame({"id": all_ids})
+
+    helper = BfabricHelper(fake_client)
+    assert helper.get_container_composition(100) == expected
 
 
 def test_get_samples_plates_no_filter_when_unrestricted() -> None:
