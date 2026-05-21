@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import ClassVar, Literal, Protocol, Self
 
 import polars as pl
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from qg.utils import GridPositionConversion, PositionFunction
 
@@ -254,15 +254,41 @@ class SamplerPlateLayoutsConfig(BaseModel):
 
 
 class QCSampleWell(BaseModel):
-    """A QC sample position for well-plate samplers (fixed well positions)."""
+    """A QC sample position for well-plate samplers (fixed well positions).
+
+    Position fields are optional so an "empty" QC layout can be represented
+    in the CSV with a single row that has no sample_id / position — this is
+    used by the noqc layout, which exists only to make the layout name
+    selectable in the UI; downstream code short-circuits on the noqc pattern
+    before any positions are read.
+    """
 
     tech_area: str = Field(..., description="Technology area")
     qc_layout_name: str = Field(..., description="QC layout name")
     plate_layout: str = Field(..., description="Plate layout name")
-    sample_id: str = Field(..., description="QC sample identifier")
-    tray: str = Field(..., description="Tray identifier")
-    row: str = Field(..., description="Row identifier")
-    col: int = Field(..., description="Column identifier")
+    sample_id: str | None = Field(default=None, description="QC sample identifier (None for empty/noqc layouts)")
+    tray: str | None = Field(default=None, description="Tray identifier (None for empty/noqc layouts)")
+    row: str | None = Field(default=None, description="Row identifier (None for empty/noqc layouts)")
+    col: int | None = Field(default=None, description="Column identifier (None for empty/noqc layouts)")
+
+    @model_validator(mode="after")
+    def positions_all_set_or_noqc_placeholder(self) -> Self:
+        """Reject partially-filled position fields outside the `noqc` placeholder.
+
+        A typo'd row (e.g. a blank `row` cell on a standard layout) would
+        otherwise load successfully and be silently dropped from
+        ``get_sample_ids``, masking the config error.
+        """
+        fields = (self.sample_id, self.tray, self.row, self.col)
+        n_set = sum(f is not None for f in fields)
+        if n_set == 4:
+            return self
+        if n_set == 0 and self.qc_layout_name == "noqc":
+            return self
+        raise ValueError(
+            f"QC layout row ({self.tech_area}, {self.qc_layout_name}, {self.plate_layout}) "
+            "must have all of sample_id/tray/row/col set, or all four blank with qc_layout_name='noqc'."
+        )
 
 
 class QCLayoutsWellConfig(BaseModel):
@@ -292,8 +318,10 @@ class QCLayoutsWellConfig(BaseModel):
         )
 
     def get_sample_ids(self, tech_area: str, qc_layout_name: str, plate_layout: str) -> set[str]:
-        """Get sample_ids available in a specific layout."""
-        return {s.sample_id for s in self.get_samples(tech_area, qc_layout_name, plate_layout)}
+        """Get sample_ids available in a specific layout (None placeholders excluded)."""
+        return {
+            s.sample_id for s in self.get_samples(tech_area, qc_layout_name, plate_layout) if s.sample_id is not None
+        }
 
     def to_table(self) -> pl.DataFrame:
         """Convert to polars DataFrame."""

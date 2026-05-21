@@ -344,6 +344,86 @@ def _(qc_layout_field, table_by_plate_layout):
 
 
 @app.cell
+def _(config, plate_layout_field, qc_layout_field, tech_area_field):
+    # Per-level concentration inputs: shown when the selected QC layout contains
+    # at least one `standard`-type sample (e.g. Metabolomics `cal_series`).
+    _units = ["pmol", "nmol", "umol", "pgml", "ngml", "ugml"]
+    # Halving-dilution preset: level 1 = highest, last level = 1. Up to 7
+    # levels; extra levels fall back to the lowest value.
+    _preset_values = [100, 50, 25, 12, 6, 3, 1]
+    _preset_unit = "umol"
+    concentration_inputs = None
+    if qc_layout_field.value and plate_layout_field.value and tech_area_field.value:
+        _qc_sample_ids = config.qc_layouts_well.get_sample_ids(
+            tech_area_field.value, qc_layout_field.value, plate_layout_field.value
+        )
+        _level_map: dict[int, str] = {}
+        for _sid in _qc_sample_ids:
+            _s = config.samples.get_sample(tech_area_field.value, _sid)
+            if _s.sample_type == "standard" and _s.level is not None:
+                _level_map[_s.level] = _sid
+
+        if _level_map:
+            _sorted_levels = sorted(_level_map)
+            concentration_inputs = {
+                _level: {
+                    "value": mo.ui.number(
+                        start=1,
+                        stop=999,
+                        step=1,
+                        value=_preset_values[_idx] if _idx < len(_preset_values) else _preset_values[-1],
+                    ),
+                    "unit": mo.ui.dropdown(options=_units, value=_preset_unit),
+                }
+                for _idx, _level in enumerate(_sorted_levels)
+            }
+    return (concentration_inputs,)
+
+
+@app.cell
+def _(concentration_inputs):
+    # Resolved level -> "<value><unit>" mapping, threaded into QueueParameters.
+    if concentration_inputs is None:
+        level_concentrations: dict[int, str] = {}
+    else:
+        level_concentrations = {
+            _level: f"{_widgets['value'].value}{_widgets['unit'].value}"
+            for _level, _widgets in concentration_inputs.items()
+            if _widgets["value"].value is not None
+        }
+    return (level_concentrations,)
+
+
+@app.cell
+def _(concentration_inputs):
+    # Compact three-column grid: Level | Value | Unit. Empty when nothing to show.
+    if concentration_inputs is None:
+        _concentration_block = mo.md("")
+    else:
+        _widths = [1, 2, 2]
+        _header = mo.hstack(
+            [mo.md("**Level**"), mo.md("**Value**"), mo.md("**Unit**")],
+            widths=_widths,
+            justify="start",
+        )
+        _rows = [
+            mo.hstack(
+                [mo.md(str(_level)), _widgets["value"], _widgets["unit"]],
+                widths=_widths,
+                justify="start",
+                align="center",
+            )
+            for _level, _widgets in concentration_inputs.items()
+        ]
+        _concentration_block = mo.vstack(
+            [mo.md("**Concentration per level**"), _header, *_rows],
+            gap=0.25,
+        )
+    concentration_block = _concentration_block
+    return (concentration_block,)
+
+
+@app.cell
 def _(filtered_table, sampler_field):
     # Output format is derived (determined by instrument+sampler combination)
     if sampler_field.value and not filtered_table.is_empty():
@@ -586,14 +666,28 @@ def _():
 @app.cell
 def _(
     config,
+    pattern_field,
     plate_layout_field,
     qc_layout_field,
+    raw_queue_df,
     sampler_field,
     tech_area_field,
 ):
-    # Build a small summary table of the selected QC layout's sample positions
+    # Show the *effective* QC layout for this run — the intersection of what
+    # the QC layout declares and what the selected pattern actually injects.
+    # With the noqc pattern the intersection is empty and the preview is
+    # hidden (matches runtime semantics in create_qc_layout). When a queue
+    # has been generated we append a `visits` column counting how many times
+    # each well is touched (well-plate samplers only — tip samplers expose
+    # ranges, which would need interval logic; deferred).
     qc_layout_preview = None
-    if tech_area_field.value and sampler_field.value and plate_layout_field.value and qc_layout_field.value:
+    if (
+        tech_area_field.value
+        and sampler_field.value
+        and plate_layout_field.value
+        and qc_layout_field.value
+        and pattern_field.value
+    ):
         _sampler = config.samplers.get_sampler(sampler_field.value)
         _samples = config.get_qc_samples(
             tech_area_field.value,
@@ -601,9 +695,16 @@ def _(
             plate_layout_field.value,
             _sampler,
         )
+        # Drop noqc placeholder rows (sample_id is None) and any layout row
+        # whose sample_id isn't referenced by the chosen pattern.
+        _pattern = config.queue_patterns.get_pattern(tech_area_field.value, pattern_field.value)
+        _used_sample_ids = _pattern.get_all_sample_ids()
+        _samples = [s for s in _samples if s.sample_id is not None and s.sample_id in _used_sample_ids]
         if _samples:
             _rows = []
             if _sampler.is_tip:
+                # TODO: per-range visit counts for tip samplers (Evosep) — needs
+                # interval intersection against per-row positions.
                 for s in _samples:
                     _rows.append(
                         {"sample_id": s.sample_id, "tray": s.tray, "range": f"{s.position_start}-{s.position_end}"}
@@ -612,13 +713,28 @@ def _(
             else:
                 for s in _samples:
                     _rows.append({"sample_id": s.sample_id, "tray": s.tray, "pos": f"{s.row}{s.col}"})
-                qc_layout_preview = pl.DataFrame(_rows)
+                _preview = pl.DataFrame(_rows)
+                if raw_queue_df is not None and not raw_queue_df.is_empty():
+                    _well_counts = (
+                        raw_queue_df.group_by(["tray", "row", "col"])
+                        .agg(pl.len().alias("visits"))
+                        .with_columns(pl.concat_str(["row", pl.col("col").cast(pl.Utf8)]).alias("pos"))
+                        .select(["tray", "pos", "visits"])
+                    )
+                    # Align dtypes — preview's tray is Utf8 from the dict; queue's tray may be int.
+                    _well_counts = _well_counts.with_columns(pl.col("tray").cast(_preview["tray"].dtype))
+                    _preview = _preview.join(_well_counts, on=["tray", "pos"], how="left").with_columns(
+                        pl.col("visits").fill_null(0)
+                    )
+                qc_layout_preview = _preview
     return (qc_layout_preview,)
 
 
 @app.cell
 def _(
     app_version,
+    concentration_block,
+    concentration_inputs,
     date_field,
     inj_vol_field,
     instrument_field,
@@ -641,7 +757,14 @@ def _(
     user_field,
     validation_status,
 ):
-    _queue_items = [qc_layout_field, pattern_field, polarity_group]
+    # Hide the Pattern dropdown when the user picks the "noqc" QC layout — the only
+    # compatible pattern is "noqc" itself, so the choice is degenerate.
+    _queue_items = [qc_layout_field]
+    if qc_layout_field.value != "noqc":
+        _queue_items.append(pattern_field)
+    if concentration_inputs is not None:
+        _queue_items.append(concentration_block)
+    _queue_items.append(polarity_group)
     if method_field_pos is not None:
         _queue_items.append(method_field_pos)
     if method_field_neg is not None:
@@ -675,7 +798,7 @@ def _(
         _sidebar_items.append(mo.md(f"**QC Positions** _{qc_layout_field.value}_"))
         _sidebar_items.append(qc_layout_preview)
 
-    mo.sidebar(mo.vstack(_sidebar_items), footer=mo.md(f"Version: {app_version}"), width="22rem")
+    mo.sidebar(mo.vstack(_sidebar_items), footer=mo.md(f"Version: {app_version}"), width="28rem")
     return
 
 
@@ -882,6 +1005,7 @@ def _(
     date_field,
     inj_vol_field,
     instrument_field,
+    level_concentrations,
     method_field_neg,
     method_field_pos,
     output_format_value,
@@ -927,6 +1051,7 @@ def _(
                 "qc_frequency_override": _qc_freq,
                 "start_position": start_position_field.value if start_position_field is not None else "A1",
                 "start_tray": start_tray_field.value if start_tray_field is not None else "",
+                "level_concentrations": level_concentrations,
             }
         )
     except pydantic.ValidationError as e:
@@ -1110,7 +1235,9 @@ def _(config, queue_input, queue_parameters):
             _generator = QueueGenerator(config, queue_input)
             _queue_rows = _generator.build_rows()
             raw_queue_df = _queue_rows.to_table()
-            generated_queue_df = format_table(_queue_rows, _generator.output_format, _generator._plate_layout)
+            generated_queue_df = format_table(
+                _queue_rows, _generator.output_format, _generator._plate_layout, _generator.tech_area
+            )
             queue_output_str = write_queue(generated_queue_df, _generator.output_format)
             output_file_extension = _generator.file_extension
         except ValueError as e:

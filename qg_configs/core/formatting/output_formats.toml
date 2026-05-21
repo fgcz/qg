@@ -50,6 +50,12 @@ Position = "position"
 "Sample Name" = "sample_name"
 "Instrument Method" = "method"
 
+# Metabolomics adds two columns; everything else is inherited from the base
+# [xcalibur_sii.columns] block (merge semantics).
+[xcalibur_sii.columns.Metabolomics]
+"Sample Type" = "sample_type"
+"Level" = "level"
+
 [chronos]
 description = "Chronos autosampler format (Evosep)"
 file_extension = ".csv"

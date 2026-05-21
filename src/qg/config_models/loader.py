@@ -170,9 +170,11 @@ def _validate_layout_sample_refs(
 
     all_ok = True
 
-    # Validate well-plate layout samples
+    # Validate well-plate layout samples (None rows are the noqc placeholder; skip)
     well_tech_samples: dict[str, set[str]] = {}
     for qc_sample in qc_layouts_well.samples:
+        if qc_sample.sample_id is None:
+            continue
         tech = qc_sample.tech_area
         if tech not in well_tech_samples:
             well_tech_samples[tech] = set()
@@ -267,12 +269,36 @@ def _validate_pattern_layout_compatibility(
     return errors
 
 
+def _validate_output_format_tech_overlays(
+    samples: SamplesConfig,
+    output_formats: OutputFormatsConfig,
+) -> list[str]:
+    """Validate that per-tech output-format overlays reference known tech_areas.
+
+    A typo'd ``[<format>.columns.<TechArea>]`` block would otherwise load
+    silently and the misspelled tech_area would never be used — producing
+    mysteriously-missing columns at write time. Fail fast at config load.
+    """
+    known = {s.tech_area for s in samples.samples}
+    errors: list[str] = []
+    for fmt_name, fmt in output_formats.formats.items():
+        for ta in sorted(set(fmt.columns_by_tech) - known):
+            msg = (
+                f"output_formats.toml: [{fmt_name}.columns.{ta}] uses unknown tech_area "
+                f"(known: {sorted(known)}); overlay would be unused"
+            )
+            errors.append(msg)
+            logger.warning(msg)
+    return errors
+
+
 def _validate_configs(
     *,
     samples: SamplesConfig,
     queue_patterns: QueuePatternsConfig,
     qc_layouts_well: QCLayoutsWellConfig,
     qc_layouts_tip: QCLayoutsTipConfig,
+    output_formats: OutputFormatsConfig | None = None,
 ) -> list[str]:
     """Validate cross-references between configs.
 
@@ -284,6 +310,8 @@ def _validate_configs(
     errors.extend(_validate_pattern_sample_refs(samples, queue_patterns))
     errors.extend(_validate_layout_sample_refs(samples, qc_layouts_well, qc_layouts_tip))
     errors.extend(_validate_pattern_layout_compatibility(queue_patterns, qc_layouts_well, qc_layouts_tip))
+    if output_formats is not None:
+        errors.extend(_validate_output_format_tech_overlays(samples, output_formats))
 
     if errors:
         logger.error(f"{len(errors)} cross-validation error(s):")
@@ -487,6 +515,7 @@ class QGConfiguration:
             queue_patterns=queue_patterns,
             qc_layouts_well=qc_layouts_well,
             qc_layouts_tip=qc_layouts_tip,
+            output_formats=output_formats,
         )
         if errors:
             raise ConfigValidationError(errors)
@@ -519,6 +548,7 @@ class QGConfiguration:
             queue_patterns=self.queue_patterns,
             qc_layouts_well=self.qc_layouts_well,
             qc_layouts_tip=self.qc_layouts_tip,
+            output_formats=self.output_formats,
         )
         if errors:
             raise ConfigValidationError(errors)
