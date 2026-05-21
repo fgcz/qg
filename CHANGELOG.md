@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `noqc` QC layout for Metabolomics and Lipidomics — pick it to skip all QC injections. The Queue Pattern dropdown is hidden when this layout is selected.
+- Metabolomics calibration series: `cal1..cal7` samples (`sample_id` unique, shared `sample_name=cal`, `sample_type=standard`, `levels=1..7`), a new `cal_series` QC layout (Vanquish_54 / Plate_96, tray Y row D), and a `Metabolomics.cal_series` queue pattern that bookends the user samples with the cal dilution series.
+- `{level}` and `{concentration}` placeholders in `file_name_template`. The Metabolomics cal templates render as `..._cal_<level>_<concentration>_<polarity>`; runs of consecutive underscores in the rendered filename collapse to one so an empty `{concentration}` does not produce `__`.
+- Per-level concentration GUI in the queue app: shown when the selected QC layout contains `standard`-type samples (currently only Metabolomics `cal_series`). Numeric value 1..999 + unit dropdown (`pmol`/`nmol`/`umol`/`pgml`/`ngml`/`ugml`); persisted on `QueueParameters.level_concentrations` (round-trips through `params.json`).
+- QC Positions sidebar table gains a `visits` column showing how many times each well is injected in the generated queue (well-plate samplers). Wells defined by the layout but unused by the chosen pattern surface as `0`. Tip-plate samplers still show only the range — per-range counts deferred.
+- `samples.csv` gains `sample_type` (`unknown`/`blank`/`qc`/`standard`) and `level` columns for explicit downstream-analysis categorisation. Loaded onto `Sample.sample_type` / `Sample.level` and carried through `QueueRow.sample_type` / `QueueRow.level`.
+- Per-technology output-column overrides in `output_formats.toml` via nested `[<format>.columns.<TechArea>]` sub-tables, merged over the base column map at write time.
+- Metabolomics xcalibur_sii output now includes `Sample Type` and `Level` columns; other technologies are unchanged.
+
+### Changed
+- `samples.csv`: replace literal sample IDs in `file_name_template` with `{sample_name}` to remove copy/paste duplication. Rendered filenames are unchanged.
+- Internal: `QueueRow.sample_type` (formerly `"user"|"qc"`, used during position generation) renamed to `QueueRow.slot_kind`. The `sample_type` field now carries Alaa's downstream-analysis classification.
+- `samples.csv` column and pydantic field `levels` → `level` (singular, since the value is per-row); placeholder `{levels}` → `{level}`. Output column header was already singular.
+
+### Fixed
+- File names no longer render with `__` when a placeholder (typically `{concentration}` for a `standard` sample) is unset; consecutive underscores in the rendered filename collapse to one (e.g. `cal_3__pos` → `cal_3_pos`).
+- `QCSampleWell` now rejects layout rows with partial position fields outside the `noqc` placeholder, so typos in `qc_layouts_well.csv` raise at config-load time instead of being silently dropped.
+- Cross-config validation now fails on `[<format>.columns.<TechArea>]` overlays whose tech_area is not present in `samples.csv`, preventing silently-unused overlays from spelling mistakes.
+- QC Positions sidebar preview now shows only the QC samples actually referenced by the selected pattern (effective layout = QC layout ∩ pattern). Previously it surfaced every layout-declared position regardless of pattern; under `noqc` pattern the join against `raw_queue_df` produced misleading `visits` counts driven by user samples sharing the same wells.
+
 ## [0.4.3] -- 2026-05-14
 
 ### Added

@@ -4,10 +4,12 @@
 
 import tomllib
 from pathlib import Path
-from typing import ClassVar, Self
+from typing import ClassVar, Literal, Self
 
 import polars as pl
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+SampleType = Literal["unknown", "blank", "qc", "standard"]
 
 
 class QueuePattern(BaseModel):
@@ -155,6 +157,8 @@ VALID_PLACEHOLDERS = {
     "sample_name",
     "polarity",
     "method_name",
+    "level",
+    "concentration",
 }
 
 
@@ -164,6 +168,14 @@ class Sample(BaseModel):
     tech_area: str = Field(..., min_length=1, description="tech_area identifier")
     sample_id: str = Field(..., min_length=1, description="Unique sample ID within tech_area")
     sample_name: str = Field(default="", description="Display name (empty for 'default')")
+    sample_type: SampleType = Field(
+        default="unknown",
+        description="Category for downstream analysis: unknown (user sample), blank, qc, or standard.",
+    )
+    level: int | None = Field(
+        default=None,
+        description="Calibration level index for `standard`-type samples; None for everything else.",
+    )
     description: str = Field(default="", description="Human-readable description")
     inj_vol: float = Field(..., gt=0, description="Injection volume in uL")
     file_name_template: str = Field(..., min_length=1, description="Template for output file names")
@@ -173,6 +185,14 @@ class Sample(BaseModel):
     def empty_str_if_none(cls, v):
         """Convert None to empty string (CSV empty cells)."""
         return v if v is not None else ""
+
+    @field_validator("sample_type", mode="before")
+    @classmethod
+    def default_sample_type_when_blank(cls, v):
+        """Treat empty / null CSV cells as the default 'unknown'."""
+        if v is None or v == "":
+            return "unknown"
+        return v
 
     @field_validator("file_name_template")
     @classmethod

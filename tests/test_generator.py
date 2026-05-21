@@ -97,7 +97,7 @@ class TestFormatTable:
             rows=[
                 QueueRow(
                     run_number=1,
-                    sample_type="user",
+                    slot_kind="user",
                     sample_id="100",
                     sample_name="s1",
                     tray="Y",
@@ -112,7 +112,7 @@ class TestFormatTable:
                 ),
                 QueueRow(
                     run_number=2,
-                    sample_type="user",
+                    slot_kind="user",
                     sample_id="200",
                     sample_name="s2",
                     tray="Y",
@@ -155,7 +155,7 @@ class TestFormatTable:
             rows=[
                 QueueRow(
                     run_number=1,
-                    sample_type="user",
+                    slot_kind="user",
                     sample_id="1",
                     sample_name="s",
                     tray="Y",
@@ -192,7 +192,7 @@ class TestFormatTable:
             rows=[
                 QueueRow(
                     run_number=1,
-                    sample_type="user",
+                    slot_kind="user",
                     sample_id="42",
                     sample_name="s",
                     tray="Y",
@@ -321,6 +321,230 @@ class TestNoQCPattern:
         assert len(result) == num_samples
 
 
+class TestNoqcMetabolomicsEndToEnd:
+    """End-to-end check: Metabolomics with the real `noqc` layout + `noqc` pattern."""
+
+    def test_noqc_layout_produces_only_user_samples(self, config):
+        samples = make_vial_samples(4)
+        params = QueueParameters(
+            tech_area="Metabolomics",
+            instrument="EXPLORIS_3",
+            sampler="Vanquish",
+            output_format="xcalibur",
+            queue_pattern="noqc",
+            queue_type="Vial",
+            plate_layout="Vanquish_54",
+            qc_layout_name="noqc",
+            polarity=["pos"],
+            date="20260518",
+            user="test",
+        )
+        queue_input = make_vial_queue_input(params, samples)
+
+        result = QueueGenerator(config, queue_input).generate()
+
+        assert len(result) == len(samples)
+
+
+class TestMetabolomicsCalSeries:
+    """Metabolomics cal_series pattern emits Sample Type / Levels for the calibration rows."""
+
+    def test_cal_series_rows_carry_standard_type_and_levels(self, config):
+        samples = make_vial_samples(2)
+        params = QueueParameters(
+            tech_area="Metabolomics",
+            instrument="EXPLORIS_3",
+            sampler="Vanquish",
+            output_format="xcalibur_sii",
+            queue_pattern="cal_series",
+            queue_type="Vial",
+            plate_layout="Vanquish_54",
+            qc_layout_name="cal_series",
+            polarity=["pos"],
+            date="20260519",
+            user="test",
+            method={"pos": "Method_Pos"},
+        )
+        qi = make_vial_queue_input(params, samples)
+        df = QueueGenerator(config, qi).generate()
+
+        cal_rows = df.filter(pl.col("Sample Name") == "cal")
+        # 7 cal samples at the start + 7 at the end = 14
+        assert len(cal_rows) == 14
+        assert set(cal_rows["Sample Type"].unique().to_list()) == {"standard"}
+        assert set(cal_rows["Level"].unique().to_list()) == {1, 2, 3, 4, 5, 6, 7}
+        # No concentrations assigned. `_format_file_names` collapses runs of
+        # consecutive underscores, so the empty `{concentration}` slot does
+        # not produce `__`; the level alone separates sample_name from polarity.
+        names = "\n".join(cal_rows["File Name"].to_list())
+        assert "cal_3_pos" in names
+        assert "cal_3__pos" not in names
+
+    def test_cal_series_uses_assigned_concentrations(self, config):
+        samples = make_vial_samples(1)
+        params = QueueParameters(
+            tech_area="Metabolomics",
+            instrument="EXPLORIS_3",
+            sampler="Vanquish",
+            output_format="xcalibur_sii",
+            queue_pattern="cal_series",
+            queue_type="Vial",
+            plate_layout="Vanquish_54",
+            qc_layout_name="cal_series",
+            polarity=["pos"],
+            date="20260519",
+            user="test",
+            method={"pos": "Method_Pos"},
+            level_concentrations={
+                1: "100ngml",
+                2: "50ngml",
+                3: "25ngml",
+                4: "12ngml",
+                5: "6ngml",
+                6: "3ngml",
+                7: "1ngml",
+            },
+        )
+        qi = make_vial_queue_input(params, samples)
+        df = QueueGenerator(config, qi).generate()
+
+        names = "\n".join(df["File Name"].to_list())
+        # Each level's assigned concentration appears in the filename.
+        assert "cal_1_100ngml_pos" in names
+        assert "cal_3_25ngml_pos" in names
+        assert "cal_7_1ngml_pos" in names
+
+
+class TestWellVisitCounts:
+    """Counting visits per (tray, row, col) is the data path behind the QC preview's `visits` column."""
+
+    def test_cal_series_visit_counts_per_well(self, config):
+        samples = make_vial_samples(2)
+        params = QueueParameters(
+            tech_area="Metabolomics",
+            instrument="EXPLORIS_3",
+            sampler="Vanquish",
+            output_format="xcalibur_sii",
+            queue_pattern="cal_series",
+            queue_type="Vial",
+            plate_layout="Vanquish_54",
+            qc_layout_name="cal_series",
+            polarity=["pos"],
+            date="20260519",
+            user="test",
+            method={"pos": "Method_Pos"},
+        )
+        qi = make_vial_queue_input(params, samples)
+        raw = QueueGenerator(config, qi).build_rows().to_table()
+
+        counts = raw.group_by(["tray", "row", "col"]).agg(pl.len().alias("visits")).sort(["tray", "row", "col"])
+        # cal_series bookends user samples: cal1..cal7 once at the start (Y:D1..D7)
+        # and once again in reverse at the end → 2 visits each.
+        cal_visits = counts.filter((pl.col("tray") == "Y") & (pl.col("row") == "D"))
+        assert cal_visits.height == 7
+        assert set(cal_visits["visits"].to_list()) == {2}
+        # User samples occupy A1/A2, one visit each.
+        user_visits = counts.filter((pl.col("tray") == "Y") & (pl.col("row") == "A"))
+        assert set(user_visits["visits"].to_list()) == {1}
+
+
+class TestEffectiveQcLayoutIntersection:
+    """`qc_layout_preview` shows the intersection of layout positions × pattern samples."""
+
+    def test_intersection_with_noqc_pattern_is_empty(self, config):
+        """`cal_series` layout + `noqc` pattern → no QC positions are effectively reserved."""
+        sampler = config.samplers.get_sampler("Vanquish")
+        layout_samples = config.get_qc_samples("Metabolomics", "cal_series", "Vanquish_54", sampler)
+        layout_samples = [s for s in layout_samples if s.sample_id is not None]
+        pattern_used = config.queue_patterns.get_pattern("Metabolomics", "noqc").get_all_sample_ids()
+
+        effective = [s for s in layout_samples if s.sample_id in pattern_used]
+        assert effective == []
+
+    def test_intersection_with_matching_pattern_is_full_layout(self, config):
+        """`cal_series` layout + `cal_series` pattern → all cal1..cal7 are effectively used."""
+        sampler = config.samplers.get_sampler("Vanquish")
+        layout_samples = config.get_qc_samples("Metabolomics", "cal_series", "Vanquish_54", sampler)
+        layout_samples = [s for s in layout_samples if s.sample_id is not None]
+        pattern_used = config.queue_patterns.get_pattern("Metabolomics", "cal_series").get_all_sample_ids()
+
+        effective = [s for s in layout_samples if s.sample_id in pattern_used]
+        assert {s.sample_id for s in effective} == {f"cal{i}" for i in range(1, 8)}
+
+
+class TestLevelConcentrationsRoundTrip:
+    def test_dict_int_keys_round_trip_via_json(self):
+        """`level_concentrations` keys are int in Python but emitted as JSON strings; pydantic re-coerces on load."""
+        params = QueueParameters(
+            tech_area="Metabolomics",
+            instrument="EXPLORIS_3",
+            sampler="Vanquish",
+            output_format="xcalibur_sii",
+            queue_pattern="cal_series",
+            queue_type="Vial",
+            plate_layout="Vanquish_54",
+            qc_layout_name="cal_series",
+            polarity=["pos"],
+            date="20260519",
+            user="test",
+            level_concentrations={1: "100ngml", 7: "1ngml"},
+        )
+        roundtripped = QueueParameters.model_validate_json(params.model_dump_json())
+        assert roundtripped.level_concentrations == {1: "100ngml", 7: "1ngml"}
+        # Keys must come back as integers, not strings.
+        assert all(isinstance(k, int) for k in roundtripped.level_concentrations)
+
+
+class TestXcaliburSiiTechSpecificColumns:
+    """xcalibur_sii adds Sample Type / Levels columns for Metabolomics, not for Proteomics."""
+
+    def test_metabolomics_xcalibur_sii_has_new_columns(self, config):
+        samples = make_vial_samples(2)
+        params = QueueParameters(
+            tech_area="Metabolomics",
+            instrument="EXPLORIS_3",
+            sampler="Vanquish",
+            output_format="xcalibur_sii",
+            queue_pattern="noqc",
+            queue_type="Vial",
+            plate_layout="Vanquish_54",
+            qc_layout_name="noqc",
+            polarity=["pos"],
+            date="20260519",
+            user="test",
+            method={"pos": "Method_Pos"},
+        )
+        qi = make_vial_queue_input(params, samples)
+        df = QueueGenerator(config, qi).generate()
+
+        assert "Sample Type" in df.columns
+        assert "Level" in df.columns
+        # All slots here are user samples → sample_type = "unknown".
+        assert df["Sample Type"].to_list() == ["unknown", "unknown"]
+        assert df["Level"].to_list() == [None, None]
+
+    def test_proteomics_xcalibur_sii_does_not_have_new_columns(self, config):
+        samples = make_vial_samples(2)
+        params = QueueParameters(
+            tech_area="Proteomics",
+            instrument="ASTRAL_1",
+            sampler="Vanquish",
+            output_format="xcalibur_sii",
+            queue_pattern="_test_noqc",
+            queue_type="Vial",
+            plate_layout="Vanquish_54",
+            qc_layout_name="standard",
+            polarity=["pos"],
+            date="20260519",
+            user="test",
+        )
+        qi = make_vial_queue_input(params, samples)
+        df = QueueGenerator(config, qi).generate()
+
+        assert "Sample Type" not in df.columns
+        assert "Level" not in df.columns
+
+
 class TestQCOnlyPattern:
     @pytest.mark.parametrize("num_samples", [5, 10])
     def test_qc_only_row_count(self, config, num_samples: int):
@@ -376,7 +600,7 @@ class TestRandomization:
         generator = QueueGenerator(config, queue_input)
         result = generator.build_rows()
 
-        result_order = [int(row.sample_id) for row in result.rows if row.sample_type == "user"]
+        result_order = [int(row.sample_id) for row in result.rows if row.slot_kind == "user"]
 
         assert result_order != original_order
         assert set(result_order) == set(original_order)
@@ -415,7 +639,7 @@ class TestRandomization:
         generator = QueueGenerator(config, queue_input)
         result = generator.build_rows()
 
-        result_ids = [int(row.sample_id) for row in result.rows if row.sample_type == "user"]
+        result_ids = [int(row.sample_id) for row in result.rows if row.slot_kind == "user"]
 
         # Each block has exactly one sample from each group
         group_ids = {"A": {1, 2}, "B": {3, 4}, "C": {5, 6}}
@@ -451,7 +675,7 @@ class TestRandomization:
         generator = QueueGenerator(config, queue_input)
         result = generator.build_rows()
 
-        result_order = [int(row.sample_id) for row in result.rows if row.sample_type == "user"]
+        result_order = [int(row.sample_id) for row in result.rows if row.slot_kind == "user"]
         assert result_order == original_order
 
 
@@ -508,7 +732,7 @@ class TestEvosepQCPattern:
         result = generator.build_rows()
 
         sample_ids = [row.sample_id for row in result.rows]
-        sample_types = [row.sample_type for row in result.rows]
+        sample_types = [row.slot_kind for row in result.rows]
 
         # Pattern: start=[clean, QC03] + 5 samples + end=[clean, QC03]
         assert len(result.rows) == 9
@@ -538,9 +762,9 @@ class TestEvosepQCPattern:
         generator = QueueGenerator(config, queue_input)
         result = generator.build_rows()
 
-        qc_rows = [row for row in result.rows if row.sample_type == "qc"]
+        qc_rows = [row for row in result.rows if row.slot_kind == "qc"]
 
-        user_rows = [row for row in result.rows if row.sample_type == "user"]
+        user_rows = [row for row in result.rows if row.slot_kind == "user"]
 
         # QC and user samples must be on different trays
         qc_trays = {row.tray for row in qc_rows}
@@ -575,7 +799,7 @@ class TestEvosepQCPattern:
         generator = QueueGenerator(config, queue_input)
         result = generator.build_rows()
 
-        user_rows = [row for row in result.rows if row.sample_type == "user"]
+        user_rows = [row for row in result.rows if row.slot_kind == "user"]
         for row in user_rows:
             assert row.tray in (1, 2, 3, 4, 5), f"User sample tray {row.tray} should be 1-5"
 

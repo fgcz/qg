@@ -96,6 +96,11 @@ class QueueParameters(BaseModel):
     # Stamped on saved params.json as queue-level provenance; per-container URIs
     # are derivable from this + ContainerBatch.container_id.
     bfabric_instance: str | None = None
+    # Per-level concentration assignments for `standard`-type samples in the
+    # selected QC layout (e.g. {1: "100ngml", 2: "50ngml", ...}). Empty when the
+    # selected layout has no standard samples.
+    # JSON keys are emitted as strings; pydantic re-coerces back to int on load.
+    level_concentrations: dict[int, str] = Field(default_factory=dict)
 
     @classmethod
     def create(
@@ -121,6 +126,7 @@ class QueueParameters(BaseModel):
         start_position: str = "A1",
         start_tray: str | int = "",
         bfabric_instance: str | None = None,
+        level_concentrations: dict[int, str] | None = None,
     ) -> Self:
         """Create validated QueueParameters.
 
@@ -162,6 +168,7 @@ class QueueParameters(BaseModel):
             start_position=start_position,
             start_tray=start_tray,
             bfabric_instance=bfabric_instance,
+            level_concentrations=level_concentrations or {},
         )
 
 

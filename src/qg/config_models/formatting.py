@@ -103,6 +103,15 @@ class OutputFormat(BaseModel):
     grid_position_conversion: GridPositionConversion = GridPositionConversion.IDENTITY
     tray_format: str | None = None  # Format string for tray values, e.g. "EvoSlot {tray}"
     columns: dict[str, str]  # output_column_name -> internal_field_name or "literal:VALUE"
+    # Per-technology overrides (merge into `columns` at write time). Defined in TOML as
+    # `[<format>.columns.<TechArea>]` sub-tables.
+    columns_by_tech: dict[str, dict[str, str]] = Field(default_factory=dict)
+
+    def columns_for(self, tech_area: str | None) -> dict[str, str]:
+        """Resolve the column map for a given tech_area by merging the base over its override."""
+        if tech_area and tech_area in self.columns_by_tech:
+            return {**self.columns, **self.columns_by_tech[tech_area]}
+        return self.columns
 
 
 class OutputFormatsConfig(BaseModel):
@@ -142,6 +151,11 @@ class OutputFormatsConfig(BaseModel):
         """
         formats: dict[str, OutputFormat] = {}
         for format_name, format_data in data.items():
+            # `[<format>.columns]` is a mix of string entries (base columns) and
+            # nested `[<format>.columns.<TechArea>]` sub-tables (per-tech overrides).
+            raw_columns = format_data.get("columns", {})
+            base_columns = {k: v for k, v in raw_columns.items() if isinstance(v, str)}
+            columns_by_tech = {k: v for k, v in raw_columns.items() if isinstance(v, dict)}
             formats[format_name] = OutputFormat(
                 description=format_data["description"],
                 file_extension=format_data["file_extension"],
@@ -150,7 +164,8 @@ class OutputFormatsConfig(BaseModel):
                 grid_position_format=format_data.get("grid_position_format", "{row}{col}"),
                 grid_position_conversion=format_data.get("grid_position_conversion", "identity"),
                 tray_format=format_data.get("tray_format"),
-                columns=format_data.get("columns", {}),
+                columns=base_columns,
+                columns_by_tech=columns_by_tech,
             )
         return cls(formats=formats)
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Literal
 
@@ -23,12 +24,24 @@ from qg.utils import LayoutMode
 
 
 class QueueRow(BaseModel):
-    """A single row in the generated queue."""
+    """A single row in the generated queue.
+
+    Two independent classification axes coexist:
+
+    * ``slot_kind`` (``Literal["user", "qc"]``) — position-builder role used
+      during queue construction (whether this slot holds a user sample or a
+      QC sample).
+    * ``sample_type`` (``Literal["unknown", "blank", "qc", "standard"]``) —
+      downstream-analysis category from ``samples.csv``. User-sample slots
+      are always ``"unknown"``; QC slots inherit their template's category.
+    """
 
     run_number: int
-    sample_type: Literal["user", "qc"]
+    slot_kind: Literal["user", "qc"]
     sample_id: str
     sample_name: str
+    sample_type: Literal["unknown", "blank", "qc", "standard"] = "unknown"
+    level: int | None = None
     tray: str | int
     grid_position: str
     row: str = ""
@@ -150,12 +163,24 @@ def _resolve_methods(
     return slots
 
 
-def _format_file_names(slots: list[ExpandedSlot], date: str) -> list[ExpandedSlot]:
-    """Format file_name for each slot."""
+def _format_file_names(
+    slots: list[ExpandedSlot],
+    date: str,
+    level_concentrations: dict[int, str] | None = None,
+) -> list[ExpandedSlot]:
+    """Format file_name for each slot.
+
+    Runs of consecutive underscores in the rendered name are collapsed to a
+    single underscore so that an empty placeholder (e.g. ``{concentration}``
+    on a level that has no concentration assigned yet) does not surface as
+    ``..__..`` in the filename.
+    """
+    level_concentrations = level_concentrations or {}
     for slot in slots:
         cell = slot.slot.user_cell
         sample = cell.sample if cell else None
-        slot.file_name = slot.slot.sample_config.file_name_template.format(
+        level = slot.slot.sample_config.level
+        rendered = slot.slot.sample_config.file_name_template.format(
             date=date,
             run=f"{slot.run_number:03d}",
             container=slot.slot.container_id,
@@ -163,7 +188,10 @@ def _format_file_names(slots: list[ExpandedSlot], date: str) -> list[ExpandedSlo
             sample_name=sample.sample_name if sample else slot.slot.sample_config.sample_name,
             polarity=slot.polarity,
             method_name=slot.method_name.lower(),
+            level=level if level is not None else "",
+            concentration=level_concentrations.get(level, "") if level is not None else "",
         )
+        slot.file_name = re.sub(r"_+", "_", rendered).strip("_")
     return slots
 
 
@@ -190,9 +218,11 @@ def _build_queue_rows(
         rows.append(
             QueueRow(
                 run_number=slot.run_number,
-                sample_type="user" if slot.slot.sample_id == default_sample_id else "qc",
+                slot_kind="user" if slot.slot.sample_id == default_sample_id else "qc",
                 sample_id=str(sample.sample_id) if sample else slot.slot.sample_id,
                 sample_name=sample.sample_name if sample else sample_cfg.sample_name,
+                sample_type=sample_cfg.sample_type,
+                level=sample_cfg.level,
                 tray=pos.tray,
                 grid_position=pos.grid_position,
                 row=pos.row,
@@ -226,12 +256,23 @@ def write_queue(df: pl.DataFrame, output_format: OutputFormat) -> str:
     return writer(df)
 
 
-def format_table(queue_rows: QueueRowTable, output_format: OutputFormat, plate_layout: PlateLayout) -> pl.DataFrame:
-    """Format queue rows as DataFrame for the given output format."""
+def format_table(
+    queue_rows: QueueRowTable,
+    output_format: OutputFormat,
+    plate_layout: PlateLayout,
+    tech_area: str | None = None,
+) -> pl.DataFrame:
+    """Format queue rows as DataFrame for the given output format.
+
+    `tech_area` selects the technology-specific column overlay (if any) from
+    `output_format.columns_by_tech`; otherwise the base `output_format.columns`
+    is used.
+    """
+    columns = output_format.columns_for(tech_area)
     df = queue_rows.to_table()
 
     if df.is_empty():
-        return pl.DataFrame({col: pl.Series([], dtype=pl.Utf8) for col in output_format.columns})
+        return pl.DataFrame({col: pl.Series([], dtype=pl.Utf8) for col in columns})
 
     # Apply grid_position conversion (e.g., alpha→flat for Chronos)
     converter = get_grid_position_converter(output_format.grid_position_conversion, plate_layout)
@@ -263,7 +304,7 @@ def format_table(queue_rows: QueueRowTable, output_format: OutputFormat, plate_l
     )
     LITERAL_PREFIX = "literal:"
     select_exprs = []
-    for output_name, value in output_format.columns.items():
+    for output_name, value in columns.items():
         if value.startswith(LITERAL_PREFIX):
             select_exprs.append(pl.lit(value[len(LITERAL_PREFIX) :]).alias(output_name))
         elif value in df.columns:
@@ -328,11 +369,12 @@ class QueueGenerator:
 
         # Output format existence validated in QueueParameters.create()
         self.output_format = config.output_formats.get_format(params.output_format)
+        self.tech_area = params.tech_area
 
     def generate(self) -> pl.DataFrame:
         """Execute pipeline and return formatted DataFrame."""
         rows = self.build_rows()
-        return format_table(rows, self.output_format, self._plate_layout)
+        return format_table(rows, self.output_format, self._plate_layout, self.tech_area)
 
     def write(self) -> str:
         """Generate queue and return as string in the appropriate format."""
@@ -392,7 +434,7 @@ class QueueGenerator:
         )
 
         # Format file names
-        expanded = _format_file_names(expanded, params.date)
+        expanded = _format_file_names(expanded, params.date, params.level_concentrations)
 
         # Build queue rows
         result = _build_queue_rows(

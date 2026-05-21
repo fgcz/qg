@@ -45,6 +45,28 @@ class TestFormattingConfigs:
             sample = config.get_sample(tech, "default")
             assert sample is not None, f"Missing default sample for {tech}"
 
+    def test_sample_type_and_levels_round_trip(self):
+        """`sample_type` and `levels` columns load from CSV with expected defaults."""
+        from qg.config_models.structure import SamplesConfig
+
+        path = CONFIG_ROOT / "core" / "structure" / "samples.csv"
+        df = pl.read_csv(path)
+        config = SamplesConfig.from_table(df)
+
+        # Every default sample is `unknown` with no level.
+        for tech in ("Proteomics", "Metabolomics", "Lipidomics", "Testing"):
+            default = config.get_sample(tech, "default")
+            assert default.sample_type == "unknown"
+            assert default.level is None
+
+        # Spot-check categorisations
+        assert config.get_sample("Proteomics", "QC01").sample_type == "qc"
+        assert config.get_sample("Proteomics", "clean").sample_type == "blank"
+        assert config.get_sample("Metabolomics", "blank").sample_type == "blank"
+        assert config.get_sample("Metabolomics", "pooledQCDil1").sample_type == "qc"
+        assert config.get_sample("Lipidomics", "EquiSPLASH").sample_type == "qc"
+        assert config.get_sample("Testing", "clean").sample_type == "blank"
+
     def test_load_output_formats(self):
         """Load output_formats.toml into OutputFormatsConfig."""
         from qg.config_models.formatting import OutputFormatsConfig
@@ -58,6 +80,28 @@ class TestFormattingConfigs:
         # Check known formats exist
         for fmt in ["xcalibur", "chronos", "hystar"]:
             assert config.get_format(fmt) is not None, f"Missing format {fmt}"
+
+    def test_xcalibur_sii_has_metabolomics_overlay(self):
+        """xcalibur_sii defines a Metabolomics column overlay that adds Sample Type / Levels."""
+        from qg.config_models.formatting import OutputFormatsConfig
+
+        path = CONFIG_ROOT / "core" / "formatting" / "output_formats.toml"
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+        config = OutputFormatsConfig.from_dict(data)
+
+        fmt = config.get_format("xcalibur_sii")
+        assert "Metabolomics" in fmt.columns_by_tech
+        # Overlay must NOT pollute the base.
+        assert "Sample Type" not in fmt.columns
+        assert "Level" not in fmt.columns
+        # Merged Metabolomics view contains both base and overlay columns.
+        meta_cols = fmt.columns_for("Metabolomics")
+        assert meta_cols["File Name"] == "file_name"
+        assert meta_cols["Sample Type"] == "sample_type"
+        assert meta_cols["Level"] == "level"
+        # Other technologies fall through to the base.
+        assert fmt.columns_for("Proteomics") == fmt.columns
 
 
 # =============================================================================
@@ -155,6 +199,26 @@ class TestPositionConfigs:
         samples = config.get_samples("Proteomics", "standard", "Vanquish_54")
         sample_ids = {s.sample_id for s in samples}
         assert "QC01" in sample_ids
+
+    def test_noqc_layout_available_for_metabolomics_and_lipidomics(self):
+        """`noqc` is a selectable QC layout for Metabolomics and Lipidomics; absent for Proteomics."""
+        from qg.config_models.positions import QCLayoutsWellConfig
+
+        path = CONFIG_ROOT / "core" / "position" / "qc_layouts_well.csv"
+        df = pl.read_csv(path, comment_prefix="#")
+        config = QCLayoutsWellConfig.from_table(df)
+
+        for tech in ("Metabolomics", "Lipidomics"):
+            for plate_layout in ("Vanquish_54", "Plate_96"):
+                assert "noqc" in config.get_layout_names(tech, plate_layout), (
+                    f"noqc should be selectable for {tech}/{plate_layout}"
+                )
+                # Empty layout: no real sample positions are exposed.
+                assert config.get_sample_ids(tech, "noqc", plate_layout) == set()
+
+        # Proteomics is intentionally excluded from the noqc option.
+        for plate_layout in ("Vanquish_54", "Plate_96"):
+            assert "noqc" not in config.get_layout_names("Proteomics", plate_layout)
 
     def test_load_qc_layouts_tip(self):
         """Load qc_layouts_tip.csv into QCLayoutsTipConfig."""
