@@ -128,19 +128,10 @@ ssh bfabric@localhost
 cd ~/web-apps/portal/queue-gen && git pull && make deploy
 ```
 
-The config editor is not in the production deployment — it currently runs from the test deployment below.
-
-### Test deployment
-
-Built locally on the server from this repo, used to verify a branch before tagging.
-
-| App | Compose file | Port | Make target |
-|-----|--------------|------|-------------|
-| Queue app | `docker-compose-test.yml` | 9505 | `deploy-app` |
-| Config editor | `docker-compose-editor.yml` | 9506 | `deploy-editor` |
+The config editor runs from the same image as the queue app (different entrypoint) and is deployed alongside it under `portal/qg-editor` in the [web-apps repo](https://gitlab.bfabric.org/proteomics/web-apps). It is restricted to FGCZ employees; MRs are opened by the `qg-config-bot` GitLab user and authored as the requesting employee.
 
 ```bash
 ssh bfabric@localhost
-cd /scratch/A401_queue_gen && git pull
-make deploy-app     # or deploy-editor
+cd ~/web-apps/portal/qg-editor && git pull && make deploy
 ```
+

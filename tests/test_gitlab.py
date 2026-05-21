@@ -41,6 +41,12 @@ class TestFindRepoRoot:
 
 
 class TestLoadGitlabSettings:
+    @pytest.fixture(autouse=True)
+    def _clear_qg_gitlab_env(self, monkeypatch):
+        """Strip ambient QG_GITLAB_* env vars so tests are deterministic."""
+        for var in ("QG_GITLAB_TOKEN", "QG_GITLAB_URL", "QG_GITLAB_PROJECT"):
+            monkeypatch.delenv(var, raising=False)
+
     def test_loads_valid_settings(self, tmp_path):
         settings_file = tmp_path / ".qg_settings.toml"
         settings_file.write_text(
@@ -112,6 +118,58 @@ class TestLoadGitlabSettings:
         monkeypatch.delenv("QG_GITLAB_TOKEN", raising=False)
         result = load_gitlab_settings(settings_file)
         assert result["private_token"] == "glpat-file-token"
+
+    def test_loads_entirely_from_env(self, monkeypatch):
+        """When all three env vars are set, the file is not consulted."""
+        monkeypatch.setenv("QG_GITLAB_TOKEN", "glpat-env")
+        monkeypatch.setenv("QG_GITLAB_URL", "https://gitlab.env.example.com")
+        monkeypatch.setenv("QG_GITLAB_PROJECT", "env-group/env-repo")
+        # No path passed; if the file lookup ran it would raise — we expect it not to.
+        result = load_gitlab_settings()
+        assert result == {
+            "private_token": "glpat-env",
+            "url": "https://gitlab.env.example.com",
+            "project": "env-group/env-repo",
+        }
+
+    def test_partial_env_falls_back_to_file(self, tmp_path, monkeypatch):
+        """Only the env-supplied keys override; the rest come from the file."""
+        settings_file = tmp_path / ".qg_settings.toml"
+        settings_file.write_text(
+            textwrap.dedent("""\
+                [gitlab]
+                url = "https://gitlab.file.example.com"
+                project = "file-group/file-repo"
+                private_token = "glpat-file"
+            """)
+        )
+        monkeypatch.setenv("QG_GITLAB_URL", "https://gitlab.env.example.com")
+        result = load_gitlab_settings(settings_file)
+        assert result["url"] == "https://gitlab.env.example.com"
+        assert result["project"] == "file-group/file-repo"
+        assert result["private_token"] == "glpat-file"
+
+    def test_env_overrides_file_project(self, tmp_path, monkeypatch):
+        """QG_GITLAB_PROJECT overrides the project value from the file."""
+        settings_file = tmp_path / ".qg_settings.toml"
+        settings_file.write_text(
+            textwrap.dedent("""\
+                [gitlab]
+                url = "https://gitlab.example.com"
+                project = "file-group/file-repo"
+                private_token = "glpat-test"
+            """)
+        )
+        monkeypatch.setenv("QG_GITLAB_PROJECT", "env-group/env-repo")
+        result = load_gitlab_settings(settings_file)
+        assert result["project"] == "env-group/env-repo"
+
+    def test_raises_on_http_env_url(self, monkeypatch):
+        monkeypatch.setenv("QG_GITLAB_TOKEN", "glpat-env")
+        monkeypatch.setenv("QG_GITLAB_URL", "http://gitlab.env.example.com")
+        monkeypatch.setenv("QG_GITLAB_PROJECT", "env-group/env-repo")
+        with pytest.raises(ValueError, match="GitLab URL must use HTTPS"):
+            load_gitlab_settings()
 
     def test_finds_settings_in_home_dir(self, tmp_path, monkeypatch):
         """Settings file in user home is found as fallback."""

@@ -11,9 +11,8 @@ Both apps are served by uvicorn (FastAPI + B-Fabric auth + marimo ASGI) and run 
 | Deployment | Source | Image build | Working directory |
 |------------|--------|-------------|-------------------|
 | Production | Tagged release on `main` | GitLab CI | `~/web-apps/portal/queue-gen` (managed by the [web-apps repo](https://gitlab.bfabric.org/proteomics/web-apps)) |
-| Test | `git pull` of this repo | Local `docker compose build` | `/scratch/A401_queue_gen` |
 
-Currently only the queue app is part of the production deployment; the config editor runs from the test deployment only.
+Both apps share a single image (the Dockerfile entrypoint is the queue app; the editor deployment overrides the entrypoint to `qg.apps.bfabric_app_editor:app`). Production deployment is managed via the `web-apps/portal/` repo for both.
 
 ## Production
 
@@ -31,63 +30,27 @@ GitLab CI cross-builds a `linux/arm64` OCI archive and writes it to:
 
 ### 2. Bump and deploy via web-apps
 
-Update the pinned image version in `portal/queue-gen/docker-compose.prod.yml` in the [web-apps repo](https://gitlab.bfabric.org/proteomics/web-apps) and commit so the deployed configuration stays recoverable. Then on `fgcz-r-039`:
+Update the pinned image version in `portal/queue-gen/docker-compose.prod.yml` and `portal/qg-editor/docker-compose.prod.yml` in the [web-apps repo](https://gitlab.bfabric.org/proteomics/web-apps) and commit so the deployed configuration stays recoverable. Then on `fgcz-r-039`:
 
 ```bash
 ssh bfabric@localhost
-cd ~/web-apps/portal/queue-gen
-git pull
-make deploy
+cd ~/web-apps/portal/queue-gen && git pull && make deploy
+cd ~/web-apps/portal/qg-editor && make deploy
 ```
 
-## Test deployment
+### Config editor secrets
 
-Built locally on the server from a checked-out branch. Used to verify changes end-to-end before tagging a production release.
+The editor needs a GitLab Project Access Token to open MRs. It is the `qg-config-bot` project access token on `gitlab.bfabric.org/metabolomics/queue-gen` (role: Developer, scope: `api`). MRs are opened by that bot user; the requesting employee's login is recorded in the commit message and MR description.
 
-| App | Description | Compose file | Port | Make target |
-|-----|-------------|--------------|------|-------------|
-| Queue app | B-Fabric authenticated queue generation GUI | `docker-compose-test.yml` | 9505 | `deploy-app` |
-| Config editor | Edit config files with GitLab review/merge-request workflow | `docker-compose-editor.yml` | 9506 | `deploy-editor` |
+The token and the GitLab URL/project live in `portal/config/webapp.secrets.env` on the deploy host (shared with other portal apps, gitignored, `chmod 600`):
 
-### Mounts
-
-- **Queue app:** the host's `bfabric_cache/` is bind-mounted to the container's cache root so `make projects` or pressing "Refresh Projects" in the GUI updates the project list without a rebuild. Set `QG_CACHE_DIR` in the compose `environment:` and bind-mount to that same path — this decouples the cache location from where the source happens to live in the image.
-- **Config editor:** the only external mount is `~/.qg_settings.toml` (GitLab API credentials for the review/MR workflow). The editor reads configs from the image, diffs changes in memory, and submits them to GitLab via the Commits API — it never writes to disk.
-
-### First-time setup
-
-```bash
-ssh bfabric@localhost
-mkdir -p /scratch/A401_queue_gen
-cd /scratch/A401_queue_gen
-git clone https://gitlab.bfabric.org/metabolomics/queue-gen.git .
+```
+QG_GITLAB_TOKEN=glpat-...
+QG_GITLAB_URL=https://gitlab.bfabric.org
+QG_GITLAB_PROJECT=metabolomics/queue-gen
 ```
 
-For the config editor only, create `~/.qg_settings.toml` with a GitLab token (scope `api`, or `write_repository + read_api`):
-
-```bash
-cp .qg_settings.toml.example ~/.qg_settings.toml
-# Edit ~/.qg_settings.toml and set private_token = "glpat-…"
-```
-
-The token may alternatively be supplied via the `QG_GITLAB_TOKEN` environment variable.
-
-### Deploy / update
-
-```bash
-ssh bfabric@localhost
-cd /scratch/A401_queue_gen
-git pull
-make deploy-app     # Queue app, port 9505
-make deploy-editor  # Config editor, port 9506
-```
-
-### Verify
-
-```bash
-curl -k https://localhost:9505    # Queue app
-curl -k https://localhost:9506    # Config editor
-```
+When all three are set, `qg.gitlab.settings.load_gitlab_settings()` skips the file lookup entirely. Token rotation is `chmod 600` edit + `make deploy` — no image rebuild needed.
 
 ## Cache refresh
 

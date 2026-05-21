@@ -17,6 +17,7 @@ with app.setup:
 
     configure_logging()
 
+    from qg.bfabric_utils import SessionError, resolve_app_session
     from qg.config_models.formatting import (
         InstrumentsConfig,
         OutputFormatsConfig,
@@ -39,20 +40,22 @@ with app.setup:
 
 
 # =============================================================================
-# Authentication
+# Authentication — strict employee gate
 # =============================================================================
 
 
 @app.cell
 def _():
-    _request = mo.app_meta().request
-    _user = getattr(_request, "user", None)
-    if _user and _user.is_authenticated and hasattr(_user, "get_bfabric_client"):
-        authenticated_login = _user.get_bfabric_client().auth.login
-        mo.md(f"Authenticated user: **{authenticated_login}**")
-    else:
-        authenticated_login = None
-        mo.md("No user information in request. Using default configuration.")
+    try:
+        _session = resolve_app_session(mo.app_meta().request, allow_unauthenticated=False)
+    except SessionError as _exc:
+        mo.stop(True, mo.callout(mo.md(f"**{_exc.message}**"), kind="danger"))
+    mo.stop(
+        not _session.is_employee,
+        mo.callout(mo.md("**Config editor is restricted to FGCZ employees.**"), kind="danger"),
+    )
+    authenticated_login = _session.client.auth.login
+    mo.md(_session.banner_message)
     return (authenticated_login,)
 
 
@@ -770,13 +773,8 @@ def _(REVIEW_MODE):
 
 
 @app.cell
-def _(gitlab_available, authenticated_login):
+def _(gitlab_available):
     if gitlab_available:
-        review_author_input = mo.ui.text(
-            label="Author",
-            placeholder="your name",
-            value=authenticated_login or "",
-        )
         review_description_input = mo.ui.text(
             label="Change description",
             placeholder="what did you change and why?",
@@ -784,17 +782,16 @@ def _(gitlab_available, authenticated_login):
         )
         submit_review_button = mo.ui.run_button(label="Submit for Review", kind="warn")
     else:
-        review_author_input = None
         review_description_input = None
         submit_review_button = None
-    return review_author_input, review_description_input, submit_review_button
+    return review_description_input, submit_review_button
 
 
 @app.cell
 def _(
+    authenticated_login,
     gitlab_available,
     gitlab_unavailable_reason,
-    review_author_input,
     review_description_input,
     submit_review_button,
 ):
@@ -802,8 +799,11 @@ def _(
         review_ui = mo.vstack(
             [
                 mo.md("### Submit for Review"),
-                mo.md("_Saves editor contents and submits changes as a GitLab merge request for review._"),
-                mo.hstack([review_author_input, review_description_input], widths=[1, 3]),
+                mo.md(
+                    f"_Submits changes as a GitLab MR. Authored as **{authenticated_login}**;"
+                    f" opened by the `qg-config-bot` user._"
+                ),
+                review_description_input,
                 submit_review_button,
             ]
         )
@@ -821,13 +821,13 @@ def _(
 
 @app.cell
 def _(
+    authenticated_login,
     build_config_from_editors,
     error_callout,
     gitlab_available,
     cfg,
     original_contents,
     editor_values,
-    review_author_input,
     review_description_input,
     submit_review_button,
 ):
@@ -835,12 +835,11 @@ def _(
 
     from qg.gitlab.config_bridge import submit_config_changes
 
-    _author = review_author_input.value if review_author_input else ""
     _description = review_description_input.value if review_description_input else ""
 
-    if not _author or not _description:
+    if not _description:
         review_result = mo.callout(
-            mo.md("**Please fill in both author and description before submitting.**"),
+            mo.md("**Please fill in a change description before submitting.**"),
             kind="warn",
         )
     else:
@@ -850,9 +849,9 @@ def _(
             # In-memory diff: serialize edited config, compare to original snapshot
             _edited_contents = _cfg_to_submit.serialize_all()
             _changed_count = sum(1 for k in _edited_contents if _edited_contents[k] != original_contents.get(k))
-            logger.info("Review submitted | author={} | changed_files={}", _author, _changed_count)
+            logger.info("Review submitted | author={} | changed_files={}", authenticated_login, _changed_count)
             mr_url = submit_config_changes(
-                original_contents, _edited_contents, author=_author, description=_description
+                original_contents, _edited_contents, author=authenticated_login, description=_description
             )
             if mr_url:
                 review_result = mo.callout(

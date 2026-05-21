@@ -1,4 +1,4 @@
-"""Load GitLab settings from .qg_settings.toml."""
+"""Load GitLab settings from .qg_settings.toml or environment variables."""
 
 import os
 import tomllib
@@ -7,6 +7,12 @@ from pathlib import Path
 from loguru import logger
 
 _SETTINGS_FILENAME = ".qg_settings.toml"
+_REQUIRED_KEYS = ("url", "project", "private_token")
+_ENV_VARS = {
+    "private_token": "QG_GITLAB_TOKEN",
+    "url": "QG_GITLAB_URL",
+    "project": "QG_GITLAB_PROJECT",
+}
 
 
 def _find_settings_file() -> Path:
@@ -29,20 +35,15 @@ def _find_settings_file() -> Path:
 
     msg = (
         f"Cannot find {_SETTINGS_FILENAME}. "
-        f"Place it in your project root or home directory (~/{_SETTINGS_FILENAME}). "
+        f"Place it in your project root or home directory (~/{_SETTINGS_FILENAME}), "
+        f"or set {', '.join(_ENV_VARS.values())} in the environment. "
         f"Copy .qg_settings.toml.example and fill in your GitLab credentials."
     )
     raise FileNotFoundError(msg)
 
 
-def load_gitlab_settings(path: Path | None = None) -> dict[str, str]:
-    """Load GitLab settings from .qg_settings.toml.
-
-    Searches: explicit path -> project root -> repo root.
-    Token can be overridden via QG_GITLAB_TOKEN environment variable.
-
-    Raises FileNotFoundError with clear message if missing.
-    """
+def _load_from_file(path: Path | None) -> dict[str, str]:
+    """Read GitLab settings from a TOML file. Raises FileNotFoundError if missing."""
     if path is not None:
         if not path.exists():
             msg = f"Settings file not found: {path}"
@@ -52,28 +53,43 @@ def load_gitlab_settings(path: Path | None = None) -> dict[str, str]:
         settings_path = _find_settings_file()
 
     logger.info("Loading GitLab settings from {}", settings_path)
-    text = settings_path.read_text(encoding="utf-8")
-    data = tomllib.loads(text)
-
-    gitlab_section = data.get("gitlab")
-    if not gitlab_section:
+    data = tomllib.loads(settings_path.read_text(encoding="utf-8"))
+    section = data.get("gitlab")
+    if not section:
         msg = f"Missing [gitlab] section in {settings_path}"
         raise ValueError(msg)
+    return section
 
-    required_keys = ("url", "project", "private_token")
-    missing = [k for k in required_keys if k not in gitlab_section]
+
+def load_gitlab_settings(path: Path | None = None) -> dict[str, str]:
+    """Load GitLab settings from env vars and/or .qg_settings.toml.
+
+    If all three of ``QG_GITLAB_TOKEN``, ``QG_GITLAB_URL``, ``QG_GITLAB_PROJECT``
+    are set, the file is not consulted (production / portal path). Otherwise the
+    file supplies the missing keys and any env var overrides its file value.
+
+    Raises FileNotFoundError if the file is needed but missing, or ValueError if
+    any required key is still missing or the resulting URL is not HTTPS.
+    """
+    env_values = {key: os.environ.get(var, "") for key, var in _ENV_VARS.items()}
+
+    if all(env_values.values()):
+        logger.info("Loading GitLab settings from environment")
+        settings = dict(env_values)
+    else:
+        settings = _load_from_file(path)
+        for key, value in env_values.items():
+            if value:
+                logger.info("Overriding GitLab {} from environment", key)
+                settings[key] = value
+
+    missing = [k for k in _REQUIRED_KEYS if not settings.get(k)]
     if missing:
-        msg = f"Missing keys in [gitlab] section: {', '.join(missing)}"
+        msg = f"Missing keys: {', '.join(missing)}"
         raise ValueError(msg)
 
-    if not gitlab_section["url"].startswith("https://"):
-        msg = f"GitLab URL must use HTTPS, got: {gitlab_section['url']}"
+    if not settings["url"].startswith("https://"):
+        msg = f"GitLab URL must use HTTPS, got: {settings['url']}"
         raise ValueError(msg)
 
-    # Environment variable overrides file token
-    env_token = os.environ.get("QG_GITLAB_TOKEN")
-    if env_token:
-        logger.info("Using GitLab token from QG_GITLAB_TOKEN environment variable")
-        gitlab_section["private_token"] = env_token
-
-    return gitlab_section
+    return settings
