@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-05-21
+
 ### Added
 - `noqc` QC layout for Metabolomics and Lipidomics — pick it to skip all QC injections. The Queue Pattern dropdown is hidden when this layout is selected.
 - Metabolomics calibration series: `cal1..cal7` samples (`sample_id` unique, shared `sample_name=cal`, `sample_type=standard`, `levels=1..7`), a new `cal_series` QC layout (Vanquish_54 / Plate_96, tray Y row D), and a `Metabolomics.cal_series` queue pattern that bookends the user samples with the cal dilution series.
