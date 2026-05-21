@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help app app-all app-type app-review editor editor-review validate projects projects-all projects-plates deploy-app deploy-editor _check-not-fgcz
+.PHONY: help app app-all app-type app-review editor editor-review validate projects projects-all projects-plates _check-not-fgcz
 
 help:
 	@echo "Queue Generation System"
@@ -18,12 +18,12 @@ help:
 	@echo "  projects         Fetch active projects from B-Fabric (fast)"
 	@echo "  projects-all     Fetch all projects from B-Fabric (no status filter)"
 	@echo "  projects-plates  Fetch active projects with plate detection (slow)"
-	@echo "  deploy-app       Build and start queue app (Docker, port 9505)"
-	@echo "  deploy-editor    Build and start config editor (Docker, port 9506)"
+	@echo ""
+	@echo "Production deployments live under ../web-apps/portal/."
 
 # Guard: dev targets below set QG_ALLOW_UNAUTHENTICATED=1 (disables auth). Refuse on fgcz* hosts.
 _check-not-fgcz:
-	@if hostname | grep -qi fgcz; then echo "Refusing dev-mode target on fgcz host — use deploy-app instead."; exit 1; fi
+	@if hostname | grep -qi fgcz; then echo "Refusing dev-mode target on fgcz host."; exit 1; fi
 
 # Run the marimo GUI app (active projects)
 app: _check-not-fgcz
@@ -64,11 +64,3 @@ projects-all:
 # Fetch active projects with plate detection (slow)
 projects-plates:
 	uv run qg-find-projects --check-plates
-
-deploy-app:
-	docker compose -f docker-compose-test.yml build app
-	docker compose -f docker-compose-test.yml up -d --force-recreate
-
-deploy-editor:
-	docker compose -f docker-compose-editor.yml build config-editor
-	docker compose -f docker-compose-editor.yml up -d --force-recreate

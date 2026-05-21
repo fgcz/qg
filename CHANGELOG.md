@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-05-21
+
+Proper deployment of config editor.
+
+### Added
+- `QG_GITLAB_URL` and `QG_GITLAB_PROJECT` env vars override or supply the corresponding settings, allowing the config editor to run without a `.qg_settings.toml` file.
+
+### Changed
+- Config editor now requires an authenticated FGCZ employee; non-employees are refused.
+- GitLab MR submissions use the authenticated employee's B-Fabric login as the author; the free-text author input has been removed.
+
 ## [0.4.4] - 2026-05-21
 
 ### Added
