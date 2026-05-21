@@ -283,9 +283,12 @@ def _(config, plate_layout_field, queue_type_field):
 
 
 @app.cell
-def _(config, queue_type_field, sampler_field):
-    # Start tray dropdown — only for Vial mode (select which tray to start on)
-    if queue_type_field.value == "Vial" and sampler_field.value:
+def _(config, sampler_field):
+    # Start tray dropdown — shown for both Vial and Plate modes. In vial mode it
+    # controls where vial assignment begins; in plate mode it relocates the
+    # user's plate to the chosen tray (useful for sidestepping QC-layout
+    # collisions on the default tray).
+    if sampler_field.value:
         _sampler = config.samplers.get_sampler(sampler_field.value)
         _trays = [str(t) for t in _sampler.trays]
         start_tray_field = mo.ui.dropdown(
@@ -778,7 +781,15 @@ def _(
         queue_type_field,
         *([] if sample_type_warning is None else [sample_type_warning]),
         plate_layout_field,
-        *([] if start_tray_field is None else [mo.hstack([start_tray_field, start_position_field], justify="start")]),
+        *(
+            []
+            if start_tray_field is None
+            else (
+                [mo.hstack([start_tray_field, start_position_field], justify="start")]
+                if start_position_field is not None
+                else [start_tray_field]
+            )
+        ),
         mo.md(f"**Output:** {output_format_value}"),
         mo.md("### Queue"),
         *_queue_items,

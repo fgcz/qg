@@ -448,6 +448,62 @@ class TestWellVisitCounts:
         assert set(user_visits["visits"].to_list()) == {1}
 
 
+class TestPlateStartTray:
+    """`start_tray` in plate mode shifts the user's plate off the default tray.
+
+    The Metabolomics `cal_series` layout reserves `Y:D1..D7`. A plate sample at
+    `D1` collides with the layout's cal1 position on the default tray Y. Picking
+    a different start tray (e.g. ``R``) moves the plate to that tray and the
+    same sample at `D1` no longer collides because the layout's reservations
+    are scoped to tray Y.
+    """
+
+    @staticmethod
+    def _plate_input(start_tray: str | int = "") -> tuple:
+        from qg.params_models import Plate, PlateCell, PlateQueue, PlateQueueInput
+
+        sample = VialSample(sample_name="S1", sample_id=100, container_id=99)
+        cell = PlateCell(sample=sample, position=1, grid_position="D1", plate_id=1)
+        plate = Plate(plate_id=1, tray=None, nr_samples=1)  # tray unassigned → resolver picks
+        queue = PlateQueue(
+            batches={99: ContainerBatch(container_id=99)},
+            plates={1: plate},
+            cells=[cell],
+        )
+        params = QueueParameters(
+            tech_area="Metabolomics",
+            instrument="EXPLORIS_3",
+            sampler="Vanquish",
+            output_format="xcalibur_sii",
+            queue_pattern="cal_series",
+            queue_type="Plate",
+            plate_layout="Vanquish_54",
+            qc_layout_name="cal_series",
+            polarity=["pos"],
+            date="20260521",
+            user="test",
+            method={"pos": "Method_Pos"},
+            start_tray=start_tray,
+        )
+        return PlateQueueInput(parameters=params, queue=queue), params, queue
+
+    def test_default_start_tray_collides_with_cal_series(self, config):
+        qi, _, _ = self._plate_input(start_tray="")  # default → first tray Y
+        with pytest.raises(ValueError, match=r"at Y:D1 conflicts with QC position"):
+            QueueGenerator(config, qi).build_rows()
+
+    def test_explicit_start_tray_R_relocates_plate_and_avoids_conflict(self, config):
+        qi, _, _ = self._plate_input(start_tray="R")
+        df = QueueGenerator(config, qi).build_rows().to_table()
+
+        # User's sample now lives on tray R, not Y.
+        user_rows = df.filter(pl.col("slot_kind") == "user")
+        assert user_rows["tray"].unique().to_list() == ["R"]
+        # Cal samples still sit on the layout's tray Y (reservations are tray-scoped).
+        cal_rows = df.filter(pl.col("slot_kind") == "qc")
+        assert set(cal_rows["tray"].unique().to_list()) == {"Y"}
+
+
 class TestEffectiveQcLayoutIntersection:
     """`qc_layout_preview` shows the intersection of layout positions × pattern samples."""
 

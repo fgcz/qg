@@ -41,6 +41,23 @@ from qg.utils import (
 # =============================================================================
 
 
+def _trays_with_start_first(
+    trays: list[str] | list[int],
+    start_tray: str | int | None,
+) -> list[str] | list[int]:
+    """Return ``trays`` reordered so that ``start_tray`` comes first.
+
+    The GUI emits string-valued trays (``mo.ui.dropdown`` options are strings)
+    while tip samplers store integer trays — match leniently.
+    """
+    if start_tray is None or start_tray == "":
+        return list(trays)
+    for t in trays:
+        if t == start_tray or str(t) == str(start_tray):
+            return [t] + [other for other in trays if other != t]
+    raise ValueError(f"start_tray={start_tray!r} not in available trays {trays}")
+
+
 def _assign_trays_if_missing(queue: PlateQueue, available_trays: list[str] | list[int]) -> PlateQueue:
     """Assign trays to plates that don't have one."""
     plates_needing_tray = [p for p in queue.plates.values() if p.tray is None]
@@ -208,9 +225,11 @@ class _PlateValidatorWellConfig:
         sampler: Sampler,
         plate_layout: PlateLayout,
         qc_layout: QCLayoutWell,
+        start_tray: str | int | None = None,
     ) -> None:
         self.pool = _PositionPoolWell(sampler, plate_layout, qc_layout)
         self.plate_layout = plate_layout
+        self._start_tray = start_tray
 
     @property
     def qc_layout(self) -> QCLayoutWell:
@@ -229,7 +248,8 @@ class _PlateValidatorWellConfig:
 
     def assign(self, queue: PlateQueue, *, one_container_per_tray: bool = False) -> PlateQueue:  # noqa: ARG002
         """Assign trays to plates, validate no QC conflicts, populate row/col."""
-        queue = _assign_trays_if_missing(queue, self.pool.trays)
+        trays = _trays_with_start_first(self.pool.trays, self._start_tray)
+        queue = _assign_trays_if_missing(queue, trays)
         self._check_collisions(queue)
         # B-Fabric provides grid_position="A1" but row="" and col=0.
         # Split alpha grid_position into row and col components for format_table().
@@ -256,9 +276,11 @@ class _PlateValidatorTipConfig:
         sampler: Sampler,
         plate_layout: PlateLayout,
         qc_layout: QCLayoutTip,
+        start_tray: str | int | None = None,
     ) -> None:
         self.pool = _PositionPoolTip(sampler, plate_layout, qc_layout)
         self.plate_layout = plate_layout
+        self._start_tray = start_tray
 
     @property
     def qc_layout(self) -> QCLayoutTip:
@@ -266,7 +288,8 @@ class _PlateValidatorTipConfig:
 
     def assign(self, queue: PlateQueue, *, one_container_per_tray: bool = False) -> PlateQueue:  # noqa: ARG002
         """Assign trays to plates and populate row/col from alpha grid_position."""
-        queue = _assign_trays_if_missing(queue, self.pool.trays)
+        trays = _trays_with_start_first(self.pool.trays, self._start_tray)
+        queue = _assign_trays_if_missing(queue, trays)
         # B-Fabric provides grid_position="D8" but row="" and col=0.
         # Split alpha grid_position into row and col components for format_table().
         split_cells = []
@@ -416,7 +439,9 @@ def create_assembled_sampler(
         plate_layout_name: Plate layout name (e.g., "Vanquish_54")
         qc_layout_name: QC layout name (e.g., "standard", "evosep_qc")
         start_position: Alpha grid position to start from on start tray (vial mode only)
-        start_tray: Tray to start from (vial mode only). None = first tray.
+        start_tray: Tray to start from. None = first tray. In vial mode it controls
+            where vial assignment begins; in plate mode it relocates the user's plate
+            to the chosen tray (used to escape QC-layout collisions on the default tray).
 
     Returns:
         One of 4 AssembledSampler classes based on layout_mode + sampler type
@@ -442,9 +467,9 @@ def create_assembled_sampler(
     is_tip = sampler.is_tip
     if layout_mode == LayoutMode.PLATE:
         if is_tip:
-            return _PlateValidatorTipConfig(sampler, plate_layout, qc_layout)
+            return _PlateValidatorTipConfig(sampler, plate_layout, qc_layout, start_tray)
         else:
-            return _PlateValidatorWellConfig(sampler, plate_layout, qc_layout)
+            return _PlateValidatorWellConfig(sampler, plate_layout, qc_layout, start_tray)
     else:  # vial
         if is_tip:
             return _VialPlateAssignerTipConfig(sampler, plate_layout, qc_layout, start_position, start_tray)
