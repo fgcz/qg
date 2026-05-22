@@ -6,6 +6,7 @@ from pathlib import Path
 import marimo
 from bfabric.experimental.webapp_integration_settings import WebappIntegrationSettings
 from bfabric_asgi_auth import BfabricAuthMiddleware, HTMLRenderer, create_bfabric_validator
+from bfabric_asgi_auth.user import BfabricUser
 from fastapi import FastAPI
 from loguru import logger
 from pydantic import Field, SecretStr
@@ -26,10 +27,18 @@ class AppConfig(WebappIntegrationSettings, BaseSettings):
 
 
 class _InjectMetaMiddleware:
-    """Pure ASGI middleware that injects app_config into scope["meta"].
+    """Pure ASGI middleware that injects app_config (and a serializable copy of
+    the authenticated B-Fabric session) into scope["meta"].
 
-    Uses raw ASGI interface instead of BaseHTTPMiddleware to ensure
-    scope mutations are visible to downstream apps (e.g. marimo).
+    Uses raw ASGI interface instead of BaseHTTPMiddleware to ensure scope
+    mutations are visible to downstream apps (e.g. marimo).
+
+    Marimo >= 0.23.4 coerces scope["user"] into a {username, is_authenticated,
+    display_name} dict before exposing it via ``mo.app_meta().request.user``
+    (PR #9406, for msgspec IPC). That strips the BfabricUser methods we need,
+    so we stash the underlying SessionData as a plain dict in
+    ``scope["meta"]["bfabric_session_data"]``; ``resolve_app_session`` rebuilds
+    a BfabricUser from it.
     """
 
     def __init__(self, app, app_config: AppConfig) -> None:
@@ -38,7 +47,11 @@ class _InjectMetaMiddleware:
 
     async def __call__(self, scope, receive, send):
         if scope["type"] in ("http", "websocket"):
-            scope.setdefault("meta", {})["app_config"] = self.app_config
+            meta = scope.setdefault("meta", {})
+            meta["app_config"] = self.app_config
+            user = scope.get("user")
+            if isinstance(user, BfabricUser):
+                meta["bfabric_session_data"] = user._session_data.model_dump()
         await self.app(scope, receive, send)
 
 

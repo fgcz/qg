@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 import polars as pl
 from bfabric import Bfabric, BfabricClientConfig
 from bfabric.config.config_data import ConfigData
+from bfabric_asgi_auth.session_data import SessionData
 from bfabric_asgi_auth.user import BfabricUser
 from bfabric_rest_proxy.feeder_operations.create_workunit import (
     CreateWorkunitParams,
@@ -260,8 +261,13 @@ def resolve_app_session(request: Any, *, allow_unauthenticated: bool) -> AppSess
     Raises SessionError with a user-facing message if the app should refuse to render.
     """
     # `marimo run` injects a starlette SimpleUser with is_authenticated=True but no B-Fabric data;
-    # only a real BfabricUser counts as authenticated here.
-    user = getattr(request, "user", None)
+    # only a real BfabricUser counts as authenticated here. Marimo >= 0.23.4 strips
+    # scope["user"] down to a {username, is_authenticated, display_name} dict before reaching
+    # the cell, so we recover the BfabricUser from the session-data dict that
+    # ``_InjectMetaMiddleware`` stashes in ``scope["meta"]``.
+    meta = getattr(request, "meta", None) or {}
+    session_dict = meta.get("bfabric_session_data") if isinstance(meta, dict) else None
+    user = BfabricUser(SessionData(**session_dict)) if session_dict else None
     if isinstance(user, BfabricUser) and user.is_authenticated:
         client = user.get_bfabric_client()
         feeder_client = make_feeder_client(request.meta["app_config"], user.instance)
