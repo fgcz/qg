@@ -1,6 +1,6 @@
 [project]
 name = "qg"
-version = "0.5.0"
+version = "0.5.1"
 description = "Queue generation system for mass spectrometry instruments. Generates sample queues with QC injections for XCalibur, Chronos, and Hystar, with B-Fabric LIMS integration for sample loading and workunit upload."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -13,7 +13,7 @@ dependencies = [
     "fastapi>=0.128.0",
     "ipython>=9.9.0",
     "loguru>=0.7.0",
-    "marimo>=0.18.4",
+    "marimo>=0.23.7",
     "pandas>=2.3.3",
     "polars",
     "pyarrow>=22.0.0",

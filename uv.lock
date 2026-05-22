@@ -647,7 +647,7 @@ wheels = [
 
 [[package]]
 name = "marimo"
-version = "0.23.1"
+version = "0.23.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -662,6 +662,7 @@ dependencies = [
     { name = "psutil" },
     { name = "pygments" },
     { name = "pymdown-extensions" },
+    { name = "python-multipart" },
     { name = "pyyaml" },
     { name = "pyzmq", marker = "python_full_version < '3.15'" },
     { name = "starlette" },
@@ -669,9 +670,9 @@ dependencies = [
     { name = "uvicorn" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d5/95/b7bb0fd8f00fc7b567a46eb6230492d0c0f53a622bd3c16fa142b54eef81/marimo-0.23.1.tar.gz", hash = "sha256:c1c1ed859cfac45f4bb54fe882fc6941ac22b3b4b7a4505285e6139e0321f886", size = 38270839, upload-time = "2026-04-10T23:14:04.103Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ba/a2/0a342245ebaf20a11217743783fcf7ddf7a9b8791fce19f306bdd4855661/marimo-0.23.7.tar.gz", hash = "sha256:93b05340f5c1a4beccaf1ce16d8cd96e8a663f5748339388454cbe78737b0db6", size = 38505806, upload-time = "2026-05-21T21:54:08.789Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/db/b4/53ca91d287b52ae1806ce947659a4357472cd4ab1f54ae5638cff8cc8a25/marimo-0.23.1-py3-none-any.whl", hash = "sha256:fb2546fdd669fcba5cf3b1aaaa8fd84196c292935bc2dce457cf8077ae2e8608", size = 38696007, upload-time = "2026-04-10T23:14:00.126Z" },
+    { url = "https://files.pythonhosted.org/packages/24/fc/f1379d5ce672c0a7c981ca55abab84baa56ccdae9d11651dbacafae002cc/marimo-0.23.7-py3-none-any.whl", hash = "sha256:897ff45bbc0b57edde1faeaaf32ed96d423dbcafeaca3d45abca887ba0110073", size = 38939884, upload-time = "2026-05-21T21:54:04.702Z" },
 ]
 
 [[package]]
@@ -1225,6 +1226,15 @@ wheels = [
 ]
 
 [[package]]
+name = "python-multipart"
+version = "0.0.29"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4e/fe/70bd71a6738b09a0bdf6480ca6436b167469ca4578b2a0efbe390b4b0e70/python_multipart-0.0.29.tar.gz", hash = "sha256:643e93849196645e2dbdd81a0f8829a23123ad7f797a84a364c6fb3563f18904", size = 45678, upload-time = "2026-05-17T17:29:47.654Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8f/cb/769cfc37177252872a45a71f3fbdde9d51b471a3f3c14bfe95dde3407386/python_multipart-0.0.29-py3-none-any.whl", hash = "sha256:2ddcc971cef266225f54f552d8fa10bcfbb1f14446caec199060daac59ff2d69", size = 29640, upload-time = "2026-05-17T17:29:45.69Z" },
+]
+
+[[package]]
 name = "pytz"
 version = "2026.1.post1"
 source = { registry = "https://pypi.org/simple" }
@@ -1292,7 +1302,7 @@ wheels = [
 
 [[package]]
 name = "qg"
-version = "0.5.0"
+version = "0.5.1"
 source = { editable = "." }
 dependencies = [
     { name = "altair" },
@@ -1336,7 +1346,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.128.0" },
     { name = "ipython", specifier = ">=9.9.0" },
     { name = "loguru", specifier = ">=0.7.0" },
-    { name = "marimo", specifier = ">=0.18.4" },
+    { name = "marimo", specifier = ">=0.23.7" },
     { name = "pandas", specifier = ">=2.3.3" },
     { name = "polars" },
     { name = "pyarrow", specifier = ">=22.0.0" },

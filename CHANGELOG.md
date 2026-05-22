@@ -6,8 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-05-22
+
 ### Added
 - **Start tray** dropdown now appears in plate mode (previously vial-only). In plate mode the chosen tray relocates the user's plate so a QC-layout collision on the default tray can be resolved from the GUI by picking a different tray.
+
+### Changed
+- Marimo bumped to `>=0.23.7`. Fixes `Invalid session id` errors in production caused by marimo's session cookie missing a `Path` attribute (marimo PR #9364), which made the two co-hosted apps (`queue-gen` and `queue-gen-editor`) clobber each other's session cookies under the same host.
 
 ## [0.5.0] - 2026-05-21
 
