@@ -136,8 +136,21 @@ class OutputFormatsConfig(BaseModel):
         return self.formats[format_id]
 
     def to_dict(self) -> dict:
-        """Convert to dict for TOML serialization."""
-        return {name: fmt.model_dump(exclude_none=True) for name, fmt in self.formats.items()}
+        """Convert to dict for TOML serialization.
+
+        Re-nests `columns_by_tech` back under `columns` so the on-disk shape
+        matches `from_dict`'s expectations (`[<format>.columns.<TechArea>]`
+        sub-tables). Without this the editor round-trip drops per-tech
+        overrides on save.
+        """
+        out: dict = {}
+        for name, fmt in self.formats.items():
+            data = fmt.model_dump(exclude_none=True)
+            per_tech = data.pop("columns_by_tech", None) or {}
+            if per_tech:
+                data["columns"] = {**data.get("columns", {}), **per_tech}
+            out[name] = data
+        return out
 
     @classmethod
     def from_dict(cls, data: dict) -> Self:

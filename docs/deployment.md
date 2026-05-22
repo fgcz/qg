@@ -30,12 +30,11 @@ GitLab CI cross-builds a `linux/arm64` OCI archive and writes it to:
 
 ### 2. Bump and deploy via web-apps
 
-Update the pinned image version in `portal/queue-gen/docker-compose.prod.yml` and `portal/qg-editor/docker-compose.prod.yml` in the [web-apps repo](https://gitlab.bfabric.org/proteomics/web-apps) and commit so the deployed configuration stays recoverable. Then on `fgcz-r-039`:
+Update the pinned `IMAGE_TAG` in `portal/queue-gen/.env` in the [web-apps repo](https://gitlab.bfabric.org/proteomics/web-apps) (both `queue-gen` and `queue-gen-editor` services share that compose file) and commit so the deployed configuration stays recoverable. Then on `fgcz-r-039`:
 
 ```bash
 ssh bfabric@localhost
 cd ~/web-apps/portal/queue-gen && git pull && make deploy
-cd ~/web-apps/portal/qg-editor && make deploy
 ```
 
 ### Config editor secrets
