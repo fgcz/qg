@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **End-of-queue marker**: the last file of each container subqueue gets an `_eoq` suffix (so downstream QC can detect end-of-queue from filenames). Toggle via `mark_end_of_queue`, default on.
+
 ## [0.5.3] - 2026-05-22
 
 Consolidated re-release of the 0.5.x line; 0.5.0–0.5.2 were never properly deployed.
