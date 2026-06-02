@@ -22,6 +22,11 @@ from qg.queue_structure import SlotEntry, build_multi_container_queue_structure
 from qg.randomize import randomize_plate_queue
 from qg.utils import LayoutMode
 
+# Suffix appended to the basename of the last file of each container subqueue
+# when mark_end_of_queue is enabled. The instrument turns "..._eoq" into
+# "..._eoq.raw" / "..._eoq.d", giving downstream QC an end-of-queue signal.
+EOQ_SUFFIX = "_eoq"
+
 
 class QueueRow(BaseModel):
     """A single row in the generated queue.
@@ -167,6 +172,7 @@ def _format_file_names(
     slots: list[ExpandedSlot],
     date: str,
     level_concentrations: dict[int, str] | None = None,
+    mark_eoq: bool = True,
 ) -> list[ExpandedSlot]:
     """Format file_name for each slot.
 
@@ -174,6 +180,11 @@ def _format_file_names(
     single underscore so that an empty placeholder (e.g. ``{concentration}``
     on a level that has no concentration assigned yet) does not surface as
     ``..__..`` in the filename.
+
+    When ``mark_eoq`` is set, the last file of each container subqueue gets an
+    ``EOQ_SUFFIX`` appended. The marker is keyed on ``SlotInfo.idx`` (not
+    ``run_number``, which is assigned per polarity) so that both polarities of
+    the final injection are marked.
     """
     level_concentrations = level_concentrations or {}
     for slot in slots:
@@ -192,6 +203,15 @@ def _format_file_names(
             concentration=level_concentrations.get(level, "") if level is not None else "",
         )
         slot.file_name = re.sub(r"_+", "_", rendered).strip("_")
+
+    if mark_eoq:
+        last_idx: dict[int, int] = {}
+        for s in slots:
+            cid = s.slot.container_id
+            last_idx[cid] = max(last_idx.get(cid, -1), s.slot.idx)
+        for s in slots:
+            if s.slot.idx == last_idx[s.slot.container_id]:
+                s.file_name += EOQ_SUFFIX
     return slots
 
 
@@ -434,7 +454,7 @@ class QueueGenerator:
         )
 
         # Format file names
-        expanded = _format_file_names(expanded, params.date, params.level_concentrations)
+        expanded = _format_file_names(expanded, params.date, params.level_concentrations, params.mark_end_of_queue)
 
         # Build queue rows
         result = _build_queue_rows(

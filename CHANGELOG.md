@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - **Start tray** dropdown now appears in plate mode (previously vial-only). In plate mode the chosen tray relocates the user's plate so a QC-layout collision on the default tray can be resolved from the GUI by picking a different tray.
+- **End-of-queue marker**: the last file of each container subqueue gets an `_eoq` suffix (so downstream QC can detect end-of-queue from filenames). Toggle via `mark_end_of_queue`, default on.
 
 ## [0.5.0] - 2026-05-21
 

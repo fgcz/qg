@@ -16,6 +16,8 @@ from qg.params_models import (
     VialSample,
 )
 
+from .helpers import make_queue_input
+
 CONFIG_DIR = Path(__file__).parent.parent / "qg_configs"
 
 # Test-only patterns constructed directly (not parsed from config)
@@ -1186,3 +1188,64 @@ class TestQueueInputRoundTrip:
         assert restored.queue.cells[0].col == 8
         assert restored.queue.cells[0].sample.sample_name == "S1"
         assert restored.queue.plates[1].tray == "Y"
+
+
+class TestEndOfQueueMarker:
+    """`mark_end_of_queue` appends `_eoq` to the last file of each container subqueue."""
+
+    def test_single_container_marks_only_last_file(self, config):
+        """Exactly one file is marked, and it is the last (max run_number) injection."""
+        qi = make_queue_input(num_samples=5)  # Proteomics standard, container 12345
+        raw = QueueGenerator(config, qi).build_rows().to_table()
+
+        eoq = raw.filter(pl.col("file_name").str.ends_with("_eoq"))
+        assert eoq.height == 1
+        # The marked row is the last injection of the queue.
+        assert eoq["run_number"].item() == raw["run_number"].max()
+
+    def test_multi_container_marks_one_file_per_subqueue(self, config):
+        """Each container subqueue gets exactly one `_eoq`, at its last slot."""
+        qi = make_queue_input(groups=[(1, 3), (2, 4)])  # two containers
+        raw = QueueGenerator(config, qi).build_rows().to_table()
+
+        eoq = raw.filter(pl.col("file_name").str.ends_with("_eoq"))
+        assert sorted(eoq["container_id"].to_list()) == [1, 2]
+        # Within each container, the marked row is that container's last injection.
+        for cid in (1, 2):
+            container_rows = raw.filter(pl.col("container_id") == cid)
+            marked = container_rows.filter(pl.col("file_name").str.ends_with("_eoq"))
+            assert marked.height == 1
+            assert marked["run_number"].item() == container_rows["run_number"].max()
+
+    def test_marks_both_polarities_of_last_injection(self, config):
+        """Under polarity expansion both pos and neg of the final injection are marked."""
+        samples = make_vial_samples(3)
+        params = QueueParameters(
+            tech_area="Metabolomics",
+            instrument="EXPLORIS_3",
+            sampler="Vanquish",
+            output_format="xcalibur",
+            queue_pattern="noqc",
+            queue_type="Vial",
+            plate_layout="Vanquish_54",
+            qc_layout_name="noqc",
+            polarity=["pos", "neg"],
+            date="20260519",
+            user="test",
+        )
+        qi = make_vial_queue_input(params, samples)
+        raw = QueueGenerator(config, qi).build_rows().to_table()
+
+        eoq = raw.filter(pl.col("file_name").str.ends_with("_eoq"))
+        assert eoq.height == 2
+        assert set(eoq["polarity"].to_list()) == {"pos", "neg"}
+        # Both marked rows are the last user sample (highest sample_id).
+        assert set(eoq["sample_id"].to_list()) == {str(samples[-1].sample_id)}
+
+    def test_disabled_marks_nothing(self, config):
+        """With mark_end_of_queue=False no filename carries the marker."""
+        qi = make_queue_input(num_samples=5)
+        qi.parameters.mark_end_of_queue = False
+        raw = QueueGenerator(config, qi).build_rows().to_table()
+
+        assert not raw.filter(pl.col("file_name").str.ends_with("_eoq")).height

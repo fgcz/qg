@@ -101,6 +101,10 @@ class QueueParameters(BaseModel):
     # selected layout has no standard samples.
     # JSON keys are emitted as strings; pydantic re-coerces back to int on load.
     level_concentrations: dict[int, str] = Field(default_factory=dict)
+    # Append "_eoq" to the last file of each container subqueue so a downstream
+    # QC application watching the storage directory can detect end-of-queue
+    # from filenames alone (the instrument turns "..._eoq" into "..._eoq.raw").
+    mark_end_of_queue: bool = True
 
     @classmethod
     def create(
@@ -127,6 +131,7 @@ class QueueParameters(BaseModel):
         start_tray: str | int = "",
         bfabric_instance: str | None = None,
         level_concentrations: dict[int, str] | None = None,
+        mark_end_of_queue: bool = True,
     ) -> Self:
         """Create validated QueueParameters.
 
@@ -169,6 +174,7 @@ class QueueParameters(BaseModel):
             start_tray=start_tray,
             bfabric_instance=bfabric_instance,
             level_concentrations=level_concentrations or {},
+            mark_end_of_queue=mark_end_of_queue,
         )
 
 
