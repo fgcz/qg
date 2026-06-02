@@ -103,6 +103,29 @@ class TestFormattingConfigs:
         # Other technologies fall through to the base.
         assert fmt.columns_for("Proteomics") == fmt.columns
 
+    def test_output_formats_dict_roundtrip_preserves_per_tech_overlay(self):
+        """to_dict -> from_dict must preserve `columns.<TechArea>` overlays.
+
+        Regression: the config editor displays `tomli_w.dumps(cfg.to_dict())`
+        and re-parses on save. A previous to_dict emitted `columns_by_tech` as
+        a sibling of `columns`, which from_dict ignores -- so saving via the
+        editor silently dropped every per-tech overlay.
+        """
+        from qg.config_models.formatting import OutputFormatsConfig
+
+        path = CONFIG_ROOT / "core" / "formatting" / "output_formats.toml"
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+
+        loaded = OutputFormatsConfig.from_dict(data)
+        roundtripped = OutputFormatsConfig.from_dict(loaded.to_dict())
+
+        original = loaded.get_format("xcalibur_sii")
+        again = roundtripped.get_format("xcalibur_sii")
+        assert again.columns == original.columns
+        assert again.columns_by_tech == original.columns_by_tech
+        assert again.columns_for("Metabolomics") == original.columns_for("Metabolomics")
+
 
 # =============================================================================
 # Test structure configs

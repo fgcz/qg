@@ -1,48 +1,41 @@
 # Deployment
 
-Reference for the queue-gen deployments on `fgcz-r-039`. Both run as the `bfabric` user. The README has the short version; this file fills in the details.
+Both queue-gen apps (queue app + config editor) run as the `bfabric` user on `fgcz-r-039`, served by uvicorn from a single Docker image. Deployment is managed via the [web-apps repo](https://gitlab.bfabric.org/proteomics/web-apps) checked out at `~/webapps` on the host.
 
-> **Security:** never set `QG_ALLOW_UNAUTHENTICATED=1` on a deployment host (in `.env`, the environment, or anywhere else) — it disables authentication and runs every request as an employee.
+> **Security:** never set `QG_ALLOW_UNAUTHENTICATED=1` on a deployment host — it disables auth and runs every request as an employee.
 
-## Architecture
+## Update to a new version (common case)
 
-Both apps are served by uvicorn (FastAPI + B-Fabric auth + marimo ASGI) and run continuously — when a user lands on the app from B-Fabric, they hit an already-running server. Code and configs (`qg_configs/`) are baked into the Docker image, so picking up config changes merged on GitLab requires a rebuild.
+1. Tag the release on `main` via the [Tags page](https://gitlab.bfabric.org/metabolomics/queue-gen/-/tags) (or locally: `git tag … && git push --tags`). GitLab CI builds the OCI image automatically. **Do not force-push tags.**
+2. In the [web-apps repo](https://gitlab.bfabric.org/proteomics/web-apps), bump `IMAGE_TAG` in `portal/queue-gen/.env` and commit. Both `queue-gen` and `queue-gen-editor` services share this file.
+3. Deploy on the host:
 
-| Deployment | Source | Image build | Working directory |
-|------------|--------|-------------|-------------------|
-| Production | Tagged release on `main` | GitLab CI | `~/web-apps/portal/queue-gen` (managed by the [web-apps repo](https://gitlab.bfabric.org/proteomics/web-apps)) |
+   ```bash
+   ssh -J fgcz-r-039 bfabric@localhost
+   cd ~/webapps/portal/queue-gen && git pull && make deploy
+   ```
 
-Both apps share a single image (the Dockerfile entrypoint is the queue app; the editor deployment overrides the entrypoint to `qg.apps.bfabric_app_editor:app`). Production deployment is managed via the `web-apps/portal/` repo for both.
+That's it. Versions in `pyproject.toml`/`CHANGELOG.md` should already match the tag (see [Release Process](../CLAUDE.md#release-process)).
 
-## Production
+To roll back, set `IMAGE_TAG` back to the previous version in `.env` and run `make deploy` again.
 
-Releases are two stages: tag → GitLab CI builds the image; then bump the pinned version in `web-apps` and redeploy.
+## Reference
 
-### 1. Build the OCI image
+### Image build
 
-Create a Git tag on `main` matching the version already bumped in `pyproject.toml`/`CHANGELOG.md` (see [Release Process](../CLAUDE.md#release-process)). The tag can be created locally (`git tag … && git push --tags`) or directly in the GitLab UI under *Repository → Tags → New tag*. **Do not force-push tags.**
-
-GitLab CI cross-builds a `linux/arm64` OCI archive and writes it to:
+GitLab CI cross-builds a `linux/arm64` OCI archive on every tag and writes it to:
 
 ```
 /misc/container/gitlab/metabolomics/queue_gen/queue_gen-<tag>.oci.tar
 ```
 
-### 2. Bump and deploy via web-apps
-
-Update the pinned image version in `portal/queue-gen/docker-compose.prod.yml` and `portal/qg-editor/docker-compose.prod.yml` in the [web-apps repo](https://gitlab.bfabric.org/proteomics/web-apps) and commit so the deployed configuration stays recoverable. Then on `fgcz-r-039`:
-
-```bash
-ssh bfabric@localhost
-cd ~/web-apps/portal/queue-gen && git pull && make deploy
-cd ~/web-apps/portal/qg-editor && make deploy
-```
+Both apps share this image; the editor deployment overrides the entrypoint to `qg.apps.bfabric_app_editor:app`.
 
 ### Config editor secrets
 
-The editor needs a GitLab Project Access Token to open MRs. It is the `qg-config-bot` project access token on `gitlab.bfabric.org/metabolomics/queue-gen` (role: Developer, scope: `api`). MRs are opened by that bot user; the requesting employee's login is recorded in the commit message and MR description.
+The editor opens MRs as the `qg-config-bot` project access token on `gitlab.bfabric.org/metabolomics/queue-gen` (role: Developer, scope: `api`). The requesting employee's login is recorded in the commit message and MR description.
 
-The token and the GitLab URL/project live in `portal/config/webapp.secrets.env` on the deploy host (shared with other portal apps, gitignored, `chmod 600`):
+Token + GitLab URL/project live in `~/webapps/portal/config/webapp.secrets.env` (shared with other portal apps, gitignored, `chmod 600`):
 
 ```
 QG_GITLAB_TOKEN=glpat-...
@@ -50,19 +43,19 @@ QG_GITLAB_URL=https://gitlab.bfabric.org
 QG_GITLAB_PROJECT=metabolomics/queue-gen
 ```
 
-When all three are set, `qg.gitlab.settings.load_gitlab_settings()` skips the file lookup entirely. Token rotation is `chmod 600` edit + `make deploy` — no image rebuild needed.
+Token rotation: edit the file, `make deploy`. No image rebuild needed.
 
-## Cache refresh
+### Cache refresh
 
-`qg-refresh-cache` refreshes the per-instance container caches in one shot, using the deployed app's `feeder_user_credentials` (loaded from the same `.env` / environment as the running app). It replaces the previous workflow of swapping `~/.bfabricpy.yml` and re-running `qg-find-projects` per instance.
+`qg-refresh-cache` refreshes per-instance container caches using the deployed app's `feeder_user_credentials` (from the same `.env` as the running app).
 
 ```bash
-qg-refresh-cache                                    # lists available instances, exits non-zero
-qg-refresh-cache --all                              # refresh every configured instance
-qg-refresh-cache https://fgcz-bfabric.uzh.ch/bfabric  # explicit URL(s)
-qg-refresh-cache --all --check-plates               # also probe plate endpoint (slow)
+qg-refresh-cache                                       # list instances, exit non-zero
+qg-refresh-cache --all                                 # refresh all configured instances
+qg-refresh-cache https://fgcz-bfabric.uzh.ch/bfabric   # explicit URL(s)
+qg-refresh-cache --all --check-plates                  # also probe plate endpoint (slow)
 ```
 
-Per-instance failures are isolated (logged with traceback, other instances continue). The command exits non-zero if any instance failed. Outputs go to the same per-instance subdirectories as `qg-find-projects` (`<root>/<instance-host>/bfabric_container*.csv`), honoring `$QG_CACHE_DIR`.
+Per-instance failures are isolated (logged, other instances continue); exits non-zero if any failed. Outputs go to `<root>/<instance-host>/bfabric_container*.csv`, honoring `$QG_CACHE_DIR`.
 
-`qg-find-projects` remains available for the developer workflow against a single instance via a local `bfabricpy.yml`.
+`qg-find-projects` remains for the developer workflow against a single instance via a local `bfabricpy.yml`.

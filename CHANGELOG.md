@@ -7,19 +7,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
-- **Start tray** dropdown now appears in plate mode (previously vial-only). In plate mode the chosen tray relocates the user's plate so a QC-layout collision on the default tray can be resolved from the GUI by picking a different tray.
 - **End-of-queue marker**: the last file of each container subqueue gets an `_eoq` suffix (so downstream QC can detect end-of-queue from filenames). Toggle via `mark_end_of_queue`, default on.
 
-## [0.5.0] - 2026-05-21
+## [0.5.3] - 2026-05-22
 
-Proper deployment of config editor.
+Consolidated re-release of the 0.5.x line; 0.5.0–0.5.2 were never properly deployed.
 
 ### Added
-- `QG_GITLAB_URL` and `QG_GITLAB_PROJECT` env vars override or supply the corresponding settings, allowing the config editor to run without a `.qg_settings.toml` file.
+- `QG_GITLAB_URL` / `QG_GITLAB_PROJECT` env vars supply the config editor's GitLab settings, so no `.qg_settings.toml` is required.
+- **Start tray** dropdown also available in plate mode, so QC-layout collisions on the default tray can be resolved from the GUI.
 
 ### Changed
-- Config editor now requires an authenticated FGCZ employee; non-employees are refused.
-- GitLab MR submissions use the authenticated employee's B-Fabric login as the author; the free-text author input has been removed.
+- Config editor refuses non-employees; MRs are attributed to the requesting employee's B-Fabric login (the free-text author input is gone).
+- Marimo bumped to `>=0.23.7` to fix `Invalid session id` errors (marimo PR #9364).
+
+### Fixed
+- Authenticated B-Fabric users are no longer rejected with "Authentication required" — workaround for marimo 0.23.4 coercing `scope["user"]` into a plain dict before cells see it.
+- Config editor no longer rejects authenticated users: its session cookie path now matches the `/queue-gen-editor` deployment prefix (was scoped to `/qg-editor`, so the browser never sent it back).
+- Config editor no longer drops per-technology overlays (e.g. `[xcalibur_sii.columns.Metabolomics]`) when saving `output_formats.toml`. `OutputFormatsConfig.to_dict` now re-nests `columns_by_tech` under `columns`, matching the on-disk shape that `from_dict` expects.
+
+## [0.5.2] - 2026-05-22 [YANKED]
+
+Never deployed — tag was placed on the `0.5.1` commit by mistake (`pyproject.toml` at the tag still reads `0.5.1`). Superseded by `0.5.3`.
+
+## [0.5.1] - 2026-05-22 [YANKED]
+
+Never properly deployed — shipped a broken authentication flow (marimo 0.23.4 `scope["user"]` coercion). Superseded by `0.5.3`.
+
+## [0.5.0] - 2026-05-21 [YANKED]
+
+Never properly deployed. Superseded by `0.5.3`.
 
 ## [0.4.4] - 2026-05-21
 
