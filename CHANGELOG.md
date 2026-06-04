@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-06-04
+
 ### Fixed
 - `Sample Type` column now emits Xcalibur-accepted values (`Unknown`/`Blank`/`QC`/`Std Bracket`) instead of lowercase internal names, so Metabolomics sequences import without sample-type errors.
 - Queue app: the Vial/Plate dropdown is now labelled "Queue Type" (was mislabelled "Sample Type").
