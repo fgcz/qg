@@ -9,7 +9,7 @@ from typing import ClassVar, Literal, Self
 import polars as pl
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-SampleType = Literal["unknown", "blank", "qc", "standard"]
+SampleType = Literal["Unknown", "Blank", "QC", "Std Bracket"]
 
 
 class QueuePattern(BaseModel):
@@ -169,12 +169,15 @@ class Sample(BaseModel):
     sample_id: str = Field(..., min_length=1, description="Unique sample ID within tech_area")
     sample_name: str = Field(default="", description="Display name (empty for 'default')")
     sample_type: SampleType = Field(
-        default="unknown",
-        description="Category for downstream analysis: unknown (user sample), blank, qc, or standard.",
+        default="Unknown",
+        description=(
+            "Sample category for the output 'Sample Type' column, using Xcalibur-accepted "
+            "values: Unknown (user sample), Blank, QC, or Std Bracket."
+        ),
     )
     level: int | None = Field(
         default=None,
-        description="Calibration level index for `standard`-type samples; None for everything else.",
+        description="Calibration level index for `Std Bracket`-type samples; None for everything else.",
     )
     description: str = Field(default="", description="Human-readable description")
     inj_vol: float = Field(..., gt=0, description="Injection volume in uL")
@@ -189,9 +192,9 @@ class Sample(BaseModel):
     @field_validator("sample_type", mode="before")
     @classmethod
     def default_sample_type_when_blank(cls, v):
-        """Treat empty / null CSV cells as the default 'unknown'."""
+        """Treat empty / null CSV cells as the default 'Unknown'."""
         if v is None or v == "":
-            return "unknown"
+            return "Unknown"
         return v
 
     @field_validator("file_name_template")
