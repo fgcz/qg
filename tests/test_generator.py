@@ -373,7 +373,7 @@ class TestMetabolomicsCalSeries:
         cal_rows = df.filter(pl.col("Sample Name") == "cal")
         # 7 cal samples at the start + 7 at the end = 14
         assert len(cal_rows) == 14
-        assert set(cal_rows["Sample Type"].unique().to_list()) == {"standard"}
+        assert set(cal_rows["Sample Type"].unique().to_list()) == {"Std Bracket"}
         assert set(cal_rows["Level"].unique().to_list()) == {1, 2, 3, 4, 5, 6, 7}
         # No concentrations assigned. `_format_file_names` collapses runs of
         # consecutive underscores, so the empty `{concentration}` slot does
@@ -577,8 +577,8 @@ class TestXcaliburSiiTechSpecificColumns:
 
         assert "Sample Type" in df.columns
         assert "Level" in df.columns
-        # All slots here are user samples → sample_type = "unknown".
-        assert df["Sample Type"].to_list() == ["unknown", "unknown"]
+        # All slots here are user samples → sample_type = "Unknown".
+        assert df["Sample Type"].to_list() == ["Unknown", "Unknown"]
         assert df["Level"].to_list() == [None, None]
 
     def test_proteomics_xcalibur_sii_does_not_have_new_columns(self, config):

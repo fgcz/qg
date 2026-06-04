@@ -36,16 +36,17 @@ class QueueRow(BaseModel):
     * ``slot_kind`` (``Literal["user", "qc"]``) — position-builder role used
       during queue construction (whether this slot holds a user sample or a
       QC sample).
-    * ``sample_type`` (``Literal["unknown", "blank", "qc", "standard"]``) —
-      downstream-analysis category from ``samples.csv``. User-sample slots
-      are always ``"unknown"``; QC slots inherit their template's category.
+    * ``sample_type`` (``Literal["Unknown", "Blank", "QC", "Std Bracket"]``) —
+      sample category from ``samples.csv`` (the Xcalibur-accepted "Sample Type"
+      values). User-sample slots are always ``"Unknown"``; QC slots inherit
+      their template's category.
     """
 
     run_number: int
     slot_kind: Literal["user", "qc"]
     sample_id: str
     sample_name: str
-    sample_type: Literal["unknown", "blank", "qc", "standard"] = "unknown"
+    sample_type: Literal["Unknown", "Blank", "QC", "Std Bracket"] = "Unknown"
     level: int | None = None
     tray: str | int
     grid_position: str

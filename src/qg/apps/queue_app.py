@@ -207,8 +207,8 @@ def _(qc_layout_field, table_by_qc_layout):
 
 @app.cell
 def _(container_has_plates, container_has_vials, sampler_field, table_by_sampler):
-    # Sample Type dropdown: intersection of what the order has and what the sampler supports.
-    sample_type_warning = None
+    # Queue Type dropdown: intersection of what the order has and what the sampler supports.
+    queue_type_warning = None
     if sampler_field.value:
         _sampler_supports = set(table_by_sampler["queue_type"].unique().to_list())
         _order_has: set[str] = set()
@@ -222,7 +222,7 @@ def _(container_has_plates, container_has_vials, sampler_field, table_by_sampler
         _default = _options[0] if _options else None
 
         if _order_has and not _usable:
-            sample_type_warning = mo.callout(
+            queue_type_warning = mo.callout(
                 mo.md(f"Sampler **{sampler_field.value}** is incompatible with this order's samples."),
                 kind="warn",
             )
@@ -233,9 +233,9 @@ def _(container_has_plates, container_has_vials, sampler_field, table_by_sampler
     queue_type_field = mo.ui.dropdown(
         options=_options,
         value=_default,
-        label="Sample Type",
+        label="Queue Type",
     )
-    return queue_type_field, sample_type_warning
+    return queue_type_field, queue_type_warning
 
 
 @app.cell
@@ -363,7 +363,7 @@ def _(config, plate_layout_field, qc_layout_field, tech_area_field):
         _level_map: dict[int, str] = {}
         for _sid in _qc_sample_ids:
             _s = config.samples.get_sample(tech_area_field.value, _sid)
-            if _s.sample_type == "standard" and _s.level is not None:
+            if _s.sample_type == "Std Bracket" and _s.level is not None:
                 _level_map[_s.level] = _sid
 
         if _level_map:
@@ -751,8 +751,8 @@ def _(
     qc_layout_field,
     qc_layout_preview,
     queue_type_field,
+    queue_type_warning,
     randomization_field,
-    sample_type_warning,
     sampler_field,
     start_position_field,
     start_tray_field,
@@ -779,7 +779,7 @@ def _(
         instrument_field,
         sampler_field,
         queue_type_field,
-        *([] if sample_type_warning is None else [sample_type_warning]),
+        *([] if queue_type_warning is None else [queue_type_warning]),
         plate_layout_field,
         *(
             []

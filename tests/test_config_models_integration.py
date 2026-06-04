@@ -56,16 +56,16 @@ class TestFormattingConfigs:
         # Every default sample is `unknown` with no level.
         for tech in ("Proteomics", "Metabolomics", "Lipidomics", "Testing"):
             default = config.get_sample(tech, "default")
-            assert default.sample_type == "unknown"
+            assert default.sample_type == "Unknown"
             assert default.level is None
 
         # Spot-check categorisations
-        assert config.get_sample("Proteomics", "QC01").sample_type == "qc"
-        assert config.get_sample("Proteomics", "clean").sample_type == "blank"
-        assert config.get_sample("Metabolomics", "blank").sample_type == "blank"
-        assert config.get_sample("Metabolomics", "pooledQCDil1").sample_type == "qc"
-        assert config.get_sample("Lipidomics", "EquiSPLASH").sample_type == "qc"
-        assert config.get_sample("Testing", "clean").sample_type == "blank"
+        assert config.get_sample("Proteomics", "QC01").sample_type == "QC"
+        assert config.get_sample("Proteomics", "clean").sample_type == "Blank"
+        assert config.get_sample("Metabolomics", "blank").sample_type == "Blank"
+        assert config.get_sample("Metabolomics", "pooledQCDil1").sample_type == "QC"
+        assert config.get_sample("Lipidomics", "EquiSPLASH").sample_type == "QC"
+        assert config.get_sample("Testing", "clean").sample_type == "Blank"
 
     def test_load_output_formats(self):
         """Load output_formats.toml into OutputFormatsConfig."""
