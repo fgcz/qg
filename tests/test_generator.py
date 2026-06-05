@@ -217,6 +217,39 @@ class TestFormatTable:
         assert df["ID"].item() == "42"
 
 
+class TestToTableSchemaInference:
+    def test_grouping_var_first_set_after_100_rows(self):
+        """to_table() must not crash when a nullable column's first non-null
+        value appears after polars' default 100-row schema-inference window.
+
+        Regression: queues mixing >100 ungrouped rows (grouping_var=None) with
+        a later grouped row (grouping_var="Group 1") used to raise polars
+        ComputeError because the column was inferred as Null then could not
+        accept a str.
+        """
+        from qg.generator import QueueRow, QueueRowTable
+
+        def _row(n: int, grouping_var: str | None) -> QueueRow:
+            return QueueRow(
+                run_number=n,
+                slot_kind="user",
+                sample_id=str(n),
+                sample_name=f"s{n}",
+                tray="Y",
+                grid_position=f"A{n}",
+                grouping_var=grouping_var,
+            )
+
+        rows = [_row(n, None) for n in range(1, 121)] + [_row(121, "Group 1")]
+        table = QueueRowTable(rows=rows)
+
+        df = table.to_table()
+
+        assert df.height == 121
+        assert df.schema["grouping_var"] == pl.String
+        assert df["grouping_var"].to_list()[-1] == "Group 1"
+
+
 class TestOutputFormats:
     @pytest.mark.parametrize("output_format", ["xcalibur", "chronos", "hystar"])
     def test_output_format_has_columns(self, config, output_format: str):
