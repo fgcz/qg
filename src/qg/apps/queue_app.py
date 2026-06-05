@@ -30,6 +30,7 @@ with app.setup:
     from qg.generator import QueueGenerator, format_table, write_queue
     from qg.params_models import QueueParameters
     from qg.queue_builder import QueueBuilder
+    from qg.viz.plate import build_plate_figure, build_plate_wells
 
 
 @app.cell
@@ -1381,143 +1382,8 @@ def _(
 @app.cell
 def _(config, queue_parameters, raw_queue_df):
     # Show Plate tab content: read-only visualization of plate layout + queue positions.
-    def _build_plate_figure(wells, layout, orders):
-        import plotly.graph_objects as go
-        from plotly.subplots import make_subplots
-
-        # Color encodes sample category (fallback for any unexpected value).
-        colors = {
-            "Sample": "#4C78A8",
-            "QC": "#F58518",
-            "Std Bracket": "#54A24B",
-            "Blank": "#B279A2",
-            "Unknown": "#9D9D9D",
-        }
-        fallback = "#333333"
-        # Shape encodes the order: order 1 = circle, order 2 = square, ... so a
-        # single-order queue (all circles) matches the first order of a multi-order one.
-        symbol_pool = ["circle", "square", "triangle-up", "diamond", "star", "pentagon", "hexagon", "triangle-down"]
-        shared_symbol = "circle-open"  # wells reused across orders (e.g. shared QC positions)
-        multi_order = len(orders) > 1
-        order_symbol = {o: symbol_pool[i % len(symbol_pool)] for i, o in enumerate(orders)}
-        has_shared = multi_order and bool((wells["n_orders"] > 1).any())
-
-        def _symbols(container_ids, n_orders):
-            if not multi_order:
-                return "circle"
-            return [order_symbol[c] if n == 1 else shared_symbol for c, n in zip(container_ids, n_orders, strict=False)]
-
-        trays = sorted(wells["tray"].unique().to_list(), key=str)
-        cols = list(layout.cols)
-        rows = list(layout.rows)
-        grid_x = [c for _r in rows for c in cols]
-        grid_y = [_r for _r in rows for _c in cols]
-
-        # Size the figure to the grid so wells stay roughly square instead of being
-        # stretched across the full container width (one short, compact panel per tray).
-        n_trays, n_cols, n_rows = len(trays), len(cols), len(rows)
-        cell = 44
-        margin = {"l": 55, "r": 15, "t": 55, "b": 45}
-        legend_px = 160
-        fig_w = margin["l"] + n_trays * n_cols * cell + max(0, n_trays - 1) * 30 + margin["r"] + legend_px
-        fig_h = margin["t"] + n_rows * cell + margin["b"]
-        hspace = 30 / fig_w if n_trays > 1 else 0.0
-
-        fig = make_subplots(
-            rows=1,
-            cols=n_trays,
-            subplot_titles=[f"Tray {t}" for t in trays],
-            horizontal_spacing=hspace,
-        )
-        for i, tray in enumerate(trays, start=1):
-            # Faint empty grid behind the occupied wells.
-            fig.add_trace(
-                go.Scatter(
-                    x=grid_x,
-                    y=grid_y,
-                    mode="markers",
-                    marker={"size": 16, "color": "#EEEEEE", "line": {"color": "#CCCCCC", "width": 1}},
-                    hoverinfo="skip",
-                    showlegend=False,
-                ),
-                row=1,
-                col=i,
-            )
-            tray_wells = wells.filter(pl.col("tray").cast(pl.Utf8) == str(tray))
-            present = set(tray_wells["category"].unique().to_list())
-            for category in (c for c in colors if c in present):
-                cat_wells = tray_wells.filter(pl.col("category") == category)
-                fig.add_trace(
-                    go.Scatter(
-                        x=cat_wells["col"].to_list(),
-                        y=cat_wells["row"].to_list(),
-                        mode="markers",
-                        marker={
-                            "size": 20,
-                            "color": colors.get(category, fallback),
-                            "symbol": _symbols(cat_wells["container_id"].to_list(), cat_wells["n_orders"].to_list()),
-                        },
-                        showlegend=False,  # legends are provided by the dummy traces below
-                        text=cat_wells["hover"].to_list(),
-                        hovertemplate="%{text}<extra></extra>",
-                    ),
-                    row=1,
-                    col=i,
-                )
-            fig.update_xaxes(title_text="Column", tickmode="array", tickvals=cols, row=1, col=i)
-            fig.update_yaxes(title_text="Row", categoryorder="array", categoryarray=list(reversed(rows)), row=1, col=i)
-
-        # Sample-type legend (color), decoupled from the data traces so swatches stay clean.
-        for category in (c for c in colors if c in set(wells["category"].to_list())):
-            fig.add_trace(
-                go.Scatter(
-                    x=[None],
-                    y=[None],
-                    mode="markers",
-                    marker={"size": 12, "color": colors.get(category, fallback), "symbol": "circle"},
-                    name=category,
-                    legendgroup="category",
-                    legendgrouptitle_text="Sample type",
-                    showlegend=True,
-                ),
-                row=1,
-                col=1,
-            )
-        # Order legend (shape), only when more than one order is present.
-        if multi_order:
-            for order in orders:
-                fig.add_trace(
-                    go.Scatter(
-                        x=[None],
-                        y=[None],
-                        mode="markers",
-                        marker={"size": 12, "color": "#666666", "symbol": order_symbol[order]},
-                        name=f"Order {order}",
-                        legendgroup="order",
-                        legendgrouptitle_text="Order",
-                        showlegend=True,
-                    ),
-                    row=1,
-                    col=1,
-                )
-            if has_shared:
-                fig.add_trace(
-                    go.Scatter(
-                        x=[None],
-                        y=[None],
-                        mode="markers",
-                        marker={"size": 12, "color": "#666666", "symbol": shared_symbol},
-                        name="Shared",
-                        legendgroup="order",
-                        legendgrouptitle_text="Order",
-                        showlegend=True,
-                    ),
-                    row=1,
-                    col=1,
-                )
-        fig.update_layout(width=fig_w, height=fig_h, autosize=False, margin=margin)
-        return fig
-
+    # build_plate_wells/build_plate_figure come from the app.setup block (module globals),
+    # so they are referenced directly here, not declared as cell parameters.
     if raw_queue_df is None or raw_queue_df.is_empty():
         show_plate_content = mo.md("_Generate a queue to see the plate layout._")
     else:
@@ -1528,61 +1394,13 @@ def _(config, queue_parameters, raw_queue_df):
                 kind="info",
             )
         else:
-            # category: user slots are always sample_type="Unknown", so split on slot_kind first.
-            _wells = (
-                _geom.with_columns(
-                    pl.when(pl.col("slot_kind") == "user")
-                    .then(pl.lit("Sample"))
-                    .otherwise(pl.col("sample_type"))
-                    .alias("category")
-                )
-                .group_by(["tray", "row", "col"])
-                .agg(
-                    pl.col("category").first().alias("category"),
-                    pl.col("grid_position").first().alias("grid_position"),
-                    pl.col("sample_id").first().alias("sample_id"),
-                    pl.col("sample_name").first().alias("sample_name"),
-                    pl.col("inj_vol").first().alias("inj_vol"),
-                    pl.col("container_id").first().alias("container_id"),
-                    pl.col("container_id").n_unique().alias("n_orders"),
-                    pl.col("file_name").unique().alias("file_names"),
-                    pl.len().alias("n_inj"),
-                )
-                .with_columns(
-                    pl.when(pl.col("n_orders") == 1)
-                    .then(pl.col("container_id").cast(pl.Utf8))
-                    .otherwise(pl.lit("shared"))
-                    .alias("order_label")
-                )
-                .with_columns(
-                    (
-                        "Tray "
-                        + pl.col("tray").cast(pl.Utf8)
-                        + " "
-                        + pl.col("grid_position")
-                        + "<br>ID: "
-                        + pl.col("sample_id").cast(pl.Utf8)
-                        + "<br>Name: "
-                        + pl.col("sample_name")
-                        + "<br>Type: "
-                        + pl.col("category")
-                        + "<br>Order: "
-                        + pl.col("order_label")
-                        + "<br>Inj vol: "
-                        + pl.col("inj_vol").cast(pl.Utf8)
-                        + "<br>Injections: "
-                        + pl.col("n_inj").cast(pl.Utf8)
-                        + "<br>File:<br>"
-                        + pl.col("file_names").list.join("<br>")
-                    ).alias("hover")
-                )
-            )
+            _wells = build_plate_wells(_geom)
             _orders = sorted(_geom["container_id"].unique().to_list())
             _layout = config.plate_layouts.get_layout(queue_parameters.plate_layout)
             show_plate_content = mo.vstack(
                 [
                     mo.md("**Plate layout** — color = sample type, shape = order. Hover a well for details."),
-                    mo.ui.plotly(_build_plate_figure(_wells, _layout, _orders)),
+                    mo.ui.plotly(build_plate_figure(_wells, _layout, _orders)),
                 ]
             )
     return (show_plate_content,)
