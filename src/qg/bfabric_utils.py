@@ -77,7 +77,7 @@ class BfabricHelper:
 
         if not rows:
             return pl.DataFrame()
-        df = pl.DataFrame([r.model_dump() for r in rows])
+        df = pl.DataFrame([r.model_dump() for r in rows], infer_schema_length=None)
 
         if dump_dir is not None:
             dump_dir = Path(dump_dir)
@@ -298,7 +298,7 @@ def resolve_app_session(request: Any, *, allow_unauthenticated: bool) -> AppSess
             instance_slug=slug,
             base_url=client.config.base_url,
             banner_message=(
-                f"### Hi {client.auth.login}!\nConnected to **{slug}**" + (" _(employee)_" if employee else "")
+                f"**Hi {client.auth.login}!** Connected to **{slug}**" + (" _(employee)_" if employee else "")
             ),
         )
     if allow_unauthenticated:
@@ -315,7 +315,7 @@ def resolve_app_session(request: Any, *, allow_unauthenticated: bool) -> AppSess
             instance_slug=slug,
             base_url=client.config.base_url,
             banner_message=(
-                f"### Hi there!\nRunning unauthenticated as employee on **{slug}** (`QG_ALLOW_UNAUTHENTICATED=1`)."
+                f"**Hi there!** Running unauthenticated as employee on **{slug}** (`QG_ALLOW_UNAUTHENTICATED=1`)."
             ),
         )
     raise SessionError("Authentication required.")

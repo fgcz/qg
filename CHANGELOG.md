@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Queue app: **Show Plate** tab visualizing the plate layout and generated queue positions, colored by sample category and (for multi-order queues) shaped by order, with per-well hover details.
+
+### Changed
+- Queue app: session banner now renders on a single line and shares the top row with the Refresh Projects button, the redundant "Order Selection" heading is removed, and the order table shows 5 rows per page by default — saving vertical space at the top of the app.
+
+### Fixed
+- Queue app no longer crashes building queues where a grouping variable (or tray) first appears after the 100th row; polars now scans the full row set for schema inference.
+
 ## [0.5.5] - 2026-06-04
 
 ### Fixed

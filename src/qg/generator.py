@@ -68,7 +68,7 @@ class QueueRowTable(BaseModel):
     rows: list[QueueRow]
 
     def to_table(self) -> pl.DataFrame:
-        return pl.DataFrame([row.model_dump() for row in self.rows])
+        return pl.DataFrame([row.model_dump() for row in self.rows], infer_schema_length=None)
 
 
 @dataclass(slots=True)

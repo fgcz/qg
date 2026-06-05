@@ -26,3 +26,6 @@ deprecated/
 .coverage
 .qg_settings.toml
 docs/*docx
+
+# Editor
+.vscode/
