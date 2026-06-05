@@ -124,6 +124,16 @@ class TestBuildPlateFigure:
         assert grid_shape(3) == (2, 2)  # never more than 2 panels per row
         assert grid_shape(5) == (3, 2)
 
+    def test_cell_size_scales_figure(self):
+        df = _queue_df([_row(1, tray="A", row="A", col=1)])
+        wells = build_plate_wells(df)
+
+        small = build_plate_figure(wells, self._layout(), orders=[1], cell=16)
+        large = build_plate_figure(wells, self._layout(), orders=[1], cell=48)
+
+        assert small.layout.width < large.layout.width
+        assert small.layout.height < large.layout.height
+
     def test_single_order_uses_circles_no_order_legend(self):
         df = _queue_df([_row(1, tray="A", row="A", col=1)])
         wells = build_plate_wells(df)

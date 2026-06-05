@@ -98,7 +98,7 @@ def build_plate_wells(geom: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def build_plate_figure(wells: pl.DataFrame, layout: PlateLayout, orders: list[int]) -> go.Figure:
+def build_plate_figure(wells: pl.DataFrame, layout: PlateLayout, orders: list[int], cell: int = 30) -> go.Figure:
     """Render occupied wells onto the plate grid, one subplot per tray.
 
     Args:
@@ -106,6 +106,8 @@ def build_plate_figure(wells: pl.DataFrame, layout: PlateLayout, orders: list[in
         layout: Resolved plate layout providing the grid ``rows`` and ``cols``.
         orders: Sorted list of container ids present in the queue; their order
             determines the marker shape assigned to each.
+        cell: Pixels allotted to each well; sets the overall figure size and
+            scales the marker sizes. Smaller values produce a more compact plot.
 
     Returns:
         A plotly figure sized to the grid so wells stay roughly square.
@@ -133,7 +135,9 @@ def build_plate_figure(wells: pl.DataFrame, layout: PlateLayout, orders: list[in
     max_panels_per_row = 2
     grid_cols = min(n_trays, max_panels_per_row)
     grid_rows = math.ceil(n_trays / max_panels_per_row)
-    cell = 44
+    # Scale the markers with the cell size so wells stay proportional when resized.
+    data_marker = max(6, round(cell * 0.45))
+    grid_marker = max(4, round(cell * 0.36))
     margin = {"l": 55, "r": 15, "t": 55, "b": 45}
     legend_px = 160
     hgap_px = 60  # room for the right column's row-axis labels
@@ -159,7 +163,7 @@ def build_plate_figure(wells: pl.DataFrame, layout: PlateLayout, orders: list[in
                 x=grid_x,
                 y=grid_y,
                 mode="markers",
-                marker={"size": 16, "color": "#EEEEEE", "line": {"color": "#CCCCCC", "width": 1}},
+                marker={"size": grid_marker, "color": "#EEEEEE", "line": {"color": "#CCCCCC", "width": 1}},
                 hoverinfo="skip",
                 showlegend=False,
             ),
@@ -176,7 +180,7 @@ def build_plate_figure(wells: pl.DataFrame, layout: PlateLayout, orders: list[in
                     y=cat_wells["row"].to_list(),
                     mode="markers",
                     marker={
-                        "size": 20,
+                        "size": data_marker,
                         "color": _COLORS.get(category, _FALLBACK),
                         "symbol": _symbols(cat_wells["container_id"].to_list(), cat_wells["n_orders"].to_list()),
                     },

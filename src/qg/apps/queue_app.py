@@ -1380,7 +1380,14 @@ def _(
 
 
 @app.cell
-def _(config, queue_parameters, raw_queue_df):
+def _():
+    # Well size for the Show Plate view; lets the user shrink/grow the plot.
+    plate_well_size = mo.ui.slider(start=14, stop=52, step=2, value=30, label="Well size", show_value=True)
+    return (plate_well_size,)
+
+
+@app.cell
+def _(config, plate_well_size, queue_parameters, raw_queue_df):
     # Show Plate tab content: read-only visualization of plate layout + queue positions.
     # build_plate_wells/build_plate_figure come from the app.setup block (module globals),
     # so they are referenced directly here, not declared as cell parameters.
@@ -1400,7 +1407,8 @@ def _(config, queue_parameters, raw_queue_df):
             show_plate_content = mo.vstack(
                 [
                     mo.md("**Plate layout** — color = sample type, shape = order. Hover a well for details."),
-                    mo.ui.plotly(build_plate_figure(_wells, _layout, _orders)),
+                    plate_well_size,
+                    mo.ui.plotly(build_plate_figure(_wells, _layout, _orders, cell=plate_well_size.value)),
                 ]
             )
     return (show_plate_content,)
