@@ -654,11 +654,14 @@ def _():
 
 
 @app.cell
-def _(client, is_employee):
+def _(client, is_employee, tech_area_field):
     if is_employee:
-        user_field = mo.ui.text(value="analytic", label="User")
+        # Proteomics runs under the shared "analytic" account; other techs default
+        # to the logged-in user. Employees can edit the field in either case.
+        _initial = "analytic" if tech_area_field.value == "Proteomics" else client.auth.login
     else:
-        user_field = mo.ui.text(value=client.auth.login, label="User", disabled=True)
+        _initial = client.auth.login
+    user_field = mo.ui.text(value=_initial, label="User", disabled=not is_employee)
     return (user_field,)
 
 
