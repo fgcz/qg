@@ -1,0 +1,22 @@
+Bracket Type=4,,,,,,,
+File Name,Path,Position,Inj Vol,L3 Laboratory,Sample ID,Sample Name,Instrument Method
+20260520_001_C37180_autoQC03dia,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,B:H11,1.0,FGCZ,QC03,autoQC03,C:\Xcalibur\methods\
+20260520_002_C37180_autoQC01,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,B:H12,2.0,FGCZ,QC01,autoQC01,""
+20260520_003_C37180_S1001_Sample_01,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,Y:A1,1.0,FGCZ,1001,Sample_01,C:\Xcalibur\methods\
+20260520_004_C37180_S1002_Sample_02,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,Y:A2,1.0,FGCZ,1002,Sample_02,C:\Xcalibur\methods\
+20260520_005_C37180_S1003_Sample_03,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,Y:A3,1.0,FGCZ,1003,Sample_03,C:\Xcalibur\methods\
+20260520_006_C37180_S1004_Sample_04,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,Y:A4,1.0,FGCZ,1004,Sample_04,C:\Xcalibur\methods\
+20260520_007_C37180_S1005_Sample_05,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,Y:A5,1.0,FGCZ,1005,Sample_05,C:\Xcalibur\methods\
+20260520_008_C37180_S1006_Sample_06,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,Y:A6,1.0,FGCZ,1006,Sample_06,C:\Xcalibur\methods\
+20260520_009_C37180_S1007_Sample_07,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,Y:A7,1.0,FGCZ,1007,Sample_07,C:\Xcalibur\methods\
+20260520_010_C37180_S1008_Sample_08,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,Y:A8,1.0,FGCZ,1008,Sample_08,C:\Xcalibur\methods\
+20260520_011_C37180_clean,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,B:H10,2.0,FGCZ,clean,clean,""
+20260520_012_C37180_autoQC01,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,B:H12,2.0,FGCZ,QC01,autoQC01,""
+20260520_013_C37180_S1009_Sample_09,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,Y:A9,1.0,FGCZ,1009,Sample_09,C:\Xcalibur\methods\
+20260520_014_C37180_S1010_Sample_10,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,Y:A10,1.0,FGCZ,1010,Sample_10,C:\Xcalibur\methods\
+20260520_015_C37180_S1011_Sample_11,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,Y:A11,1.0,FGCZ,1011,Sample_11,C:\Xcalibur\methods\
+20260520_016_C37180_S1012_Sample_12,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,Y:A12,1.0,FGCZ,1012,Sample_12,C:\Xcalibur\methods\
+20260520_017_C37180_clean,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,B:H10,2.0,FGCZ,clean,clean,""
+20260520_018_C37180_autoQC01,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,B:H12,2.0,FGCZ,QC01,autoQC01,""
+20260520_019_C37180_autoQC03dia,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,B:H11,1.0,FGCZ,QC03,autoQC03,C:\Xcalibur\methods\
+20260520_020_C37180_clean_eoq,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,B:H10,2.0,FGCZ,clean,clean,""

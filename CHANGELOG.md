@@ -7,11 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
-- Queue app: **Show Plate** tab visualizing the plate layout and generated queue positions, colored by sample category and (for multi-order queues) shaped by order, with per-well hover details.
+- Headless GUI test suite for the queue app under `tests/gui/` (pytest-bdd + Playwright), hermetic by default with an optional Tier-B suite against `fgcz-bfabric-test.uzh.ch`.
+- Queue app: **Show Plate** tab visualizing the plate layout and generated queue positions, colored by sample category and shaped by order, with per-well hover details.
 
 ### Changed
-- Queue app: session banner now renders on a single line and shares the top row with the Refresh Projects button, the redundant "Order Selection" heading is removed, and the order table shows 5 rows per page by default — saving vertical space at the top of the app.
+- Queue app: session banner now shares the top row with the Refresh Projects button, the "Order Selection" heading is removed, and the order table shows 5 rows per page — saving vertical space.
 - Queue app: the User field now defaults to the logged-in user for every technology except Proteomics (which keeps `analytic`); employees can still edit it.
+- CI: split tests into parallel `test:unit` / `test:gui` jobs on the Playwright image with uv download caching — ~35% faster pipelines.
 
 ### Fixed
 - Queue app: the selected-orders banner now renders again — its `mo.md` output was previously discarded inside `if/elif/else` branches.

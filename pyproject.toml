@@ -43,6 +43,9 @@ dev = [
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
     "pytest-mock>=3.15.1",
+    "pytest-bdd>=7.3",
+    "pytest-playwright>=0.5",
+    "playwright>=1.45",
     "ruff>=0.9.0",
 ]
 
@@ -60,8 +63,11 @@ qg-editor = "qg.gitlab.launcher:launch_config_editor"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-v --tb=short"
+addopts = "-v --tb=short -m 'not bfabric_test_instance'"
 filterwarnings = ["ignore::DeprecationWarning"]
+markers = [
+    "bfabric_test_instance: GUI scenario executed against the real fgcz-bfabric-test.uzh.ch instance (requires QG_BFABRIC_TEST_PAT). Excluded from default runs.",
+]
 
 [tool.ruff]
 line-length = 120

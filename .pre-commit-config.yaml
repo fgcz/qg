@@ -17,7 +17,10 @@ repos:
 
       - id: pytest
         name: pytest
-        entry: uv run pytest -x -q
+        # GUI tests under tests/gui/ spawn uvicorn + headless Chromium and take
+        # ~1 min; that's too slow for every commit. Run them in CI or explicitly
+        # via `uv run pytest tests/gui/`.
+        entry: uv run pytest -x -q --ignore=tests/gui
         language: system
         types: [python]
         pass_filenames: false

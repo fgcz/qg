@@ -1,0 +1,13 @@
+[
+  {
+    "id": 50095,
+    "samples": [
+      {"id": 1951, "name": "Met_01", "_position": 1, "_gridposition": "A1"},
+      {"id": 1952, "name": "Met_02", "_position": 2, "_gridposition": "A2"},
+      {"id": 1953, "name": "Met_03", "_position": 3, "_gridposition": "A3"},
+      {"id": 1954, "name": "Met_04", "_position": 4, "_gridposition": "A4"},
+      {"id": 1955, "name": "Met_05", "_position": 5, "_gridposition": "A5"},
+      {"id": 1956, "name": "Met_06", "_position": 6, "_gridposition": "A6"}
+    ]
+  }
+]

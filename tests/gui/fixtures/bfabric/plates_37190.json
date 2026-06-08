@@ -1,0 +1,15 @@
+[
+  {
+    "id": 50090,
+    "samples": [
+      {"id": 1901, "name": "Lip_01", "_position": 1, "_gridposition": "A1"},
+      {"id": 1902, "name": "Lip_02", "_position": 2, "_gridposition": "A2"},
+      {"id": 1903, "name": "Lip_03", "_position": 3, "_gridposition": "A3"},
+      {"id": 1904, "name": "Lip_04", "_position": 4, "_gridposition": "A4"},
+      {"id": 1905, "name": "Lip_05", "_position": 5, "_gridposition": "A5"},
+      {"id": 1906, "name": "Lip_06", "_position": 6, "_gridposition": "A6"},
+      {"id": 1907, "name": "Lip_07", "_position": 7, "_gridposition": "A7"},
+      {"id": 1908, "name": "Lip_08", "_position": 8, "_gridposition": "A8"}
+    ]
+  }
+]

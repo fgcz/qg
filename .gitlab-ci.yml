@@ -8,14 +8,61 @@ stages:
   - test
   - build
 
-test:
+# Shared setup for both test jobs. `uv sync --frozen` asserts uv.lock is current
+# and skips re-resolution; the uv download cache is keyed on uv.lock so it rotates
+# exactly when dependencies change. Both jobs are interruptible to cooperate with
+# the workflow-level auto_cancel.on_new_commit above.
+.test-base:
   stage: test
   tags:
     - linux
     - docker
+  interruptible: true
+  variables:
+    UV_CACHE_DIR: "$CI_PROJECT_DIR/.uv-cache"
+  cache:
+    - key:
+        files:
+          - uv.lock
+      paths:
+        - .uv-cache/
+
+# Fast feedback: every non-browser test. No playwright, no apt — fails fast.
+test:unit:
+  extends: .test-base
   script:
-    - uv sync
-    - uv run pytest
+    - uv sync --frozen
+    - uv run pytest --ignore=tests/gui
+
+# Browser suite: only tests/gui, which drives the marimo queue app in a headless
+# Chromium via pytest-playwright. Runs on Microsoft's official Playwright image,
+# which ships the browsers (at /ms-playwright) AND their ~67 apt system libs
+# pre-baked — so this job needs no `playwright install` and no apt step (those
+# cost ~250s/run on the uv base image and dominated the old pipeline). The image
+# tag MUST track the `playwright` pin in uv.lock (currently 1.60.0); a mismatch
+# surfaces as a clear "browser not found / version" error from Playwright.
+# uv is a self-contained static binary, added via its installer in seconds; it
+# still manages its own Python 3.14 regardless of the image's base interpreter.
+# Inherits only the uv-cache from .test-base (no browser cache — the image is the
+# cache). Do NOT set PLAYWRIGHT_BROWSERS_PATH here, or the baked browsers hide.
+test:gui:
+  extends: .test-base
+  image: mcr.microsoft.com/playwright:v1.60.0-noble
+  # Read the uv cache but never re-archive it: the deps are identical to test:unit,
+  # which seeds it (pull-push). Avoids ~50s/run uploading an unchanged cache on the
+  # critical-path job. (On a fresh uv.lock key both jobs miss once; test:unit seeds.)
+  cache:
+    - key:
+        files:
+          - uv.lock
+      paths:
+        - .uv-cache/
+      policy: pull
+  script:
+    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - export PATH="$HOME/.local/bin:$PATH"
+    - uv sync --frozen
+    - uv run pytest tests/gui
 
 marimo-check:
   # Static lint of the marimo apps. --strict makes warnings (e.g. the
