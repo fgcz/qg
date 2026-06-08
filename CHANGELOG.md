@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Queue app: the User field now defaults to the logged-in user for every technology except Proteomics (which keeps `analytic`); employees can still edit it.
 
 ### Fixed
+- Queue app: the selected-orders banner now renders again — its `mo.md` output was previously discarded inside `if/elif/else` branches.
 - Queue app no longer crashes building queues where a grouping variable (or tray) first appears after the 100th row; polars now scans the full row set for schema inference.
 
 ## [0.5.5] - 2026-06-04

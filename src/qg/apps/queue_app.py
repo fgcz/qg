@@ -1098,14 +1098,17 @@ def _(banner_message, entity_id, is_employee, project_table, refresh_projects_bu
 
 @app.cell
 def _(container_type, is_employee, selected_orders):
+    # Assign each branch to a cell-local and display it as the last unnested
+    # expression — a bare ``mo.md(...)`` inside a branch is computed then discarded.
     if not is_employee:
-        mo.md("")
+        _banner = mo.md("")
     elif not selected_orders:
-        mo.md("**Select orders from the table above**")
+        _banner = mo.md("**Select orders from the table above**")
     else:
         _container_ids = [o[0] for o in selected_orders]
         _ids_str = ", ".join(str(c) for c in _container_ids)
-        mo.md(f"**Selected:** {len(selected_orders)} order(s): {_ids_str} ({container_type})")
+        _banner = mo.md(f"**Selected:** {len(selected_orders)} order(s): {_ids_str} ({container_type})")
+    _banner
     return
 
 
