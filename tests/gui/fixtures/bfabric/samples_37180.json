@@ -1,0 +1,14 @@
+[
+  {"id": 1001, "name": "Sample_01", "tubeid": "37180/1", "groupingvar": {"id": 501, "name": "GroupA"}},
+  {"id": 1002, "name": "Sample_02", "tubeid": "37180/2", "groupingvar": {"id": 501, "name": "GroupA"}},
+  {"id": 1003, "name": "Sample_03", "tubeid": "37180/3", "groupingvar": {"id": 501, "name": "GroupA"}},
+  {"id": 1004, "name": "Sample_04", "tubeid": "37180/4", "groupingvar": {"id": 501, "name": "GroupA"}},
+  {"id": 1005, "name": "Sample_05", "tubeid": "37180/5", "groupingvar": {"id": 502, "name": "GroupB"}},
+  {"id": 1006, "name": "Sample_06", "tubeid": "37180/6", "groupingvar": {"id": 502, "name": "GroupB"}},
+  {"id": 1007, "name": "Sample_07", "tubeid": "37180/7", "groupingvar": {"id": 502, "name": "GroupB"}},
+  {"id": 1008, "name": "Sample_08", "tubeid": "37180/8", "groupingvar": {"id": 502, "name": "GroupB"}},
+  {"id": 1009, "name": "Sample_09", "tubeid": "37180/9", "groupingvar": {"id": 503, "name": "GroupC"}},
+  {"id": 1010, "name": "Sample_10", "tubeid": "37180/10", "groupingvar": {"id": 503, "name": "GroupC"}},
+  {"id": 1011, "name": "Sample_11", "tubeid": "37180/11", "groupingvar": {"id": 503, "name": "GroupC"}},
+  {"id": 1012, "name": "Sample_12", "tubeid": "37180/12", "groupingvar": {"id": 503, "name": "GroupC"}}
+]

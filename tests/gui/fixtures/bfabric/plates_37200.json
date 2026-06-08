@@ -1,0 +1,22 @@
+[
+  {"id": 50201, "samples": [
+    {"id": 2001, "name": "MP_01", "_position": 1, "_gridposition": "A1"},
+    {"id": 2002, "name": "MP_02", "_position": 2, "_gridposition": "A2"}
+  ]},
+  {"id": 50202, "samples": [
+    {"id": 2003, "name": "MP_03", "_position": 1, "_gridposition": "A1"},
+    {"id": 2004, "name": "MP_04", "_position": 2, "_gridposition": "A2"}
+  ]},
+  {"id": 50203, "samples": [
+    {"id": 2005, "name": "MP_05", "_position": 1, "_gridposition": "A1"},
+    {"id": 2006, "name": "MP_06", "_position": 2, "_gridposition": "A2"}
+  ]},
+  {"id": 50204, "samples": [
+    {"id": 2007, "name": "MP_07", "_position": 1, "_gridposition": "A1"},
+    {"id": 2008, "name": "MP_08", "_position": 2, "_gridposition": "A2"}
+  ]},
+  {"id": 50205, "samples": [
+    {"id": 2009, "name": "MP_09", "_position": 1, "_gridposition": "A1"},
+    {"id": 2010, "name": "MP_10", "_position": 2, "_gridposition": "A2"}
+  ]}
+]

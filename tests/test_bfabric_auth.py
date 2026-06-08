@@ -31,6 +31,37 @@ _SESSION_KWARGS = {
 }
 
 
+def _run_coro(coro) -> None:
+    """Drive a coroutine to completion regardless of the ambient event loop.
+
+    Plain ``asyncio.run`` raises ``RuntimeError`` if a loop is already running in
+    this thread — which happens when these tests run after the Playwright GUI
+    suite (its sync API leaves a loop installed on the main thread). Running on a
+    fresh loop in a dedicated thread keeps the test order-independent.
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        asyncio.run(coro)
+        return
+
+    import threading
+
+    error: list[BaseException] = []
+
+    def _target() -> None:
+        try:
+            asyncio.run(coro)
+        except BaseException as exc:  # noqa: BLE001 — re-raised on the calling thread below
+            error.append(exc)
+
+    thread = threading.Thread(target=_target)
+    thread.start()
+    thread.join()
+    if error:
+        raise error[0]
+
+
 def _drive_inject_meta(user: object) -> dict:
     """Run `_InjectMetaMiddleware` against a synthetic HTTP scope and return scope['meta']."""
     inner_called = []
@@ -40,7 +71,7 @@ def _drive_inject_meta(user: object) -> dict:
 
     scope = {"type": "http", "user": user}
     mw = _InjectMetaMiddleware(inner, app_config=MagicMock(name="app_config"))
-    asyncio.run(mw(scope, MagicMock(), MagicMock()))
+    _run_coro(mw(scope, MagicMock(), MagicMock()))
     assert inner_called, "downstream app was never invoked"
     return inner_called[0]["meta"]
 

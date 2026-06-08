@@ -1,5 +1,6 @@
 """Utilities for loading B-Fabric data into typed DataFrames."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, NamedTuple
@@ -255,11 +256,21 @@ class AppSession:
     banner_message: str
 
 
+_TEST_SESSION_FACTORY: Callable[[Any], AppSession] | None = None
+"""Test-only override. When set, `resolve_app_session` calls it instead of the real auth path.
+
+The factory receives the request object so tests can vary the session per scenario.
+Set via `qg.bfabric_utils._TEST_SESSION_FACTORY = ...` from a pytest fixture; reset on teardown.
+"""
+
+
 def resolve_app_session(request: Any, *, allow_unauthenticated: bool) -> AppSession:
     """Resolve the B-Fabric session for an incoming marimo request.
 
     Raises SessionError with a user-facing message if the app should refuse to render.
     """
+    if _TEST_SESSION_FACTORY is not None:
+        return _TEST_SESSION_FACTORY(request)
     # `marimo run` injects a starlette SimpleUser with is_authenticated=True but no B-Fabric data;
     # only a real BfabricUser counts as authenticated here. Marimo >= 0.23.4 strips
     # scope["user"] down to a {username, is_authenticated, display_name} dict before reaching

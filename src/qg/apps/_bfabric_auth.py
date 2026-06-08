@@ -55,33 +55,45 @@ class _InjectMetaMiddleware:
         await self.app(scope, receive, send)
 
 
-def create_bfabric_fastapi_app(marimo_app_path: Path, *, app_name: str, mount_path: str = "/") -> FastAPI:
+def create_bfabric_fastapi_app(
+    marimo_app_path: Path,
+    *,
+    app_name: str,
+    mount_path: str = "/",
+    test_mode: bool = False,
+) -> FastAPI:
     """Create a FastAPI app with B-Fabric auth wrapping a marimo app.
 
     `app_name` namespaces the session cookie so co-hosted apps under the same
     domain (portal/Caddy routing /<name>/*) don't share session state.
     `mount_path` scopes the cookie's Path attribute; pass the same value as
     uvicorn's --root-path when set.
+
+    When `test_mode=True`, the B-Fabric auth and config-injection middlewares
+    are skipped — the marimo app is mounted directly and `resolve_app_session`
+    must be stubbed via `qg.bfabric_utils._TEST_SESSION_FACTORY`.
     """
     app = FastAPI()
-    app_config = AppConfig()
-    token_validator = create_bfabric_validator(settings=app_config)
 
-    app.add_middleware(_InjectMetaMiddleware, app_config=app_config)
-    app.add_middleware(
-        BfabricAuthMiddleware,
-        token_validator=token_validator,
-        renderer=HTMLRenderer(),
-    )
-    app.add_middleware(
-        SessionMiddleware,
-        secret_key=app_config.secret_key.get_secret_value(),
-        session_cookie=f"{app_name}_session",
-        path=mount_path,
-        max_age=3600,
-        https_only=True,
-        same_site="lax",
-    )
+    if not test_mode:
+        app_config = AppConfig()
+        token_validator = create_bfabric_validator(settings=app_config)
+
+        app.add_middleware(_InjectMetaMiddleware, app_config=app_config)
+        app.add_middleware(
+            BfabricAuthMiddleware,
+            token_validator=token_validator,
+            renderer=HTMLRenderer(),
+        )
+        app.add_middleware(
+            SessionMiddleware,
+            secret_key=app_config.secret_key.get_secret_value(),
+            session_cookie=f"{app_name}_session",
+            path=mount_path,
+            max_age=3600,
+            https_only=True,
+            same_site="lax",
+        )
 
     server = marimo.create_asgi_app().with_app(path="/", root=str(marimo_app_path.resolve()))
     app.mount("/", server.build())
