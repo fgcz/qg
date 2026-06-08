@@ -10,7 +10,7 @@ Generate sample queues with QC injections for mass spectrometry instruments (XCa
 QG_ALLOW_UNAUTHENTICATED=1 uv run marimo run src/qg/apps/queue_app.py
 ```
 
-The app fails closed without a B-Fabric-authenticated request. `QG_ALLOW_UNAUTHENTICATED=1` bypasses auth for local dev and runs as an employee — **never set it in production**. See `docs/user_modes.md` for details.
+The app fails closed without a B-Fabric-authenticated request. `QG_ALLOW_UNAUTHENTICATED=1` bypasses auth for local dev and runs as an employee — **never set it in production**. See `docs/users/user_modes.md` for details.
 
 ### GUI with B-Fabric Auth
 
@@ -41,7 +41,7 @@ uv run qg-validate
 #### Seed B-Fabric Project Cache
 
 - **Dev** (single instance, local `~/.bfabricpy.yml`): `uv run qg-find-projects`
-- **Deployment** (all instances in `feeder_user_credentials`): `uv run qg-refresh-cache --all` — see [`docs/deployment.md`](docs/deployment.md)
+- **Deployment** (all instances in `feeder_user_credentials`): `uv run qg-refresh-cache --all` — see [`docs/developers/deployment.md`](docs/developers/deployment.md)
 
 Both write `bfabric_cache/<instance>/bfabric_container.csv`, which the GUI reads; its "Refresh Projects" button re-runs the dev-style write for the running instance.
 
@@ -60,33 +60,17 @@ Both write `bfabric_cache/<instance>/bfabric_container.csv`, which the GUI reads
 | Evosep | ASTRAL_1, EXPLORIS_1/2, TIMSTOF_1, TIMSTOFFLEX_1 |
 
 ### Output Formats
-- XCalibur (`.csv`)
+- XCalibur (`.csv`, `xcalibur` / `xcalibur_sii`)
 - Chronos (`.csv`)
-- Hystar (`.csv`)
+- Hystar (`.xml`)
 
-## Config JSON Format
+## Queue Parameters JSON
 
-```json
-{
-  "parameters": {
-    "container_id": 37180,
-    "technology": "proteomics",
-    "instrument": "ASTRAL_1",
-    "sampler": "Vanquish.vial",
-    "software": "xcalibur",
-    "pattern": "standard",
-    "polarity": [],
-    "date": "20260112",
-    "user": "cpanse",
-    "method": "",
-    "randomization": false,
-    "inj_vol_override": null
-  },
-  "samples": [
-    {"Sample Name": "sample1", "Sample ID": 123456, "Tube ID": "37180/1"}
-  ]
-}
-```
+Queue generation takes a JSON file with a `parameters` object (instrument,
+sampler, output format, pattern, …) and a nested `queue` object (`batches` plus
+`samples`, or `plates`/`cells` for plate input). The canonical schema and
+field-by-field reference live in one place:
+**[docs/reference/config.md](docs/reference/config.md#queue-parameters-json-input)**.
 
 ## Example Output
 
@@ -99,39 +83,17 @@ File Name,Path,Instrument Method,Position,Inj Vol,Sample Type,Sample Name
 
 ## Configuration Files
 
-Located in `qg_configs/`:
-
-| File | Description |
-|------|-------------|
-| `instruments.csv` | Instruments with path templates and method files |
-| `combinations.csv` | Valid instrument+sampler pairs |
-| `instrument_patterns.csv` | QC patterns per instrument |
-| `sampler.toml` | Physical sampler layouts |
-| `samples.csv` | QC sample definitions |
-| `queue_patterns.toml` | QC injection patterns |
-| `qc_layouts.toml` | QC positions per sampler |
-| `output_formats.toml` | Output column mappings |
-| `methods/` | Method files per technology/instrument |
+Static config lives in `qg_configs/`, grouped under
+`core/{structure,position,formatting,methods}/` and `ui/`. The per-file
+reference (purpose, columns, examples) is maintained in one place:
+**[docs/reference/config.md](docs/reference/config.md)**.
 
 ## Deployment
 
-Both deployments run on `fgcz-r-039` as the `bfabric` user. See [`docs/deployment.md`](docs/deployment.md) for the full reference (architecture, mounts, first-time setup).
+The queue app and config editor both run on `fgcz-r-039` (as the `bfabric` user)
+from a single Docker image, deployed via the web-apps repo. The full procedure —
+tag → CI image build, bumping `IMAGE_TAG`, redeploy, rollback, and secrets — is
+maintained in one place: **[docs/developers/deployment.md](docs/developers/deployment.md)**.
 
 > **Security:** never set `QG_ALLOW_UNAUTHENTICATED=1` on a deployment host — it disables auth and runs every request as an employee.
-
-### Production (queue app only)
-
-Push a Git tag on `main` (locally, or via the GitLab UI under *Repository → Tags*). GitLab CI builds the OCI image. Then bump the pinned image tag in `portal/queue-gen/docker-compose.prod.yml` in the [web-apps repo](https://gitlab.bfabric.org/proteomics/web-apps), commit, and redeploy:
-
-```bash
-ssh bfabric@localhost
-cd ~/web-apps/portal/queue-gen && git pull && make deploy
-```
-
-The config editor runs from the same image as the queue app (different entrypoint) and is deployed alongside it under `portal/qg-editor` in the [web-apps repo](https://gitlab.bfabric.org/proteomics/web-apps). It is restricted to FGCZ employees; MRs are opened by the `qg-config-bot` GitLab user and authored as the requesting employee.
-
-```bash
-ssh bfabric@localhost
-cd ~/web-apps/portal/qg-editor && git pull && make deploy
-```
 

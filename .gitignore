@@ -27,5 +27,10 @@ deprecated/
 .qg_settings.toml
 docs/*docx
 
+# MkDocs build output
+/public/
+/site/
+
 # Editor
 .vscode/
+.DS_Store

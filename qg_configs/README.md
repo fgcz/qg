@@ -2,16 +2,20 @@
 
 Static configuration files for mass spectrometry queue generation.
 
-| File | Format | Purpose |
-|------|--------|---------|
-| `samples.csv` | CSV | QC sample definitions (per tech_area) |
-| `instruments.csv` | CSV | Instrument definitions (per tech_area) |
-| `instrument_patterns.csv` | CSV | Available patterns per instrument |
-| `combinations.csv` | CSV | Valid instrument + sampler + output_format |
-| `sampler.toml` | TOML | Physical sampler layouts (Vanquish, MClass48, Evosep) |
-| `queue_patterns.toml` | TOML | Injection patterns (start/middle/end sequences) |
-| `qc_layouts.toml` | TOML | QC positions per tech_area/sampler |
-| `output_formats.toml` | TOML | Output column mappings (xcalibur, chronos, hystar) |
-| `methods/` | CSV | Available methods per tech_area/instrument |
+Files live under `core/{structure,position,formatting,methods}/` and `ui/`:
 
-See `docs/` for detailed documentation.
+| File | Location | Format | Purpose |
+|------|----------|--------|---------|
+| `samples.csv` | `core/structure/` | CSV | QC sample definitions (per tech_area) |
+| `queue_patterns.toml` | `core/structure/` | TOML | Injection patterns (start/middle/end/separation) |
+| `sampler.toml` | `core/position/` | TOML | Physical sampler layouts (Vanquish, MClass, Evosep) |
+| `plate_layouts.toml` | `core/position/` | TOML | Plate layout definitions (rows × cols) |
+| `sampler_plate_layouts.csv` | `core/position/` | CSV | Sampler → plate-layout mapping (with queue_type) |
+| `qc_layouts_well.csv` | `core/position/` | CSV | QC positions for well-plate samplers |
+| `qc_layouts_tip.csv` | `core/position/` | CSV | QC tip ranges for tip-plate samplers (Evosep) |
+| `instruments.csv` | `core/formatting/` | CSV | Instrument definitions: methods_file, path_template |
+| `output_formats.toml` | `core/formatting/` | TOML | Output column mappings (xcalibur, chronos, hystar) |
+| `methods/<Tech>/<instr>_methods.csv` | `core/methods/` | CSV | Available methods per tech_area/instrument |
+| `instrument_config.csv` | `ui/` | CSV | Instrument defaults: sampler, output_format, default_pattern |
+
+See [`docs/reference/config.md`](../docs/reference/config.md) for the detailed per-file reference.

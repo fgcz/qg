@@ -1,39 +1,21 @@
 # Documentation build targets
-# Requires: pandoc, plantuml
+#
+# The docs site is built with MkDocs Material (config: ../mkdocs.yml). This
+# Makefile provides thin wrappers around mkdocs.
+#
+# Requires: uv.
 
-MD_FILES := $(wildcard *.md)
-PUML_FILES := $(wildcard *.puml)
-PDF_FILES := $(MD_FILES:.md=.pdf)
-HTML_FILES := $(MD_FILES:.md=.html)
-PNG_FILES := $(PUML_FILES:.puml=.png)
-SVG_FILES := $(PUML_FILES:.puml=.svg)
+.PHONY: all serve build clean
 
-# PlantUML settings
-PLANTUML_DPI := 300
+all: build
 
-.PHONY: all clean pdf html png svg
+# Live-preview the site (http://127.0.0.1:8000).
+serve:
+	cd .. && uv run --only-group docs mkdocs serve
 
-all: pdf html png svg
-
-pdf: $(PDF_FILES)
-
-html: $(HTML_FILES)
-
-png: $(PNG_FILES)
-
-svg: $(SVG_FILES)
-
-%.pdf: %.md
-	pandoc $< -o $@ --pdf-engine=xelatex -V geometry:margin=1in
-
-%.html: %.md
-	pandoc $< -o $@ --standalone --toc
-
-%.png: %.puml
-	plantuml -tpng -Sdpi=$(PLANTUML_DPI) $<
-
-%.svg: %.puml
-	plantuml -tsvg $<
+# Build the static site into ../public (same as the CI pages job).
+build:
+	cd .. && uv run --only-group docs mkdocs build
 
 clean:
-	rm -f $(PDF_FILES) $(HTML_FILES) $(PNG_FILES) $(SVG_FILES)
+	rm -rf ../public
