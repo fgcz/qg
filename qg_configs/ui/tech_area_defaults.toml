@@ -1,0 +1,26 @@
+# Per-tech-area UI defaults for the queue app.
+# default_user: initial value for the User field
+#   (empty string ⇒ use the logged-in user's login)
+# default_polarities: polarities pre-checked in the polarity group
+# bfabric_areas: B-Fabric "Area" values whose orders belong to this tech area
+#   (used to filter the order browser; empty ⇒ no filtering)
+
+[Proteomics]
+default_user = "analytic"
+default_polarities = ["pos"]
+bfabric_areas = ["Proteomics"]
+
+[Metabolomics]
+default_user = ""
+default_polarities = ["pos", "neg"]
+bfabric_areas = ["Metabolomics/Biophysics"]
+
+[Lipidomics]
+default_user = ""
+default_polarities = ["pos", "neg"]
+bfabric_areas = ["Metabolomics/Biophysics"]
+
+[Testing]
+default_user = ""
+default_polarities = ["pos"]
+bfabric_areas = []

@@ -8,7 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - Headless GUI test suite for the queue app under `tests/gui/` (pytest-bdd + Playwright), hermetic by default with an optional Tier-B suite against `fgcz-bfabric-test.uzh.ch`.
-- Queue app: **Show Plate** tab visualizing the plate layout and generated queue positions, colored by sample category and shaped by order, with per-well hover details.
+- Queue app: **Show Plate** tab visualizing the plate layout and generated queue positions, colored by sample category and (for multi-order queues) shaped by order, with per-well hover details.
+- Per-tech-area UI defaults (User field, pre-checked polarities, and the B-Fabric order-browser Area filter) now live in `qg_configs/ui/tech_area_defaults.toml` and are editable from the config editor's new **Tech Area Defaults** tab.
 
 ### Changed
 - Queue app: session banner now shares the top row with the Refresh Projects button, the "Order Selection" heading is removed, and the order table shows 5 rows per page — saving vertical space.
@@ -17,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - CI: split tests into parallel `test:unit` / `test:gui` jobs on the Playwright image with uv download caching — ~35% faster pipelines.
 
 ### Fixed
+- Tests: the `cal_series` concentration-grid GUI scenario no longer flakes under CI load — its QC Layout option wait now uses the suite's 15s marimo round-trip budget instead of Playwright's 5s default.
 - Queue app: the selected-orders banner now renders again — its `mo.md` output was previously discarded inside `if/elif/else` branches.
 - Queue app no longer crashes building queues where a grouping variable (or tray) first appears after the 100th row; polars now scans the full row set for schema inference.
 
