@@ -162,14 +162,21 @@ def set_session(queue_app_url: str) -> Callable[..., None]:
             page.goto(queue_app_url)
             ...
 
+    Pass ``entity_class="Order"`` to simulate an employee who opened the app from an
+    order (the launching-order pre-load trigger); when omitted, the server derives it
+    (``None`` for employees, ``"Container"`` for non-employees).
+
     Resets to the default (employee, no entity_id) after the test.
     """
     seen = False
 
-    def _set(*, is_employee: bool = True, entity_id: int | None = None) -> None:
+    def _set(*, is_employee: bool = True, entity_id: int | None = None, entity_class: str | None = None) -> None:
         nonlocal seen
         seen = True
-        body = json.dumps({"is_employee": is_employee, "entity_id": entity_id}).encode()
+        payload: dict = {"is_employee": is_employee, "entity_id": entity_id}
+        if entity_class is not None:  # omit → server derives None/"Container"
+            payload["entity_class"] = entity_class
+        body = json.dumps(payload).encode()
         req = Request(
             f"{queue_app_url}/_test/session",
             data=body,

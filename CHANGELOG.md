@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - Queue app: session banner now shares the top row with the Refresh Projects button, the "Order Selection" heading is removed, and the order table shows 5 rows per page — saving vertical space.
 - Queue app: the User field now defaults to the logged-in user for every technology except Proteomics (which keeps `analytic`); employees can still edit it.
+- Queue app: opening the app from a B-Fabric order now aligns the Tech Area to that order and, for employees, pre-selects it in the order table — fetching it on the fly (no full refresh) if it isn't cached yet — so the launching order's samples load immediately.
 - CI: split tests into parallel `test:unit` / `test:gui` jobs on the Playwright image with uv download caching — ~35% faster pipelines.
 
 ### Fixed

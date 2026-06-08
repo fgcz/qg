@@ -71,6 +71,18 @@ def expect_dropdown_visible(page: Page, label: str) -> None:
     expect(sidebar(page).get_by_label(label)).to_be_visible()
 
 
+def expect_dropdown_value(page: Page, label: str, value: str) -> None:
+    """Assert the named sidebar dropdown's currently-selected option text is ``value``.
+
+    Matches the selected ``<option>``'s text rather than the ``<select>`` value
+    attribute: marimo's option values are positional keys, not the human label.
+    Retries on a timeout to ride out marimo's reactive settle on first render.
+    """
+    select = sidebar(page).get_by_label(label)
+    expect(select).to_be_visible()
+    expect(select.locator("option:checked").first).to_have_text(value, timeout=10_000)
+
+
 def click_button(page: Page, label: str) -> None:
     """Click a button (or run_button) by its accessible name. Searches the whole page."""
     page.get_by_role("button", name=label).click()

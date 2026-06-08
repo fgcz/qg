@@ -85,6 +85,17 @@ def _(client):
 
 
 @app.cell
+def _(USE_CONTAINER_TYPE, client, entity_class, entity_id):
+    # Fetch the B-Fabric order the app was launched from so users get it pre-loaded even if
+    # it predates the cached container list. One query by ID, no full refresh; empty frame if N/A.
+    # Status-agnostic by design (fetch_container_row ignores active_only), so no active-status flag here.
+    launching_order_row = pl.DataFrame()
+    if entity_id is not None and entity_class in {"Container", "Order", "Project"}:
+        launching_order_row = ContainerCache(client).fetch_container_row(entity_id, with_type=USE_CONTAINER_TYPE)
+    return (launching_order_row,)
+
+
+@app.cell
 def _():
     # Load configs via qg_configuration() — from CLI arg or default path
     _args = mo.cli_args()
@@ -142,11 +153,17 @@ def _(pattern_field, table_by_qc_layout):
 
 
 @app.cell
-def _(master_table):
+def _(launching_order_row, master_table):
     # Tech area dropdown - options from master table
-    # Default to Proteomics, user can change
+    # Default to Proteomics, or to the launching order's technology when launched from one.
     _options = sorted(master_table["tech_area"].unique().to_list())
     _default = "Proteomics" if "Proteomics" in _options else (_options[0] if _options else None)
+
+    _area = launching_order_row["Area"][0] if not launching_order_row.is_empty() else None
+    # B-Fabric "Metabolomics/Biophysics" is ambiguous (Metabolomics vs Lipidomics); default to Metabolomics.
+    _launch_tech_area = {"Proteomics": "Proteomics", "Metabolomics/Biophysics": "Metabolomics"}.get(_area)
+    if _launch_tech_area in _options:
+        _default = _launch_tech_area
 
     tech_area_field = mo.ui.dropdown(
         options=_options,
@@ -840,7 +857,7 @@ def _(USE_ALL_PROJECTS, client, get_refresh, refresh_projects_button, set_refres
 
 
 @app.cell
-def _(BFABRIC_CACHE_DIR, USE_ALL_PROJECTS, USE_CONTAINER_TYPE, get_refresh, is_employee):
+def _(BFABRIC_CACHE_DIR, USE_ALL_PROJECTS, USE_CONTAINER_TYPE, get_refresh, is_employee, launching_order_row):
     # Load merged container cache for employees only; non-employees never browse containers.
     if not is_employee:
         projects_df = pl.DataFrame()
@@ -849,11 +866,19 @@ def _(BFABRIC_CACHE_DIR, USE_ALL_PROJECTS, USE_CONTAINER_TYPE, get_refresh, is_e
         _suffix = "_all" if USE_ALL_PROJECTS else ""
         _name = "bfabric_container_type" if USE_CONTAINER_TYPE else "bfabric_container"
         projects_df = pl.read_csv(BFABRIC_CACHE_DIR / f"{_name}{_suffix}.csv").sort("Container ID", descending=True)
+        # Surface the launching order even if it predates the cache (in-memory only).
+        if (
+            not launching_order_row.is_empty()
+            and launching_order_row["Container ID"][0] not in projects_df["Container ID"]
+        ):
+            projects_df = pl.concat([launching_order_row, projects_df], how="diagonal_relaxed").sort(
+                "Container ID", descending=True
+            )
     return (projects_df,)
 
 
 @app.cell
-def _(is_employee, projects_df, tech_area_field):
+def _(entity_id, is_employee, projects_df, tech_area_field):
     # Employees browse the container cache; non-employees get only a heading from the fixed container.
     if is_employee:
         _area_map = {
@@ -862,10 +887,23 @@ def _(is_employee, projects_df, tech_area_field):
             "Lipidomics": ["Metabolomics/Biophysics"],
         }
         _allowed_areas = _area_map.get(tech_area_field.value)
-        _filtered = projects_df.filter(pl.col("Area").is_in(_allowed_areas)) if _allowed_areas else projects_df
+        if _allowed_areas:
+            _expr = pl.col("Area").is_in(_allowed_areas)
+            if entity_id is not None:
+                _expr = _expr | (pl.col("Container ID") == entity_id)  # never filter out the launching order
+            _filtered = projects_df.filter(_expr)
+        else:
+            _filtered = projects_df
+        # Pre-select the launching order so its samples load immediately.
+        _initial = None
+        if entity_id is not None:
+            _hit = _filtered.with_row_index().filter(pl.col("Container ID") == entity_id)
+            if not _hit.is_empty():
+                _initial = [int(_hit["index"][0])]
         project_table = mo.ui.table(
             data=_filtered,
             selection="multi",
+            initial_selection=_initial,
             label="Select orders (multi-select)",
             show_download=False,
             page_size=5,

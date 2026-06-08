@@ -46,7 +46,8 @@ def _install_default_factory(fixtures_dir: Path) -> None:
 class _SessionControlMiddleware:
     """Intercept ``POST /_test/session`` before it hits the marimo mount.
 
-    Body shape: ``{"is_employee": bool, "entity_id": int | null}``.
+    Body shape: ``{"is_employee": bool, "entity_id": int | null, "entity_class"?: str}``.
+    ``entity_class`` is optional; when omitted, ``build_test_session`` derives it.
     Responds ``200 {"ok": true}``; the next page render uses the swapped factory.
     """
 
@@ -74,9 +75,12 @@ class _SessionControlMiddleware:
         is_employee = bool(cfg.get("is_employee", True))
         entity_id = cfg.get("entity_id")
         entity_id_int = int(entity_id) if entity_id is not None else None
+        kwargs = {"is_employee": is_employee, "entity_id": entity_id_int}
+        if "entity_class" in cfg:  # only override the derived default when explicitly set
+            kwargs["entity_class"] = cfg["entity_class"]
 
         def _factory(_request):
-            return build_test_session(self._fixtures_dir, is_employee=is_employee, entity_id=entity_id_int)
+            return build_test_session(self._fixtures_dir, **kwargs)
 
         bfabric_utils._TEST_SESSION_FACTORY = _factory
 

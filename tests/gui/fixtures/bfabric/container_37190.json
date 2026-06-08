@@ -1,0 +1,10 @@
+[
+  {
+    "id": 37190,
+    "name": "Lipidomics Test Container",
+    "billingcustomer": "Dr. Test",
+    "countsamples": 8,
+    "status": "Active",
+    "technology": ["Metabolomics/Biophysics"]
+  }
+]
