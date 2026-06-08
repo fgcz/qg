@@ -434,6 +434,7 @@ by the CI `pages` job. Organized by audience:
 | `users/user_modes.md` | User-facing modes and workflows (auth) |
 | `users/editor_guide.md` | Config editor usage guide |
 | `app_note/TODO_jasms_appnote.md` | JASMS application-note planning and submission checklist |
+| `app_note/pipeline/` | JASMS application-note bookdown/Pandoc manuscript pipeline |
 | `reference/algorithm.md` | Queue generation pipeline details |
 | `reference/config.md` | Configuration file + queue-parameters reference |
 | `developers/deployment.md` | Production/test deployment reference |
