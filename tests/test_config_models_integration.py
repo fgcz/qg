@@ -334,3 +334,69 @@ class TestUIConfigs:
         assert cfg is not None
         assert cfg.output_format == "xcalibur_sii"
         assert cfg.default_pattern == "standard"
+
+    def test_load_tech_area_defaults(self):
+        """Load tech_area_defaults.toml into TechAreaDefaultsConfig."""
+        from qg.config_models.ui import TechAreaDefaultsConfig
+
+        config = TechAreaDefaultsConfig.load(CONFIG_ROOT)
+
+        assert config.get_default_user("Proteomics") == "analytic"
+        assert config.get_default_user("Metabolomics") == ""
+        assert config.get_default_user("Lipidomics") == ""
+
+        assert config.get_default_polarities("Proteomics") == ["pos"]
+        assert config.get_default_polarities("Metabolomics") == ["pos", "neg"]
+        assert config.get_default_polarities("Lipidomics") == ["pos", "neg"]
+
+        assert config.get_bfabric_areas("Proteomics") == ["Proteomics"]
+        assert config.get_bfabric_areas("Metabolomics") == ["Metabolomics/Biophysics"]
+        assert config.get_bfabric_areas("Lipidomics") == ["Metabolomics/Biophysics"]
+
+        # Unknown tech_area → safe empties
+        assert config.get_default_user("UnknownTech") == ""
+        assert config.get_default_polarities("UnknownTech") == []
+        assert config.get_bfabric_areas("UnknownTech") == []
+
+    def test_tech_area_defaults_dict_round_trip(self):
+        """from_dict(to_dict(...)) preserves the polarity list and user."""
+        from qg.config_models.ui import TechAreaDefaultsConfig
+
+        config = TechAreaDefaultsConfig.load(CONFIG_ROOT)
+        roundtripped = TechAreaDefaultsConfig.from_dict(config.to_dict())
+
+        assert roundtripped.defaults == config.defaults
+
+    def test_tech_area_defaults_duplicate_rejected(self):
+        """Duplicate tech_area rows fail cross-validation in QGConfiguration."""
+        from qg.config_models.loader import ConfigValidationError, qg_configuration
+        from qg.config_models.ui import TechAreaDefault, TechAreaDefaultsConfig
+
+        cfg = qg_configuration(CONFIG_ROOT)
+        # Inject a duplicate Proteomics row
+        bad = TechAreaDefaultsConfig(
+            defaults=[
+                *cfg.tech_area_defaults.defaults,
+                TechAreaDefault(tech_area="Proteomics", default_user="other", default_polarities=["pos"]),
+            ]
+        )
+
+        try:
+            cfg.__class__.create(
+                samples=cfg.samples,
+                instruments=cfg.instruments,
+                output_formats=cfg.output_formats,
+                plate_layouts=cfg.plate_layouts,
+                samplers=cfg.samplers,
+                sampler_plate_layouts=cfg.sampler_plate_layouts,
+                qc_layouts_well=cfg.qc_layouts_well,
+                qc_layouts_tip=cfg.qc_layouts_tip,
+                queue_patterns=cfg.queue_patterns,
+                methods=cfg.methods,
+                instrument_configs=cfg.instrument_configs,
+                tech_area_defaults=bad,
+            )
+        except ConfigValidationError as e:
+            assert any("duplicate tech_area" in err for err in e.errors)
+        else:
+            raise AssertionError("Expected ConfigValidationError for duplicate tech_area row")

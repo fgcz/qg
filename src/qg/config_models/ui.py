@@ -2,11 +2,12 @@
 # UI Config Models (Layer 1: Pydantic - Load from files)
 # =============================================================================
 
+import tomllib
 from pathlib import Path
 from typing import ClassVar, Self
 
 import polars as pl
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # =============================================================================
 # InstrumentConfig - from ui/instrument_config.csv
@@ -74,3 +75,88 @@ class InstrumentConfigsConfig(BaseModel):
         path = config_dir / cls.config_path
         df = pl.read_csv(path)
         return cls.from_table(df)
+
+
+# =============================================================================
+# TechAreaDefaults - from ui/tech_area_defaults.toml
+# =============================================================================
+
+
+class TechAreaDefault(BaseModel):
+    """Per-tech-area UI defaults for the queue app."""
+
+    tech_area: str = Field(..., description="Technology area")
+    default_user: str = Field(
+        default="",
+        description="Default value for the User field; empty ⇒ use logged-in user's login",
+    )
+    default_polarities: list[str] = Field(
+        default_factory=list,
+        description="Polarities pre-checked in the polarity group",
+    )
+    bfabric_areas: list[str] = Field(
+        default_factory=list,
+        description="B-Fabric 'Area' values whose orders belong to this tech area "
+        "(used to filter the order browser); empty ⇒ no filtering",
+    )
+
+    @field_validator("default_user", mode="before")
+    @classmethod
+    def _coerce_user(cls, v: object) -> str:
+        return "" if v is None else str(v)
+
+
+class TechAreaDefaultsConfig(BaseModel):
+    """All per-tech-area UI defaults."""
+
+    config_path: ClassVar[Path] = Path("ui/tech_area_defaults.toml")
+
+    defaults: list[TechAreaDefault]
+    header_comments: str = ""
+
+    def get(self, tech_area: str) -> TechAreaDefault | None:
+        for d in self.defaults:
+            if d.tech_area == tech_area:
+                return d
+        return None
+
+    def get_default_user(self, tech_area: str) -> str:
+        d = self.get(tech_area)
+        return d.default_user if d else ""
+
+    def get_default_polarities(self, tech_area: str) -> list[str]:
+        d = self.get(tech_area)
+        return list(d.default_polarities) if d else []
+
+    def get_bfabric_areas(self, tech_area: str) -> list[str]:
+        d = self.get(tech_area)
+        return list(d.bfabric_areas) if d else []
+
+    def to_dict(self) -> dict:
+        """Convert to dict for TOML serialization (one table per tech_area)."""
+        return {
+            d.tech_area: {
+                "default_user": d.default_user,
+                "default_polarities": list(d.default_polarities),
+                "bfabric_areas": list(d.bfabric_areas),
+            }
+            for d in self.defaults
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Self:
+        """Create TechAreaDefaultsConfig from parsed TOML data."""
+        defaults = [TechAreaDefault(tech_area=name, **entry) for name, entry in data.items()]
+        return cls(defaults=defaults)
+
+    @classmethod
+    def load(cls, config_dir: Path) -> Self:
+        from .loader import read_header_comments
+
+        path = config_dir / cls.config_path
+        raw_text = path.read_text()
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+        result = cls.from_dict(data)
+        result.header_comments = read_header_comments(raw_text)
+        return result

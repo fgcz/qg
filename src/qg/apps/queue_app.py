@@ -157,7 +157,7 @@ def _(launching_order_row, master_table):
     # Tech area dropdown - options from master table
     # Default to Proteomics, or to the launching order's technology when launched from one.
     _options = sorted(master_table["tech_area"].unique().to_list())
-    _default = "Proteomics" if "Proteomics" in _options else (_options[0] if _options else None)
+    _default = _options[0] if _options else None
 
     _area = launching_order_row["Area"][0] if not launching_order_row.is_empty() else None
     # B-Fabric "Metabolomics/Biophysics" is ambiguous (Metabolomics vs Lipidomics); default to Metabolomics.
@@ -648,12 +648,14 @@ def _(available_methods_neg, polarity_group):
 
 
 @app.cell
-def _(tech_area_field):
-    # Polarity selection - proteomics uses single polarity (pos), metabolomics/lipidomics use both
-    _needs_both_polarities = tech_area_field.value in ("Metabolomics", "Lipidomics")
+def _(config, tech_area_field):
+    _defaults = config.tech_area_defaults.get_default_polarities(tech_area_field.value)
     polarity_group = mo.ui.batch(
         mo.md("**Polarity:** {pos} pos {neg} neg"),
-        {"pos": mo.ui.checkbox(value=True), "neg": mo.ui.checkbox(value=_needs_both_polarities)},
+        {
+            "pos": mo.ui.checkbox(value="pos" in _defaults),
+            "neg": mo.ui.checkbox(value="neg" in _defaults),
+        },
     )
     return (polarity_group,)
 
@@ -671,14 +673,17 @@ def _():
 
 
 @app.cell
-def _(client, is_employee, tech_area_field):
+def _(client, config, is_employee, tech_area_field):
     if is_employee:
-        # Proteomics runs under the shared "analytic" account; other techs default
-        # to the logged-in user. Employees can edit the field in either case.
-        _initial = "analytic" if tech_area_field.value == "Proteomics" else client.auth.login
+        _service = config.tech_area_defaults.get_default_user(tech_area_field.value).strip()
+        _initial = _service or client.auth.login
     else:
         _initial = client.auth.login
-    user_field = mo.ui.text(value=_initial, label="User", disabled=not is_employee)
+    user_field = mo.ui.text(
+        value=_initial,
+        label="User",
+        disabled=not is_employee,
+    )
     return (user_field,)
 
 
@@ -878,15 +883,10 @@ def _(BFABRIC_CACHE_DIR, USE_ALL_PROJECTS, USE_CONTAINER_TYPE, get_refresh, is_e
 
 
 @app.cell
-def _(entity_id, is_employee, projects_df, tech_area_field):
+def _(config, entity_id, is_employee, projects_df, tech_area_field):
     # Employees browse the container cache; non-employees get only a heading from the fixed container.
     if is_employee:
-        _area_map = {
-            "Proteomics": ["Proteomics"],
-            "Metabolomics": ["Metabolomics/Biophysics"],
-            "Lipidomics": ["Metabolomics/Biophysics"],
-        }
-        _allowed_areas = _area_map.get(tech_area_field.value)
+        _allowed_areas = config.tech_area_defaults.get_bfabric_areas(tech_area_field.value)
         if _allowed_areas:
             _expr = pl.col("Area").is_in(_allowed_areas)
             if entity_id is not None:

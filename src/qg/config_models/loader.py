@@ -31,7 +31,7 @@ from .positions import (
     SamplersConfig,
 )
 from .structure import QueuePatternsConfig, SamplesConfig
-from .ui import InstrumentConfigsConfig
+from .ui import InstrumentConfigsConfig, TechAreaDefaultsConfig
 
 # =============================================================================
 # Helper Functions
@@ -269,6 +269,34 @@ def _validate_pattern_layout_compatibility(
     return errors
 
 
+def _validate_tech_area_defaults_unique(
+    tech_area_defaults: TechAreaDefaultsConfig,
+) -> list[str]:
+    """Validate that tech_area is unique in tech_area_defaults.toml.
+
+    Returns:
+        List of validation error messages
+    """
+    errors: list[str] = []
+    logger.info("Validating tech_area_defaults uniqueness...")
+
+    seen: set[str] = set()
+    duplicates: set[str] = set()
+    for d in tech_area_defaults.defaults:
+        if d.tech_area in seen:
+            duplicates.add(d.tech_area)
+        seen.add(d.tech_area)
+
+    if duplicates:
+        msg = f"tech_area_defaults.toml has duplicate tech_area rows: {sorted(duplicates)}"
+        errors.append(msg)
+        logger.warning(msg)
+    else:
+        logger.info("  OK: tech_area_defaults entries unique by tech_area")
+
+    return errors
+
+
 def _validate_output_format_tech_overlays(
     samples: SamplesConfig,
     output_formats: OutputFormatsConfig,
@@ -298,6 +326,7 @@ def _validate_configs(
     queue_patterns: QueuePatternsConfig,
     qc_layouts_well: QCLayoutsWellConfig,
     qc_layouts_tip: QCLayoutsTipConfig,
+    tech_area_defaults: TechAreaDefaultsConfig,
     output_formats: OutputFormatsConfig | None = None,
 ) -> list[str]:
     """Validate cross-references between configs.
@@ -310,6 +339,7 @@ def _validate_configs(
     errors.extend(_validate_pattern_sample_refs(samples, queue_patterns))
     errors.extend(_validate_layout_sample_refs(samples, qc_layouts_well, qc_layouts_tip))
     errors.extend(_validate_pattern_layout_compatibility(queue_patterns, qc_layouts_well, qc_layouts_tip))
+    errors.extend(_validate_tech_area_defaults_unique(tech_area_defaults))
     if output_formats is not None:
         errors.extend(_validate_output_format_tech_overlays(samples, output_formats))
 
@@ -355,6 +385,7 @@ class QGConfiguration:
 
         # ui/
         instrument_configs: UI instrument configurations
+        tech_area_defaults: Per-tech-area UI defaults (User field, polarities)
     """
 
     # formatting/
@@ -377,6 +408,7 @@ class QGConfiguration:
 
     # ui/
     instrument_configs: InstrumentConfigsConfig
+    tech_area_defaults: TechAreaDefaultsConfig
 
     def to_overview_table(self) -> pl.DataFrame:
         """Return denormalized table of all valid config combinations.
@@ -504,6 +536,7 @@ class QGConfiguration:
         queue_patterns: QueuePatternsConfig,
         methods: MethodsConfig,
         instrument_configs: InstrumentConfigsConfig,
+        tech_area_defaults: TechAreaDefaultsConfig,
     ) -> QGConfiguration:
         """Create a validated QGConfiguration.
 
@@ -515,6 +548,7 @@ class QGConfiguration:
             queue_patterns=queue_patterns,
             qc_layouts_well=qc_layouts_well,
             qc_layouts_tip=qc_layouts_tip,
+            tech_area_defaults=tech_area_defaults,
             output_formats=output_formats,
         )
         if errors:
@@ -532,6 +566,7 @@ class QGConfiguration:
             queue_patterns=queue_patterns,
             methods=methods,
             instrument_configs=instrument_configs,
+            tech_area_defaults=tech_area_defaults,
         )
 
     def serialize_all(self) -> dict[str, str]:
@@ -548,6 +583,7 @@ class QGConfiguration:
             queue_patterns=self.queue_patterns,
             qc_layouts_well=self.qc_layouts_well,
             qc_layouts_tip=self.qc_layouts_tip,
+            tech_area_defaults=self.tech_area_defaults,
             output_formats=self.output_formats,
         )
         if errors:
@@ -573,6 +609,7 @@ class QGConfiguration:
             self.plate_layouts,
             self.samplers,
             self.queue_patterns,
+            self.tech_area_defaults,
         ]
         for cfg in toml_configs:
             header = cfg.header_comments
@@ -665,6 +702,7 @@ def qg_configuration(config_dir: Path | None = None) -> QGConfiguration:
 
     # ui/
     instrument_configs = InstrumentConfigsConfig.load(config_dir)
+    tech_area_defaults = TechAreaDefaultsConfig.load(config_dir)
 
     # Validate and create configuration
     return QGConfiguration.create(
@@ -679,4 +717,5 @@ def qg_configuration(config_dir: Path | None = None) -> QGConfiguration:
         queue_patterns=queue_patterns,
         methods=methods,
         instrument_configs=instrument_configs,
+        tech_area_defaults=tech_area_defaults,
     )

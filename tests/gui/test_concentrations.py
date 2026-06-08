@@ -75,8 +75,14 @@ def _set_dropdown(page: Page, label: str, value: str) -> None:
     # selected. Matching `option:checked` by text is independent of how marimo
     # encodes the `<option value=...>`, and the locators re-resolve each loop so
     # a fresh post-re-render dropdown is targeted.
+    #
+    # The option-existence wait gets the suite-wide 15s marimo budget, not the 5s
+    # Playwright default: QC Layout sits at the end of a six-link cascade
+    # (tech_area→instrument→sampler→queue_type→plate_layout→qc_layout), and its
+    # round-trip — ~250ms locally — can exceed 5s under CI load, which is exactly
+    # how cal_series went missing here ("14 × resolved to 0 elements" over 5s).
     dropdown = H.sidebar(page).get_by_label(label)
-    expect(dropdown.locator("option", has_text=value)).to_have_count(1)
+    expect(dropdown.locator("option", has_text=value)).to_have_count(1, timeout=15_000)
     selected = dropdown.locator("option:checked")
     for _ in range(15):
         dropdown.select_option(value)

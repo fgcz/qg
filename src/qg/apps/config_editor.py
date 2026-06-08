@@ -36,7 +36,7 @@ with app.setup:
         SamplersConfig,
     )
     from qg.config_models.structure import QueuePatternsConfig, SamplesConfig
-    from qg.config_models.ui import InstrumentConfigsConfig
+    from qg.config_models.ui import InstrumentConfigsConfig, TechAreaDefaultsConfig
 
 
 # =============================================================================
@@ -83,6 +83,7 @@ def _():
         "plate_layouts": PlateLayoutsConfig,
         "queue_patterns": QueuePatternsConfig,
         "output_formats": OutputFormatsConfig,
+        "tech_area_defaults": TechAreaDefaultsConfig,
     }
 
     def parse_toml_editor(editor_value: str, config_cls: type, *, preserve_comments: bool = False):
@@ -236,6 +237,28 @@ def _(cfg):
 
 @app.cell
 def _(cfg, compact_toml):
+    tech_area_defaults_editor = mo.ui.code_editor(
+        cfg.tech_area_defaults.header_comments + compact_toml(tomli_w.dumps(cfg.tech_area_defaults.to_dict())),
+        language="toml",
+        min_height=200,
+    )
+    tech_area_defaults_tab = mo.vstack(
+        [
+            mo.md("### Tech Area Defaults (tech_area_defaults.toml)"),
+            mo.md(
+                "_Per-tech-area UI defaults: one TOML table per tech_area with `default_user` "
+                '(empty ⇒ logged-in user), `default_polarities` as a list (e.g. `["pos", "neg"]`), '
+                "and `bfabric_areas` listing the B-Fabric Area values whose orders belong to this "
+                "tech area (used to filter the order browser; empty ⇒ no filtering)._"
+            ),
+            tech_area_defaults_editor,
+        ]
+    )
+    return tech_area_defaults_editor, tech_area_defaults_tab
+
+
+@app.cell
+def _(cfg, compact_toml):
     samplers_editor = mo.ui.code_editor(
         cfg.samplers.header_comments + compact_toml(tomli_w.dumps(cfg.samplers.to_dict())),
         language="toml",
@@ -274,6 +297,7 @@ def _(
     qc_layouts_well_editor,
     qc_layouts_tip_editor,
     instrument_configs_editor,
+    tech_area_defaults_editor,
     sampler_plate_layouts_editor,
     samplers_editor,
     plate_layouts_editor,
@@ -289,6 +313,7 @@ def _(
         "qc_layouts_well": qc_layouts_well_editor.value,
         "qc_layouts_tip": qc_layouts_tip_editor.value,
         "instrument_configs": instrument_configs_editor.value,
+        "tech_area_defaults": tech_area_defaults_editor.value,
         "sampler_plate_layouts": sampler_plate_layouts_editor.value,
         "samplers": samplers_editor.value,
         "plate_layouts": plate_layouts_editor.value,
@@ -619,6 +644,7 @@ def _():
         "QC Layouts Well",
         "QC Layouts Tip",
         "Instrument Config",
+        "Tech Area Defaults",
         "Formatting",
         "Position",
         "Methods",
@@ -645,6 +671,7 @@ def _(
     samples_tab,
     methods_tab,
     instrument_config_tab,
+    tech_area_defaults_tab,
 ):
     _sections = {
         "Overview": overview_tab,
@@ -657,6 +684,7 @@ def _(
         "Samples": samples_tab,
         "Methods": methods_tab,
         "Instrument Config": instrument_config_tab,
+        "Tech Area Defaults": tech_area_defaults_tab,
     }
     # CSS display:none keeps all widgets in the DOM (data_editor preserves visual state)
     _panels = [
