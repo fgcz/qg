@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Config: added the missing `Lipidomics`/`QEXACTIVEHF_2` instrument (methods file + `instruments.csv` row) so the instrument offered in the queue app's Lipidomics menu can actually generate queues instead of failing at lookup.
+
 ## [0.6.0] - 2026-06-08
 
 ### Added

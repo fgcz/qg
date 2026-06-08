@@ -1,0 +1,3 @@
+sample_type,polarity,method_name,method_path
+default,pos,Lipidomics,C:\Methods\Lipidomics\QEXACTIVEHF_2\Lipidomics_Pos.meth
+default,neg,Lipidomics,C:\Methods\Lipidomics\QEXACTIVEHF_2\Lipidomics_Neg.meth
