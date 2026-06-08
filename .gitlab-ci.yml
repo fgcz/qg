@@ -17,6 +17,18 @@ test:
     - uv sync
     - uv run pytest
 
+marimo-check:
+  # Static lint of the marimo apps. --strict makes warnings (e.g. the
+  # branch-expression rule, where a bare mo.md(...) inside if/elif/else is
+  # computed then discarded so the output never renders) fail the pipeline.
+  stage: test
+  tags:
+    - linux
+    - docker
+  script:
+    - uv sync
+    - uv run marimo check --strict src/qg/apps/queue_app.py src/qg/apps/config_editor.py
+
 build:
   # Cross-builds an arm64 OCI image on this amd64 runner via QEMU user-mode
   # emulation. Prerequisite on the runner host (one-time admin setup):
