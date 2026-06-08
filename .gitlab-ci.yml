@@ -7,6 +7,7 @@ workflow:
 stages:
   - test
   - build
+  - deploy
 
 # Shared setup for both test jobs. `uv sync --frozen` asserts uv.lock is current
 # and skips re-resolution; the uv download cache is keyed on uv.lock so it rotates
@@ -75,6 +76,25 @@ marimo-check:
   script:
     - uv sync
     - uv run marimo check --strict src/qg/apps/queue_app.py src/qg/apps/config_editor.py
+
+pages:
+  # Builds the MkDocs Material site into public/ and publishes it via GitLab
+  # Pages. Requires GitLab Pages to be enabled for this project
+  # (Settings -> Pages) — otherwise the job builds the artifact but nothing is
+  # served.
+  stage: deploy
+  tags:
+    - linux
+    - docker
+  script:
+    - uv sync --only-group docs
+    - uv run mkdocs build
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_TAG
 
 build:
   # Cross-builds an arm64 OCI image on this amd64 runner via QEMU user-mode

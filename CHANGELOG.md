@@ -9,18 +9,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - Headless GUI test suite for the queue app under `tests/gui/` (pytest-bdd + Playwright), hermetic by default with an optional Tier-B suite against `fgcz-bfabric-test.uzh.ch`.
 - Queue app: **Show Plate** tab visualizing the plate layout and generated queue positions, colored by sample category and (for multi-order queues) shaped by order, with per-well hover details.
+- Documentation site (MkDocs Material) published to GitLab Pages via a CI `pages` job.
+- `LICENSE` (Apache-2.0), `CITATION.cff`, and `CONTRIBUTING.md` at the repo root.
 - Per-tech-area UI defaults (User field, pre-checked polarities, and the B-Fabric order-browser Area filter) now live in `qg_configs/ui/tech_area_defaults.toml` and are editable from the config editor's new **Tech Area Defaults** tab.
 
 ### Changed
+- Documentation overhaul: `README`, `docs/reference/config.md`, `docs/reference/algorithm.md`, `qg_configs/README.md`, and the config ER diagram now reflect the current `core/{structure,position,formatting,methods}` + `ui/` layout and pipeline.
+- README de-duplicated against the docs: the parameters JSON schema, config-files table, and deployment procedure now live solely in `docs/` and are linked from the README rather than copied.
+- Docs site: dropped the PlantUML diagrams (and their CI render step); the pipeline is described in `docs/reference/algorithm.md`. Site emits plain `.html` (browsable from disk).
 - Queue app: session banner now shares the top row with the Refresh Projects button, the "Order Selection" heading is removed, and the order table shows 5 rows per page — saving vertical space.
 - Queue app: the User field now defaults to the logged-in user for every technology except Proteomics (which keeps `analytic`); employees can still edit it.
 - Queue app: opening the app from a B-Fabric order now aligns the Tech Area to that order and, for employees, pre-selects it in the order table — fetching it on the fly (no full refresh) if it isn't cached yet — so the launching order's samples load immediately.
 - CI: split tests into parallel `test:unit` / `test:gui` jobs on the Playwright image with uv download caching — ~35% faster pipelines.
 
 ### Fixed
+- Docs: corrected the queue-parameters JSON schema (README, AGENTS.md, `docs/reference/`) to match `params_models.py` — `{parameters, queue}` with `tech_area`, `queue_type`/`plate_layout`/`qc_layout_name`, string `randomization`, and nested `batches`/`samples`/`cells`; Hystar output is `.xml`.
 - Tests: the `cal_series` concentration-grid GUI scenario no longer flakes under CI load — its QC Layout option wait now uses the suite's 15s marimo round-trip budget instead of Playwright's 5s default.
 - Queue app: the selected-orders banner now renders again — its `mo.md` output was previously discarded inside `if/elif/else` branches.
 - Queue app no longer crashes building queues where a grouping variable (or tray) first appears after the 100th row; polars now scans the full row set for schema inference.
+
+### Removed
+- Removed the obsolete `test_data/` validation corpus and the `qg-tools` CLI (`sld_to_csv`/`compare`/`summarize`/`merge`) and `tools_apps` marimo app that only served it.
 
 ## [0.5.5] - 2026-06-04
 

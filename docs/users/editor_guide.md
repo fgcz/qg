@@ -23,7 +23,7 @@ The editor is organized into several tabs:
 - **QC Layouts Tip**: Define where QC/Blank samples are located on tip plates (CSV table).
 - **UI**: Configure which patterns are available for each instrument in the main app.
 
-![Overview Tab](img/editor_overview.png)
+![Overview Tab](../img/editor_overview.png)
 
 
 ## Common Tasks
@@ -36,7 +36,7 @@ Queue patterns define the sequence of QC shots (Blanks, Standards, Pools) inject
 2.  You will see a text editor containing TOML configuration.
 3.  Add a new section for your pattern using the format `[<TechArea>.<PatternName>]`.
 
-![Queue Patterns Tab](img/editor_patterns.png)
+![Queue Patterns Tab](../img/editor_patterns.png)
 
 
 **Example:** Adding a "HighQC" pattern for Proteomics.
@@ -44,16 +44,14 @@ Queue patterns define the sequence of QC shots (Blanks, Standards, Pools) inject
 ```toml
 [Proteomics.high_qc]
 description = "High frequency QC for critical samples"
-qc_layout_name = "standard"        # Refers to a layout in QC Layouts tabs
 run_QC_after_n_samples = 4         # Inject middle QCs after every 4 user samples
-start = ["clean", "QC01", "QC03dda"]
+start = ["clean", "QC01", "QC03"]
 middle = ["clean", "QC01"]
-end = ["clean", "QC01", "QC03dda"]
+end = ["clean", "QC01", "QC03"]
 separation = ["clean"]             # Optional: injected between project blocks
 ```
 
-*   **`qc_layout_name`**: Must match a `qc_layout_name` defined in the **QC Layouts Well** (or Tip) tab.
-*   **Sample IDs** (e.g., "clean", "QC01"): Must be defined in the **Samples** tab.
+*   **Sample IDs** (e.g., "clean", "QC01"): Must be defined in the **Samples** tab, and the QC samples among them must have positions in the **QC Layouts Well** (or Tip) tab.
 
 ### 2. How to Add a New QC Sample
 
@@ -69,7 +67,7 @@ Adding a new QC sample involves three steps: defining the sample, placing it on 
     *   **inj_vol**: Injection volume in µL.
     *   **file_name_template**: Naming convention for the raw file.
 
-![Samples Tab](img/editor_samples.png)
+![Samples Tab](../img/editor_samples.png)
 
 
 #### Step B: Place the Sample on the Plate
@@ -82,7 +80,7 @@ Adding a new QC sample involves three steps: defining the sample, placing it on 
     *   **tray/row/col**: Position coordinates.
         *   _Note: You may need to add multiple rows if the sample is present in multiple plate types (e.g., one row for `Vanquish_54` and another for `Plate_96`)._
 
-![QC Layouts Well Tab](img/editor_layouts.png)
+![QC Layouts Well Tab](../img/editor_layouts.png)
 
 
 #### Step C: Use the Sample in a Pattern

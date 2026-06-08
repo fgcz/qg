@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use qg, please cite it using the metadata in this file."
+title: "qg: Queue Generation System"
+type: software
+license: Apache-2.0
+date-released: 2026-06-08
+repository-code: "https://gitlab.bfabric.org/metabolomics/queue-gen"
+abstract: "Queue generation system for mass spectrometry instruments with QC injection scheduling and output writers for XCalibur, Chronos, and Hystar."
+authors:
+  - name: "qg contributors"
