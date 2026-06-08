@@ -116,10 +116,26 @@ class FakeBfabric:
             container_id = int(params["containerid"])
             plates = self._plates_for(container_id)
             return _FakeReadResult([{"id": p.id} for p in plates.values()])
+        if endpoint == "container":
+            # `ContainerCache.fetch_container_row` looks a single container up by id.
+            return _FakeReadResult(self._container_record_for(int(params["id"])))
         raise NotImplementedError(f"FakeBfabric.read for endpoint={endpoint!r}")
 
     def _samples_for(self, container_id: int) -> list[dict[str, Any]]:
         path = self._fixtures / f"samples_{container_id}.json"
+        if not path.exists():
+            return []
+        return json.loads(path.read_text())
+
+    def _container_record_for(self, container_id: int) -> list[dict[str, Any]]:
+        """Serve one raw container record by id from ``container_<id>.json``.
+
+        The launching-order pre-load fetches the container the app was opened from via
+        ``read("container", {"id": ...})``. Missing fixture → empty list, mirroring real
+        B-Fabric's "not found" result; this keeps sessions pinned to a container without
+        a fixture from crashing in the pre-load cell.
+        """
+        path = self._fixtures / f"container_{container_id}.json"
         if not path.exists():
             return []
         return json.loads(path.read_text())
@@ -135,8 +151,24 @@ class FakeBfabric:
         }
 
 
-def build_test_session(fixtures_dir: Path, *, is_employee: bool = True, entity_id: int | None = None):
+# Sentinel: an unspecified `entity_class` derives the default below; ``None`` is itself a
+# valid value (a plain employee session), so it can't double as "caller said nothing".
+_DEFAULT_ENTITY_CLASS = "__default__"
+
+
+def build_test_session(
+    fixtures_dir: Path,
+    *,
+    is_employee: bool = True,
+    entity_id: int | None = None,
+    entity_class: str | None = _DEFAULT_ENTITY_CLASS,
+):
     """Return an `AppSession` backed by `FakeBfabric` for use with `_TEST_SESSION_FACTORY`.
+
+    ``entity_class`` defaults to the launch context the app sees today (``None`` for
+    employees, ``"Container"`` for non-employees). Pass an explicit value — e.g.
+    ``entity_class="Order"`` — to simulate an employee who opened the app *from* an
+    order, which is what triggers the launching-order pre-load.
 
     Imports are local so this module is importable without the rest of the qg package
     (e.g. from a uvicorn entrypoint that doesn't need other heavy deps).
@@ -146,13 +178,16 @@ def build_test_session(fixtures_dir: Path, *, is_employee: bool = True, entity_i
     client = FakeBfabric(fixtures_dir)
     helper = BfabricHelper(client) if is_employee else BfabricHelper(client, restrict_to_container_id=entity_id)
     slug = instance_slug(client)
+    resolved_entity_class = (
+        (None if is_employee else "Container") if entity_class == _DEFAULT_ENTITY_CLASS else entity_class
+    )
     return AppSession(
         bfabric=helper,
         client=client,
         feeder_uploader=MockFeederUploader(),
         application_id=401,
         is_employee=is_employee,
-        entity_class=None if is_employee else "Container",
+        entity_class=resolved_entity_class,
         entity_id=entity_id,
         instance_slug=slug,
         base_url=client.config.base_url,

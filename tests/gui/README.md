@@ -42,7 +42,7 @@ tests/gui/
 ├── _helpers.py                # Playwright helpers (sidebar scope, select_order, downloads, ...)
 ├── features/                  # one .feature per scenario
 ├── fixtures/
-│   ├── bfabric/               # canned `samples_<id>.json`, `plates_<id>.json`
+│   ├── bfabric/               # canned `samples_<id>.json`, `plates_<id>.json`, `container_<id>.json`
 │   ├── expected/              # golden reference outputs (CSV)
 │   └── projects.csv           # seeded into the per-instance ContainerCache dir
 └── test_*.py                  # one `scenarios("features/<x>.feature")` + step defs per scenario
@@ -67,6 +67,7 @@ tests/gui/
 | `sampler_incompat.feature` | `test_sampler_incompat.py` | Incompatible-sampler warn callout |
 | `non_employee.feature` | `test_non_employee.py` | Pinned-container workflow, no project table |
 | `non_employee_empty.feature` | `test_non_employee_empty.py` | "No samples found" danger callout |
+| `launching_order.feature` | `test_launching_order.py` | Opening from an order defaults Tech Area to its technology; employee order is pre-selected (banner) |
 | `noqc.feature` | `test_noqc.py` | `noqc` QC layout hides the Pattern dropdown |
 | `vial_mode.feature` | `test_vial_mode.py` | Start Tray + Start Position visibility |
 | `upload_workunit.feature` | `test_upload_workunit.py` | Mock workunit message + bundled resource count |

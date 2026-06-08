@@ -37,9 +37,12 @@ def get_cache_dir(client: Bfabric) -> Path:
 class ContainerCache:
     """Fetches B-Fabric containers (orders + projects) and writes cache CSVs.
 
-    Two public methods, each writes exactly one file:
+    Two cache writers, each writes exactly one file:
     - write_containers()            → <instance>/bfabric_container{suffix}.csv
     - write_containers_with_plates() → <instance>/bfabric_container_type{suffix}.csv
+
+    Plus a single-row fetch that writes nothing:
+    - fetch_container_row()         → one container by ID, formatted like the cache
     """
 
     def __init__(self, client: Bfabric, *, active_only: bool = True) -> None:
@@ -130,6 +133,26 @@ class ContainerCache:
         containers_with_plates = self._find_plates(all_ids)
         output = self._format(dfs, containers_with_plates)
         return self._write("bfabric_container_type", output)
+
+    def fetch_container_row(self, container_id: int, *, with_type: bool = False) -> pl.DataFrame:
+        """Fetch one container by ID, formatted like the cache (no disk write).
+
+        Reads the `container` supertype directly — orders and projects are both
+        containers, so a single query by ID resolves either kind. Queries by ID only
+        (no status/technology filter), which is exactly why the container may be missing
+        from the active-only cache; this lets the app surface the launching order even
+        when it predates the cache, without a full refresh.
+
+        Returns an empty DataFrame if the ID is not found.
+        """
+        result = self._client.read("container", {"id": container_id}, max_results=1)
+        if len(result) == 0:
+            logger.warning("Container {} not found", container_id)
+            return pl.DataFrame()
+        df = result.to_polars(flatten=True)
+        containers_with_plates = self._find_plates([container_id]) if with_type else set()
+        formatted = self._format_one(df, containers_with_plates)
+        return formatted if with_type else formatted.drop("Type")
 
 
 def main() -> None:

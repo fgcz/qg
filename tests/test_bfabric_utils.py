@@ -147,3 +147,90 @@ def test_get_samples_plates_no_filter_when_unrestricted() -> None:
     assert sorted(df["sample_id"].to_list()) == [1, 2, 99]
     # Inventory fetch must be skipped when no restriction is set.
     fake_client.read.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# ContainerCache.fetch_container_row — single-container fetch for the launching order
+# ---------------------------------------------------------------------------
+
+
+class _FakeReadResult:
+    """Duck-types a B-Fabric read result: supports len() and to_polars(flatten=...)."""
+
+    def __init__(self, df: pl.DataFrame) -> None:
+        self._df = df
+
+    def __len__(self) -> int:
+        return len(self._df)
+
+    def to_polars(self, flatten: bool = True) -> pl.DataFrame:
+        return self._df
+
+
+def _container_record(cid: int, area: str = "Proteomics", status: str = "submitted") -> pl.DataFrame:
+    """One raw container record shaped like client.read(endpoint, {"id": ...}).to_polars()."""
+    return pl.DataFrame(
+        {
+            "id": [cid],
+            "name": ["Launch Order"],
+            "project_id": [None],
+            "billingcustomer": ["Dr X"],
+            "countsamples": [3],
+            "status": [status],
+            "technology": [[area]],
+        }
+    )
+
+
+def _cache_for(reads: dict[str, pl.DataFrame], monkeypatch, tmp_path: Path) -> ContainerCache:
+    """Build a ContainerCache whose client.read returns per-endpoint DataFrames."""
+    monkeypatch.setattr("qg.cli.find_projects.get_cache_dir", lambda c: tmp_path / instance_slug(c))
+    client = _FakeClient("https://fgcz-bfabric.uzh.ch/bfabric")
+    client.read = lambda endpoint, query, max_results=1: _FakeReadResult(reads.get(endpoint, pl.DataFrame()))
+    return ContainerCache(client)
+
+
+def test_fetch_container_row_found(monkeypatch, tmp_path: Path) -> None:
+    """A container read by ID is surfaced even with a non-active status."""
+    cache = _cache_for({"container": _container_record(555, status="submitted")}, monkeypatch, tmp_path)
+    row = cache.fetch_container_row(555)
+
+    assert row["Container ID"].to_list() == [555]
+    assert row["Area"].to_list() == ["Proteomics"]
+    # "submitted" is excluded from the active-only cache, yet the launching order still appears.
+    assert row["Status"].to_list() == ["submitted"]
+    assert "Type" not in row.columns
+
+
+def test_fetch_container_row_resolves_project_type(monkeypatch, tmp_path: Path) -> None:
+    """The container supertype resolves project-kind containers too — one query, either kind."""
+    cache = _cache_for({"container": _container_record(777, area="Metabolomics/Biophysics")}, monkeypatch, tmp_path)
+    row = cache.fetch_container_row(777)
+
+    assert row["Container ID"].to_list() == [777]
+    assert row["Area"].to_list() == ["Metabolomics/Biophysics"]
+
+
+def test_fetch_container_row_not_found(monkeypatch, tmp_path: Path) -> None:
+    """Unknown ID yields an empty DataFrame (graceful, no pre-load)."""
+    cache = _cache_for({}, monkeypatch, tmp_path)
+    assert cache.fetch_container_row(999).is_empty()
+
+
+def test_fetch_container_row_with_type_emits_plate_row(monkeypatch, tmp_path: Path) -> None:
+    """with_type=True adds a Plates-typed row when the container has plates."""
+    monkeypatch.setattr("qg.cli.find_projects.get_cache_dir", lambda c: tmp_path / instance_slug(c))
+    client = _FakeClient("https://fgcz-bfabric.uzh.ch/bfabric")
+
+    def _read(endpoint: str, query: dict, max_results: int = 1) -> _FakeReadResult:
+        if endpoint == "container":
+            return _FakeReadResult(_container_record(321))
+        if endpoint == "plate":
+            return _FakeReadResult(pl.DataFrame({"id": [42]}))  # non-empty -> has a plate
+        return _FakeReadResult(pl.DataFrame())
+
+    client.read = _read
+    row = ContainerCache(client).fetch_container_row(321, with_type=True)
+
+    assert sorted(row["Type"].to_list()) == ["Plates", "Vials"]
+    assert set(row["Container ID"].to_list()) == {321}
