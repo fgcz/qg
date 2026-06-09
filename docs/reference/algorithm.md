@@ -83,7 +83,7 @@ PlateQueue / VialQueue (from queue.batches + cells/samples)
     CSV / XML output
 ```
 
-### 1. `randomize_plate_queue(plate_queue, randomization)`
+### 1. `randomize_plate_queue(plate_queue, randomization, rng)`
 
 Reorders user samples *within* container/plate boundaries before structure is
 built. Modes (`randomize.py`):
@@ -92,9 +92,26 @@ built. Modes (`randomize.py`):
 |------|----------|
 | `no` | Keep original order |
 | `random` | Shuffle samples |
-| `blocked` | Randomized complete block design — group by `grouping_var`, shuffle within blocks |
+| `blocked` | Randomized complete block design — group by `grouping_var`, shuffle within blocks (front-loads complete blocks; majority-only tail) |
+| `blocked_uniform` | Group-uniform interleave — spread each `grouping_var` group evenly across the whole run via fair-share selection; identity shuffled within groups. Reduces to `blocked` for equal group sizes |
 
 Returns a new `PlateQueue`.
+
+**Reproducibility.** Randomized modes draw from a `random.Random(seed)` instance.
+The generator uses the `seed` from the parameters JSON if set; otherwise it draws
+one and records it back onto the parameters, so the resolved seed is persisted in
+the exported params JSON / B-Fabric workunit and the run can be reproduced. `no`
+mode is deterministic and uses no seed.
+
+**Balance score.** The queue app's **Visualizations** tab reports how well a run
+is balanced with the *correlation ratio* (η², `qg.viz.balance`): the fraction of
+variance in position explained by `grouping_var`, where `0` means the groups are
+evenly interleaved (ideal) and `1` means they are fully separated. The *Plate
+Layout* sub-view scores group ↔ plate position; the *Acquisition Timeline*
+sub-view scores group ↔ queue position. Unlike the normalized statistic in the
+JASMS figure script, η² is standalone and needs no baseline run, so it scores a
+single generated queue. The score is **reporting only** — it is never used to
+optimize over candidate orderings.
 
 ### 2. `build_multi_container_queue_structure(groups, pattern, default_sample_id, qc_frequency_override)`
 

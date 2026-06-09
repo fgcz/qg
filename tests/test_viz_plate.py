@@ -18,6 +18,7 @@ def _row(
     sample_type: str = "Unknown",
     container_id: int = 1,
     file_name: str | None = None,
+    grouping_var: str | None = None,
 ) -> QueueRow:
     return QueueRow(
         run_number=n,
@@ -29,6 +30,7 @@ def _row(
         grid_position=f"{row}{col}",
         row=row,
         col=col,
+        grouping_var=grouping_var,
         inj_vol=2.0,
         file_name=file_name or f"f{n}",
         container_id=container_id,
@@ -89,6 +91,24 @@ class TestBuildPlateWells:
         assert wells.height == 1
         assert wells["n_orders"].item() == 2
         assert wells["order_label"].item() == "shared"
+
+    def test_grouping_var_carried_onto_wells_and_hover(self):
+        df = _queue_df(
+            [
+                _row(1, tray="A", row="A", col=1, grouping_var="treated"),
+                _row(2, tray="A", row="B", col=2),  # no grouping_var
+            ]
+        )
+
+        wells = build_plate_wells(df)
+
+        assert "grouping_var" in wells.columns
+        by_pos = dict(zip(wells["grid_position"], wells["grouping_var"], strict=True))
+        assert by_pos == {"A1": "treated", "B2": None}
+        # hover renders the group, with an em-dash for the ungrouped well.
+        hover_by_pos = dict(zip(wells["grid_position"], wells["hover"], strict=True))
+        assert "Group: treated" in hover_by_pos["A1"]
+        assert "Group: —" in hover_by_pos["B2"]
 
 
 class TestBuildPlateFigure:
@@ -158,3 +178,33 @@ class TestBuildPlateFigure:
 
         legend_names = {t.name for t in fig.data if t.name}
         assert {"Order 10", "Order 20"} <= legend_names
+
+    def test_color_by_grouping_var_uses_group_legend(self):
+        df = _queue_df(
+            [
+                _row(1, tray="A", row="A", col=1, grouping_var="treated"),
+                _row(2, tray="A", row="B", col=2, grouping_var="control"),
+            ]
+        )
+        wells = build_plate_wells(df)
+
+        fig = build_plate_figure(wells, self._layout(), orders=[1], color_by="grouping_var")
+
+        legend_names = {t.name for t in fig.data if t.name}
+        # group values appear in the legend; sample-type categories do not.
+        assert {"treated", "control"} <= legend_names
+        assert "Sample" not in legend_names
+
+    def test_color_by_grouping_var_buckets_nulls(self):
+        df = _queue_df(
+            [
+                _row(1, tray="A", row="A", col=1, grouping_var="treated"),
+                _row(2, tray="A", row="B", col=2),  # ungrouped
+            ]
+        )
+        wells = build_plate_wells(df)
+
+        fig = build_plate_figure(wells, self._layout(), orders=[1], color_by="grouping_var")
+
+        legend_names = {t.name for t in fig.data if t.name}
+        assert "(none)" in legend_names

@@ -88,6 +88,32 @@ def _tier_b_env() -> dict[str, str]:
     return {"QG_ALLOW_UNAUTHENTICATED": "1"}
 
 
+_QUEUE_APP_PATH = _REPO_ROOT / "src" / "qg" / "apps" / "queue_app.py"
+
+
+def _sanity_check_app_notebook() -> None:
+    """Fast static gate before the expensive GUI suite.
+
+    A graph-level error in the marimo notebook (e.g. a variable defined in multiple
+    cells) makes the app refuse to load, which fails *every* GUI test at startup
+    after minutes of browser/uvicorn churn. ``marimo check`` catches that statically
+    in <1s. Non-strict mode fails only on errors/critical, not formatting warnings.
+    """
+    result = subprocess.run(
+        [sys.executable, "-m", "marimo", "check", str(_QUEUE_APP_PATH)],
+        cwd=_REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        pytest.fail(
+            "marimo sanity check failed for queue_app.py — skipping GUI tests "
+            "(the app would not load). Fix the notebook errors below:\n\n"
+            f"{result.stdout}{result.stderr}",
+            pytrace=False,
+        )
+
+
 @pytest.fixture(scope="session")
 def queue_app_url(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFactory) -> str:
     """Spawn the queue app in a uvicorn subprocess and yield its base URL.
@@ -96,6 +122,8 @@ def queue_app_url(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempP
     Tier B (``--gui-tier=bfabric-test``): bypasses auth middleware but uses the real
     `Bfabric.connect()` against fgcz-bfabric-test.uzh.ch (creds in ~/.bfabricpy.yml).
     """
+    _sanity_check_app_notebook()
+
     tier = request.config.getoption("--gui-tier")
     cache_root = tmp_path_factory.mktemp("qg_cache")
 

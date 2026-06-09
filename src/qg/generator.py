@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import random
 import re
 from dataclasses import dataclass
 from typing import Literal
@@ -19,7 +20,7 @@ from qg.params_models import PlateCell, PlateQueue, PlateQueueInput, QueueInput,
 from qg.positionV2 import create_assembled_sampler
 from qg.qc_positions import Position, QCPositionProvider, create_qc_position_provider
 from qg.queue_structure import SlotEntry, build_multi_container_queue_structure
-from qg.randomize import randomize_plate_queue
+from qg.randomize import draw_seed, randomize_plate_queue
 from qg.utils import LayoutMode
 
 # Suffix appended to the basename of the last file of each container subqueue
@@ -418,8 +419,16 @@ class QueueGenerator:
             len(self.plate_queue.cells),
         )
 
-        # Apply randomization (within plate/container boundaries)
-        plate_queue = randomize_plate_queue(self.plate_queue, params.randomization)
+        # Apply randomization (within plate/container boundaries). For randomized
+        # modes, resolve and record the seed so the run is reproducible from the
+        # exported params; "no" mode is already deterministic and needs no seed.
+        if params.randomization == "no":
+            plate_queue = self.plate_queue
+        else:
+            if params.seed is None:
+                params.seed = draw_seed()
+            logger.info("Randomization | mode={} | seed={}", params.randomization, params.seed)
+            plate_queue = randomize_plate_queue(self.plate_queue, params.randomization, random.Random(params.seed))
 
         # Extract groups: (container_id, num_samples) for each container
         samples_per_container: dict[int, int] = {}

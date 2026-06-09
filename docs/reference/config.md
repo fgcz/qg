@@ -300,6 +300,7 @@ See [Algorithm](algorithm.md) for how each field flows through the pipeline.
     "user": "cpanse",
     "method": {},
     "randomization": "no",
+    "seed": null,
     "inj_vol_override": null,
     "qc_frequency_override": null,
     "one_container_per_tray": false,
@@ -354,7 +355,8 @@ as `Plate_96`), but `queue` carries `plates` and `cells`:
 | `date` | string | `YYYYMMDD`; substituted into `path_template` and file names |
 | `user` | string | Username; substituted into `path_template` |
 | `method` | dict | Per-polarity method names: `{"pos": "...", "neg": "..."}` |
-| `randomization` | string | `"no"` / `"random"` / `"blocked"` (see [Algorithm](algorithm.md)) |
+| `randomization` | string | `"no"` / `"random"` / `"blocked"` / `"blocked_uniform"` (see [Algorithm](algorithm.md)) |
+| `seed` | int? | RNG seed for reproducible randomization. When null and a randomized mode is selected, a seed is drawn at generation and recorded back here. |
 | `inj_vol_override` | float? | Override injection volume (null → use `samples.csv`) |
 | `qc_frequency_override` | int? | Override pattern `run_QC_after_n_samples` (null → use pattern) |
 | `one_container_per_tray` | bool | Place each container on its own tray (vial mode) |

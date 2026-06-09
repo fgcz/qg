@@ -26,6 +26,22 @@ _COLORS = {
     "Unknown": "#9D9D9D",
 }
 _FALLBACK = "#333333"
+# Colorblind-safe palette cycled over the distinct values of an arbitrary
+# categorical column (e.g. ``grouping_var``) when coloring by covariate.
+_CATEGORICAL_PALETTE = [
+    "#4C78A8",
+    "#E45756",
+    "#59A14F",
+    "#B279A2",
+    "#F58518",
+    "#76B7B2",
+    "#EDC948",
+    "#FF9DA7",
+    "#9C755F",
+    "#BAB0AC",
+]
+_NONE_LABEL = "(none)"
+_NONE_COLOR = "#D0D0D0"
 # Shape encodes the order: order 1 = circle, order 2 = square, ... so a
 # single-order queue (all circles) matches the first order of a multi-order one.
 _SYMBOL_POOL = ["circle", "square", "triangle-up", "diamond", "star", "pentagon", "hexagon", "triangle-down"]
@@ -61,6 +77,7 @@ def build_plate_wells(geom: pl.DataFrame) -> pl.DataFrame:
             pl.col("grid_position").first().alias("grid_position"),
             pl.col("sample_id").first().alias("sample_id"),
             pl.col("sample_name").first().alias("sample_name"),
+            pl.col("grouping_var").first().alias("grouping_var"),
             pl.col("inj_vol").first().alias("inj_vol"),
             pl.col("container_id").first().alias("container_id"),
             pl.col("container_id").n_unique().alias("n_orders"),
@@ -85,6 +102,8 @@ def build_plate_wells(geom: pl.DataFrame) -> pl.DataFrame:
                 + pl.col("sample_name")
                 + "<br>Type: "
                 + pl.col("category")
+                + "<br>Group: "
+                + pl.col("grouping_var").fill_null("—")
                 + "<br>Order: "
                 + pl.col("order_label")
                 + "<br>Inj vol: "
@@ -98,7 +117,35 @@ def build_plate_wells(geom: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def build_plate_figure(wells: pl.DataFrame, layout: PlateLayout, orders: list[int], cell: int = 30) -> go.Figure:
+def _resolve_coloring(wells: pl.DataFrame, color_by: str) -> tuple[pl.DataFrame, list[str], dict[str, str], str]:
+    """Compute the per-well color key, the ordered legend categories, the color
+    map, and the legend title for the requested ``color_by`` column.
+
+    ``color_by == "category"`` keeps the fixed sample-type palette; any other
+    column is treated as an arbitrary categorical covariate (e.g. ``grouping_var``)
+    colored from :data:`_CATEGORICAL_PALETTE`, with null values bucketed under
+    :data:`_NONE_LABEL`.
+    """
+    if color_by == "category":
+        wells = wells.with_columns(pl.col("category").alias("_clr"))
+        present = set(wells["_clr"].to_list())
+        ordered = [c for c in _COLORS if c in present]
+        return wells, ordered, dict(_COLORS), "Sample type"
+
+    wells = wells.with_columns(pl.col(color_by).cast(pl.Utf8).fill_null(_NONE_LABEL).alias("_clr"))
+    present = set(wells["_clr"].to_list())
+    real = sorted(v for v in present if v != _NONE_LABEL)
+    color_map = {v: _CATEGORICAL_PALETTE[i % len(_CATEGORICAL_PALETTE)] for i, v in enumerate(real)}
+    ordered = list(real)
+    if _NONE_LABEL in present:
+        color_map[_NONE_LABEL] = _NONE_COLOR
+        ordered.append(_NONE_LABEL)
+    return wells, ordered, color_map, "Group"
+
+
+def build_plate_figure(
+    wells: pl.DataFrame, layout: PlateLayout, orders: list[int], cell: int = 30, color_by: str = "category"
+) -> go.Figure:
     """Render occupied wells onto the plate grid, one subplot per tray.
 
     Args:
@@ -108,10 +155,14 @@ def build_plate_figure(wells: pl.DataFrame, layout: PlateLayout, orders: list[in
             determines the marker shape assigned to each.
         cell: Pixels allotted to each well; sets the overall figure size and
             scales the marker sizes. Smaller values produce a more compact plot.
+        color_by: Well column driving the color encoding. ``"category"`` (default)
+            colors by sample type; any other column (e.g. ``"grouping_var"``) is
+            colored as an arbitrary categorical covariate.
 
     Returns:
         A plotly figure sized to the grid so wells stay roughly square.
     """
+    wells, color_categories, color_map, legend_title = _resolve_coloring(wells, color_by)
     multi_order = len(orders) > 1
     order_symbol = {o: _SYMBOL_POOL[i % len(_SYMBOL_POOL)] for i, o in enumerate(orders)}
     has_shared = multi_order and bool((wells["n_orders"] > 1).any())
@@ -171,9 +222,9 @@ def build_plate_figure(wells: pl.DataFrame, layout: PlateLayout, orders: list[in
             col=sub_col,
         )
         tray_wells = wells.filter(pl.col("tray").cast(pl.Utf8) == str(tray))
-        present = set(tray_wells["category"].unique().to_list())
-        for category in (c for c in _COLORS if c in present):
-            cat_wells = tray_wells.filter(pl.col("category") == category)
+        present = set(tray_wells["_clr"].unique().to_list())
+        for category in (c for c in color_categories if c in present):
+            cat_wells = tray_wells.filter(pl.col("_clr") == category)
             fig.add_trace(
                 go.Scatter(
                     x=cat_wells["col"].to_list(),
@@ -181,7 +232,7 @@ def build_plate_figure(wells: pl.DataFrame, layout: PlateLayout, orders: list[in
                     mode="markers",
                     marker={
                         "size": data_marker,
-                        "color": _COLORS.get(category, _FALLBACK),
+                        "color": color_map.get(category, _FALLBACK),
                         "symbol": _symbols(cat_wells["container_id"].to_list(), cat_wells["n_orders"].to_list()),
                     },
                     showlegend=False,  # legends are provided by the dummy traces below
@@ -196,17 +247,17 @@ def build_plate_figure(wells: pl.DataFrame, layout: PlateLayout, orders: list[in
             title_text="Row", categoryorder="array", categoryarray=list(reversed(rows)), row=sub_row, col=sub_col
         )
 
-    # Sample-type legend (color), decoupled from the data traces so swatches stay clean.
-    for category in (c for c in _COLORS if c in set(wells["category"].to_list())):
+    # Color legend, decoupled from the data traces so swatches stay clean.
+    for category in color_categories:
         fig.add_trace(
             go.Scatter(
                 x=[None],
                 y=[None],
                 mode="markers",
-                marker={"size": 12, "color": _COLORS.get(category, _FALLBACK), "symbol": "circle"},
+                marker={"size": 12, "color": color_map.get(category, _FALLBACK), "symbol": "circle"},
                 name=category,
-                legendgroup="category",
-                legendgrouptitle_text="Sample type",
+                legendgroup="color",
+                legendgrouptitle_text=legend_title,
                 showlegend=True,
             ),
             row=1,
