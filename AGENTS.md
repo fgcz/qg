@@ -88,6 +88,7 @@ each `{parameters, queue}`. `read_queue_input()` picks plate vs vial by whether
     "user": "cpanse",
     "method": {},
     "randomization": "no",
+    "seed": null,
     "inj_vol_override": null,
     "qc_frequency_override": null,
     "one_container_per_tray": false,
@@ -109,7 +110,8 @@ Key fields:
 - `tech_area`: `Proteomics` / `Metabolomics` / `Lipidomics` (title-case).
 - `sampler`: bare name (`Vanquish`). `queue_type` (`Vial`/`Plate`) + `plate_layout` select the layout; `qc_layout_name` selects the QC layout.
 - `output_format`: `xcalibur` / `xcalibur_sii` / `chronos` / `hystar` (Hystar emits `.xml`).
-- `randomization`: string `"no"` / `"random"` / `"blocked"` (not a bool).
+- `randomization`: string `"no"` / `"random"` / `"blocked"` / `"blocked_uniform"` (not a bool).
+- `seed`: optional `int | None` RNG seed. Used when set; otherwise a seed is drawn at generation (for randomized modes) and recorded back so the run is reproducible.
 - `method`: `dict[str, str]` per-polarity methods: `{"pos": "Method_Pos", "neg": "Method_Neg"}`.
 - `qc_frequency_override`: override pattern's `run_QC_after_n_samples`.
 - `queue.batches`: `container_id` → `ContainerBatch`; multi-container support lives here, not in `parameters`. `queue.samples` (vial; alias `cells`) / `queue.cells` (plate) carry the samples.

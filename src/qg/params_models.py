@@ -83,6 +83,10 @@ class QueueParameters(BaseModel):
     # Method per polarity: {"pos": "DIA_60min", "neg": "DIA_60min"}
     method: dict[str, str] = Field(default_factory=dict)
     randomization: Literal["no", "random", "blocked", "blocked_uniform"] = "no"
+    # RNG seed for reproducible randomization. When unset, a seed is drawn at
+    # generation time and recorded back here so the run can be reproduced from the
+    # exported params JSON / B-Fabric workunit.
+    seed: int | None = None
     inj_vol_override: float | None = None
     qc_frequency_override: int | None = None
     # If True, samples from different containers are placed on separate trays (vial mode only)
@@ -124,6 +128,7 @@ class QueueParameters(BaseModel):
         user: str = "",
         method: dict[str, str] | None = None,
         randomization: Literal["no", "random", "blocked", "blocked_uniform"] = "no",
+        seed: int | None = None,
         inj_vol_override: float | None = None,
         qc_frequency_override: int | None = None,
         one_container_per_tray: bool = False,
@@ -167,6 +172,7 @@ class QueueParameters(BaseModel):
             user=user,
             method=method or {},
             randomization=randomization,
+            seed=seed,
             inj_vol_override=inj_vol_override,
             qc_frequency_override=qc_frequency_override,
             one_container_per_tray=one_container_per_tray,

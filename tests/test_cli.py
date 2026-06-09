@@ -82,6 +82,27 @@ def test_generate_queues_cli_stdout(config, tmp_path):
         assert col in header_line, f"Missing column '{col}' in output"
 
 
+def test_generate_queues_cli_seed_reproducible(config, tmp_path):
+    """A seed set in the input JSON makes a randomized run reproducible across invocations."""
+    queue_input = make_queue_input(num_samples=10)
+    queue_input.parameters.randomization = "random"
+    queue_input.parameters.seed = 123
+    input_file = tmp_path / "input.json"
+    input_file.write_text(queue_input.model_dump_json(indent=2))
+
+    def run(out_name: str) -> str:
+        out = tmp_path / out_name
+        result = subprocess.run(
+            ["uv", "run", "qg", str(input_file), "-o", str(out), "-c", str(CONFIG_DIR)],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"CLI failed: {result.stderr}"
+        return out.read_text()
+
+    assert run("a.csv") == run("b.csv")
+
+
 def test_generate_queues_cli_hystar_xml(config, tmp_path):
     """Test qg CLI generates XML output for hystar format."""
     queue_input = make_queue_input(num_samples=3, output_format="hystar")

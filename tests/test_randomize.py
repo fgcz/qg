@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import random as py_random
 
+import pytest
+
 from qg.params_models import ContainerBatch, Plate, PlateCell, PlateQueue, VialSample
-from qg.randomize import randomize_plate_queue
+from qg.randomize import draw_seed, randomize_plate_queue
 
 
 def make_plate_queue(
@@ -401,3 +403,47 @@ class TestBoundaryRespect:
         output_plate_order = [c.plate_id for c in result.cells]
         assert output_plate_order[:4] == [2, 2, 2, 2], "Plate 2 samples should come first"
         assert output_plate_order[4:] == [1, 1, 1, 1], "Plate 1 samples should come second"
+
+
+class TestSeedReproducibility:
+    """An explicit random.Random(seed) makes randomized modes reproducible."""
+
+    @pytest.mark.parametrize("mode", ["random", "blocked", "blocked_uniform"])
+    def test_same_seed_same_order(self, mode):
+        queue = make_grouped_plate_queue({"A": 5, "B": 3, "C": 2})
+
+        first = randomize_plate_queue(queue, mode, py_random.Random(123))
+        second = randomize_plate_queue(queue, mode, py_random.Random(123))
+
+        assert get_sample_ids(first) == get_sample_ids(second)
+
+    @pytest.mark.parametrize("mode", ["random", "blocked", "blocked_uniform"])
+    def test_different_seeds_differ(self, mode):
+        # Large input so two seeds almost surely yield a different order.
+        queue = make_grouped_plate_queue({"A": 20, "B": 20})
+
+        first = randomize_plate_queue(queue, mode, py_random.Random(1))
+        second = randomize_plate_queue(queue, mode, py_random.Random(2))
+
+        assert get_sample_ids(first) != get_sample_ids(second)
+        assert set(get_sample_ids(first)) == set(get_sample_ids(second))
+
+    def test_seed_independent_of_global_state(self):
+        # A seeded instance ignores the global RNG: perturbing random.seed between
+        # calls must not change the result.
+        queue = make_plate_queue(15)
+
+        py_random.seed(0)
+        first = randomize_plate_queue(queue, "random", py_random.Random(77))
+        py_random.seed(999)
+        second = randomize_plate_queue(queue, "random", py_random.Random(77))
+
+        assert get_sample_ids(first) == get_sample_ids(second)
+
+
+class TestDrawSeed:
+    def test_returns_32bit_int(self):
+        seeds = {draw_seed() for _ in range(50)}
+        assert all(isinstance(s, int) and 0 <= s < 2**32 for s in seeds)
+        # Overwhelmingly likely to be distinct; guards against a constant return.
+        assert len(seeds) > 1

@@ -808,6 +808,56 @@ class TestRandomization:
         result_order = [int(row.sample_id) for row in result.rows if row.slot_kind == "user"]
         assert result_order == original_order
 
+    def _random_params(self, *, seed: int | None) -> QueueParameters:
+        return QueueParameters(
+            tech_area="Proteomics",
+            instrument="ASTRAL_1",
+            sampler="Vanquish",
+            output_format="xcalibur",
+            queue_pattern="_test_noqc",
+            queue_type="Vial",
+            plate_layout="Vanquish_54",
+            qc_layout_name="standard",
+            polarity=["pos"],
+            date="20260116",
+            user="test",
+            randomization="random",
+            seed=seed,
+        )
+
+    def test_unset_seed_is_drawn_and_recorded(self, config):
+        samples = make_vial_samples(10)
+        queue_input = make_vial_queue_input(self._random_params(seed=None), samples)
+
+        QueueGenerator(config, queue_input).build_rows()
+
+        # The generator draws a seed for randomized modes and records it back.
+        assert queue_input.parameters.seed is not None
+        assert 0 <= queue_input.parameters.seed < 2**32
+
+    def test_recorded_seed_reproduces_run(self, config):
+        samples = make_vial_samples(12)
+
+        first_input = make_vial_queue_input(self._random_params(seed=None), samples)
+        first = QueueGenerator(config, first_input).build_rows()
+        recorded_seed = first_input.parameters.seed
+
+        # Feed the recorded seed back: identical user-sample order.
+        second_input = make_vial_queue_input(self._random_params(seed=recorded_seed), samples)
+        second = QueueGenerator(config, second_input).build_rows()
+
+        first_ids = [int(r.sample_id) for r in first.rows if r.slot_kind == "user"]
+        second_ids = [int(r.sample_id) for r in second.rows if r.slot_kind == "user"]
+        assert first_ids == second_ids
+
+    def test_explicit_seed_is_not_overwritten(self, config):
+        samples = make_vial_samples(8)
+        queue_input = make_vial_queue_input(self._random_params(seed=12345), samples)
+
+        QueueGenerator(config, queue_input).build_rows()
+
+        assert queue_input.parameters.seed == 12345
+
 
 class TestDifferentSamplers:
     @pytest.mark.parametrize(

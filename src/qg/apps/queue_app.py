@@ -30,6 +30,7 @@ with app.setup:
     from qg.generator import QueueGenerator, format_table, write_queue
     from qg.params_models import QueueParameters
     from qg.queue_builder import QueueBuilder
+    from qg.randomize import draw_seed
     from qg.viz.plate import build_plate_figure, build_plate_wells
 
 
@@ -1186,7 +1187,15 @@ def _(bfabric_base_url, config, queue_parameters, sample_df, selected_orders):
     queue_input_err = None
     if queue_parameters and selected_orders and sample_df is not None:
         try:
-            _builder = QueueBuilder(config).with_parameters(queue_parameters).with_bfabric_instance(bfabric_base_url)
+            # Resolve the randomization seed up front for randomized modes so the
+            # Parameters tab, the params-JSON download, and the workunit all record
+            # the same reproducible seed (the generator otherwise draws it later).
+            # Use a private local — rebinding the `queue_parameters` cell input would
+            # define it in multiple cells (a marimo error).
+            _params = queue_parameters
+            if _params.randomization != "no" and _params.seed is None:
+                _params = _params.model_copy(update={"seed": draw_seed()})
+            _builder = QueueBuilder(config).with_parameters(_params).with_bfabric_instance(bfabric_base_url)
             if not sample_df.is_empty():
                 _builder = _builder.add_samples_from_dataframe(sample_df)
             queue_input = _builder.build()
