@@ -50,14 +50,15 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    """Auto-mark Tier-B runs so they're picked up by '-m bfabric_test_instance'."""
-    if config.getoption("--gui-tier") != "bfabric-test":
-        return
-    marker = pytest.mark.bfabric_test_instance
+    """Mark GUI items with `bfabric` (they run the portal app, which needs the
+    qg[bfabric] extra) and, on Tier B, with `bfabric_test_instance`."""
+    is_tier_b = config.getoption("--gui-tier") == "bfabric-test"
     gui_dir = Path(__file__).resolve().parent
     for item in items:
         if gui_dir in Path(item.fspath).resolve().parents:
-            item.add_marker(marker)
+            item.add_marker(pytest.mark.bfabric)
+            if is_tier_b:
+                item.add_marker(pytest.mark.bfabric_test_instance)
 
 
 def _free_port() -> int:

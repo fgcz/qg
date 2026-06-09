@@ -6,8 +6,12 @@ from unittest.mock import MagicMock
 import polars as pl
 import pytest
 
-from qg.bfabric_utils import BfabricHelper, ContainerComposition, instance_slug
-from qg.cli.find_projects import ContainerCache, get_cache_dir
+pytest.importorskip("bfabric")  # core install (no qg[bfabric]) skips this module
+
+from qg.bfabric_utils import BfabricHelper, ContainerComposition, instance_slug  # noqa: E402
+from qg.cli.find_projects import ContainerCache, get_cache_dir  # noqa: E402
+
+pytestmark = pytest.mark.bfabric
 
 
 class _FakeClient:

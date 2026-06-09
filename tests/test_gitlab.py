@@ -5,10 +5,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from qg.gitlab._git import find_repo_root
-from qg.gitlab.config_bridge import submit_config_changes
-from qg.gitlab.service import GitLabConfigService
-from qg.gitlab.settings import load_gitlab_settings
+pytest.importorskip("gitlab")  # python-gitlab ships with the qg[bfabric] portal extra
+
+from qg.gitlab._git import find_repo_root  # noqa: E402
+from qg.gitlab.config_bridge import submit_config_changes  # noqa: E402
+from qg.gitlab.service import GitLabConfigService  # noqa: E402
+from qg.gitlab.settings import load_gitlab_settings  # noqa: E402
+
+pytestmark = pytest.mark.bfabric
 
 # =============================================================================
 # Git utilities tests

@@ -6,11 +6,8 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "altair>=6.0.0",
-    "bfabric>=1.16.1",
-    "bfabric-asgi-auth",
-    "bfabric-rest-proxy",
     "cyclopts>=4.4.4",
-    "fastapi>=0.128.0",
+    "fastexcel>=0.11",
     "ipython>=9.9.0",
     "loguru>=0.7.0",
     "marimo>=0.23.7",
@@ -19,13 +16,28 @@ dependencies = [
     "pyarrow>=22.0.0",
     "pydantic>=2.12.5",
     "rich>=14.2.0",
-    "starlette>=0.50.0",
-    "python-gitlab>=5.0.0",
     "tomli-w>=1.0.0",
     "vegafusion>=2.0.3",
     "vl-convert-python>=1.9.0",
     "plotly>=6.8.0",
 ]
+
+[project.optional-dependencies]
+# FGCZ B-Fabric portal extra: auth, LIMS sample loading, workunit upload, and the
+# GitLab-deployed launcher. The core install (and the local upload app) need none of it.
+bfabric = [
+    "bfabric>=1.16.1",
+    "bfabric-asgi-auth",
+    "bfabric-rest-proxy",
+    "fastapi>=0.128.0",
+    "starlette>=0.50.0",
+    "python-gitlab>=5.0.0",
+]
+
+[tool.uv]
+# Install the portal extra in the dev/CI environment by default (so the full suite
+# — GUI + B-Fabric tests — runs); a plain `pip install qg` stays B-Fabric-free.
+default-groups = ["dev", "portal"]
 
 [tool.uv.sources]
 bfabric = { git = "https://github.com/fgcz/bfabricPy", subdirectory = "bfabric", rev = "main" }
@@ -47,9 +59,14 @@ dev = [
     "pytest-playwright>=0.5",
     "playwright>=1.45",
     "ruff>=0.9.0",
+    "xlsxwriter>=3.2",
 ]
 docs = [
     "mkdocs-material>=9.5",
+]
+# Pulls the public `bfabric` extra into the dev/CI venv (see [tool.uv] default-groups).
+portal = [
+    "qg[bfabric]",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -61,6 +78,7 @@ qg-validate = "qg.cli.validate_config:cli_main"
 qg-find-projects = "qg.cli.find_projects:main"
 qg-refresh-cache = "qg.cli.refresh_cache:app"
 qg-app = "qg.gitlab.launcher:launch_queue_app"
+qg-app-local = "qg.apps.launcher_local:launch_local_app"
 qg-editor = "qg.gitlab.launcher:launch_config_editor"
 
 [tool.pytest.ini_options]
@@ -69,6 +87,7 @@ addopts = "-v --tb=short -m 'not bfabric_test_instance'"
 filterwarnings = ["ignore::DeprecationWarning"]
 markers = [
     "bfabric_test_instance: GUI scenario executed against the real fgcz-bfabric-test.uzh.ch instance (requires QG_BFABRIC_TEST_PAT). Excluded from default runs.",
+    "bfabric: requires the qg[bfabric] extra (B-Fabric packages). Skipped/deselected on a core-only install via '-m \"not bfabric\"'.",
 ]
 
 [tool.ruff]

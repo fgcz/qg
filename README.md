@@ -2,48 +2,68 @@
 
 Generate sample queues with QC injections for mass spectrometry instruments (XCalibur, Chronos, Hystar).
 
+`qg` runs in two modes:
+
+- **Local / standalone** — upload a CSV/XLSX sample table in the GUI (or pass a parameters JSON to the CLI), configure the queue, preview, and download. No FGCZ/B-Fabric required.
+- **B-Fabric portal** — the FGCZ deployment: browse LIMS orders, load samples, and upload the queue as a workunit. Requires the `qg[bfabric]` extra.
+
+## Installation
+
+```bash
+# Core: local app + CLI, no B-Fabric (works in a clean environment)
+pip install qg                 # as a dependency
+uv sync --no-group portal      # for development in this repo, B-Fabric-free
+
+# Full: add the B-Fabric portal (auth, LIMS sample loading, workunit upload, GitLab launcher)
+pip install 'qg[bfabric]'
+uv sync                        # for development: installs the portal extra by default
+```
+
+The core install has no `bfabric`, `fastapi`, `starlette`, or `python-gitlab`
+dependency — `import qg`, the local app, and the `qg` / `qg-validate` CLIs all
+work without them.
+
 ## Quick Start
 
-### GUI (Marimo App)
+### Local app — no B-Fabric
+
+```bash
+make app-local
+# or: qg-app-local
+# or: uv run marimo run src/qg/apps/queue_app_local.py
+```
+
+Upload a sample table — ready-made examples (vial/plate, single- and
+multi-project) live in [`docs/examples/`](docs/examples/) — pick the
+instrument / sampler / pattern, preview, and download the queue plus its
+parameters JSON. See [`docs/users/local_app.md`](docs/users/local_app.md).
+
+### CLI
+
+```bash
+uv run qg config.json -o queue.csv   # generate a queue from a parameters JSON (stdout if no -o)
+uv run qg-validate                   # validate the config files
+```
+
+### B-Fabric portal app (requires `qg[bfabric]`)
 
 ```bash
 QG_ALLOW_UNAUTHENTICATED=1 uv run marimo run src/qg/apps/queue_app.py
 ```
 
-The app fails closed without a B-Fabric-authenticated request. `QG_ALLOW_UNAUTHENTICATED=1` bypasses auth for local dev and runs as an employee — **never set it in production**. See `docs/users/user_modes.md` for details.
+The portal app fails closed without a B-Fabric-authenticated request.
+`QG_ALLOW_UNAUTHENTICATED=1` bypasses auth for local dev and runs as an employee —
+**never set it in production**. The deployed entry point is
+`uv run python src/qg/apps/bfabric_app.py` (needs `WebappIntegrationSettings`:
+`VALIDATION_BFABRIC_INSTANCE`, `SUPPORTED_BFABRIC_INSTANCES`,
+`FEEDER_USER_CREDENTIALS`). See [`docs/users/user_modes.md`](docs/users/user_modes.md).
 
-### GUI with B-Fabric Auth
-
-```bash
-uv run python src/qg/apps/bfabric_app.py
-```
-
-Requires B-Fabric integration config (`WebappIntegrationSettings`): `VALIDATION_BFABRIC_INSTANCE`, `SUPPORTED_BFABRIC_INSTANCES`, `FEEDER_USER_CREDENTIALS`. On the deployment server these are already configured.
-
-### CLI Tools
-
-#### Generate Queue from Config JSON
-
-```bash
-# Output to stdout
-uv run qg config.json
-
-# Output to file
-uv run qg config.json -o queue.csv
-```
-
-#### Validate Configs
-
-```bash
-uv run qg-validate
-```
-
-#### Seed B-Fabric Project Cache
+#### Seed the B-Fabric project cache (portal only)
 
 - **Dev** (single instance, local `~/.bfabricpy.yml`): `uv run qg-find-projects`
 - **Deployment** (all instances in `feeder_user_credentials`): `uv run qg-refresh-cache --all` — see [`docs/developers/deployment.md`](docs/developers/deployment.md)
 
-Both write `bfabric_cache/<instance>/bfabric_container.csv`, which the GUI reads; its "Refresh Projects" button re-runs the dev-style write for the running instance.
+Both write `bfabric_cache/<instance>/bfabric_container.csv`, which the portal app reads; its "Refresh Projects" button re-runs the dev-style write for the running instance. These commands require the `qg[bfabric]` extra.
 
 ## Supported Configurations
 

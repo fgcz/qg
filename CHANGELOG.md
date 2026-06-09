@@ -12,9 +12,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - GUI test suite runs a fast `marimo check` sanity gate before spawning the app, so a notebook graph error (e.g. a variable defined in multiple cells) fails in <1s instead of after the full browser suite.
 - Queue app: renamed the **Show Plate** tab to **Visualizations** with two sub-views — a *Plate Layout* map that can color wells by `grouping_var` as well as sample type, and an *Acquisition Timeline* strip colored by group or QC cadence — each annotated with a correlation-ratio (η²) balance score reporting how well randomization decorrelated group from plate and queue position.
 - Unit tests for `qg.utils`, `qg.writers`, `qg.artifacts`, and `read_queue_input` error paths.
+- Standalone, B-Fabric-free local queue app (`qg-app-local`, `apps/queue_app_local.py`): upload a CSV/XLSX sample table, configure the queue with the same controls, preview it, and download the queue + params JSON locally — no FGCZ portal required.
+- `qg[bfabric]` optional extra: the B-Fabric/portal packages (`bfabric`, `bfabric-asgi-auth`, `bfabric-rest-proxy`, `fastapi`, `starlette`, `python-gitlab`) are no longer core dependencies, so `pip install qg` (and `import qg`) works without them; install `qg[bfabric]` for the portal app, workunit upload, and the GitLab launcher.
 
 ### Changed
 - Refactored `test_queue_structure.py` to exercise the public `build_multi_container_queue_structure` API instead of private helpers.
+- Both queue apps now share a B-Fabric-free pipeline core (`apps/queue_app_shared.py`) and swappable source/sink integrations under `apps/integrations/` (`local_samples`, `bfabric_samples`, `bfabric_workunit`, `bfabric_context`); the portal app is unchanged for users.
 
 ## [0.6.1] - 2026-06-09
 
