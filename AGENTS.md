@@ -205,8 +205,8 @@ Never use `pl.read_csv()` or `Path().read_text()` to read config files directly 
 | Module | Purpose |
 |--------|---------|
 | `generate_queues.py` | Main entry point for queue generation |
-| `find_projects.py` | Project discovery utility |
-| `refresh_cache.py` | Refresh B-Fabric container caches across instances |
+| `find_projects.py` | Project discovery utility (needs `qg[bfabric]`) |
+| `refresh_cache.py` | Refresh B-Fabric container caches across instances (needs `qg[bfabric]`) |
 | `validate_config.py` | Configuration validation |
 
 ### Apps (`src/qg/apps/`)

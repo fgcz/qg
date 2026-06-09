@@ -382,7 +382,7 @@ instrument's `path_template` (`…\{user}_{date}`) to form the per-row data path
 | Field | Type | Description |
 |-------|------|-------------|
 | `sample_name` | string | Display name |
-| `sample_id` | int | B-Fabric sample id |
+| `sample_id` | int | Source sample id (the B-Fabric sample id in portal mode; user-supplied in the local app) |
 | `tube_id` | string? | Tube identifier |
 | `container_id` | int | FK to the `batches` entry |
 | `grouping_var` | string? | Grouping variable for `blocked` randomization |

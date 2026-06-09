@@ -5,6 +5,11 @@ Please do not change this document without discussion since it involves security
 Status: **implemented**
 Scope: `src/qg/apps/queue_app.py`
 
+> This document covers the **B-Fabric portal app** (`queue_app.py`). The standalone
+> local app (`queue_app_local.py`, see [Local app](local_app.md)) has no
+> authentication and no B-Fabric dependency — nothing in this document applies to
+> it. (Scope note only; the security model below is unchanged.)
+
 ## Authentication
 
 The app requires an authenticated user in the request. An unauthenticated session is permitted only when `QG_ALLOW_UNAUTHENTICATED=1` is set in the environment; otherwise the app refuses to render. Production deployments do not set this variable.

@@ -31,6 +31,11 @@ GitLab CI cross-builds a `linux/arm64` OCI archive on every tag and writes it to
 
 Both apps share this image; the editor deployment overrides the entrypoint to `qg.apps.bfabric_app_editor:app`.
 
+The image is built with `uv sync`, which installs the `qg[bfabric]` portal extra
+via the `portal` dependency-group (`[tool.uv] default-groups`) — required for the
+B-Fabric auth, LIMS loading, and workunit-upload features. The standalone local
+app (`queue_app_local.py`) is not part of this deployment and needs no extra.
+
 ### Config editor secrets
 
 The editor opens MRs as the `qg-config-bot` project access token on `gitlab.bfabric.org/metabolomics/queue-gen` (role: Developer, scope: `api`). The requesting employee's login is recorded in the commit message and MR description.
