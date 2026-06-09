@@ -245,7 +245,36 @@ qg_configs/
 **Method Files:**
 - `core/methods/Proteomics/`: 9 instruments (ASTRAL_1, ASCEND_1, EXPLORIS_1/2/5, LUMOS_2, QEXACTIVE_1, TIMSTOF_1, TIMSTOFFLEX_1)
 - `core/methods/Metabolomics/`: 3 instruments (EXPLORIS_3, QEXACTIVEHF_2, QUANTIVA_1)
-- `core/methods/Lipidomics/`: 2 instruments (EXPLORIS_3, EXPLORIS_4)
+- `core/methods/Lipidomics/`: 3 instruments (EXPLORIS_3, EXPLORIS_4, QEXACTIVEHF_2)
+
+### Adding a New Instrument
+
+Three config files must be edited **together** — they are NOT cross-validated at
+load time, so a mismatch surfaces only as a runtime lookup failure in the app,
+not as a `qg-validate` error (see commit `bb33b32`: the UI offered
+`Lipidomics/QEXACTIVEHF_2` but the `instruments.csv` row and methods file were
+missing, so selecting it failed at instrument lookup):
+
+1. **`core/formatting/instruments.csv`** — add a row
+   `tech_area,instrument,methods_file,path_template`. `methods_file` points to
+   `methods/<Tech>/<instr>_methods.csv`; `path_template` uses `{container}`,
+   `{user}`, `{date}` placeholders. `MethodsConfig.load()` loads each methods
+   file dynamically from these rows, so the row and the file must agree.
+2. **`core/methods/<Tech>/<instr>_methods.csv`** — create the methods file with
+   columns `sample_type,polarity,method_name,method_path`. Metabolomics and
+   Lipidomics need both a `pos` and a `neg` row (polarity expansion);
+   Proteomics needs only `pos`. Use `sample_type=default` plus optional per-QC
+   overrides (e.g. a `QC03` row).
+3. **`ui/instrument_config.csv`** — add a row
+   `tech_area,instrument,sampler,output_format,default_pattern` so the
+   instrument appears in the queue app menu. One row per (instrument, sampler)
+   pairing; an instrument may appear several times with different
+   sampler/output-format/pattern combinations.
+
+`qg-validate` checks sample/pattern/layout cross-references but does **not**
+verify that every `instrument_config.csv` row has a matching `instruments.csv`
+row + methods file — keep the three in sync manually. Then follow the Release
+Process (CHANGELOG bullet, version bump, `uv lock`).
 
 ### Technologies
 
