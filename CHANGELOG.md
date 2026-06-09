@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Randomization mode `blocked_uniform`: spreads each `grouping_var` group evenly across the whole queue (fair-share interleave) instead of front-loading complete blocks like `blocked`, avoiding majority-only tail injections for unbalanced group counts.
 - Optional `seed` queue parameter for reproducible randomization: used when set in the params JSON, otherwise a seed is drawn at generation and recorded back into the exported params JSON / B-Fabric workunit so any `random`/`blocked`/`blocked_uniform` run can be reproduced.
 - GUI test suite runs a fast `marimo check` sanity gate before spawning the app, so a notebook graph error (e.g. a variable defined in multiple cells) fails in <1s instead of after the full browser suite.
+- Queue app: renamed the **Show Plate** tab to **Visualizations** with two sub-views — a *Plate Layout* map that can color wells by `grouping_var` as well as sample type, and an *Acquisition Timeline* strip colored by group or QC cadence — each annotated with a correlation-ratio (η²) balance score reporting how well randomization decorrelated group from plate and queue position.
 
 ### Fixed
 - Config: added the missing `Lipidomics`/`QEXACTIVEHF_2` instrument (methods file + `instruments.csv` row) so the instrument offered in the queue app's Lipidomics menu can actually generate queues instead of failing at lookup.

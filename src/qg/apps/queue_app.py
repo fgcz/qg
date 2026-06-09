@@ -31,7 +31,9 @@ with app.setup:
     from qg.params_models import QueueParameters
     from qg.queue_builder import QueueBuilder
     from qg.randomize import draw_seed
+    from qg.viz.balance import plate_balance, queue_balance
     from qg.viz.plate import build_plate_figure, build_plate_wells
+    from qg.viz.timeline import build_timeline_figure
 
 
 @app.cell
@@ -1436,37 +1438,107 @@ def _(
 
 @app.cell
 def _():
-    # Well size for the Show Plate view; lets the user shrink/grow the plot.
+    # Well size for the Plate Layout view; lets the user shrink/grow the plot.
     plate_well_size = mo.ui.slider(start=14, stop=52, step=2, value=30, label="Well size", show_value=True)
     return (plate_well_size,)
 
 
 @app.cell
-def _(config, plate_well_size, queue_parameters, raw_queue_df):
-    # Show Plate tab content: read-only visualization of plate layout + queue positions.
-    # build_plate_wells/build_plate_figure come from the app.setup block (module globals),
-    # so they are referenced directly here, not declared as cell parameters.
+def _():
+    # Sub-view selector for the Visualizations tab.
+    viz_subtab = mo.ui.radio(
+        options=["Plate Layout", "Acquisition Timeline"],
+        value="Plate Layout",
+        inline=True,
+    )
+    return (viz_subtab,)
+
+
+@app.cell
+def _():
+    # Color encoding for the plate map and the acquisition timeline. Static options;
+    # the content cell degrades gracefully to sample-type coloring when the queue
+    # carries no grouping_var (the common case).
+    plate_color_by = mo.ui.dropdown(
+        options=["Sample type", "Group (grouping_var)"], value="Sample type", label="Color by"
+    )
+    timeline_color_by = mo.ui.dropdown(options=["Group", "QC cadence"], value="Group", label="Color by")
+    return plate_color_by, timeline_color_by
+
+
+@app.cell
+def _(config, plate_color_by, plate_well_size, queue_parameters, raw_queue_df):
+    # Plate Layout sub-view: plate map colored by sample type or covariate, with a
+    # group <-> plate-position balance score. Module globals (build_plate_*, plate_balance)
+    # come from the app.setup block, so they are referenced directly, not as cell params.
     if raw_queue_df is None or raw_queue_df.is_empty():
-        show_plate_content = mo.md("_Generate a queue to see the plate layout._")
+        plate_layout_view = mo.md("_Generate a queue to see the plate layout._")
     else:
         _geom = raw_queue_df.filter((pl.col("row") != "") & (pl.col("col") != 0))
         if _geom.is_empty():
-            show_plate_content = mo.callout(
+            plate_layout_view = mo.callout(
                 mo.md("**Plate view not available** for this layout — positions have no row/column geometry."),
                 kind="info",
             )
         else:
+            _has_group = _geom["grouping_var"].drop_nulls().len() > 0
+            _want_group = plate_color_by.value.startswith("Group") and _has_group
+            _color_by = "grouping_var" if _want_group else "category"
+            _legend = "grouping_var" if _want_group else "sample type"
+            _score = plate_balance(raw_queue_df)
+            _score_md = (
+                f"Group ↔ plate position (η²): **{_score:.2f}** — 0 = balanced, 1 = separated"
+                if _score is not None
+                else "Group ↔ plate position (η²): **N/A** (no grouping variable)"
+            )
             _wells = build_plate_wells(_geom)
             _orders = sorted(_geom["container_id"].unique().to_list())
             _layout = config.plate_layouts.get_layout(queue_parameters.plate_layout)
-            show_plate_content = mo.vstack(
+            plate_layout_view = mo.vstack(
                 [
-                    mo.md("**Plate layout** — color = sample type, shape = order. Hover a well for details."),
-                    plate_well_size,
-                    mo.ui.plotly(build_plate_figure(_wells, _layout, _orders, cell=plate_well_size.value)),
+                    mo.md(f"**Plate layout** — color = {_legend}, shape = order. Hover a well for details."),
+                    mo.md(_score_md),
+                    mo.hstack([plate_color_by, plate_well_size], justify="start", gap=2),
+                    mo.ui.plotly(
+                        build_plate_figure(_wells, _layout, _orders, cell=plate_well_size.value, color_by=_color_by)
+                    ),
                 ]
             )
-    return (show_plate_content,)
+    return (plate_layout_view,)
+
+
+@app.cell
+def _(raw_queue_df, timeline_color_by):
+    # Acquisition Timeline sub-view: per-injection strip recolored by group or QC
+    # cadence, with a group <-> queue-position balance score. No plate geometry
+    # needed, so this also works for vial-mode queues.
+    if raw_queue_df is None or raw_queue_df.is_empty():
+        timeline_view = mo.md("_Generate a queue to see the acquisition timeline._")
+    else:
+        _color_by = "qc_cadence" if timeline_color_by.value == "QC cadence" else "grouping_var"
+        _score = queue_balance(raw_queue_df)
+        _score_md = (
+            f"Group ↔ queue position (η²): **{_score:.2f}** — 0 = balanced, 1 = separated"
+            if _score is not None
+            else "Group ↔ queue position (η²): **N/A** (no grouping variable)"
+        )
+        timeline_view = mo.vstack(
+            [
+                mo.md("**Acquisition timeline** — one tile per injection along run order. Hover for details."),
+                mo.md(_score_md),
+                timeline_color_by,
+                mo.ui.plotly(build_timeline_figure(raw_queue_df, color_by=_color_by)),
+            ]
+        )
+    return (timeline_view,)
+
+
+@app.cell
+def _(plate_layout_view, timeline_view, viz_subtab):
+    # Visualizations tab content: a sub-tab selector over the plate and timeline views.
+    _views = {"Plate Layout": plate_layout_view, "Acquisition Timeline": timeline_view}
+    visualizations_content = mo.vstack([viz_subtab, _views[viz_subtab.value]])
+    return (visualizations_content,)
 
 
 @app.cell
@@ -1535,7 +1607,7 @@ def _(
 @app.cell
 def _():
     tab_selector = mo.ui.radio(
-        options=["Queue Preview", "Show Plate", "Sample Selection", "Parameters", "Valid Combinations"],
+        options=["Queue Preview", "Visualizations", "Sample Selection", "Parameters", "Valid Combinations"],
         value="Queue Preview",
         inline=True,
     )
@@ -1547,13 +1619,13 @@ def _(
     parameters_content,
     queue_preview_content,
     sample_selection_content,
-    show_plate_content,
     tab_selector,
     valid_combinations_content,
+    visualizations_content,
 ):
     _sections = {
         "Queue Preview": queue_preview_content,
-        "Show Plate": show_plate_content,
+        "Visualizations": visualizations_content,
         "Sample Selection": sample_selection_content,
         "Parameters": parameters_content,
         "Valid Combinations": valid_combinations_content,

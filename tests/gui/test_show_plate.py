@@ -1,14 +1,15 @@
-"""Scenario T24 — Show Plate tab visualizes the generated plate layout.
+"""Scenario T24 — Visualizations tab shows the plate layout and acquisition timeline.
 
-The Show Plate tab (queue_app.py:1383-1588) renders, once a queue has been
-generated for a layout with row/column geometry, a Plotly figure of the plate
-wells colored by sample category and shaped by order, under the heading
-``"**Plate layout** — color = sample type, shape = order. ..."`` (line 1584).
+Once a queue has been generated for a layout with row/column geometry, the
+Visualizations tab renders two sub-views: a Plotly plate map (colored by sample
+category by default, under the heading ``"**Plate layout** — color = sample
+type, ..."``) annotated with a group↔plate-position balance score, and an
+acquisition-order timeline annotated with a group↔queue-position score.
 
 Before a queue exists the tab shows a placeholder instead; this scenario drives
 the full happy-path configuration first (Proteomics / ASTRAL_1 / Vanquish plate
 order 37180) so the figure branch is the one exercised. Asserting on the unique
-heading text proves the cell ran end-to-end without error.
+heading and score text proves the cells ran end-to-end without error.
 """
 
 from __future__ import annotations
@@ -55,7 +56,19 @@ def _switch_tab(page: Page, tab_name: str) -> None:
 
 @then("the plate layout visualization is visible")
 def _plate_visible(page: Page) -> None:
-    # The "color = sample type" phrasing is unique to the Show Plate heading
-    # (queue_app.py:1584); its presence means the figure branch rendered rather
-    # than the "Generate a queue..." placeholder or the no-geometry callout.
+    # The "color = sample type" phrasing is unique to the Plate Layout heading;
+    # its presence means the figure branch rendered rather than the
+    # "Generate a queue..." placeholder or the no-geometry callout.
     expect(page.get_by_text("color = sample type", exact=False).first).to_be_visible(timeout=15_000)
+
+
+@then("the plate balance score is shown")
+def _plate_score_visible(page: Page) -> None:
+    # The group↔plate-position score line is unique to the Plate Layout sub-view.
+    expect(page.get_by_text("Group ↔ plate position", exact=False).first).to_be_visible(timeout=15_000)
+
+
+@then("the acquisition timeline with its balance score is visible")
+def _timeline_visible(page: Page) -> None:
+    # The group↔queue-position score line is unique to the Acquisition Timeline sub-view.
+    expect(page.get_by_text("Group ↔ queue position", exact=False).first).to_be_visible(timeout=15_000)

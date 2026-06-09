@@ -103,6 +103,16 @@ one and records it back onto the parameters, so the resolved seed is persisted i
 the exported params JSON / B-Fabric workunit and the run can be reproduced. `no`
 mode is deterministic and uses no seed.
 
+**Balance score.** The queue app's **Visualizations** tab reports how well a run
+is balanced with the *correlation ratio* (η², `qg.viz.balance`): the fraction of
+variance in position explained by `grouping_var`, where `0` means the groups are
+evenly interleaved (ideal) and `1` means they are fully separated. The *Plate
+Layout* sub-view scores group ↔ plate position; the *Acquisition Timeline*
+sub-view scores group ↔ queue position. Unlike the normalized statistic in the
+JASMS figure script, η² is standalone and needs no baseline run, so it scores a
+single generated queue. The score is **reporting only** — it is never used to
+optimize over candidate orderings.
+
 ### 2. `build_multi_container_queue_structure(groups, pattern, default_sample_id, qc_frequency_override)`
 
 Builds the abstract slot sequence for **all** containers. `groups` is a list of
