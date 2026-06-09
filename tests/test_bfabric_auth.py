@@ -14,11 +14,16 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from bfabric_asgi_auth.session_data import SessionData
-from bfabric_asgi_auth.user import BfabricUser
 
-from qg.apps._bfabric_auth import _InjectMetaMiddleware
-from qg.bfabric_utils import AppSession, SessionError, resolve_app_session
+pytest.importorskip("bfabric_asgi_auth")  # core install (no qg[bfabric]) skips this module
+
+from bfabric_asgi_auth.session_data import SessionData  # noqa: E402
+from bfabric_asgi_auth.user import BfabricUser  # noqa: E402
+
+from qg.apps._bfabric_auth import _InjectMetaMiddleware  # noqa: E402
+from qg.bfabric_utils import AppSession, SessionError, resolve_app_session  # noqa: E402
+
+pytestmark = pytest.mark.bfabric
 
 _SESSION_KWARGS = {
     "bfabric_instance": "https://fgcz-bfabric-test.uzh.ch/bfabric",

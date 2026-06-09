@@ -5,7 +5,11 @@ from types import SimpleNamespace
 import cyclopts
 import pytest
 
-from qg.cli.refresh_cache import _resolve_instances
+pytest.importorskip("bfabric")  # core install (no qg[bfabric]) skips this module
+
+from qg.cli.refresh_cache import _resolve_instances  # noqa: E402
+
+pytestmark = pytest.mark.bfabric
 
 
 def _fake_config(*urls: str):

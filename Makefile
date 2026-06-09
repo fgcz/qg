@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help app app-all app-type app-review editor editor-review validate projects projects-all projects-plates _check-not-fgcz
+.PHONY: help app app-local app-all app-type app-review editor editor-review validate projects projects-all projects-plates _check-not-fgcz
 
 help:
 	@echo "Queue Generation System"
@@ -9,6 +9,7 @@ help:
 	@echo ""
 	@echo "Targets:"
 	@echo "  app              Run the marimo GUI app (active projects)"
+	@echo "  app-local        Run the standalone CSV/XLSX upload app (no B-Fabric)"
 	@echo "  app-all          Run the marimo GUI app (all projects)"
 	@echo "  app-type         Run the marimo GUI app (with Vial/Plate type column)"
 	@echo "  app-review       Run the queue app with git pull (production)"
@@ -28,6 +29,10 @@ _check-not-fgcz:
 # Run the marimo GUI app (active projects)
 app: _check-not-fgcz
 	QG_ALLOW_UNAUTHENTICATED=1 uv run marimo run src/qg/apps/queue_app.py
+
+# Run the standalone local app (CSV/XLSX upload, no B-Fabric, no auth bypass needed)
+app-local:
+	uv run marimo run src/qg/apps/queue_app_local.py
 
 # Run the marimo GUI app (all projects)
 app-all: _check-not-fgcz

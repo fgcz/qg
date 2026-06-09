@@ -1,8 +1,9 @@
 # Queue Generation System
 
 Generate sample queues with QC injections for mass spectrometry instruments
-(XCalibur, Chronos, Hystar), with B-Fabric LIMS integration for sample loading
-and workunit upload.
+(XCalibur, Chronos, Hystar). It runs **standalone** — upload a CSV/XLSX sample
+table and download a queue — or as the FGCZ **B-Fabric portal** app with LIMS
+sample loading and workunit upload.
 
 The system takes a runtime **Queue Parameters** JSON (instrument, sampler,
 samples) plus a set of static **config files** and produces an instrument-ready
@@ -13,7 +14,9 @@ positions, with file names and data paths filled from templates.
 
 | If you want to… | Read |
 |------------------|------|
-| Run the app or CLI, understand auth modes | [User modes](users/user_modes.md) |
+| Generate a queue locally from a CSV/XLSX upload | [Local app](users/local_app.md) |
+| Try ready-made example sample tables | [`docs/examples/`](https://gitlab.bfabric.org/metabolomics/queue-gen/-/tree/main/docs/examples) |
+| Run the B-Fabric portal app, understand auth modes | [User modes](users/user_modes.md) |
 | Add a QC pattern, sample, or layout via the GUI | [Config editor guide](users/editor_guide.md) |
 | Understand the generation pipeline end to end | [Algorithm](reference/algorithm.md) |
 | Look up a config file's purpose and schema | [Configuration](reference/config.md) |
@@ -22,9 +25,12 @@ positions, with file names and data paths filled from templates.
 
 ## Quick start
 
-Installation and the run/CLI quick start are maintained in the project
+Installation (core vs. the `qg[bfabric]` portal extra) and the run/CLI quick start
+are maintained in the project
 [README](https://gitlab.bfabric.org/metabolomics/queue-gen/-/blob/main/README.md).
-Once installed, the routing table above points you to the right page for each task.
+The fastest path: `make app-local` (or `qg-app-local`) opens the standalone app —
+upload one of the [examples](https://gitlab.bfabric.org/metabolomics/queue-gen/-/tree/main/docs/examples)
+and download a queue. The routing table above points you to the right page for each task.
 
 ## Core concepts
 
@@ -35,5 +41,7 @@ Once installed, the routing table above points you to the right page for each ta
   tray + tip ranges.
 - **Queue pattern** — the QC injection sequence (start / middle / end /
   separation) and how often QC is injected between user samples.
-- **Container** — a B-Fabric order/container of samples; a queue can span
-  multiple containers, separated by a `separation` QC block.
+- **Container** — a group of samples sharing a `container_id` (a B-Fabric
+  order/container in portal mode, or just a column value in an uploaded table). A
+  queue can span multiple containers, separated by a `separation` QC block;
+  samples are shuffled only *within* a container.

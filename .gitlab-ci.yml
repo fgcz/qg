@@ -35,6 +35,17 @@ test:unit:
     - uv sync --frozen
     - uv run pytest --ignore=tests/gui
 
+# Core-install gate: prove `qg` installs, imports, and its non-B-Fabric tests pass
+# WITHOUT the portal extra (no bfabric/fastapi/starlette/python-gitlab). Syncs only
+# the `dev` group (pytest etc.), omitting the `portal` default-group; asserts
+# bfabric is absent, then runs the B-Fabric-free suite. Guards the publication path.
+test:core-no-bfabric:
+  extends: .test-base
+  script:
+    - uv sync --frozen --no-group portal
+    - uv run --no-group portal python -c "import importlib.util as u; assert u.find_spec('bfabric') is None, 'bfabric must be absent on a core install'; import qg, qg.cli.generate_queues, qg.cli.validate_config, qg.apps.queue_app_local; print('core import OK, bfabric absent')"
+    - uv run --no-group portal pytest -m "not bfabric"
+
 # Browser suite: only tests/gui, which drives the marimo queue app in a headless
 # Chromium via pytest-playwright. Runs on Microsoft's official Playwright image,
 # which ships the browsers (at /ms-playwright) AND their ~67 apt system libs
@@ -75,7 +86,7 @@ marimo-check:
     - docker
   script:
     - uv sync
-    - uv run marimo check --strict src/qg/apps/queue_app.py src/qg/apps/config_editor.py
+    - uv run marimo check --strict src/qg/apps/queue_app.py src/qg/apps/queue_app_local.py src/qg/apps/config_editor.py
 
 pages:
   # Builds the MkDocs Material site into public/ and publishes it via GitLab

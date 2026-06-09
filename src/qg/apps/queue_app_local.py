@@ -19,9 +19,7 @@ with app.setup:
     configure_logging()
 
     from qg.apps import queue_app_shared as shared
-    from qg.apps.integrations import bfabric_samples, bfabric_workunit
-    from qg.apps.integrations.bfabric_context import SessionError, resolve_app_session
-    from qg.cli.find_projects import ContainerCache, get_cache_dir
+    from qg.apps.integrations.local_samples import parse_sample_table
     from qg.config_models.loader import qg_configuration
     from qg.config_models.structure import SamplesConfig
     from qg.params_models import QueueParameters
@@ -32,64 +30,8 @@ with app.setup:
 
 @app.cell
 def _():
-    try:
-        _session = resolve_app_session(
-            mo.app_meta().request,
-            allow_unauthenticated=os.environ.get("QG_ALLOW_UNAUTHENTICATED") == "1",
-        )
-    except SessionError as exc:
-        mo.stop(True, mo.callout(mo.md(f"**{exc.message}**"), kind="danger"))
-
-    bfabric = _session.bfabric
-    client = _session.client
-    feeder_uploader = _session.feeder_uploader
-    bfabric_application_id = _session.application_id
-    is_employee = _session.is_employee
-    entity_class = _session.entity_class
-    entity_id = _session.entity_id
-    bfabric_base_url = _session.base_url
-    banner_message = _session.banner_message
-    return (
-        banner_message,
-        bfabric,
-        bfabric_application_id,
-        bfabric_base_url,
-        client,
-        entity_class,
-        entity_id,
-        feeder_uploader,
-        is_employee,
-    )
-
-
-@app.cell
-def _():
     app_version = importlib.metadata.version("qg")
     return (app_version,)
-
-
-@app.cell
-def _(client):
-    # Per-instance B-Fabric cache directory for cached project data
-    BFABRIC_CACHE_DIR = get_cache_dir(client)
-    # Debug/audit dump directory (shared with artifacts and loguru logs)
-    DEBUG_DUMP_DIR = Path.home() / ".qg" / "logs"
-    # Use --all-projects flag to load all containers (no status filter)
-    _args = mo.cli_args()
-    USE_ALL_PROJECTS = "all-projects" in _args
-    USE_CONTAINER_TYPE = "container-type" in _args
-    return BFABRIC_CACHE_DIR, DEBUG_DUMP_DIR, USE_ALL_PROJECTS, USE_CONTAINER_TYPE
-
-
-@app.cell
-def _(USE_CONTAINER_TYPE, client, entity_class, entity_id):
-    # Fetch the B-Fabric order the app was launched from so users get it pre-loaded even if
-    # it predates the cached container list. One query by ID, no full refresh; empty frame if N/A.
-    # Status-agnostic by design (fetch_container_row ignores active_only), so no active-status flag here.
-    launching_order_row = pl.DataFrame()
-    if entity_id is not None and entity_class in {"Container", "Order", "Project"}:
-        launching_order_row = ContainerCache(client).fetch_container_row(entity_id, with_type=USE_CONTAINER_TYPE)
-    return (launching_order_row,)
 
 
 @app.cell
@@ -98,7 +40,7 @@ def _():
     _args = mo.cli_args()
     _config_dir = Path(_args["config-dir"]) if "config-dir" in _args else None
     config = qg_configuration(_config_dir)
-    logger.info("Queue app started | config_dir={}", _config_dir or "default")
+    logger.info("Local queue app started | config_dir={}", _config_dir or "default")
     return (config,)
 
 
@@ -109,6 +51,54 @@ def _(config):
     return (master_table,)
 
 
+# ---------------------------------------------------------------------------
+# Sample source: local CSV/XLSX upload (replaces the B-Fabric order browser).
+# ---------------------------------------------------------------------------
+@app.cell
+def _():
+    file_upload = mo.ui.file(filetypes=[".csv", ".xlsx"], label="Upload sample table (CSV/XLSX)")
+    return (file_upload,)
+
+
+@app.cell
+def _(file_upload):
+    # Parse the uploaded file into the normalized sample schema (qg.sample_rows).
+    full_samples_df = pl.DataFrame()
+    parsed_mode = None
+    upload_error = None
+    if file_upload.value:
+        _f = file_upload.value[0]
+        try:
+            _parsed = parse_sample_table(_f.contents, _f.name)
+            full_samples_df = _parsed.df
+            parsed_mode = _parsed.mode
+        except ValueError as exc:
+            upload_error = str(exc)
+    return full_samples_df, parsed_mode, upload_error
+
+
+@app.cell
+def _(full_samples_df):
+    # Synthetic "orders" derived from the uploaded container_id column — keeps the
+    # shared cells' selected_orders contract (list of (container_id, area)).
+    if full_samples_df.is_empty():
+        selected_orders = []
+    else:
+        selected_orders = [(int(c), None) for c in full_samples_df["container_id"].unique().sort().to_list()]
+    return (selected_orders,)
+
+
+@app.cell
+def _(parsed_mode):
+    # Queue-type capability inferred from the uploaded table shape.
+    container_has_plates = parsed_mode == "plate"
+    container_has_vials = parsed_mode == "vial"
+    return container_has_plates, container_has_vials
+
+
+# ---------------------------------------------------------------------------
+# Configuration controls (shared, B-Fabric-free).
+# ---------------------------------------------------------------------------
 @app.cell
 def _(master_table, tech_area_field):
     # Filter by tech_area for instrument options
@@ -150,21 +140,12 @@ def _(pattern_field, table_by_qc_layout):
 
 
 @app.cell
-def _(launching_order_row, master_table):
-    # Tech area dropdown - options from master table
-    # Default to Proteomics, or to the launching order's technology when launched from one.
+def _(master_table):
+    # Tech area dropdown - options from master table (defaults to first, e.g. Proteomics).
     _options = sorted(master_table["tech_area"].unique().to_list())
-    _default = _options[0] if _options else None
-
-    _area = launching_order_row["Area"][0] if not launching_order_row.is_empty() else None
-    # B-Fabric "Metabolomics/Biophysics" is ambiguous (Metabolomics vs Lipidomics); default to Metabolomics.
-    _launch_tech_area = {"Proteomics": "Proteomics", "Metabolomics/Biophysics": "Metabolomics"}.get(_area)
-    if _launch_tech_area in _options:
-        _default = _launch_tech_area
-
     tech_area_field = mo.ui.dropdown(
         options=_options,
-        value=_default,
+        value=_options[0] if _options else None,
         label="Tech Area",
     )
     return (tech_area_field,)
@@ -223,7 +204,7 @@ def _(qc_layout_field, table_by_qc_layout):
 
 @app.cell
 def _(container_has_plates, container_has_vials, sampler_field, table_by_sampler):
-    # Queue Type dropdown: intersection of what the order has and what the sampler supports.
+    # Queue Type dropdown: intersection of what the upload has and what the sampler supports.
     queue_type_warning = None
     if sampler_field.value:
         _sampler_supports = set(table_by_sampler["queue_type"].unique().to_list())
@@ -239,7 +220,7 @@ def _(container_has_plates, container_has_vials, sampler_field, table_by_sampler
 
         if _order_has and not _usable:
             queue_type_warning = mo.callout(
-                mo.md(f"Sampler **{sampler_field.value}** is incompatible with this order's samples."),
+                mo.md(f"Sampler **{sampler_field.value}** is incompatible with the uploaded samples."),
                 kind="warn",
             )
     else:
@@ -300,10 +281,7 @@ def _(config, plate_layout_field, queue_type_field):
 
 @app.cell
 def _(config, sampler_field):
-    # Start tray dropdown — shown for both Vial and Plate modes. In vial mode it
-    # controls where vial assignment begins; in plate mode it relocates the
-    # user's plate to the chosen tray (useful for sidestepping QC-layout
-    # collisions on the default tray).
+    # Start tray dropdown — shown for both Vial and Plate modes.
     if sampler_field.value:
         _sampler = config.samplers.get_sampler(sampler_field.value)
         _trays = [str(t) for t in _sampler.trays]
@@ -367,8 +345,6 @@ def _(config, plate_layout_field, qc_layout_field, tech_area_field):
     # Per-level concentration inputs: shown when the selected QC layout contains
     # at least one `standard`-type sample (e.g. Metabolomics `cal_series`).
     _units = ["pmol", "nmol", "umol", "pgml", "ngml", "ugml"]
-    # Halving-dilution preset: level 1 = highest, last level = 1. Up to 7
-    # levels; extra levels fall back to the lowest value.
     _preset_values = [100, 50, 25, 12, 6, 3, 1]
     _preset_unit = "umol"
     concentration_inputs = None
@@ -466,9 +442,7 @@ def _(
     validation_errors = []
 
     if not selected_orders:
-        # Until an order is picked nothing downstream can resolve; show a single
-        # actionable hint instead of a cascade of "X not selected" entries.
-        validation_errors.append("Please select an order")
+        validation_errors.append("Upload a sample table")
     else:
         if not tech_area_field.value:
             validation_errors.append("Tech area not selected")
@@ -520,7 +494,6 @@ def _(
     # Combine config validation with dynamic plate capacity check
     _all_errors = list(validation_errors)
 
-    # Check plate count vs sampler tray capacity (only for plate mode)
     if (
         config_valid
         and queue_type_field.value == "Plate"
@@ -536,7 +509,6 @@ def _(
             if _num_plates > _num_trays:
                 _all_errors.append(f"{sampler_field.value} has {_num_trays} trays but {_num_plates} plates selected")
 
-    # Only show validation status when there are errors
     if not _all_errors:
         validation_status = None
     else:
@@ -586,16 +558,12 @@ def _(config, instrument_field, methods_df, pattern_field, tech_area_field):
             return []
         methods_for_instr = config.methods.get_methods(tech_area_field.value, instrument_field.value)
 
-        # Collect sample_ids from pattern + "default" for user samples
         sample_ids: set[str] = {SamplesConfig.DEFAULT_SAMPLE_ID}
         if pattern_field.value:
             _pattern = config.queue_patterns.get_pattern(tech_area_field.value, pattern_field.value)
             sample_ids |= _pattern.get_all_sample_ids()
 
-        # Intersect method names across all sample types
         sets = [methods_for_instr.get_method_names(sid, polarity) for sid in sample_ids]
-        # Only include sample types that have at least one method row;
-        # sample types with no rows in the method file are not constrained
         non_empty = [s for s in sets if s]
         if not non_empty:
             return []
@@ -668,17 +636,9 @@ def _():
 
 
 @app.cell
-def _(client, config, is_employee, tech_area_field):
-    if is_employee:
-        _service = config.tech_area_defaults.get_default_user(tech_area_field.value).strip()
-        _initial = _service or client.auth.login
-    else:
-        _initial = client.auth.login
-    user_field = mo.ui.text(
-        value=_initial,
-        label="User",
-        disabled=not is_employee,
-    )
+def _():
+    # Local mode: user is free text, defaulting to the OS user. No B-Fabric login.
+    user_field = mo.ui.text(value=os.environ.get("USER", ""), label="User")
     return (user_field,)
 
 
@@ -700,11 +660,6 @@ def _(
 ):
     # Show the *effective* QC layout for this run — the intersection of what
     # the QC layout declares and what the selected pattern actually injects.
-    # With the noqc pattern the intersection is empty and the preview is
-    # hidden (matches runtime semantics in create_qc_layout). When a queue
-    # has been generated we append a `visits` column counting how many times
-    # each well is touched (well-plate samplers only — tip samplers expose
-    # ranges, which would need interval logic; deferred).
     qc_layout_preview = None
     if (
         tech_area_field.value
@@ -720,16 +675,12 @@ def _(
             plate_layout_field.value,
             _sampler,
         )
-        # Drop noqc placeholder rows (sample_id is None) and any layout row
-        # whose sample_id isn't referenced by the chosen pattern.
         _pattern = config.queue_patterns.get_pattern(tech_area_field.value, pattern_field.value)
         _used_sample_ids = _pattern.get_all_sample_ids()
         _samples = [s for s in _samples if s.sample_id is not None and s.sample_id in _used_sample_ids]
         if _samples:
             _rows = []
             if _sampler.is_tip:
-                # TODO: per-range visit counts for tip samplers (Evosep) — needs
-                # interval intersection against per-row positions.
                 for s in _samples:
                     _rows.append(
                         {"sample_id": s.sample_id, "tray": s.tray, "range": f"{s.position_start}-{s.position_end}"}
@@ -746,7 +697,6 @@ def _(
                         .with_columns(pl.concat_str(["row", pl.col("col").cast(pl.Utf8)]).alias("pos"))
                         .select(["tray", "pos", "visits"])
                     )
-                    # Align dtypes — preview's tray is Utf8 from the dict; queue's tray may be int.
                     _well_counts = _well_counts.with_columns(pl.col("tray").cast(_preview["tray"].dtype))
                     _preview = _preview.join(_well_counts, on=["tray", "pos"], how="left").with_columns(
                         pl.col("visits").fill_null(0)
@@ -782,8 +732,7 @@ def _(
     user_field,
     validation_status,
 ):
-    # Hide the Pattern dropdown when the user picks the "noqc" QC layout — the only
-    # compatible pattern is "noqc" itself, so the choice is degenerate.
+    # Hide the Pattern dropdown when the user picks the "noqc" QC layout.
     _queue_items = [qc_layout_field]
     if qc_layout_field.value != "noqc":
         _queue_items.append(pattern_field)
@@ -822,11 +771,9 @@ def _(
         inj_vol_field,
         qc_frequency_field,
     ]
-    # Add validation errors at bottom only if present
     if validation_status is not None:
         _sidebar_items.append(validation_status)
 
-    # Add QC layout preview table at the bottom
     if qc_layout_preview is not None:
         _sidebar_items.append(mo.md(f"**QC Positions** _{qc_layout_field.value}_"))
         _sidebar_items.append(qc_layout_preview)
@@ -835,146 +782,21 @@ def _(
     return
 
 
+# ---------------------------------------------------------------------------
+# Upload header + sample selection (shared selection/editor cells).
+# ---------------------------------------------------------------------------
 @app.cell
-def _(is_employee):
-    # Refresh button + state exist only for employees; non-employees have no container list.
-    if is_employee:
-        get_refresh, set_refresh = mo.state(0)
-        refresh_projects_button = mo.ui.run_button(label="Refresh Projects")
+def _(file_upload, full_samples_df, upload_error):
+    _items = [mo.md("# Local Queue Generator"), file_upload]
+    if upload_error:
+        _items.append(mo.callout(mo.md(f"**Could not parse file:** {upload_error}"), kind="danger"))
+    elif not full_samples_df.is_empty():
+        _items.append(mo.md(f"**Loaded {len(full_samples_df)} samples.**"))
+    elif file_upload.value:
+        _items.append(mo.callout(mo.md("**File parsed but no samples found.**"), kind="warn"))
     else:
-        get_refresh = None
-        set_refresh = None
-        refresh_projects_button = None
-    return get_refresh, refresh_projects_button, set_refresh
-
-
-@app.cell
-def _(USE_ALL_PROJECTS, client, get_refresh, refresh_projects_button, set_refresh):
-    if refresh_projects_button is not None and refresh_projects_button.value:
-        ContainerCache(client, active_only=not USE_ALL_PROJECTS).write_containers()
-        set_refresh(get_refresh() + 1)
-    return
-
-
-@app.cell
-def _(BFABRIC_CACHE_DIR, USE_ALL_PROJECTS, USE_CONTAINER_TYPE, get_refresh, is_employee, launching_order_row):
-    # Load merged container cache for employees only; non-employees never browse containers.
-    if not is_employee:
-        projects_df = pl.DataFrame()
-    else:
-        _ = get_refresh()  # re-read CSV when refresh button is clicked
-        _suffix = "_all" if USE_ALL_PROJECTS else ""
-        _name = "bfabric_container_type" if USE_CONTAINER_TYPE else "bfabric_container"
-        projects_df = pl.read_csv(BFABRIC_CACHE_DIR / f"{_name}{_suffix}.csv").sort("Container ID", descending=True)
-        # Surface the launching order even if it predates the cache (in-memory only).
-        if (
-            not launching_order_row.is_empty()
-            and launching_order_row["Container ID"][0] not in projects_df["Container ID"]
-        ):
-            projects_df = pl.concat([launching_order_row, projects_df], how="diagonal_relaxed").sort(
-                "Container ID", descending=True
-            )
-    return (projects_df,)
-
-
-@app.cell
-def _(config, entity_id, is_employee, projects_df, tech_area_field):
-    # Employees browse the container cache; non-employees get only a heading from the fixed container.
-    if is_employee:
-        _allowed_areas = config.tech_area_defaults.get_bfabric_areas(tech_area_field.value)
-        if _allowed_areas:
-            _expr = pl.col("Area").is_in(_allowed_areas)
-            if entity_id is not None:
-                _expr = _expr | (pl.col("Container ID") == entity_id)  # never filter out the launching order
-            _filtered = projects_df.filter(_expr)
-        else:
-            _filtered = projects_df
-        # Pre-select the launching order so its samples load immediately.
-        _initial = None
-        if entity_id is not None:
-            _hit = _filtered.with_row_index().filter(pl.col("Container ID") == entity_id)
-            if not _hit.is_empty():
-                _initial = [int(_hit["index"][0])]
-        project_table = mo.ui.table(
-            data=_filtered,
-            selection="multi",
-            initial_selection=_initial,
-            label="Select orders (multi-select)",
-            show_download=False,
-            page_size=5,
-        )
-    else:
-        project_table = None
-    return (project_table,)
-
-
-@app.cell
-def _(entity_id, is_employee, project_table):
-    if is_employee:
-        if project_table.value.is_empty():
-            selected_orders = []
-        else:
-            selected_orders = [(int(row["Container ID"]), row["Area"]) for row in project_table.value.to_dicts()]
-    else:
-        selected_orders = [(entity_id, None)]
-    return (selected_orders,)
-
-
-@app.cell
-def _(bfabric, selected_orders):
-    # For each selected container: keep its plate entities (needed by plates_select)
-    # and classify its sample composition (plates / vials / both).
-    all_plates, container_has_plates, container_has_vials = bfabric_samples.container_composition(
-        bfabric, selected_orders
-    )
-    return all_plates, container_has_plates, container_has_vials
-
-
-@app.cell
-def _(queue_type_field):
-    # Derive container_type for BfabricHelper.get_samples() from queue type dropdown
-    _type_map = {"Vial": "Vials", "Plate": "Plates"}
-    container_type = _type_map.get(queue_type_field.value, "Vials")
-    return (container_type,)
-
-
-@app.cell
-def _(all_plates, selected_orders):
-    # For now, plates_select only works with single order (first one)
-    # TODO: Support per-order plate selection for multi-order queues
-    if selected_orders and all_plates:
-        _first_container = selected_orders[0][0]
-        _first_plates = all_plates.get(_first_container, {})
-        _plate_ids = sorted(_plate.id for _plate in _first_plates.values())
-        plates_select = mo.ui.multiselect(_plate_ids, label="Plates (first order)")
-    else:
-        plates_select = mo.ui.multiselect([], label="Plates")
-    return (plates_select,)
-
-
-@app.cell
-def _(
-    DEBUG_DUMP_DIR,
-    bfabric,
-    container_type,
-    plates_select,
-    selected_orders,
-):
-    # Load samples from all selected orders (empty DataFrame if no orders selected)
-    full_samples_df = bfabric_samples.load_samples(
-        bfabric, selected_orders, container_type, plates_select.value or None, DEBUG_DUMP_DIR
-    )
-    return (full_samples_df,)
-
-
-@app.cell
-def _(full_samples_df, is_employee):
-    # Non-employees have a fixed container: if it has no samples, halt with no partial data.
-    if not is_employee and full_samples_df.is_empty():
-        mo.stop(
-            True,
-            mo.callout(mo.md("**No samples found in this container.**"), kind="danger"),
-        )
+        _items.append(mo.md("_Upload a CSV/XLSX sample table to begin._"))
+    mo.vstack(_items)
     return
 
 
@@ -1053,7 +875,6 @@ def _(
         _qc_freq = int(qc_frequency_field.value) if qc_frequency_field.value.strip() else None
         _polarity = [p for p in ("pos", "neg") if polarity_group.value.get(p)]
 
-        # Build method dict from per-polarity selections
         _method_fields = {"pos": method_field_pos, "neg": method_field_neg}
         method_dict = {pol: field.value for pol, field in _method_fields.items() if field is not None and field.value}
 
@@ -1086,53 +907,11 @@ def _(
 
 
 @app.cell
-def _(banner_message, entity_id, is_employee, project_table, refresh_projects_button):
-    # Bind to a name and leave it as the cell's final expression so marimo displays the vstack;
-    # a bare `mo.vstack(...)` inside if/else is not the last top-level expression of the cell.
-    # The banner shares the top row with the refresh button to avoid wasted vertical space.
-    _banner = mo.md(banner_message)
-    if is_employee:
-        _order_section = mo.vstack(
-            [
-                mo.hstack([_banner, refresh_projects_button], justify="space-between", align="center"),
-                project_table,
-            ]
-        )
-    else:
-        _order_section = mo.vstack([mo.hstack([_banner], justify="start"), mo.md(f"## Order {entity_id}")])
-    _order_section
-    return
-
-
-@app.cell
-def _(container_type, is_employee, selected_orders):
-    # Assign each branch to a cell-local and display it as the last unnested
-    # expression — a bare ``mo.md(...)`` inside a branch is computed then discarded.
-    if not is_employee:
-        _banner = mo.md("")
-    elif not selected_orders:
-        _banner = mo.md("**Select orders from the table above**")
-    else:
-        _container_ids = [o[0] for o in selected_orders]
-        _ids_str = ", ".join(str(c) for c in _container_ids)
-        _banner = mo.md(f"**Selected:** {len(selected_orders)} order(s): {_ids_str} ({container_type})")
-    _banner
-    return
-
-
-@app.cell
-def _(all_plates, plates_select, selected_orders):
-    _has_plates = any(all_plates.get(o[0]) for o in selected_orders) if selected_orders else False
-    plates_select if _has_plates else mo.md("")
-    return
-
-
-@app.cell
 def _(sample_df, sample_mode_selector, samples_editor, samples_table, selected_orders):
     # Sample Selection tab content
     _order_count = len(selected_orders) if selected_orders else 0
     if sample_df is not None and not sample_df.is_empty():
-        _summary = mo.md(f"**{len(sample_df)} samples from {_order_count} order(s)**")
+        _summary = mo.md(f"**{len(sample_df)} samples from {_order_count} group(s)**")
     else:
         _summary = mo.md("**No samples loaded**")
     _panels = {
@@ -1147,29 +926,26 @@ def _(sample_df, sample_mode_selector, samples_editor, samples_table, selected_o
     return (sample_selection_content,)
 
 
+# ---------------------------------------------------------------------------
+# Pipeline: build -> generate -> preview/download (shared helpers, no B-Fabric).
+# ---------------------------------------------------------------------------
 @app.cell
-def _(bfabric_base_url, config, queue_parameters, sample_df, selected_orders):
-    # Build QueueInput once — shared by Parameters tab and queue generation.
-    # The B-Fabric instance URL is stamped as provenance (QueueParameters.bfabric_instance).
+def _(config, queue_parameters, sample_df, selected_orders):
+    # Build QueueInput once — shared by the Parameters tab and queue generation.
+    # No provenance instance in local mode (bfabric_instance stays None).
     queue_input, queue_input_err = shared.build_queue_input(
         config,
         queue_parameters,
         sample_df,
         has_samples_source=bool(selected_orders),
-        provenance_instance=bfabric_base_url,
+        provenance_instance=None,
     )
     return queue_input, queue_input_err
 
 
 @app.cell
-def _(
-    queue_input,
-    queue_input_err,
-    queue_parameters,
-    queue_parameters_err,
-    sample_df,
-):
-    # Parameters tab content — uses shared queue_input
+def _(queue_input, queue_input_err, queue_parameters, queue_parameters_err, sample_df):
+    # Parameters tab content — uses the shared queue_input.
     _output = None
     _download_button = None
     if queue_input is not None:
@@ -1178,7 +954,7 @@ def _(
             queue_input, shared.params_json_filename(queue_parameters, sample_df)
         )
 
-    _err_msg = queue_input_err or (str(queue_parameters_err) if queue_parameters_err else "Select orders")
+    _err_msg = queue_input_err or (str(queue_parameters_err) if queue_parameters_err else "Upload a sample table")
     parameters_content = mo.vstack(
         [
             _download_button,
@@ -1189,40 +965,8 @@ def _(
 
 
 @app.cell
-def _(
-    app_version,
-    bfabric_application_id,
-    queue_input,
-    queue_output_filename,
-    queue_output_str,
-    target_container_id_field,
-):
-    def gather_workunit_parameters():
-        return bfabric_workunit.gather_workunit_parameters(
-            queue_input,
-            app_version=app_version,
-            application_id=bfabric_application_id,
-            target_container_id=target_container_id_field.value if target_container_id_field is not None else 0,
-            queue_output_filename=queue_output_filename,
-            queue_output_str=queue_output_str,
-        )
-
-    return (gather_workunit_parameters,)
-
-
-@app.cell
-def _(feeder_uploader, gather_workunit_parameters):
-    def upload_workunit() -> str:
-        params = gather_workunit_parameters()
-        return feeder_uploader.upload(params)
-
-    return (upload_workunit,)
-
-
-@app.cell
 def _(config, queue_input, queue_parameters):
-    # Generate the queue exactly once so preview and download are identical
-    # (randomization is non-deterministic per build).
+    # Generate the queue exactly once so preview and download are identical.
     _result = shared.generate_queue(config, queue_input, queue_parameters)
     generated_queue_df = _result.generated_df
     raw_queue_df = _result.raw_df
@@ -1245,39 +989,10 @@ def _():
 
 
 @app.cell
-def _(selected_orders):
-    _container_ids = sorted((str(o[0]) for o in selected_orders), reverse=True) if selected_orders else []
-    if _container_ids:
-        target_container_id_field = mo.ui.dropdown(
-            options=_container_ids,
-            value=_container_ids[0],
-            allow_select_none=False,
-        )
-    else:
-        target_container_id_field = None
-    return (target_container_id_field,)
-
-
-@app.cell
 def _(output_file_extension, queue_parameters, selected_orders):
     _ids = [o[0] for o in selected_orders] if selected_orders else []
     queue_output_filename = shared.queue_output_filename(queue_parameters, _ids, output_file_extension)
     return (queue_output_filename,)
-
-
-@app.cell
-def _():
-    upload_run_button = mo.ui.run_button(label="Upload to B-Fabric")
-    return (upload_run_button,)
-
-
-@app.cell
-def _(upload_run_button, upload_workunit):
-    if upload_run_button.value:
-        upload_result = upload_workunit()
-    else:
-        upload_result = None
-    return (upload_result,)
 
 
 @app.cell
@@ -1289,52 +1004,39 @@ def _(
     queue_output_str,
     queue_parameters,
     raw_queue_df,
-    target_container_id_field,
-    upload_result,
-    upload_run_button,
 ):
-    # Queue Preview tab content
+    # Queue Preview tab content — local mode enables download immediately (no upload gate).
     if generation_error:
         queue_preview_content = mo.callout(mo.md(f"**Generation Error:** {generation_error}"), kind="danger")
     elif generated_queue_df is not None and queue_output_str is not None:
         _display_df = generated_queue_df if formatted_ticket_toggle.value else raw_queue_df
-
-        _download_button = shared.queue_download_button(
-            queue_output_str, queue_output_filename, disabled=upload_result is None
-        )
-
+        _download_button = shared.queue_download_button(queue_output_str, queue_output_filename)
         _rand_label = (
             f" | randomization: {queue_parameters.randomization}" if queue_parameters.randomization != "no" else ""
         )
-        _upload_items = [upload_run_button]
-        if target_container_id_field is not None:
-            _upload_items += [mo.md("to"), target_container_id_field]
-        _upload_items.append(_download_button)
-        _upload_result_msg = mo.md(upload_result) if upload_result is not None else mo.md("")
-
         queue_preview_content = mo.vstack(
             [
-                mo.hstack(_upload_items, justify="start", gap=1, align="center"),
-                _upload_result_msg,
+                _download_button,
                 mo.md(f"**{len(_display_df)} rows{_rand_label}** {formatted_ticket_toggle}"),
                 mo.ui.table(_display_df, show_column_summaries=False, show_download=False, selection=None),
             ]
         )
     else:
-        queue_preview_content = mo.md("_Select a project and configure parameters to preview queue_")
+        queue_preview_content = mo.md("_Upload a sample table and configure parameters to preview the queue._")
     return (queue_preview_content,)
 
 
+# ---------------------------------------------------------------------------
+# Visualizations (shared, B-Fabric-free).
+# ---------------------------------------------------------------------------
 @app.cell
 def _():
-    # Well size for the Plate Layout view; lets the user shrink/grow the plot.
     plate_well_size = mo.ui.slider(start=14, stop=52, step=2, value=30, label="Well size", show_value=True)
     return (plate_well_size,)
 
 
 @app.cell
 def _():
-    # Sub-view selector for the Visualizations tab.
     viz_subtab = mo.ui.radio(
         options=["Plate Layout", "Acquisition Timeline"],
         value="Plate Layout",
@@ -1345,9 +1047,6 @@ def _():
 
 @app.cell
 def _():
-    # Color encoding for the plate map and the acquisition timeline. Static options;
-    # the content cell degrades gracefully to sample-type coloring when the queue
-    # carries no grouping_var (the common case).
     plate_color_by = mo.ui.dropdown(
         options=["Sample type", "Group (grouping_var)"], value="Sample type", label="Color by"
     )
@@ -1357,9 +1056,6 @@ def _():
 
 @app.cell
 def _(config, plate_color_by, plate_well_size, queue_parameters, raw_queue_df):
-    # Plate Layout sub-view: plate map colored by sample type or covariate, with a
-    # group <-> plate-position balance score. Module globals (build_plate_*, plate_balance)
-    # come from the app.setup block, so they are referenced directly, not as cell params.
     if raw_queue_df is None or raw_queue_df.is_empty():
         plate_layout_view = mo.md("_Generate a queue to see the plate layout._")
     else:
@@ -1398,9 +1094,6 @@ def _(config, plate_color_by, plate_well_size, queue_parameters, raw_queue_df):
 
 @app.cell
 def _(raw_queue_df, timeline_color_by):
-    # Acquisition Timeline sub-view: per-injection strip recolored by group or QC
-    # cadence, with a group <-> queue-position balance score. No plate geometry
-    # needed, so this also works for vial-mode queues.
     if raw_queue_df is None or raw_queue_df.is_empty():
         timeline_view = mo.md("_Generate a queue to see the acquisition timeline._")
     else:
@@ -1424,7 +1117,6 @@ def _(raw_queue_df, timeline_color_by):
 
 @app.cell
 def _(plate_layout_view, timeline_view, viz_subtab):
-    # Visualizations tab content: a sub-tab selector over the plate and timeline views.
     _views = {"Plate Layout": plate_layout_view, "Acquisition Timeline": timeline_view}
     visualizations_content = mo.vstack([viz_subtab, _views[viz_subtab.value]])
     return (visualizations_content,)
@@ -1442,7 +1134,6 @@ def _(
     tech_area_field,
 ):
     # Valid Combinations tab content - shows ALL combinations with matching rows highlighted
-    # Build match condition based on current selections
     _match_conditions = []
     _active_filters = []
 
@@ -1468,11 +1159,9 @@ def _(
         _match_conditions.append(pl.col("plate_layout") == plate_layout_field.value)
         _active_filters.append(f"**plate_layout** = {plate_layout_field.value}")
 
-    # Create combined match expression
     _display_cols = [c for c in master_table.columns if c != "default_pattern"]
     if _match_conditions:
         _combined_match = pl.all_horizontal(*_match_conditions)
-        # Add "✓" column for matching rows, sort matches to top
         _display_table = (
             master_table.with_columns(pl.when(_combined_match).then(pl.lit("✓")).otherwise(pl.lit("")).alias("✓"))
             .select(["✓"] + _display_cols)
@@ -1519,7 +1208,6 @@ def _(
         "Parameters": parameters_content,
         "Valid Combinations": valid_combinations_content,
     }
-    # CSS display:none keeps all widgets in the DOM (data_editor preserves visual state)
     _panels = [
         mo.md(f'<div style="display: {"block" if _name == tab_selector.value else "none"}">{_content}</div>')
         for _name, _content in _sections.items()

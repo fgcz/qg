@@ -31,8 +31,11 @@ When cutting a release, always run `uv lock` after bumping the version in `pypro
 ## Commands
 
 ```bash
-# Run the GUI
-uv run marimo run src/qg/apps/queue_app.py
+# Run the standalone local app (CSV/XLSX upload, no B-Fabric)
+make app-local                                  # or: uv run marimo run src/qg/apps/queue_app_local.py
+
+# Run the B-Fabric portal app (needs the qg[bfabric] extra; auth-bypass for dev)
+QG_ALLOW_UNAUTHENTICATED=1 uv run marimo run src/qg/apps/queue_app.py
 
 # Generate queue from JSON params
 uv run qg input.json -o output.csv
@@ -40,23 +43,36 @@ uv run qg input.json -o output.csv
 # Validate config files
 uv run qg-validate
 
-# Run tests
+# Run tests (dev env includes the portal extra)
 uv run pytest
+
+# Run only the B-Fabric-free core tests (as on a core install)
+uv run --no-group portal pytest -m "not bfabric"
 
 # Run single test
 uv run pytest tests/test_file.py::test_name -v
 ```
 
+### Install profiles
+
+- **Core** (`pip install qg`): the local app + `qg`/`qg-validate` CLIs. No
+  `bfabric`, `fastapi`, `starlette`, or `python-gitlab`. `uv sync --no-group portal`
+  reproduces this in-repo.
+- **Portal** (`pip install 'qg[bfabric]'`): adds B-Fabric auth, LIMS loading,
+  workunit upload, and the GitLab launcher. `uv sync` installs it by default in
+  dev via the `portal` dependency-group (`[tool.uv] default-groups`).
+
 ### CLI Entry Points
 
-| Command | Module | Purpose |
-|---------|--------|---------|
-| `qg` | `qg.cli.generate_queues` | Main queue generation from JSON params |
-| `qg-validate` | `qg.cli.validate_config` | Validate config files |
-| `qg-find-projects` | `qg.cli.find_projects` | Project discovery utility |
-| `qg-refresh-cache` | `qg.cli.refresh_cache` | Refresh B-Fabric container caches |
-| `qg-app` | `qg.gitlab.launcher` | Launch queue app (GitLab deployment) |
-| `qg-editor` | `qg.gitlab.launcher` | Launch config editor (GitLab deployment) |
+| Command | Module | Purpose | Needs extra |
+|---------|--------|---------|-------------|
+| `qg` | `qg.cli.generate_queues` | Main queue generation from JSON params | — |
+| `qg-validate` | `qg.cli.validate_config` | Validate config files | — |
+| `qg-app-local` | `qg.apps.launcher_local` | Launch the standalone local upload app | — |
+| `qg-find-projects` | `qg.cli.find_projects` | Project discovery utility | `qg[bfabric]` |
+| `qg-refresh-cache` | `qg.cli.refresh_cache` | Refresh B-Fabric container caches | `qg[bfabric]` |
+| `qg-app` | `qg.gitlab.launcher` | Launch portal queue app (GitLab deployment) | `qg[bfabric]` |
+| `qg-editor` | `qg.gitlab.launcher` | Launch config editor (GitLab deployment) | `qg[bfabric]` |
 
 ## Terminology
 
@@ -195,15 +211,30 @@ Never use `pl.read_csv()` or `Path().read_text()` to read config files directly 
 
 ### Apps (`src/qg/apps/`)
 
-| App | Purpose |
-|-----|---------|
-| `apps/queue_app.py` | Main Marimo GUI for interactive queue generation |
-| `apps/config_editor.py` | Configuration file editor |
-| `apps/_bfabric_auth.py` | Shared B-Fabric auth helper (hasattr guard for SimpleUser) |
-| `apps/bfabric_app.py` | B-Fabric integrated queue app |
-| `apps/bfabric_app_editor.py` | B-Fabric integrated config editor |
+Both queue apps are thin marimo notebooks over a shared, B-Fabric-free pipeline
+(`queue_app_shared.py`) plus swappable source/sink integrations
+(`apps/integrations/`). The portal app imports B-Fabric; the local app does not.
 
-**B-Fabric session in the app:** `resolve_app_session()` in `bfabric_utils.py` returns an `AppSession` that bundles the per-request context (`client`, `is_employee`, `entity_id`, `instance_slug`, ...). The queue app's first cell unpacks it; downstream cells branch on `is_employee` (employees browse all containers; non-employees are pinned to `entity_id`).
+| App | Purpose | Needs B-Fabric |
+|-----|---------|----------------|
+| `apps/queue_app.py` | Portal Marimo GUI (B-Fabric order browser + workunit upload) | yes |
+| `apps/queue_app_local.py` | Standalone GUI: CSV/XLSX upload + local download | no |
+| `apps/queue_app_shared.py` | Shared pipeline helpers (build/generate/filenames/downloads) — no marimo cells, no B-Fabric | no |
+| `apps/launcher_local.py` | `qg-app-local` entry point (runs `queue_app_local.py`) | no |
+| `apps/config_editor.py` | Configuration file editor | yes |
+| `apps/_bfabric_auth.py` | Shared B-Fabric auth helper (hasattr guard for SimpleUser) | yes |
+| `apps/bfabric_app.py` | B-Fabric integrated queue app | yes |
+| `apps/bfabric_app_editor.py` | B-Fabric integrated config editor | yes |
+
+**Integrations (`src/qg/apps/integrations/`):** `local_samples.py` (pure CSV/XLSX
+parser → normalized `sample_rows` schema), `bfabric_samples.py` (order/sample
+loading), `bfabric_workunit.py` (workunit payload), `bfabric_context.py`
+(session). The `local_*` modules import no B-Fabric; the `bfabric_*` modules need
+the `qg[bfabric]` extra. Both notebooks honor a variable-name contract
+(`full_samples_df`, `selected_orders`, `container_has_*`, `queue_input`,
+`queue_output_str`, …) so the shared cells and the GUI tests are identical.
+
+**B-Fabric session in the portal app:** `resolve_app_session()` in `bfabric_utils.py` returns an `AppSession` that bundles the per-request context (`client`, `is_employee`, `entity_id`, `instance_slug`, ...). The portal app's first cell unpacks it; downstream cells branch on `is_employee` (employees browse all containers; non-employees are pinned to `entity_id`). The local app has no session — its source cells synthesize `selected_orders` from the uploaded `container_id` column.
 
 ### Config Files (`qg_configs/`)
 

@@ -52,6 +52,8 @@ markdown_extensions:
 nav:
   - Home: index.md
   - User Guide:
+      - Local app (no B-Fabric): users/local_app.md
+      - Example sample tables: examples/README.md
       - User modes (auth): users/user_modes.md
       - Config editor: users/editor_guide.md
   - Reference:
