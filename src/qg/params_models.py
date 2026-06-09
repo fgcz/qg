@@ -82,7 +82,7 @@ class QueueParameters(BaseModel):
     user: str = ""
     # Method per polarity: {"pos": "DIA_60min", "neg": "DIA_60min"}
     method: dict[str, str] = Field(default_factory=dict)
-    randomization: Literal["no", "random", "blocked"] = "no"
+    randomization: Literal["no", "random", "blocked", "blocked_uniform"] = "no"
     inj_vol_override: float | None = None
     qc_frequency_override: int | None = None
     # If True, samples from different containers are placed on separate trays (vial mode only)
@@ -123,7 +123,7 @@ class QueueParameters(BaseModel):
         date: str,
         user: str = "",
         method: dict[str, str] | None = None,
-        randomization: Literal["no", "random", "blocked"] = "no",
+        randomization: Literal["no", "random", "blocked", "blocked_uniform"] = "no",
         inj_vol_override: float | None = None,
         qc_frequency_override: int | None = None,
         one_container_per_tray: bool = False,

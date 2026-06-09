@@ -662,7 +662,9 @@ def _(config, tech_area_field):
 
 @app.cell
 def _():
-    randomization_field = mo.ui.dropdown(options=["no", "random", "blocked"], value="no", label="Randomization")
+    randomization_field = mo.ui.dropdown(
+        options=["no", "random", "blocked", "blocked_uniform"], value="no", label="Randomization"
+    )
     return (randomization_field,)
 
 

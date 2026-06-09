@@ -82,7 +82,7 @@ def _check_core_params(params_state: dict[str, Any]) -> None:
     parameters = params_state["json"]["parameters"]
     assert parameters["queue_type"] == "Plate", parameters
     assert parameters["queue_pattern"], "queue_pattern is empty"
-    assert parameters["randomization"] in {"no", "random", "blocked"}, parameters["randomization"]
+    assert parameters["randomization"] in {"no", "random", "blocked", "blocked_uniform"}, parameters["randomization"]
     # Proteomics uses single positive polarity (no expansion).
     assert parameters["polarity"] == ["pos"], parameters["polarity"]
     assert parameters["date"], "date is empty"

@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Randomization mode `blocked_uniform`: spreads each `grouping_var` group evenly across the whole queue (fair-share interleave) instead of front-loading complete blocks like `blocked`, avoiding majority-only tail injections for unbalanced group counts.
+
 ### Fixed
 - Config: added the missing `Lipidomics`/`QEXACTIVEHF_2` instrument (methods file + `instruments.csv` row) so the instrument offered in the queue app's Lipidomics menu can actually generate queues instead of failing at lookup.
 

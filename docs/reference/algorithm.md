@@ -92,7 +92,8 @@ built. Modes (`randomize.py`):
 |------|----------|
 | `no` | Keep original order |
 | `random` | Shuffle samples |
-| `blocked` | Randomized complete block design — group by `grouping_var`, shuffle within blocks |
+| `blocked` | Randomized complete block design — group by `grouping_var`, shuffle within blocks (front-loads complete blocks; majority-only tail) |
+| `blocked_uniform` | Group-uniform interleave — spread each `grouping_var` group evenly across the whole run via fair-share selection; identity shuffled within groups. Reduces to `blocked` for equal group sizes |
 
 Returns a new `PlateQueue`.
 

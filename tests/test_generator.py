@@ -743,6 +743,45 @@ class TestRandomization:
 
         assert set(result_ids) == {1, 2, 3, 4, 5, 6}
 
+    def test_blocked_uniform_mode_spreads_groups(self, config):
+        import random as py_random
+
+        py_random.seed(42)
+
+        container_id = 99999
+        # A x 5, B x 3, C x 2 -> uniform interleave reaches the pipeline.
+        specs = [("A", 5), ("B", 3), ("C", 2)]
+        samples = [
+            VialSample(sample_name=f"{g.lower()}{i}", sample_id=sid, grouping_var=g, container_id=container_id)
+            for sid, (g, i) in enumerate(((g, i) for g, n in specs for i in range(1, n + 1)), start=1)
+        ]
+
+        params = QueueParameters(
+            tech_area="Proteomics",
+            instrument="ASTRAL_1",
+            sampler="Vanquish",
+            output_format="xcalibur",
+            queue_pattern="_test_noqc",
+            queue_type="Vial",
+            plate_layout="Vanquish_54",
+            qc_layout_name="standard",
+            polarity=["pos"],
+            date="20260116",
+            user="test",
+            randomization="blocked_uniform",
+        )
+        queue_input = make_vial_queue_input(params, samples, container_id)
+
+        generator = QueueGenerator(config, queue_input)
+        result = generator.build_rows()
+
+        user_ids = [int(row.sample_id) for row in result.rows if row.slot_kind == "user"]
+        # All samples preserved exactly once.
+        assert set(user_ids) == set(range(1, 11))
+        # The minority groups are not stranded at the start: the largest group (A,
+        # ids 1-5) still appears in the final third of the sequence.
+        assert any(sid in {1, 2, 3, 4, 5} for sid in user_ids[-3:])
+
     def test_no_randomization_preserves_order(self, config):
         samples = make_vial_samples(5)
         original_order = [s.sample_id for s in samples]

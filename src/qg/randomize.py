@@ -17,13 +17,14 @@ from qg.params_models import PlateCell, PlateQueue
 
 def randomize_plate_queue(
     queue: PlateQueue,
-    mode: Literal["no", "random", "blocked"],
+    mode: Literal["no", "random", "blocked", "blocked_uniform"],
 ) -> PlateQueue:
     """Randomize cells within (plate_id, container_id) groups.
 
     Args:
         queue: PlateQueue to randomize.
-        mode: "no" (unchanged), "random" (shuffle), "blocked" (RCBD).
+        mode: "no" (unchanged), "random" (shuffle), "blocked" (RCBD),
+            "blocked_uniform" (group-uniform interleave).
 
     Returns:
         New PlateQueue with randomized cells (plates/batches unchanged).
@@ -50,8 +51,10 @@ def randomize_plate_queue(
     for cells in grouped.values():
         if mode == "random":
             shuffled = _shuffle(cells)
-        else:  # blocked
+        elif mode == "blocked":
             shuffled = _block_randomize(cells)
+        else:  # blocked_uniform
+            shuffled = _uniform_block_randomize(cells)
         randomized_cells.extend(shuffled)
 
     return PlateQueue(batches=queue.batches, plates=queue.plates, cells=randomized_cells)
@@ -99,3 +102,49 @@ def _block_randomize(cells: list[PlateCell]) -> list[PlateCell]:
         blocks.append(block)
 
     return [cell for block in blocks for cell in block]
+
+
+def _uniform_block_randomize(cells: list[PlateCell]) -> list[PlateCell]:
+    """Group-uniform interleave for unbalanced ``grouping_var`` counts.
+
+    Unlike RCBD (``_block_randomize``), which front-loads complete blocks and
+    leaves a majority-only tail, this spreads every group evenly across the whole
+    run. It uses fair-share ("most-behind") selection: at each output slot it emits
+    a sample from the group whose ``emitted / total`` ratio is currently lowest,
+    breaking ties by the larger group, then by first-seen order.
+
+    The resulting ``grouping_var`` *label* sequence is deterministic given the
+    group sizes; only the sample *identity* within each group is randomized (each
+    group is shuffled first). With equal group sizes this reduces to RCBD
+    (one sample from each group per block, e.g. ``A B C A B C``); for
+    ``A x 5, B x 3, C x 2`` it yields ``A B C A B A C A B A`` rather than
+    ``ABC ABC AB A A``.
+    """
+    has_grouping = any(c.sample.grouping_var is not None for c in cells)
+    if not has_grouping:
+        return _shuffle(cells)
+
+    # Group by grouping_var, preserving first-seen order
+    by_group: dict[str | None, list[PlateCell]] = {}
+    for cell in cells:
+        by_group.setdefault(cell.sample.grouping_var, []).append(cell)
+
+    # Randomize identity within each group; placement pattern stays deterministic
+    for group_cells in by_group.values():
+        random.shuffle(group_cells)
+
+    order = list(by_group.keys())
+    rank = {key: i for i, key in enumerate(order)}
+    totals = {key: len(by_group[key]) for key in order}
+    emitted = dict.fromkeys(order, 0)
+
+    result: list[PlateCell] = []
+    for _ in range(sum(totals.values())):
+        best = min(
+            (key for key in order if emitted[key] < totals[key]),
+            key=lambda key: (emitted[key] / totals[key], -totals[key], rank[key]),
+        )
+        result.append(by_group[best][emitted[best]])
+        emitted[best] += 1
+
+    return result
