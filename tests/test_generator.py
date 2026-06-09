@@ -1144,6 +1144,45 @@ class TestChronosWriter:
             assert row[0] == str(i), f"Row {i} counter should be {i}, got '{row[0]}'"
 
 
+class TestReadQueueInputErrors:
+    """Error-path tests for read_queue_input."""
+
+    def test_empty_file(self, tmp_path):
+        """Empty file raises appropriate error."""
+        import json
+
+        path = tmp_path / "empty.json"
+        path.write_text("")
+        from qg.params_models import read_queue_input
+
+        with pytest.raises(json.JSONDecodeError):
+            read_queue_input(path)
+
+    def test_invalid_json(self, tmp_path):
+        """Malformed JSON raises JSONDecodeError."""
+        import json
+
+        path = tmp_path / "bad.json"
+        path.write_text("{not valid json")
+        from qg.params_models import read_queue_input
+
+        with pytest.raises(json.JSONDecodeError):
+            read_queue_input(path)
+
+    def test_missing_parameters_key(self, tmp_path):
+        """JSON without 'parameters' key raises validation error."""
+        import json
+
+        from pydantic import ValidationError
+
+        path = tmp_path / "no_params.json"
+        path.write_text(json.dumps({"queue": {"samples": []}}))
+        from qg.params_models import read_queue_input
+
+        with pytest.raises(ValidationError):
+            read_queue_input(path)
+
+
 class TestQueueInputRoundTrip:
     """Round-trip: write_queue_input -> read_queue_input preserves data."""
 
