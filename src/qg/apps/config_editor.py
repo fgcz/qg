@@ -4,6 +4,7 @@ __generated_with = "0.18.4"
 app = marimo.App(width="full")
 
 with app.setup:
+    import os
     import re
     import tomllib
     from pathlib import Path
@@ -47,7 +48,10 @@ with app.setup:
 @app.cell
 def _():
     try:
-        _session = resolve_app_session(mo.app_meta().request, allow_unauthenticated=False)
+        _session = resolve_app_session(
+            mo.app_meta().request,
+            allow_unauthenticated=os.environ.get("QG_ALLOW_UNAUTHENTICATED") == "1",
+        )
     except SessionError as _exc:
         mo.stop(True, mo.callout(mo.md(f"**{_exc.message}**"), kind="danger"))
     mo.stop(
