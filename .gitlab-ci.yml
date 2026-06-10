@@ -84,6 +84,7 @@ marimo-check:
   tags:
     - linux
     - docker
+  interruptible: true
   script:
     - uv sync
     - uv run marimo check --strict src/qg/apps/queue_app.py src/qg/apps/queue_app_local.py src/qg/apps/config_editor.py
