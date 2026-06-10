@@ -30,6 +30,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `QueueGenerator` exposes a public `plate_layout` property so the shared app core no longer reaches into the private `_plate_layout` attribute.
 - Extended `test_cli.py` with `qg` error-path coverage (missing input, malformed JSON, unknown instrument), a `qg-app-local` launcher smoke test, and `--help` smoke tests for the `qg-find-projects`/`qg-refresh-cache` (qg[bfabric]) entry points.
 - Refactored `test_queue_structure.py` to exercise the public `build_multi_container_queue_structure` API instead of private helpers.
+
+### Fixed
+- Lipidomics default injection volume corrected from 3.5 µL to 3.0 µL for all sample types (user samples, blanks, pooled QC, dilution series, EquiSPLASH, NIST).
 - Both queue apps now share a B-Fabric-free pipeline core (`apps/queue_app_shared.py`) and swappable source/sink integrations under `apps/integrations/` (`local_samples`, `bfabric_samples`, `bfabric_workunit`, `bfabric_context`); the portal app is unchanged for users.
 
 ### Fixed

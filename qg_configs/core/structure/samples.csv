@@ -21,17 +21,17 @@ Metabolomics,cal4,cal,Std Bracket,4,Calibration L4,6.0,{date}_{run}_C{container}
 Metabolomics,cal5,cal,Std Bracket,5,Calibration L5,6.0,{date}_{run}_C{container}_{sample_name}_{level}_{concentration}_{polarity}
 Metabolomics,cal6,cal,Std Bracket,6,Calibration L6,6.0,{date}_{run}_C{container}_{sample_name}_{level}_{concentration}_{polarity}
 Metabolomics,cal7,cal,Std Bracket,7,Calibration L7 (lowest concentration),6.0,{date}_{run}_C{container}_{sample_name}_{level}_{concentration}_{polarity}
-Lipidomics,default,"",Unknown,,Default settings for user samples,3.5,{date}_{run}_C{container}_S{sample_id}_{sample_name}_{polarity}
-Lipidomics,blank,blank,Blank,,Solvent blank for carryover assessment,3.5,{date}_{run}_C{container}_{sample_name}_{polarity}
-Lipidomics,pooledQC,pooledQC,QC,,Pooled sample QC for batch correction,3.5,{date}_{run}_C{container}_{sample_name}_{polarity}
-Lipidomics,pooledQCDil1,pooledQCDil1,QC,,Pooled QC dilution 1 (highest concentration),3.5,{date}_{run}_C{container}_{sample_name}_{polarity}
-Lipidomics,pooledQCDil2,pooledQCDil2,QC,,Pooled QC dilution 2,3.5,{date}_{run}_C{container}_{sample_name}_{polarity}
-Lipidomics,pooledQCDil3,pooledQCDil3,QC,,Pooled QC dilution 3,3.5,{date}_{run}_C{container}_{sample_name}_{polarity}
-Lipidomics,pooledQCDil4,pooledQCDil4,QC,,Pooled QC dilution 4,3.5,{date}_{run}_C{container}_{sample_name}_{polarity}
-Lipidomics,pooledQCDil5,pooledQCDil5,QC,,Pooled QC dilution 5,3.5,{date}_{run}_C{container}_{sample_name}_{polarity}
-Lipidomics,pooledQCDil6,pooledQCDil6,QC,,Pooled QC dilution 6 (lowest concentration),3.5,{date}_{run}_C{container}_{sample_name}_{polarity}
-Lipidomics,EquiSPLASH,EquiSPLASH,QC,,EquiSPLASH: Lipidomics internal standard mix (Avanti),3.5,{date}_{run}_C{container}_{sample_name}_{polarity}
-Lipidomics,NIST_Lipids,NIST_Lipids,QC,,NIST: Reference Plasma Lipidomics,3.5,{date}_{run}_C{container}_{sample_name}_{polarity}
+Lipidomics,default,"",Unknown,,Default settings for user samples,3.0,{date}_{run}_C{container}_S{sample_id}_{sample_name}_{polarity}
+Lipidomics,blank,blank,Blank,,Solvent blank for carryover assessment,3.0,{date}_{run}_C{container}_{sample_name}_{polarity}
+Lipidomics,pooledQC,pooledQC,QC,,Pooled sample QC for batch correction,3.0,{date}_{run}_C{container}_{sample_name}_{polarity}
+Lipidomics,pooledQCDil1,pooledQCDil1,QC,,Pooled QC dilution 1 (highest concentration),3.0,{date}_{run}_C{container}_{sample_name}_{polarity}
+Lipidomics,pooledQCDil2,pooledQCDil2,QC,,Pooled QC dilution 2,3.0,{date}_{run}_C{container}_{sample_name}_{polarity}
+Lipidomics,pooledQCDil3,pooledQCDil3,QC,,Pooled QC dilution 3,3.0,{date}_{run}_C{container}_{sample_name}_{polarity}
+Lipidomics,pooledQCDil4,pooledQCDil4,QC,,Pooled QC dilution 4,3.0,{date}_{run}_C{container}_{sample_name}_{polarity}
+Lipidomics,pooledQCDil5,pooledQCDil5,QC,,Pooled QC dilution 5,3.0,{date}_{run}_C{container}_{sample_name}_{polarity}
+Lipidomics,pooledQCDil6,pooledQCDil6,QC,,Pooled QC dilution 6 (lowest concentration),3.0,{date}_{run}_C{container}_{sample_name}_{polarity}
+Lipidomics,EquiSPLASH,EquiSPLASH,QC,,EquiSPLASH: Lipidomics internal standard mix (Avanti),3.0,{date}_{run}_C{container}_{sample_name}_{polarity}
+Lipidomics,NIST_Lipids,NIST_Lipids,QC,,NIST: Reference Plasma Lipidomics,3.0,{date}_{run}_C{container}_{sample_name}_{polarity}
 Testing,default,"",Unknown,,Default settings for test samples,2.0,{date}_{run}_C{container}_S{sample_id}_{sample_name}
 Testing,QC01,testQC01,QC,,testQC01: QC sample with DDA only,2.0,{date}_{run}_C{container}_{sample_name}
 Testing,QC03,testQC03,QC,,testQC03: QC sample for performance monitoring,1.0,{date}_{run}_C{container}_{sample_name}
