@@ -1121,6 +1121,20 @@ def _(container_type, is_employee, selected_orders):
 
 
 @app.cell
+def _(full_samples_df, is_employee, selected_orders):
+    # Employees pick orders from the project table; warn (don't halt) when the
+    # selected order(s) contain no samples so they can choose a different order.
+    # The ``selected_orders`` truthiness guard prevents firing on the initial
+    # no-selection load. Non-employees use the danger/halt path at line ~970.
+    if is_employee and selected_orders and full_samples_df.is_empty():
+        _empty_order_warning = mo.callout(mo.md("**No samples found in the selected order(s).**"), kind="warn")
+    else:
+        _empty_order_warning = mo.md("")
+    _empty_order_warning
+    return
+
+
+@app.cell
 def _(all_plates, plates_select, selected_orders):
     _has_plates = any(all_plates.get(o[0]) for o in selected_orders) if selected_orders else False
     plates_select if _has_plates else mo.md("")
