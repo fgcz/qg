@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `qg[bfabric]` optional extra: the B-Fabric/portal packages (`bfabric`, `bfabric-asgi-auth`, `bfabric-rest-proxy`, `fastapi`, `starlette`, `python-gitlab`) are no longer core dependencies, so `pip install qg` (and `import qg`) works without them; install `qg[bfabric]` for the portal app, workunit upload, and the GitLab launcher.
 
 ### Changed
+- JASMS article workflow now sources the abstract from `jasms_article.Rmd` and builds both ACS PDF and DOCX drafts from the same markdown pipeline.
 - Refactored `test_queue_structure.py` to exercise the public `build_multi_container_queue_structure` API instead of private helpers.
 - Both queue apps now share a B-Fabric-free pipeline core (`apps/queue_app_shared.py`) and swappable source/sink integrations under `apps/integrations/` (`local_samples`, `bfabric_samples`, `bfabric_workunit`, `bfabric_context`); the portal app is unchanged for users.
 
