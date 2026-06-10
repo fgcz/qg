@@ -16,8 +16,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `qg[bfabric]` optional extra: the B-Fabric/portal packages (`bfabric`, `bfabric-asgi-auth`, `bfabric-rest-proxy`, `fastapi`, `starlette`, `python-gitlab`) are no longer core dependencies, so `pip install qg` (and `import qg`) works without them; install `qg[bfabric]` for the portal app, workunit upload, and the GitLab launcher.
 
 ### Changed
+- Local queue app shows the uploaded sample table filename, and the 80-sample examples now distribute groups across their generated trays/plates.
+- Portal workunit builder `gather_workunit_parameters` now requires a generated `QueueInput` and always returns `CreateWorkunitParams` (the `| None` no-queue branch moved to the call-site precondition, which the upload flow already guarantees).
+- `QueueGenerator` exposes a public `plate_layout` property so the shared app core no longer reaches into the private `_plate_layout` attribute.
+- Extended `test_cli.py` with `qg` error-path coverage (missing input, malformed JSON, unknown instrument), a `qg-app-local` launcher smoke test, and `--help` smoke tests for the `qg-find-projects`/`qg-refresh-cache` (qg[bfabric]) entry points.
 - Refactored `test_queue_structure.py` to exercise the public `build_multi_container_queue_structure` API instead of private helpers.
 - Both queue apps now share a B-Fabric-free pipeline core (`apps/queue_app_shared.py`) and swappable source/sink integrations under `apps/integrations/` (`local_samples`, `bfabric_samples`, `bfabric_workunit`, `bfabric_context`); the portal app is unchanged for users.
+
+### Fixed
+- Local sample upload: non-aliased headers with mixed case (e.g. `Container_ID`) are now lower-cased on the fallback path, so they match their canonical snake_case column instead of raising a missing-column error.
+- Local sample upload: the CSV/XLSX reader now catches only `polars`/`fastexcel` reader errors (instead of a broad `except Exception`) when surfacing an unreadable file as a friendly error.
 
 ## [0.6.1] - 2026-06-09
 

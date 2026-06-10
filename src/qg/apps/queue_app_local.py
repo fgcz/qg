@@ -66,15 +66,17 @@ def _(file_upload):
     full_samples_df = pl.DataFrame()
     parsed_mode = None
     upload_error = None
+    upload_filename = None
     if file_upload.value:
         _f = file_upload.value[0]
+        upload_filename = _f.name
         try:
             _parsed = parse_sample_table(_f.contents, _f.name)
             full_samples_df = _parsed.df
             parsed_mode = _parsed.mode
         except ValueError as exc:
             upload_error = str(exc)
-    return full_samples_df, parsed_mode, upload_error
+    return full_samples_df, parsed_mode, upload_error, upload_filename
 
 
 @app.cell
@@ -786,12 +788,12 @@ def _(
 # Upload header + sample selection (shared selection/editor cells).
 # ---------------------------------------------------------------------------
 @app.cell
-def _(file_upload, full_samples_df, upload_error):
+def _(file_upload, full_samples_df, upload_error, upload_filename):
     _items = [mo.md("# Local Queue Generator"), file_upload]
     if upload_error:
         _items.append(mo.callout(mo.md(f"**Could not parse file:** {upload_error}"), kind="danger"))
     elif not full_samples_df.is_empty():
-        _items.append(mo.md(f"**Loaded {len(full_samples_df)} samples.**"))
+        _items.append(mo.md(f"**Loaded {len(full_samples_df)} samples** from `{upload_filename}`."))
     elif file_upload.value:
         _items.append(mo.callout(mo.md("**File parsed but no samples found.**"), kind="warn"))
     else:

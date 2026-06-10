@@ -14,8 +14,8 @@ the *Visualizations* tab (compare `no` vs `blocked`/`random`).
 | `vial_samples_5x5.csv` | vial | 5 groups (A–E) × 5 = 25 |
 | `vial_samples_5x5.xlsx` | vial | same data, demonstrates `.xlsx` upload |
 | `plate_samples_5x5.csv` | plate | 25 samples, 96-well positions A1…C1 |
-| `vial_samples_80.csv` | vial | larger run: 80 samples, 8 groups (A–H) × 10 |
-| `plate_samples_80.csv` | plate | larger run: 80 samples on one 96-well plate (A1…G8) |
+| `vial_samples_80.csv` | vial | larger run: 80 samples, 8 groups (A–H) × 10, interleaved so every group appears on both generated trays |
+| `plate_samples_80.csv` | plate | larger run: 80 samples split across two 96-well plates/trays, with each group on both plates |
 | `multi_container_samples.csv` | vial | **3 containers/projects** in one upload — `50001`: 8 samples in two groups (case/control); `50002`: 6 ungrouped samples; `50003`: 16 samples in four groups (g1–g4) |
 
 The multi-container file shows how a single upload spans several projects: the app
@@ -42,5 +42,9 @@ Notes:
   order/group id (samples are grouped and shuffled within each `container_id`).
 - `grouping_var` is the blocking/colouring variable used by `blocked` /
   `blocked_uniform` randomization and the balance score.
+- Plate mode needs **both** `plate_id` and `grid_position`. A table with only
+  one of them (e.g. a B-Fabric export carrying `_position` but no
+  `_gridposition`) is parsed as **vial** — no error is raised, so double-check
+  the previewed mode if you expected a plate queue.
 
 Regenerate or adapt these with any spreadsheet/CSV editor — they are plain tables.

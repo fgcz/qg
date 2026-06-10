@@ -1,11 +1,15 @@
 """Tests for the local CSV/XLSX sample parser (qg.apps.integrations.local_samples)."""
 
 import io
+from pathlib import Path
 
 import polars as pl
 import pytest
 
+from qg.apps import queue_app_shared as shared
 from qg.apps.integrations.local_samples import parse_sample_table
+from qg.config_models.loader import qg_configuration
+from qg.params_models import QueueParameters
 
 
 def _csv(text: str) -> bytes:
@@ -43,6 +47,14 @@ class TestVial:
         data = _csv("name,id,container_id,groupingvar_name\nS1,1,5,g1\n")
         parsed = parse_sample_table(data, "s.csv")
         assert {"sample_name", "sample_id", "container_id", "grouping_var"} == set(parsed.df.columns)
+
+    def test_mixed_case_non_aliased_headers_lowercased(self):
+        # Headers not in the alias table (e.g. underscore + caps) fall back to a
+        # lower-cased name so they still match their canonical column.
+        data = _csv("Sample_Name,Sample_ID,Container_ID\nS1,1,5\n")
+        parsed = parse_sample_table(data, "s.csv")
+        assert parsed.mode == "vial"
+        assert {"sample_name", "sample_id", "container_id"} == set(parsed.df.columns)
 
     def test_unknown_columns_dropped(self):
         data = _csv("sample_name,sample_id,container_id,notes\nS1,1,5,ignore-me\n")
@@ -103,3 +115,41 @@ class TestExcel:
         assert parsed.mode == "vial"
         assert parsed.df.height == 2
         assert parsed.df["sample_id"].to_list() == [1, 2]
+
+
+class TestExamples:
+    def test_vial_samples_80_groups_span_generated_trays(self):
+        path = Path(__file__).parents[1] / "docs/examples/vial_samples_80.csv"
+        parsed = parse_sample_table(path.read_bytes(), path.name)
+        params = QueueParameters(
+            tech_area="Proteomics",
+            instrument="ASTRAL_1",
+            sampler="Vanquish",
+            output_format="xcalibur_sii",
+            queue_pattern="standard",
+            queue_type="Vial",
+            plate_layout="Vanquish_54",
+            qc_layout_name="standard",
+            polarity=["pos"],
+            date="20260610",
+            user="test",
+            inj_vol_override=1,
+            start_position="A1",
+            start_tray="Y",
+        )
+        config = qg_configuration()
+        queue_input, error = shared.build_queue_input(
+            config,
+            params,
+            parsed.df,
+            has_samples_source=True,
+            provenance_instance=None,
+        )
+        assert error is None
+
+        result = shared.generate_queue(config, queue_input, params)
+        assert result.error is None
+
+        user_rows = result.raw_df.filter(pl.col("slot_kind") == "user")
+        tray_counts = user_rows.group_by("grouping_var").agg(pl.col("tray").n_unique().alias("n_trays"))
+        assert tray_counts["n_trays"].to_list() == [2] * 8

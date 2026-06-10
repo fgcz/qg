@@ -108,7 +108,7 @@ def generate_queue(
         queue_rows = generator.build_rows()
         result.raw_df = queue_rows.to_table()
         result.generated_df = format_table(
-            queue_rows, generator.output_format, generator._plate_layout, generator.tech_area
+            queue_rows, generator.output_format, generator.plate_layout, generator.tech_area
         )
         result.output_str = write_queue(result.generated_df, generator.output_format)
         result.file_extension = generator.file_extension

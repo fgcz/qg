@@ -12,6 +12,7 @@ import io
 from dataclasses import dataclass
 from typing import Literal
 
+import fastexcel
 import polars as pl
 
 from qg.sample_rows import PlateSampleRow, VialSampleRow
@@ -59,13 +60,22 @@ def _read_frame(data: bytes, filename: str) -> pl.DataFrame:
             return pl.read_csv(io.BytesIO(data))
         if ext in ("xlsx", "xls"):
             return pl.read_excel(io.BytesIO(data))
-    except Exception as exc:  # noqa: BLE001 — surface any reader failure as a clear domain error
+    except (pl.exceptions.PolarsError, fastexcel.FastExcelError) as exc:
+        # Malformed/corrupt CSV (PolarsError) or spreadsheet (FastExcelError) ->
+        # surface as a clear domain error instead of the reader's internals.
         raise ValueError(f"Could not read {filename!r}: {exc}") from exc
     raise ValueError(f"Unsupported file type {ext!r} — upload a .csv or .xlsx file.")
 
 
+def _canonical_column(col: str) -> str:
+    # Lower-case the fallback too, so a non-aliased header like ``Container_ID``
+    # still matches its canonical snake_case name (``container_id``).
+    key = col.strip().lower()
+    return _ALIASES.get(key, key)
+
+
 def _normalize_columns(df: pl.DataFrame) -> pl.DataFrame:
-    rename = {col: _ALIASES.get(col.strip().lower(), col.strip()) for col in df.columns}
+    rename = {col: _canonical_column(col) for col in df.columns}
     normalized = list(rename.values())
     dupes = {n for n in normalized if normalized.count(n) > 1}
     if dupes:
