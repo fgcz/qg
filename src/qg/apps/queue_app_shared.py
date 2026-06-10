@@ -32,6 +32,27 @@ if TYPE_CHECKING:
     from qg.params_models import QueueInput
 
 
+def synthesize_local_orders(full_samples_df: pl.DataFrame) -> list[tuple[int, None]]:
+    """Derive the ``selected_orders`` contract from an uploaded sample table.
+
+    Replaces the B-Fabric order browser in the local app: sorts the unique
+    ``container_id`` values from the uploaded DataFrame into ascending order and
+    returns them as ``(container_id, None)`` tuples — the same shape
+    ``selected_orders`` takes in the portal (where the second element is the
+    B-Fabric tech-area object).
+
+    Args:
+        full_samples_df: Normalized sample DataFrame with a ``container_id`` column.
+            An empty frame (no upload yet) produces an empty list.
+
+    Returns:
+        Sorted list of ``(container_id, None)`` tuples, one per distinct container.
+    """
+    if full_samples_df.is_empty():
+        return []
+    return [(int(c), None) for c in full_samples_df["container_id"].unique().sort().to_list()]
+
+
 def resolve_output_format(filtered_table: pl.DataFrame, sampler_selected: bool) -> str:
     """Output format implied by the instrument+sampler row (fallback ``xcalibur``)."""
     if sampler_selected and not filtered_table.is_empty():
@@ -115,7 +136,7 @@ def generate_queue(
     except ValueError as exc:
         logger.exception("Queue generation failed")
         err = str(exc)
-        if "Not enough tray positions" in err:
+        if "Not enough trays" in err:
             sampler = queue_parameters.sampler if queue_parameters else "sampler"
             result.error = (
                 f"{err}\n\n"

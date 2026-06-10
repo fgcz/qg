@@ -80,13 +80,10 @@ def _(file_upload):
 
 
 @app.cell
-def _(full_samples_df):
+def _(full_samples_df, shared):
     # Synthetic "orders" derived from the uploaded container_id column — keeps the
     # shared cells' selected_orders contract (list of (container_id, area)).
-    if full_samples_df.is_empty():
-        selected_orders = []
-    else:
-        selected_orders = [(int(c), None) for c in full_samples_df["container_id"].unique().sort().to_list()]
+    selected_orders = shared.synthesize_local_orders(full_samples_df)
     return (selected_orders,)
 
 
