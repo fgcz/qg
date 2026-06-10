@@ -40,7 +40,9 @@ class TestCorrelationRatio:
         assert correlation_ratio([5, 5, 5, 5], ["A", "A", "B", "B"]) == 0.0
 
 
-def _row(n: int, *, slot_kind: str = "user", grouping_var: str | None = None, col: int = 1) -> QueueRow:
+def _row(
+    n: int, *, slot_kind: str = "user", grouping_var: str | None = None, col: int = 1, container_id: int = 1
+) -> QueueRow:
     return QueueRow(
         run_number=n,
         slot_kind=slot_kind,
@@ -54,7 +56,7 @@ def _row(n: int, *, slot_kind: str = "user", grouping_var: str | None = None, co
         grouping_var=grouping_var,
         inj_vol=2.0,
         file_name=f"f{n}",
-        container_id=1,
+        container_id=container_id,
     )
 
 
@@ -80,6 +82,27 @@ class TestQueueBalance:
     def test_no_grouping_var_returns_none(self):
         assert queue_balance(_df([_row(1), _row(2)])) is None
 
+    def test_scored_within_each_container_then_averaged(self):
+        # Same eight injections, two ways. Split across two projects, each is
+        # internally well-interleaved, so the averaged score is low. Merged into
+        # one project, the distinct group labels separate in time, inflating the
+        # global score — exactly the inflation per-container averaging removes.
+        groups = ["case", "control", "case", "control", "g1", "g2", "g1", "g2"]
+        split = _df(
+            [_row(i, grouping_var=g, col=i, container_id=10 if i <= 4 else 20) for i, g in enumerate(groups, start=1)]
+        )
+        merged = _df([_row(i, grouping_var=g, col=i, container_id=10) for i, g in enumerate(groups, start=1)])
+        assert queue_balance(merged) > 0.7
+        assert queue_balance(split) < queue_balance(merged)
+
+    def test_single_group_container_skipped_in_average(self):
+        # Container 10 is perfectly blocked (η²=1); container 20 has one group
+        # (undefined) and must be skipped, so the mean equals container 10's score.
+        rows = [
+            _row(i, grouping_var=g, col=i, container_id=10) for i, g in enumerate(["A", "A", "B", "B"], start=1)
+        ] + [_row(i, grouping_var="X", col=i, container_id=20) for i in range(5, 8)]
+        assert queue_balance(_df(rows)) == correlation_ratio([1, 2, 3, 4], ["A", "A", "B", "B"])
+
 
 class TestPlateBalance:
     def test_scores_group_by_plate_reading_order(self):
@@ -88,3 +111,14 @@ class TestPlateBalance:
 
     def test_no_grouping_var_returns_none(self):
         assert plate_balance(_df([_row(1, col=1), _row(2, col=2)])) is None
+
+    def test_scored_within_each_container_then_averaged(self):
+        # Each project's wells are internally interleaved; ranking plate position
+        # within each container and averaging stays low, whereas merging the two
+        # projects into one plate separates the group labels by position.
+        groups = ["case", "control", "case", "control", "g1", "g2", "g1", "g2"]
+        split = _df(
+            [_row(i, grouping_var=g, col=i, container_id=10 if i <= 4 else 20) for i, g in enumerate(groups, start=1)]
+        )
+        merged = _df([_row(i, grouping_var=g, col=i, container_id=10) for i, g in enumerate(groups, start=1)])
+        assert plate_balance(split) < plate_balance(merged)

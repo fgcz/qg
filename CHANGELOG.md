@@ -25,6 +25,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Queue app (portal): selecting an employee order with no samples now shows a warning callout instead of silently proceeding.
 
 ### Changed
+- Visualizations: the η² balance scores (group vs. queue position and group vs. plate position) are now computed within each container and averaged across containers, since randomization never crosses container boundaries; a single global score over a multi-container queue was inflated by the by-design separation between projects.
+- Acquisition-timeline visualization: the color legend no longer overlaps the x-axis title (moved below it with extra bottom margin).
+- JASMS article workflow now sources the abstract from `jasms_article.Rmd` and builds both ACS PDF and DOCX drafts from the same markdown pipeline.
 - Local queue app shows the uploaded sample table filename, and the 80-sample examples now distribute groups across their generated trays/plates.
 - Portal workunit builder `gather_workunit_parameters` now requires a generated `QueueInput` and always returns `CreateWorkunitParams` (the `| None` no-queue branch moved to the call-site precondition, which the upload flow already guarantees).
 - `QueueGenerator` exposes a public `plate_layout` property so the shared app core no longer reaches into the private `_plate_layout` attribute.

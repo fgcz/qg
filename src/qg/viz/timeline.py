@@ -115,10 +115,11 @@ def build_timeline_figure(df: pl.DataFrame, color_by: str = "grouping_var") -> g
     fig.update_layout(
         barmode="overlay",
         template="plotly_white",
-        height=190,
-        margin={"l": 40, "r": 15, "t": 40, "b": 45},
+        height=210,
+        margin={"l": 40, "r": 15, "t": 40, "b": 85},
         title={"text": title, "x": 0.0, "font": {"size": 12}},
-        legend={"orientation": "h", "y": -0.35},
+        # Anchor the legend's top well below the x-axis title so the two never overlap.
+        legend={"orientation": "h", "yanchor": "top", "y": -0.5, "xanchor": "left", "x": 0.0},
         bargap=0,
     )
     fig.update_xaxes(title_text="acquisition order (injection 1..N)", tickformat="d")
