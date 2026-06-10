@@ -88,6 +88,7 @@ filterwarnings = ["ignore::DeprecationWarning"]
 markers = [
     "bfabric_test_instance: GUI scenario executed against the real fgcz-bfabric-test.uzh.ch instance (requires QG_BFABRIC_TEST_PAT). Excluded from default runs.",
     "bfabric: requires the qg[bfabric] extra (B-Fabric packages). Skipped/deselected on a core-only install via '-m \"not bfabric\"'.",
+    "local_gui: Playwright scenario for the standalone local queue app (no B-Fabric required).",
 ]
 
 [tool.ruff]

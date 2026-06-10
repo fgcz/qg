@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Unit tests for `queue_app_shared` (`synthesize_local_orders`, `build_queue_input`, `generate_queue`, filename helpers); BDD smoke test for the standalone local app end-to-end (upload CSV → generate → download, no B-Fabric).
+- `synthesize_local_orders` extracted from the local-app notebook into `queue_app_shared`, making the container-id synthesis from an uploaded table testable in isolation.
+
+### Fixed
+- `generate_queue` tray-overflow error enrichment now fires: the substring check was `"Not enough tray positions"` but the generator raises `"Not enough trays (N) for M plates"` — corrected to `"Not enough trays"` so the user-friendly message reaches the UI.
+
 - Randomization mode `blocked_uniform`: spreads each `grouping_var` group evenly across the whole queue (fair-share interleave) instead of front-loading complete blocks like `blocked`, avoiding majority-only tail injections for unbalanced group counts.
 - Optional `seed` queue parameter for reproducible randomization: used when set in the params JSON, otherwise a seed is drawn at generation and recorded back into the exported params JSON / B-Fabric workunit so any `random`/`blocked`/`blocked_uniform` run can be reproduced.
 - GUI test suite runs a fast `marimo check` sanity gate before spawning the app, so a notebook graph error (e.g. a variable defined in multiple cells) fails in <1s instead of after the full browser suite.
