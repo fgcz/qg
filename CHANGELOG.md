@@ -21,6 +21,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Standalone, B-Fabric-free local queue app (`qg-app-local`, `apps/queue_app_local.py`): upload a CSV/XLSX sample table, configure the queue with the same controls, preview it, and download the queue + params JSON locally — no FGCZ portal required.
 - `qg[bfabric]` optional extra: the B-Fabric/portal packages (`bfabric`, `bfabric-asgi-auth`, `bfabric-rest-proxy`, `fastapi`, `starlette`, `python-gitlab`) are no longer core dependencies, so `pip install qg` (and `import qg`) works without them; install `qg[bfabric]` for the portal app, workunit upload, and the GitLab launcher.
 
+### Fixed
+- Queue app (portal): selecting an employee order with no samples now shows a warning callout instead of silently proceeding.
+
 ### Changed
 - Local queue app shows the uploaded sample table filename, and the 80-sample examples now distribute groups across their generated trays/plates.
 - Portal workunit builder `gather_workunit_parameters` now requires a generated `QueueInput` and always returns `CreateWorkunitParams` (the `| None` no-queue branch moved to the call-site precondition, which the upload flow already guarantees).
