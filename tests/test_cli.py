@@ -103,6 +103,82 @@ def test_generate_queues_cli_seed_reproducible(config, tmp_path):
     assert run("a.csv") == run("b.csv")
 
 
+def test_generate_queues_cli_missing_input_file(tmp_path):
+    """qg exits non-zero when the input JSON file does not exist."""
+    result = subprocess.run(
+        ["uv", "run", "qg", str(tmp_path / "nope.json"), "-c", str(CONFIG_DIR)],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+
+
+def test_generate_queues_cli_malformed_json(tmp_path):
+    """qg exits non-zero when the input file is not valid JSON."""
+    bad = tmp_path / "bad.json"
+    bad.write_text("{not valid json")
+    result = subprocess.run(
+        ["uv", "run", "qg", str(bad), "-c", str(CONFIG_DIR)],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+
+
+def test_generate_queues_cli_unknown_instrument(tmp_path):
+    """qg exits non-zero when the input names an instrument absent from the config."""
+    queue_input = make_queue_input(num_samples=3)
+    queue_input.parameters.instrument = "BOGUS_99"
+    input_file = tmp_path / "input.json"
+    input_file.write_text(queue_input.model_dump_json(indent=2))
+
+    result = subprocess.run(
+        ["uv", "run", "qg", str(input_file), "-c", str(CONFIG_DIR)],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+
+
+def test_app_local_launcher_invokes_marimo(mocker):
+    """qg-app-local launches the local notebook via `marimo run` (no B-Fabric)."""
+    from qg.apps import launcher_local
+
+    run = mocker.patch.object(launcher_local.subprocess, "run")
+    launcher_local.launch_local_app()
+
+    run.assert_called_once()
+    cmd = run.call_args.args[0]
+    assert "marimo" in cmd and "run" in cmd
+    notebook = Path(cmd[-1])
+    assert notebook.name == "queue_app_local.py"
+    assert notebook.exists()
+
+
+@pytest.mark.bfabric
+def test_find_projects_cli_help():
+    """qg-find-projects (qg[bfabric]) imports and prints help with exit 0."""
+    result = subprocess.run(
+        ["uv", "run", "qg-find-projects", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"CLI failed: {result.stderr}"
+    assert "Usage:" in result.stdout
+
+
+@pytest.mark.bfabric
+def test_refresh_cache_cli_help():
+    """qg-refresh-cache (qg[bfabric]) imports and prints help with exit 0."""
+    result = subprocess.run(
+        ["uv", "run", "qg-refresh-cache", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"CLI failed: {result.stderr}"
+    assert "Usage:" in result.stdout
+
+
 def test_generate_queues_cli_hystar_xml(config, tmp_path):
     """Test qg CLI generates XML output for hystar format."""
     queue_input = make_queue_input(num_samples=3, output_format="hystar")

@@ -408,6 +408,11 @@ class QueueGenerator:
         """Return the appropriate file extension for the output format."""
         return self.output_format.file_extension
 
+    @property
+    def plate_layout(self) -> PlateLayout:
+        """Return the resolved plate layout used for formatting the queue."""
+        return self._plate_layout
+
     def build_rows(self) -> QueueRowTable:
         """Execute the queue generation pipeline."""
         params = self.queue_input.parameters

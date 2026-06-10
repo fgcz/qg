@@ -66,27 +66,24 @@ def _(file_upload):
     full_samples_df = pl.DataFrame()
     parsed_mode = None
     upload_error = None
-    uploaded_filename = None
+    upload_filename = None
     if file_upload.value:
         _f = file_upload.value[0]
-        uploaded_filename = _f.name
+        upload_filename = _f.name
         try:
             _parsed = parse_sample_table(_f.contents, _f.name)
             full_samples_df = _parsed.df
             parsed_mode = _parsed.mode
         except ValueError as exc:
             upload_error = str(exc)
-    return full_samples_df, parsed_mode, upload_error, uploaded_filename
+    return full_samples_df, parsed_mode, upload_error, upload_filename
 
 
 @app.cell
-def _(full_samples_df):
+def _(full_samples_df, shared):
     # Synthetic "orders" derived from the uploaded container_id column — keeps the
     # shared cells' selected_orders contract (list of (container_id, area)).
-    if full_samples_df.is_empty():
-        selected_orders = []
-    else:
-        selected_orders = [(int(c), None) for c in full_samples_df["container_id"].unique().sort().to_list()]
+    selected_orders = shared.synthesize_local_orders(full_samples_df)
     return (selected_orders,)
 
 
@@ -788,14 +785,14 @@ def _(
 # Upload header + sample selection (shared selection/editor cells).
 # ---------------------------------------------------------------------------
 @app.cell
-def _(file_upload, full_samples_df, upload_error, uploaded_filename):
+def _(file_upload, full_samples_df, upload_error, upload_filename):
     _items = [mo.md("# Local Queue Generator"), file_upload]
     if upload_error:
-        _items.append(mo.callout(mo.md(f"**Could not parse `{uploaded_filename}`:** {upload_error}"), kind="danger"))
+        _items.append(mo.callout(mo.md(f"**Could not parse file:** {upload_error}"), kind="danger"))
     elif not full_samples_df.is_empty():
-        _items.append(mo.md(f"**Loaded {len(full_samples_df)} samples** from `{uploaded_filename}`."))
+        _items.append(mo.md(f"**Loaded {len(full_samples_df)} samples** from `{upload_filename}`."))
     elif file_upload.value:
-        _items.append(mo.callout(mo.md(f"**`{uploaded_filename}` parsed but no samples found.**"), kind="warn"))
+        _items.append(mo.callout(mo.md("**File parsed but no samples found.**"), kind="warn"))
     else:
         _items.append(mo.md("_Upload a CSV/XLSX sample table to begin._"))
     mo.vstack(_items)

@@ -18,23 +18,20 @@ if TYPE_CHECKING:
 
 
 def gather_workunit_parameters(
-    queue_input: QueueInput | None,
+    queue_input: QueueInput,
     *,
     app_version: str,
     application_id: int,
     target_container_id: int,
     queue_output_filename: str,
     queue_output_str: str,
-) -> CreateWorkunitParams | None:
-    """Assemble the workunit payload, or ``None`` when there is no queue yet.
+) -> CreateWorkunitParams:
+    """Assemble the workunit payload for a generated queue.
 
     Parameter values are stringified (lists/dicts as flow-style YAML) to match the
     B-Fabric workunit-parameter schema; the queue file and the full params JSON are
-    attached as base64 resources.
+    attached as base64 resources. Callers must only invoke this once a queue exists.
     """
-    if queue_input is None:
-        return None
-
     parameters = queue_input.parameters.model_dump()
     for key in parameters:
         if isinstance(parameters[key], list | dict):

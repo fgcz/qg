@@ -33,7 +33,7 @@ test:unit:
   extends: .test-base
   script:
     - uv sync --frozen
-    - uv run pytest --ignore=tests/gui
+    - uv run pytest --ignore=tests/gui --ignore=tests/gui_local
 
 # Core-install gate: prove `qg` installs, imports, and its non-B-Fabric tests pass
 # WITHOUT the portal extra (no bfabric/fastapi/starlette/python-gitlab). Syncs only
@@ -44,7 +44,7 @@ test:core-no-bfabric:
   script:
     - uv sync --frozen --no-group portal
     - uv run --no-group portal python -c "import importlib.util as u; assert u.find_spec('bfabric') is None, 'bfabric must be absent on a core install'; import qg, qg.cli.generate_queues, qg.cli.validate_config, qg.apps.queue_app_local; print('core import OK, bfabric absent')"
-    - uv run --no-group portal pytest -m "not bfabric"
+    - uv run --no-group portal pytest -m "not bfabric" --ignore=tests/gui --ignore=tests/gui_local
 
 # Browser suite: only tests/gui, which drives the marimo queue app in a headless
 # Chromium via pytest-playwright. Runs on Microsoft's official Playwright image,
@@ -74,7 +74,7 @@ test:gui:
     - curl -LsSf https://astral.sh/uv/install.sh | sh
     - export PATH="$HOME/.local/bin:$PATH"
     - uv sync --frozen
-    - uv run pytest tests/gui
+    - uv run pytest tests/gui tests/gui_local
 
 marimo-check:
   # Static lint of the marimo apps. --strict makes warnings (e.g. the
@@ -84,6 +84,7 @@ marimo-check:
   tags:
     - linux
     - docker
+  interruptible: true
   script:
     - uv sync
     - uv run marimo check --strict src/qg/apps/queue_app.py src/qg/apps/queue_app_local.py src/qg/apps/config_editor.py
