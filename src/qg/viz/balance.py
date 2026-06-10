@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import statistics
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 import polars as pl
 
@@ -58,34 +58,68 @@ def correlation_ratio(positions: Sequence[float], groups: Sequence[str | None]) 
     return ss_between / ss_total
 
 
-def queue_balance(df: pl.DataFrame) -> float | None:
-    """``η²`` of acquisition position (``run_number``) explained by ``grouping_var``.
+def _mean_within_container(user: pl.DataFrame, score_one: Callable[[pl.DataFrame], float | None]) -> float | None:
+    """Average a per-container balance score over the containers that define one.
 
+    Randomization never crosses container boundaries, so each container is scored
+    independently with ``score_one`` and the defined scores are averaged. A single
+    global score would be dominated by the by-design separation between
+    back-to-back containers (each project occupies its own contiguous run range
+    and often its own group labels), not by how well randomization decorrelated
+    group from position *within* a project. Containers with fewer than two groups
+    contribute no signal and are skipped; falls back to a single global score when
+    no ``container_id`` column is present.
+    """
+    if "container_id" not in user.columns:
+        return score_one(user)
+    scores = [
+        score
+        for _key, sub in user.group_by("container_id", maintain_order=True)
+        if (score := score_one(sub)) is not None
+    ]
+    if not scores:
+        return None
+    return statistics.fmean(scores)
+
+
+def queue_balance(df: pl.DataFrame) -> float | None:
+    """Mean within-container ``η²`` of acquisition position (``run_number``) vs ``grouping_var``.
+
+    Samples are randomized only within each container, so the score is computed
+    per container and averaged across containers (see ``_mean_within_container``).
     Computed over user-sample rows (``slot_kind == "user"``); QC/blank injections
     carry no group and are excluded.
     """
     user = df.filter(pl.col("slot_kind") == "user")
     if user.is_empty():
         return None
-    return correlation_ratio(user["run_number"].to_list(), user["grouping_var"].to_list())
+    return _mean_within_container(
+        user, lambda sub: correlation_ratio(sub["run_number"].to_list(), sub["grouping_var"].to_list())
+    )
 
 
 def plate_balance(df: pl.DataFrame) -> float | None:
-    """``η²`` of plate position explained by ``grouping_var``.
+    """Mean within-container ``η²`` of plate position vs ``grouping_var``.
 
     Plate position is the 1-D rank of each occupied user well in reading order
-    ``(tray, row, col)``. This linearization is lossy — it cannot see 2-D
-    clustering — but it keeps the plate score mathematically parallel to the
-    queue score and answers "is a group front/back-loaded on the plate?".
+    ``(tray, row, col)`` *within a container*. As with the queue score, the rank
+    and the score are computed per container and averaged, since randomization
+    never crosses container boundaries. This linearization is lossy — it cannot
+    see 2-D clustering — but it keeps the plate score parallel to the queue score
+    and answers "is a group front/back-loaded on the plate within its project?".
     """
     user = df.filter(pl.col("slot_kind") == "user")
     if user.is_empty():
         return None
-    wells = (
-        user.group_by(["tray", "row", "col"])
-        .agg(pl.col("grouping_var").first())
-        .with_columns(pl.col("tray").cast(pl.Utf8).alias("_tray"))
-        .sort(["_tray", "row", "col"])
-        .with_row_index("_plate_index")
-    )
-    return correlation_ratio(wells["_plate_index"].to_list(), wells["grouping_var"].to_list())
+
+    def _one(sub: pl.DataFrame) -> float | None:
+        wells = (
+            sub.group_by(["tray", "row", "col"])
+            .agg(pl.col("grouping_var").first())
+            .with_columns(pl.col("tray").cast(pl.Utf8).alias("_tray"))
+            .sort(["_tray", "row", "col"])
+            .with_row_index("_plate_index")
+        )
+        return correlation_ratio(wells["_plate_index"].to_list(), wells["grouping_var"].to_list())
+
+    return _mean_within_container(user, _one)
