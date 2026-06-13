@@ -12,7 +12,11 @@ wheels/
 # Virtual environments
 .venv
 __marimo__/
-.claude/
+# .claude/ holds personal settings (ignored); track only the repo-local skill
+.claude/*
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/qg-config-authoring/
 queue_files/
 *.pdf
 *.svg

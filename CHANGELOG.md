@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- `qg-config-authoring` skill documenting the cross-file edits for the recurring config tasks (new technology, instrument, plate layout + QC samples + pattern, output format), plus `test_config_authoring.py` that builds a `Testing_v3` config from scratch in a temp dir and asserts it loads, validates, and generates queues via the Python API and the `qg` CLI.
 - Unit tests for `queue_app_shared` (`synthesize_local_orders`, `build_queue_input`, `generate_queue`, filename helpers); BDD smoke test for the standalone local app end-to-end (upload CSV → generate → download, no B-Fabric).
 - `synthesize_local_orders` extracted from the local-app notebook into `queue_app_shared`, making the container-id synthesis from an uploaded table testable in isolation.
 
