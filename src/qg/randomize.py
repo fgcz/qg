@@ -128,15 +128,20 @@ def _uniform_block_randomize(cells: list[PlateCell], rng: random.Random) -> list
     Unlike RCBD (``_block_randomize``), which front-loads complete blocks and
     leaves a majority-only tail, this spreads every group evenly across the whole
     run. It uses fair-share ("most-behind") selection: at each output slot it emits
-    a sample from the group whose ``emitted / total`` ratio is currently lowest,
-    breaking ties by the larger group, then by first-seen order.
+    a sample from a group whose ``emitted / total`` ratio is currently lowest.
 
-    The resulting ``grouping_var`` *label* sequence is deterministic given the
-    group sizes; only the sample *identity* within each group is randomized (each
-    group is shuffled first). With equal group sizes this reduces to RCBD
-    (one sample from each group per block, e.g. ``A B C A B C``); for
-    ``A x 5, B x 3, C x 2`` it yields ``A B C A B A C A B A`` rather than
-    ``ABC ABC AB A A``.
+    The order *among* the groups tied for most-behind is randomized at each step,
+    so the group sequence within each round is shuffled rather than fixed -- the
+    same within-round randomization RCBD applies (a group may occasionally repeat
+    across a round boundary, exactly as in RCBD). Sample *identity* within each
+    group is also randomized (each group is shuffled first). Spread is unaffected:
+    only equally-behind groups are reordered, so every group still lands evenly
+    across the run (eta^2 ~ 0). With equal group sizes this reduces to RCBD (one
+    sample of each group per block, in a per-block-random order); for
+    ``A x 5, B x 3, C x 2`` it still interleaves as ``A B C A B A C A B A`` up to
+    tie ordering, rather than ``ABC ABC AB A A``.
+
+    Given a seeded ``rng`` the result is reproducible.
     """
     has_grouping = any(c.sample.grouping_var is not None for c in cells)
     if not has_grouping:
@@ -147,22 +152,22 @@ def _uniform_block_randomize(cells: list[PlateCell], rng: random.Random) -> list
     for cell in cells:
         by_group.setdefault(cell.sample.grouping_var, []).append(cell)
 
-    # Randomize identity within each group; placement pattern stays deterministic
+    # Randomize identity within each group
     for group_cells in by_group.values():
         rng.shuffle(group_cells)
 
     order = list(by_group.keys())
-    rank = {key: i for i, key in enumerate(order)}
     totals = {key: len(by_group[key]) for key in order}
     emitted = dict.fromkeys(order, 0)
 
     result: list[PlateCell] = []
     for _ in range(sum(totals.values())):
-        best = min(
-            (key for key in order if emitted[key] < totals[key]),
-            key=lambda key: (emitted[key] / totals[key], -totals[key], rank[key]),
-        )
-        result.append(by_group[best][emitted[best]])
-        emitted[best] += 1
+        remaining = [key for key in order if emitted[key] < totals[key]]
+        ratios = {key: emitted[key] / totals[key] for key in remaining}
+        min_ratio = min(ratios.values())
+        candidates = [key for key in remaining if ratios[key] == min_ratio]
+        choice = rng.choice(candidates)
+        result.append(by_group[choice][emitted[choice]])
+        emitted[choice] += 1
 
     return result
