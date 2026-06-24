@@ -5,6 +5,17 @@ Ready-to-upload sample tables for the **standalone local queue app**
 `uv run marimo run src/qg/apps/queue_app_local.py`). Upload one on the app's
 landing page, configure the queue, then preview/download — no B-Fabric needed.
 
+You don't have to download these first: the local app's landing page has a
+**bundled-example dropdown** that loads a vial or plate example straight into the
+session, plus a button to **download** the selected table as an editable template
+for your own data.
+
+!!! note "Authoritative copy lives in the package"
+    These files mirror `src/qg/examples/sample_tables/`, which is the
+    authoritative copy shipped in the wheel (so `qg-app-local` finds them after
+    `pip install qg`). A byte-equality test keeps the two locations identical —
+    when adding or editing an example, change **both**.
+
 Most files are in blocked submission order (groups in contiguous blocks), so they
 are useful for exercising the randomization modes and the **η² balance score** in
 the *Visualizations* tab (compare `no` vs `blocked`/`random`).

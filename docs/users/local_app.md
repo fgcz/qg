@@ -19,11 +19,16 @@ uv run marimo run src/qg/apps/queue_app_local.py
 No `QG_ALLOW_UNAUTHENTICATED` and no B-Fabric packages are needed — this works on
 a core `pip install qg`.
 
-## 1. Upload a sample table
+## 1. Upload a sample table — or load a bundled example
 
-Drop a **`.csv`** or **`.xlsx`** file on the landing page. Ready-made examples
-(single-project vial/plate, an 80-sample run, and a 3-project multi-container set)
-live in [`docs/examples/`](https://gitlab.bfabric.org/metabolomics/queue-gen/-/tree/main/docs/examples).
+Drop a **`.csv`** or **`.xlsx`** file on the landing page, **or** pick one from the
+**bundled-example dropdown** (single-project vial/plate, an 80-sample run, and a
+3-project multi-container set) to load it directly — no file hunting needed. A
+**download** button next to the dropdown saves the selected example as an editable
+template for your own data. An uploaded file takes precedence over a selected
+example, and the page shows which source is active. The same examples also live in
+[`docs/examples/`](https://gitlab.bfabric.org/metabolomics/queue-gen/-/tree/main/docs/examples)
+for browsing.
 
 The mode is inferred from the columns — **plate** when both `plate_id` and
 `grid_position` are present, otherwise **vial**.

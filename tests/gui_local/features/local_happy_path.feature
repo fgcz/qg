@@ -13,3 +13,15 @@ Feature: Local app happy path — upload CSV, generate, download
     And I set the date to "2026-01-15"
     Then the queue preview is visible
     And the "Download Queue File" link is enabled
+
+  Scenario: Load a bundled vial example, generate Proteomics Vial queue, download
+    Given the local queue app is open
+    When I load the bundled vial example
+    And I set "Tech Area" to "Proteomics"
+    And I set "Instrument" to "ASTRAL_1"
+    And I set "Sampler" to "Vanquish"
+    And I set "Queue Type" to "Vial"
+    And I set the date to "2026-01-15"
+    Then the queue preview is visible
+    And the "Download Queue File" link is enabled
+    And the "Download vial_samples_5x5.csv" link is enabled

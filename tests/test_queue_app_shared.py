@@ -23,6 +23,10 @@ from pathlib import Path
 import polars as pl
 import pytest
 
+from qg.apps.integrations.example_samples import (
+    list_example_sample_tables,
+    read_example_sample_table,
+)
 from qg.apps.integrations.local_samples import parse_sample_table
 from qg.apps.queue_app_shared import (
     GenerationResult,
@@ -327,3 +331,36 @@ class TestParamsJsonFilename:
         params = _vial_params(tech_area="Metabolomics", sampler="MClass48")
         name = params_json_filename(params, vial_sample_df)
         assert "." not in name.split("_c")[0]
+
+
+# ---------------------------------------------------------------------------
+# Bundled example tables (catalog -> parse -> build -> generate)
+# ---------------------------------------------------------------------------
+
+
+class TestBundledExamples:
+    """A bundled vial and a bundled plate example each generate a queue with the
+    recommended Proteomics/ASTRAL_1/Vanquish parameters."""
+
+    def _build_and_generate(self, config, example_id, params):
+        _, data = read_example_sample_table(example_id)
+        parsed = parse_sample_table(data, read_example_sample_table(example_id)[0].filename)
+        qi, err = build_queue_input(config, params, parsed.df, has_samples_source=True)
+        assert err is None and qi is not None
+        return generate_queue(config, qi, params)
+
+    def test_catalog_has_a_loadable_vial_and_plate(self):
+        modes = {e.mode for e in list_example_sample_tables()}
+        assert {"vial", "plate"} <= modes
+
+    def test_vial_example_generates_queue(self, config):
+        result = self._build_and_generate(config, "vial_5x5", _vial_params())
+        assert result.error is None
+        assert result.output_str is not None
+        assert result.file_extension == ".csv"
+
+    def test_plate_example_generates_queue(self, config):
+        result = self._build_and_generate(config, "plate_5x5", _plate_params())
+        assert result.error is None
+        assert result.output_str is not None
+        assert result.file_extension == ".csv"

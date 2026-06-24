@@ -19,6 +19,10 @@ with app.setup:
     configure_logging()
 
     from qg.apps import queue_app_shared as shared
+    from qg.apps.integrations.example_samples import (
+        list_example_sample_tables,
+        read_example_sample_table,
+    )
     from qg.apps.integrations.local_samples import parse_sample_table
     from qg.config_models.loader import qg_configuration
     from qg.config_models.structure import SamplesConfig
@@ -61,22 +65,77 @@ def _():
 
 
 @app.cell
-def _(file_upload):
-    # Parse the uploaded file into the normalized sample schema (qg.sample_rows).
+def _():
+    # Bundled example tables (reactive — selecting one loads it; no button needed).
+    example_selector = mo.ui.dropdown(
+        options={e.label: e.id for e in list_example_sample_tables()},
+        value=None,
+        label="…or load a bundled example",
+    )
+    return (example_selector,)
+
+
+@app.cell
+def _(example_selector):
+    # Download link for the selected example (an editable template for user data).
+    if example_selector.value:
+        _entry, _data = read_example_sample_table(example_selector.value)
+        example_download = mo.download(
+            data=_data,
+            filename=_entry.filename,
+            label=f"Download {_entry.filename}",
+        )
+    else:
+        example_download = None
+    return (example_download,)
+
+
+@app.cell
+def _(example_selector, file_upload):
+    # Resolve the active sample source, then parse it into the normalized schema
+    # (qg.sample_rows). An uploaded file takes precedence over a selected example;
+    # both go through the same parse_sample_table path.
     full_samples_df = pl.DataFrame()
     parsed_mode = None
-    upload_error = None
-    upload_filename = None
+    sample_source_kind = None
+    sample_source_filename = None
+    sample_source_description = None
+    sample_source_recommended = None
+    sample_source_error = None
+
+    _bytes = None
     if file_upload.value:
         _f = file_upload.value[0]
-        upload_filename = _f.name
+        sample_source_kind = "upload"
+        sample_source_filename = _f.name
+        _bytes = _f.contents
+    elif example_selector.value:
+        _entry, _data = read_example_sample_table(example_selector.value)
+        sample_source_kind = "example"
+        sample_source_filename = _entry.filename
+        sample_source_description = _entry.description
+        _rs = _entry.recommended_settings
+        sample_source_recommended = " / ".join(
+            _rs[k] for k in ("tech_area", "instrument", "sampler", "queue_type") if k in _rs
+        )
+        _bytes = _data
+
+    if _bytes is not None:
         try:
-            _parsed = parse_sample_table(_f.contents, _f.name)
+            _parsed = parse_sample_table(_bytes, sample_source_filename)
             full_samples_df = _parsed.df
             parsed_mode = _parsed.mode
         except ValueError as exc:
-            upload_error = str(exc)
-    return full_samples_df, parsed_mode, upload_error, upload_filename
+            sample_source_error = str(exc)
+    return (
+        full_samples_df,
+        parsed_mode,
+        sample_source_description,
+        sample_source_error,
+        sample_source_filename,
+        sample_source_kind,
+        sample_source_recommended,
+    )
 
 
 @app.cell
@@ -785,16 +844,39 @@ def _(
 # Upload header + sample selection (shared selection/editor cells).
 # ---------------------------------------------------------------------------
 @app.cell
-def _(file_upload, full_samples_df, upload_error, upload_filename):
-    _items = [mo.md("# Local Queue Generator"), file_upload]
-    if upload_error:
-        _items.append(mo.callout(mo.md(f"**Could not parse file:** {upload_error}"), kind="danger"))
+def _(
+    example_download,
+    example_selector,
+    file_upload,
+    full_samples_df,
+    sample_source_description,
+    sample_source_error,
+    sample_source_filename,
+    sample_source_kind,
+    sample_source_recommended,
+):
+    _items = [mo.md("# Local Queue Generator"), file_upload, example_selector]
+    if example_download is not None:
+        _items.append(example_download)
+
+    if sample_source_error:
+        _label = sample_source_filename or "sample table"
+        _items.append(mo.callout(mo.md(f"**Could not parse `{_label}`:** {sample_source_error}"), kind="danger"))
     elif not full_samples_df.is_empty():
-        _items.append(mo.md(f"**Loaded {len(full_samples_df)} samples** from `{upload_filename}`."))
-    elif file_upload.value:
+        _n = len(full_samples_df)
+        if sample_source_kind == "example":
+            _msg = f"**Loaded {_n} samples** from example `{sample_source_filename}`."
+            if sample_source_recommended:
+                _msg += f" Recommended: {sample_source_recommended}."
+            if sample_source_description:
+                _msg += f" {sample_source_description}"
+        else:
+            _msg = f"**Loaded {_n} samples** from `{sample_source_filename}` (uploaded)."
+        _items.append(mo.md(_msg))
+    elif sample_source_kind is not None:
         _items.append(mo.callout(mo.md("**File parsed but no samples found.**"), kind="warn"))
     else:
-        _items.append(mo.md("_Upload a CSV/XLSX sample table to begin._"))
+        _items.append(mo.md("_Upload a CSV/XLSX sample table or pick an example to begin._"))
     mo.vstack(_items)
     return
 

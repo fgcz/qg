@@ -9,11 +9,13 @@ No B-Fabric dependency — the app and this test run on a core ``pip install qg`
 
 from __future__ import annotations
 
-from pathlib import Path
+from importlib.resources import as_file, files
 
 import pytest
 from playwright.sync_api import Page, expect
 from pytest_bdd import given, parsers, scenarios, then, when
+
+from qg.apps.integrations.example_samples import list_example_sample_tables
 
 # Import the app-agnostic helpers from the portal suite; they work unchanged
 # because the local app uses the same sidebar/dropdown/download patterns.
@@ -25,8 +27,6 @@ from tests.gui._helpers import (
 pytestmark = pytest.mark.local_gui
 
 scenarios("features/local_happy_path.feature")
-
-_FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 
 
 # ---------------------------------------------------------------------------
@@ -49,11 +49,23 @@ def _open(page: Page, local_app_url: str) -> None:
 
 @when(parsers.parse('I upload the sample file "{filename}"'))
 def _upload(page: Page, filename: str) -> None:
-    path = _FIXTURES_DIR / filename
-    assert path.exists(), f"Fixture missing: {path}"
-    # marimo's mo.ui.file renders as a hidden <input type="file"> backed by a
-    # button; set_input_files() drives it directly without opening the OS dialog.
-    page.locator("input[type='file']").first.set_input_files(str(path))
+    # Source the upload fixture from the packaged example tables (single
+    # authoritative copy) rather than a duplicated tests/ fixture.
+    resource = files("qg.examples.sample_tables") / filename
+    with as_file(resource) as path:
+        assert path.exists(), f"Example asset missing: {path}"
+        # marimo's mo.ui.file renders as a hidden <input type="file"> backed by a
+        # button; set_input_files() drives it directly without opening the OS dialog.
+        page.locator("input[type='file']").first.set_input_files(str(path))
+
+
+@when("I load the bundled vial example")
+def _load_vial_example(page: Page) -> None:
+    # The example dropdown lives in the main content area (not the sidebar);
+    # marimo renders it as a native <select> whose option values are positional
+    # keys, so select by the visible label taken straight from the catalog.
+    label = next(e.label for e in list_example_sample_tables() if e.mode == "vial")
+    page.get_by_label("load a bundled example").select_option(label=label)
 
 
 @when(parsers.parse('I set "{label}" to "{value}"'))

@@ -1,6 +1,6 @@
 [project]
 name = "qg"
-version = "0.7.0"
+version = "0.8.0"
 description = "Queue generation system for mass spectrometry instruments. Generates sample queues with QC injections for XCalibur, Chronos, and Hystar, with B-Fabric LIMS integration for sample loading and workunit upload."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -71,6 +71,14 @@ portal = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/qg"]
+# Insurance: explicitly ship the bundled example sample tables in the wheel so
+# qg-app-local can load them after `pip install qg`. (Hatchling already includes
+# committed non-.py files under the package dir; this guards against that
+# changing. The real regression guard is the wheel-inspection test.)
+artifacts = [
+    "src/qg/examples/sample_tables/*.csv",
+    "src/qg/examples/sample_tables/*.xlsx",
+]
 
 [project.scripts]
 qg = "qg.cli.generate_queues:cli_main"
