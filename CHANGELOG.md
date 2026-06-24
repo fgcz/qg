@@ -6,39 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-06-24
+
 ### Added
-- Unit tests for `queue_app_shared` (`synthesize_local_orders`, `build_queue_input`, `generate_queue`, filename helpers); BDD smoke test for the standalone local app end-to-end (upload CSV → generate → download, no B-Fabric).
-- `synthesize_local_orders` extracted from the local-app notebook into `queue_app_shared`, making the container-id synthesis from an uploaded table testable in isolation.
-
-### Fixed
-- `generate_queue` tray-overflow error enrichment now fires: the substring check was `"Not enough tray positions"` but the generator raises `"Not enough trays (N) for M plates"` — corrected to `"Not enough trays"` so the user-friendly message reaches the UI.
-
-- Randomization mode `blocked_uniform`: spreads each `grouping_var` group evenly across the whole queue (fair-share interleave) instead of front-loading complete blocks like `blocked`, avoiding majority-only tail injections for unbalanced group counts.
-- Optional `seed` queue parameter for reproducible randomization: used when set in the params JSON, otherwise a seed is drawn at generation and recorded back into the exported params JSON / B-Fabric workunit so any `random`/`blocked`/`blocked_uniform` run can be reproduced.
-- GUI test suite runs a fast `marimo check` sanity gate before spawning the app, so a notebook graph error (e.g. a variable defined in multiple cells) fails in <1s instead of after the full browser suite.
-- Queue app: renamed the **Show Plate** tab to **Visualizations** with two sub-views — a *Plate Layout* map that can color wells by `grouping_var` as well as sample type, and an *Acquisition Timeline* strip colored by group or QC cadence — each annotated with a correlation-ratio (η²) balance score reporting how well randomization decorrelated group from plate and queue position.
-- Unit tests for `qg.utils`, `qg.writers`, `qg.artifacts`, and `read_queue_input` error paths.
 - Standalone, B-Fabric-free local queue app (`qg-app-local`, `apps/queue_app_local.py`): upload a CSV/XLSX sample table, configure the queue with the same controls, preview it, and download the queue + params JSON locally — no FGCZ portal required.
 - `qg[bfabric]` optional extra: the B-Fabric/portal packages (`bfabric`, `bfabric-asgi-auth`, `bfabric-rest-proxy`, `fastapi`, `starlette`, `python-gitlab`) are no longer core dependencies, so `pip install qg` (and `import qg`) works without them; install `qg[bfabric]` for the portal app, workunit upload, and the GitLab launcher.
-
-### Fixed
-- Queue app (portal): selecting an employee order with no samples now shows a warning callout instead of silently proceeding.
+- Optional `seed` queue parameter for reproducible randomization: used when set in the params JSON, otherwise a seed is drawn at generation and recorded back into the exported params JSON / B-Fabric workunit so any `random`/`blocked`/`blocked_uniform` run can be reproduced.
+- Randomization mode `blocked_uniform`: spreads each `grouping_var` group evenly across the whole queue (fair-share interleave) instead of front-loading complete blocks like `blocked`, avoiding majority-only tail injections for unbalanced group counts.
+- Visualizations tab (formerly **Show Plate**) with two sub-views — a *Plate Layout* map that can color wells by `grouping_var` as well as sample type, and an *Acquisition Timeline* strip colored by group or QC cadence — each annotated with a correlation-ratio (η²) balance score reporting how well randomization decorrelated group from plate and queue position.
+- Unit tests for `queue_app_shared` (`synthesize_local_orders`, `build_queue_input`, `generate_queue`, filename helpers); a BDD smoke test for the standalone local app end-to-end (upload CSV → generate → download, no B-Fabric); and unit tests for `qg.utils`, `qg.writers`, `qg.artifacts`, and `read_queue_input` error paths.
 
 ### Changed
+- Both queue apps now share a B-Fabric-free pipeline core (`apps/queue_app_shared.py`) and swappable source/sink integrations under `apps/integrations/` (`local_samples`, `bfabric_samples`, `bfabric_workunit`, `bfabric_context`); the portal app is unchanged for users.
+- `synthesize_local_orders` extracted from the local-app notebook into `queue_app_shared`, making the container-id synthesis from an uploaded table testable in isolation.
 - Visualizations: the η² balance scores (group vs. queue position and group vs. plate position) are now computed within each container and averaged across containers, since randomization never crosses container boundaries; a single global score over a multi-container queue was inflated by the by-design separation between projects.
 - Acquisition-timeline visualization: the color legend no longer overlaps the x-axis title (moved below it with extra bottom margin).
-- JASMS article workflow now sources the abstract from `jasms_article.Rmd` and builds both ACS PDF and DOCX drafts from the same markdown pipeline.
 - Local queue app shows the uploaded sample table filename, and the 80-sample examples now distribute groups across their generated trays/plates.
 - Portal workunit builder `gather_workunit_parameters` now requires a generated `QueueInput` and always returns `CreateWorkunitParams` (the `| None` no-queue branch moved to the call-site precondition, which the upload flow already guarantees).
 - `QueueGenerator` exposes a public `plate_layout` property so the shared app core no longer reaches into the private `_plate_layout` attribute.
+- GUI test suite runs a fast `marimo check` sanity gate before spawning the app, so a notebook graph error (e.g. a variable defined in multiple cells) fails in <1s instead of after the full browser suite.
 - Extended `test_cli.py` with `qg` error-path coverage (missing input, malformed JSON, unknown instrument), a `qg-app-local` launcher smoke test, and `--help` smoke tests for the `qg-find-projects`/`qg-refresh-cache` (qg[bfabric]) entry points.
 - Refactored `test_queue_structure.py` to exercise the public `build_multi_container_queue_structure` API instead of private helpers.
+- JASMS article workflow now sources the abstract from `jasms_article.Rmd` and builds both ACS PDF and DOCX drafts from the same markdown pipeline.
 
 ### Fixed
+- `generate_queue` tray-overflow error enrichment now fires: the substring check was `"Not enough tray positions"` but the generator raises `"Not enough trays (N) for M plates"` — corrected to `"Not enough trays"` so the user-friendly message reaches the UI.
+- Queue app (portal): selecting an employee order with no samples now shows a warning callout instead of silently proceeding.
 - Lipidomics default injection volume corrected from 3.5 µL to 3.0 µL for all sample types (user samples, blanks, pooled QC, dilution series, EquiSPLASH, NIST).
-- Both queue apps now share a B-Fabric-free pipeline core (`apps/queue_app_shared.py`) and swappable source/sink integrations under `apps/integrations/` (`local_samples`, `bfabric_samples`, `bfabric_workunit`, `bfabric_context`); the portal app is unchanged for users.
-
-### Fixed
 - Local sample upload: non-aliased headers with mixed case (e.g. `Container_ID`) are now lower-cased on the fallback path, so they match their canonical snake_case column instead of raising a missing-column error.
 - Local sample upload: the CSV/XLSX reader now catches only `polars`/`fastexcel` reader errors (instead of a broad `except Exception`) when surfacing an unreadable file as a friendly error.
 
