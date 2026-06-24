@@ -20,13 +20,51 @@ Queue generation system for mass spectrometry instruments. Generates sample queu
 
 ## Release Process
 
-Every bugfix or feature MR adds a one-line bullet to `CHANGELOG.md` under the existing `## [Unreleased]` heading, in the appropriate `### Added/Changed/Fixed/Removed` subsection (Keep a Changelog format). Keep bullets terse — describe the user-visible change in one short sentence; mechanism and rationale belong in the commit/MR.
+### During development (every MR)
 
-Bump the version in `pyproject.toml` only when the current version is already released (so the next change opens the next release line). Use patch for bugfixes and CI/build-only changes, minor for new features or dependency/API refreshes.
+Every bugfix or feature MR adds a one-line bullet to `CHANGELOG.md` under the
+existing `## [Unreleased]` heading, in the appropriate
+`### Added/Changed/Fixed/Removed` subsection (Keep a Changelog format). Keep
+bullets terse — describe the user-visible change in one short sentence;
+mechanism and rationale belong in the commit/MR.
 
-Only create a `## [x.y.z] - YYYY-MM-DD` section when explicitly asked to cut a release; otherwise leave entries under `## [Unreleased]`.
+Bump the version in `pyproject.toml` **only when the current version is already
+released** (so the first change after a release opens the next release line),
+and run `uv lock` in the same MR so `uv.lock` records it. Use patch for bugfixes
+and CI/build-only changes, minor for new features or dependency/API refreshes.
+Because of this bump-ahead rule, by the time you cut a release the version in
+`pyproject.toml`/`uv.lock` is **usually already the target** — see below.
 
-When cutting a release, always run `uv lock` after bumping the version in `pyproject.toml` so `uv.lock` records the new project version, and stage `pyproject.toml`, `uv.lock`, and `CHANGELOG.md` together in the release commit.
+### Cutting a release
+
+Only do this when explicitly asked to cut a release. Otherwise leave entries
+under `## [Unreleased]`. Steps:
+
+1. **Verify the version — do not blindly re-bump.** Per the bump-ahead rule
+   above, `pyproject.toml` and `uv.lock` usually already carry the target
+   version from an earlier MR. Check (`grep '^version' pyproject.toml`,
+   `grep -A1 'name = "qg"' uv.lock`); only bump and re-run `uv lock` if they
+   still show the *last released* version. Most releases need neither.
+2. **Consolidate `## [Unreleased]`.** A cycle of per-MR appends leaves scattered
+   duplicate `### Fixed`/`### Changed` blocks and sometimes miscategorized
+   entries; merge them into one `### Added/Changed/Fixed/Removed` each, and make
+   sure marquee features sit under `### Added` (not buried in `### Fixed`).
+3. **Date it.** Rename `## [Unreleased]` → `## [x.y.z] - YYYY-MM-DD` and leave a
+   fresh empty `## [Unreleased]` heading on top for the next cycle.
+4. **Commit** as `chore: cut release x.y.z`, staging whatever actually changed
+   (`CHANGELOG.md`, plus `pyproject.toml` + `uv.lock` only if step 1 bumped).
+5. **Land it on `main`** (direct push of the release commit is acceptable).
+6. **Tag and push.** Create an annotated tag named `vx.y.z` with message
+   `Release x.y.z` on the release commit, then `git push origin vx.y.z`. Do not
+   force-push tags.
+
+**What the tag does — and does not do.** Pushing the `vx.y.z` tag triggers the
+CI `build` job, which cross-builds the arm64 OCI image and writes the archive to
+NFS (`…/metabolomics/queue_gen/queue_gen-<tag>.oci.tar`). It does **not** roll
+the new version out to the running host. The live rollout — bump `IMAGE_TAG` in
+the [web-apps repo](https://gitlab.bfabric.org/proteomics/web-apps) and run
+`make deploy` on the deploy host — is a separate manual step documented in
+[`docs/developers/deployment.md`](docs/developers/deployment.md).
 
 ## Commands
 
