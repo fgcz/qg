@@ -14,8 +14,8 @@ class GitLabConfigService:
         """Connect to GitLab via python-gitlab.
 
         Args:
-            gitlab_url: GitLab instance URL (e.g. "https://gitlab.bfabric.org").
-            project: Project path (e.g. "metabolomics/queue-gen").
+            gitlab_url: GitLab instance URL (e.g. "https://gitlab.example.com").
+            project: Project path (e.g. "group/project").
             private_token: GitLab personal access token.
         """
         self._gl = gitlab.Gitlab(gitlab_url, private_token=private_token)

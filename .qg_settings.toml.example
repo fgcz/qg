@@ -3,7 +3,7 @@
 # IMPORTANT: .qg_settings.toml is gitignored — never commit your token.
 
 [gitlab]
-url = "https://gitlab.bfabric.org"
-project = "metabolomics/queue-gen"
+url = "https://gitlab.example.com"
+project = "your-group/your-project"
 # Token needs scope: api (or write_repository + read_api)
 private_token = "glpat-xxxxxxxxxxxxxxxxxxxx"

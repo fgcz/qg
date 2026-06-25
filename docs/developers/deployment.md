@@ -6,7 +6,7 @@ Both queue-gen apps (queue app + config editor) run as the `bfabric` user on `fg
 
 ## Update to a new version (common case)
 
-1. Tag the release on `main` via the [Tags page](https://gitlab.bfabric.org/metabolomics/queue-gen/-/tags) (or locally: `git tag … && git push --tags`). GitLab CI builds the OCI image automatically. **Do not force-push tags.**
+1. Tag the release on `main` via the [Tags page](https://gitlab.bfabric.org/wolski/qg/-/tags) (or locally: `git tag … && git push --tags`). GitLab CI builds the OCI image automatically. **Do not force-push tags.**
 2. In the [web-apps repo](https://gitlab.bfabric.org/proteomics/web-apps), bump `IMAGE_TAG` in `portal/queue-gen/.env` and commit. Both `queue-gen` and `queue-gen-editor` services share this file.
 3. Deploy on the host:
 
@@ -15,7 +15,7 @@ Both queue-gen apps (queue app + config editor) run as the `bfabric` user on `fg
    cd ~/webapps/portal/queue-gen && git pull && make deploy
    ```
 
-That's it. Versions in `pyproject.toml`/`CHANGELOG.md` should already match the tag (see the Release Process section in [`AGENTS.md`](https://gitlab.bfabric.org/metabolomics/queue-gen/-/blob/main/AGENTS.md#release-process)).
+That's it. Versions in `pyproject.toml`/`CHANGELOG.md` should already match the tag (see the Release Process section in [`AGENTS.md`](https://gitlab.bfabric.org/wolski/qg/-/blob/main/AGENTS.md#release-process)).
 
 To roll back, set `IMAGE_TAG` back to the previous version in `.env` and run `make deploy` again.
 
@@ -38,14 +38,14 @@ app (`queue_app_local.py`) is not part of this deployment and needs no extra.
 
 ### Config editor secrets
 
-The editor opens MRs as the `qg-config-bot` project access token on `gitlab.bfabric.org/metabolomics/queue-gen` (role: Developer, scope: `api`). The requesting employee's login is recorded in the commit message and MR description.
+The editor opens MRs as the `qg-config-bot` project access token on `gitlab.bfabric.org/wolski/qg` (role: Developer, scope: `api`). The requesting employee's login is recorded in the commit message and MR description.
 
 Token + GitLab URL/project live in `~/webapps/portal/config/webapp.secrets.env` (shared with other portal apps, gitignored, `chmod 600`):
 
 ```
 QG_GITLAB_TOKEN=glpat-...
 QG_GITLAB_URL=https://gitlab.bfabric.org
-QG_GITLAB_PROJECT=metabolomics/queue-gen
+QG_GITLAB_PROJECT=wolski/qg
 ```
 
 Token rotation: edit the file, `make deploy`. No image rebuild needed.

@@ -15,7 +15,7 @@ positions, with file names and data paths filled from templates.
 | If you want to… | Read |
 |------------------|------|
 | Generate a queue locally from a CSV/XLSX upload | [Local app](users/local_app.md) |
-| Try ready-made example sample tables | load one from the local app's example dropdown, or browse [`docs/examples/`](https://gitlab.bfabric.org/metabolomics/queue-gen/-/tree/main/docs/examples) |
+| Try ready-made example sample tables | load one from the local app's example dropdown, or browse [`docs/examples/`](https://gitlab.bfabric.org/wolski/qg/-/tree/main/docs/examples) |
 | Run the B-Fabric portal app, understand auth modes | [User modes](users/user_modes.md) |
 | Add a QC pattern, sample, or layout via the GUI | [Config editor guide](users/editor_guide.md) |
 | Understand the generation pipeline end to end | [Algorithm](reference/algorithm.md) |
@@ -27,10 +27,10 @@ positions, with file names and data paths filled from templates.
 
 Installation (core vs. the `qg[bfabric]` portal extra) and the run/CLI quick start
 are maintained in the project
-[README](https://gitlab.bfabric.org/metabolomics/queue-gen/-/blob/main/README.md).
+[README](https://gitlab.bfabric.org/wolski/qg/-/blob/main/README.md).
 The fastest path: `make app-local` (or `qg-app-local`) opens the standalone app —
 load a bundled example from the dropdown (or upload one of the
-[examples](https://gitlab.bfabric.org/metabolomics/queue-gen/-/tree/main/docs/examples))
+[examples](https://gitlab.bfabric.org/wolski/qg/-/tree/main/docs/examples))
 and download a queue. The routing table above points you to the right page for each task.
 
 ## Core concepts

@@ -2,16 +2,6 @@
 
 Guidance for AI coding agents (Claude Code, Codex, Copilot, Gemini, etc.) working in this repository. This is the single source of truth; `CLAUDE.md` imports it via `@AGENTS.md`.
 
-## File Rules
-
-**Never read `TODO/DONE_*.md` files unless explicitly asked by the user.** These are archived task documents and not relevant to current work.
-
-**All TODO documents must live in the `TODO/` folder.** Do not create `TODO_*.md` files at the repository root.
-
-Exception: JASMS application-note planning lives in
-`docs/app_note/TODO_jasms_appnote.md` because it is part of the publication
-documentation package, not the general engineering TODO list.
-
 ## Project Overview
 
 Queue generation system for mass spectrometry instruments. Generates sample queues with QC injections for XCalibur, Chronos, and Hystar software.
@@ -533,8 +523,6 @@ by the CI `pages` job. Organized by audience:
 | `index.md` | Landing page / router |
 | `users/user_modes.md` | User-facing modes and workflows (auth) |
 | `users/editor_guide.md` | Config editor usage guide |
-| `app_note/TODO_jasms_appnote.md` | JASMS application-note planning and submission checklist |
-| `app_note/pipeline/` | JASMS application-note bookdown/Pandoc manuscript pipeline |
 | `reference/algorithm.md` | Queue generation pipeline details |
 | `reference/config.md` | Configuration file + queue-parameters reference |
 | `developers/deployment.md` | Production/test deployment reference |

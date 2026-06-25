@@ -9,7 +9,7 @@ The queue generator follows a **stateless functional pipeline** design:
 - Stages are composable and independently testable.
 
 The pipeline is orchestrated by `QueueGenerator.build_rows()` in
-[`generator.py`](https://gitlab.bfabric.org/metabolomics/queue-gen/-/blob/main/src/qg/generator.py).
+[`generator.py`](https://gitlab.bfabric.org/wolski/qg/-/blob/main/src/qg/generator.py).
 Config resolution (loading sampler/pattern/QC-layout/methods for the requested
 instrument) happens in the `QueueGenerator` constructor; `build_rows()` then
 runs the stages below.
