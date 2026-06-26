@@ -15,7 +15,7 @@ Both queue-gen apps (queue app + config editor) run as the `bfabric` user on `fg
    cd ~/webapps/portal/queue-gen && git pull && make deploy
    ```
 
-That's it. Versions in `pyproject.toml`/`CHANGELOG.md` should already match the tag (see the Release Process section in [`AGENTS.md`](https://gitlab.bfabric.org/wolski/qg/-/blob/main/AGENTS.md#release-process)).
+That's it. Versions in `pyproject.toml`/`CHANGELOG.md` should already match the tag (see the Release Process section in [`AGENTS.md`](../../AGENTS.md#release-process)).
 
 To roll back, set `IMAGE_TAG` back to the previous version in `.env` and run `make deploy` again.
 

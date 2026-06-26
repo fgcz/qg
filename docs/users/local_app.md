@@ -27,7 +27,7 @@ Drop a **`.csv`** or **`.xlsx`** file on the landing page, **or** pick one from 
 **download** button next to the dropdown saves the selected example as an editable
 template for your own data. An uploaded file takes precedence over a selected
 example, and the page shows which source is active. The same examples also live in
-[`docs/examples/`](https://gitlab.bfabric.org/wolski/qg/-/tree/main/docs/examples)
+[`docs/examples/`](../examples/README.md)
 for browsing.
 
 The mode is inferred from the columns — **plate** when both `plate_id` and

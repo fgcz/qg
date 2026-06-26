@@ -51,13 +51,15 @@ markdown_extensions:
 nav:
   - Home: index.md
   - User Guide:
-      - Local app (no B-Fabric): users/local_app.md
+      - Local app: users/local_app.md
       - Example sample tables: examples/README.md
-      - User modes (auth): users/user_modes.md
       - Config editor: users/editor_guide.md
   - Reference:
       - Algorithm: reference/algorithm.md
       - Configuration: reference/config.md
-  - Developers:
+  - B-Fabric (FGCZ portal):
+      - Overview & setup: bfabric.md
+      - User modes (auth): users/user_modes.md
       - Deployment: developers/deployment.md
+  - Developers:
       - History: developers/history.md

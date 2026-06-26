@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `qg-config-authoring` skill documenting the cross-file edits for the recurring config tasks (new technology, instrument, plate layout + QC samples + pattern, output format), plus `test_config_authoring.py` that builds a `Testing_v3` config from scratch in a temp dir and asserts it loads, validates, and generates queues via the Python API and the `qg` CLI.
 - Local app can load bundled example sample tables: pick a vial/plate example from a dropdown to load it directly, or download it as an editable template. Examples ship in the wheel under `qg.examples.sample_tables` (mirrored by `docs/examples/`).
 
+### Changed
+- README restructured for the standalone audience: leads with the hosted live demo (`apps-dev.bfabric.org/queue-gen-local/`) and the local app/CLI; all B-Fabric/portal material (install, portal run, cache seeding, deployment) consolidated into a single `docs/bfabric.md` and linked once.
+- Fixed absolute `gitlab.bfabric.org` links in `docs/` that point to files in this repo (README, AGENTS, `src/`, `docs/examples/`) to relative paths so they resolve on the public GitHub mirror.
+
 ## [0.7.0] - 2026-06-24
 
 ### Added
