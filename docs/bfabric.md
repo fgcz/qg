@@ -29,7 +29,7 @@ The portal app fails closed without a B-Fabric-authenticated request.
 `uv run python src/qg/apps/bfabric_app.py` (needs `WebappIntegrationSettings`:
 `VALIDATION_BFABRIC_INSTANCE`, `SUPPORTED_BFABRIC_INSTANCES`,
 `FEEDER_USER_CREDENTIALS`). For the authentication and employee/non-employee access
-model, see [user modes](users/user_modes.md).
+model, see [user modes](developers/user_modes.md).
 
 ## Seed the B-Fabric project cache
 
@@ -52,7 +52,7 @@ tag → CI image build, bumping `IMAGE_TAG`, redeploy, rollback, and secrets —
 
 ## See also
 
-- [User modes (auth)](users/user_modes.md) — authentication and the
+- [User modes (auth)](developers/user_modes.md) — authentication and the
   employee / non-employee access model.
 - [Deployment](developers/deployment.md) — production deployment, cache refresh,
   and secrets.

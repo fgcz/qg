@@ -521,10 +521,10 @@ by the CI `pages` job. Organized by audience:
 | File | Purpose |
 |------|---------|
 | `index.md` | Landing page / router |
-| `users/user_modes.md` | User-facing modes and workflows (auth) |
 | `users/editor_guide.md` | Config editor usage guide |
 | `reference/algorithm.md` | Queue generation pipeline details |
 | `reference/config.md` | Configuration file + queue-parameters reference |
+| `developers/user_modes.md` | Auth/security requirements spec for the portal app (`queue_app.py`) |
 | `developers/deployment.md` | Production/test deployment reference |
 | `developers/history.md` | Development chronology (Jan–Feb 2026 rewrite) |
 

@@ -61,7 +61,7 @@ nav:
       - Configuration: reference/config.md
   - B-Fabric (FGCZ portal):
       - Overview & setup: bfabric.md
-      - User modes (auth): users/user_modes.md
+      - User modes (auth): developers/user_modes.md
       - Deployment: developers/deployment.md
   - Developers:
       - History: developers/history.md
