@@ -19,6 +19,10 @@ with app.setup:
     configure_logging()
 
     from qg.apps import queue_app_shared as shared
+    from qg.apps.integrations.example_params import (
+        list_example_params,
+        read_example_params,
+    )
     from qg.apps.integrations.example_samples import (
         list_example_sample_tables,
         read_example_sample_table,
@@ -26,7 +30,7 @@ with app.setup:
     from qg.apps.integrations.local_samples import parse_sample_table
     from qg.config_models.loader import qg_configuration
     from qg.config_models.structure import SamplesConfig
-    from qg.params_models import QueueParameters
+    from qg.params_models import QueueParameters, parse_queue_input
     from qg.viz.balance import plate_balance, queue_balance
     from qg.viz.plate import build_plate_figure, build_plate_wells
     from qg.viz.timeline import build_timeline_figure
@@ -88,6 +92,46 @@ def _(example_selector):
     else:
         example_download = None
     return (example_download,)
+
+
+@app.cell
+def _():
+    # Reproduce mode: load a previously-exported params.json and regenerate its
+    # queue from the file's embedded configuration alone (no sidebar config needed).
+    params_upload = mo.ui.file(filetypes=[".json"], label="…or load a params.json (reproduce a run)")
+    return (params_upload,)
+
+
+@app.cell
+def _():
+    # Bundled *self-contained* example runs (full params + embedded config), distinct
+    # from the sample-table examples above which still need the sidebar configured.
+    params_example_selector = mo.ui.dropdown(
+        options={e.label: e.id for e in list_example_params()},
+        value=None,
+        label="…or a bundled self-contained run",
+    )
+    return (params_example_selector,)
+
+
+@app.cell
+def _(params_example_selector, params_upload):
+    # Parse the active params source into a QueueInput. An uploaded file wins over a
+    # selected example; when set, the app reproduces it instead of building from the sidebar.
+    loaded_queue_input = None
+    loaded_params_source = None
+    loaded_params_error = None
+    if params_upload.value:
+        _f = params_upload.value[0]
+        loaded_params_source = _f.name
+        try:
+            loaded_queue_input = parse_queue_input(_f.contents)
+        except (ValueError, pydantic.ValidationError) as exc:
+            loaded_params_error = str(exc)
+    elif params_example_selector.value:
+        _entry, loaded_queue_input = read_example_params(params_example_selector.value)
+        loaded_params_source = _entry.filename
+    return loaded_params_error, loaded_params_source, loaded_queue_input
 
 
 @app.cell
@@ -783,6 +827,8 @@ def _(
     queue_type_field,
     queue_type_warning,
     randomization_field,
+    loaded_params_source,
+    loaded_queue_input,
     sampler_field,
     start_position_field,
     start_tray_field,
@@ -836,7 +882,32 @@ def _(
         _sidebar_items.append(mo.md(f"**QC Positions** _{qc_layout_field.value}_"))
         _sidebar_items.append(qc_layout_preview)
 
-    mo.sidebar(mo.vstack(_sidebar_items), footer=mo.md(f"Version: {app_version}"), width="28rem")
+    if loaded_queue_input is not None:
+        # Reproduce mode: the run is fully determined by the loaded file, so the
+        # config controls are replaced by a read-only summary (panel disabled).
+        _p = loaded_queue_input.parameters
+        _seed = f", seed `{_p.seed}`" if _p.seed is not None else ""
+        _sidebar_content = mo.vstack(
+            [
+                mo.md("## Reproducing a saved run"),
+                mo.callout(
+                    mo.md(
+                        f"**Loaded from `{loaded_params_source}`.**\n\n"
+                        f"qg version `{loaded_queue_input.qg_version or 'n/a'}`\n\n"
+                        f"{_p.tech_area} / {_p.instrument} / {_p.sampler}\n\n"
+                        f"pattern `{_p.queue_pattern}`, layout `{_p.plate_layout}`, "
+                        f"QC `{_p.qc_layout_name}`\n\n"
+                        f"randomization `{_p.randomization}`{_seed}\n\n"
+                        "The queue is regenerated from this file's embedded configuration; "
+                        "the controls are disabled. Clear the params file above to start over."
+                    ),
+                    kind="info",
+                ),
+            ]
+        )
+    else:
+        _sidebar_content = mo.vstack(_sidebar_items)
+    mo.sidebar(_sidebar_content, footer=mo.md(f"Version: {app_version}"), width="28rem")
     return
 
 
@@ -849,6 +920,11 @@ def _(
     example_selector,
     file_upload,
     full_samples_df,
+    loaded_params_error,
+    loaded_params_source,
+    loaded_queue_input,
+    params_example_selector,
+    params_upload,
     sample_source_description,
     sample_source_error,
     sample_source_filename,
@@ -858,8 +934,21 @@ def _(
     _items = [mo.md("# Local Queue Generator"), file_upload, example_selector]
     if example_download is not None:
         _items.append(example_download)
+    _items += [mo.md("---"), params_upload, params_example_selector]
 
-    if sample_source_error:
+    if loaded_params_error:
+        _items.append(mo.callout(mo.md(f"**Could not load params JSON:** {loaded_params_error}"), kind="danger"))
+    elif loaded_queue_input is not None:
+        _items.append(
+            mo.callout(
+                mo.md(
+                    f"**Reproducing `{loaded_params_source}`** — the queue is regenerated from the file's "
+                    "embedded configuration and the sidebar controls are disabled. See the **Queue Preview** tab."
+                ),
+                kind="success",
+            )
+        )
+    elif sample_source_error:
         _label = sample_source_filename or "sample table"
         _items.append(mo.callout(mo.md(f"**Could not parse `{_label}`:** {sample_source_error}"), kind="danger"))
     elif not full_samples_df.is_empty():
@@ -949,6 +1038,7 @@ def _(
     start_tray_field,
     tech_area_field,
     user_field,
+    loaded_queue_input,
 ):
     queue_parameters_err = None
     try:
@@ -984,6 +1074,12 @@ def _(
     except pydantic.ValidationError as e:
         queue_parameters_err = e
         queue_parameters = None
+    if loaded_queue_input is not None:
+        # Reproduce mode: override with the loaded file's parameters. The sidebar is
+        # disabled and may be incompletely populated (no samples -> no queue_type),
+        # so its build above is discarded here.
+        queue_parameters = loaded_queue_input.parameters
+        queue_parameters_err = None
     return queue_parameters, queue_parameters_err
 
 
@@ -1011,29 +1107,45 @@ def _(sample_df, sample_mode_selector, samples_editor, samples_table, selected_o
 # Pipeline: build -> generate -> preview/download (shared helpers, no B-Fabric).
 # ---------------------------------------------------------------------------
 @app.cell
-def _(config, queue_parameters, sample_df, selected_orders):
+def _(config, loaded_queue_input, queue_parameters, sample_df, selected_orders):
     # Build QueueInput once — shared by the Parameters tab and queue generation.
-    # No provenance instance in local mode (bfabric_instance stays None).
-    queue_input, queue_input_err = shared.build_queue_input(
-        config,
-        queue_parameters,
-        sample_df,
-        has_samples_source=bool(selected_orders),
-        provenance_instance=None,
-    )
+    # In reproduce mode the loaded params JSON *is* the queue input; otherwise build
+    # it from the sidebar. No provenance instance in local mode (bfabric_instance None).
+    if loaded_queue_input is not None:
+        queue_input, queue_input_err = loaded_queue_input, None
+    else:
+        queue_input, queue_input_err = shared.build_queue_input(
+            config,
+            queue_parameters,
+            sample_df,
+            has_samples_source=bool(selected_orders),
+            provenance_instance=None,
+        )
     return queue_input, queue_input_err
 
 
 @app.cell
-def _(queue_input, queue_input_err, queue_parameters, queue_parameters_err, sample_df):
+def _(
+    loaded_params_source,
+    loaded_queue_input,
+    queue_input,
+    queue_input_err,
+    queue_parameters,
+    queue_parameters_err,
+    sample_df,
+):
     # Parameters tab content — uses the shared queue_input.
     _output = None
     _download_button = None
     if queue_input is not None:
         _output = queue_input.model_dump(mode="json")
-        _download_button = shared.params_download_button(
-            queue_input, shared.params_json_filename(queue_parameters, sample_df)
-        )
+        # In reproduce mode there is no uploaded sample_df to name the file from;
+        # reuse the loaded file's name instead.
+        if loaded_queue_input is not None:
+            _fname = loaded_params_source or "params.json"
+        else:
+            _fname = shared.params_json_filename(queue_parameters, sample_df)
+        _download_button = shared.params_download_button(queue_input, _fname)
 
     _err_msg = queue_input_err or (str(queue_parameters_err) if queue_parameters_err else "Upload a sample table")
     parameters_content = mo.vstack(
@@ -1046,9 +1158,17 @@ def _(queue_input, queue_input_err, queue_parameters, queue_parameters_err, samp
 
 
 @app.cell
-def _(config, queue_input, queue_parameters):
-    # Generate the queue exactly once so preview and download are identical.
-    _result = shared.generate_queue(config, queue_input, queue_parameters)
+def _(config, loaded_queue_input, queue_input, queue_parameters):
+    # Generate the queue exactly once so preview and download are identical. When
+    # reproducing a loaded run, regenerate from its embedded resolved_config so the
+    # result is independent of the local qg_configs tree.
+    if loaded_queue_input is not None and loaded_queue_input.resolved_config is not None:
+        _gen_config = loaded_queue_input.resolved_config.to_configuration()
+        _gen_params = loaded_queue_input.parameters
+    else:
+        _gen_config = config
+        _gen_params = queue_parameters
+    _result = shared.generate_queue(_gen_config, queue_input, _gen_params)
     generated_queue_df = _result.generated_df
     raw_queue_df = _result.raw_df
     queue_output_str = _result.output_str
