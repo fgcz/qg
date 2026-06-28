@@ -63,6 +63,12 @@ dev = [
 ]
 docs = [
     "mkdocs-material>=9.5",
+    # Figure-reproduction scripts under docs/examples/figures/. matplotlib for the
+    # analytical figures; kaleido + pillow for the Plotly static export in
+    # make_plate_figure.py. (playwright for the screenshot capture lives in `dev`.)
+    "matplotlib>=3.9",
+    "kaleido>=0.2",
+    "pillow>=10.0",
 ]
 # Pulls the public `bfabric` extra into the dev/CI venv (see [tool.uv] default-groups).
 portal = [
@@ -118,6 +124,8 @@ select = [
 
 [tool.ruff.lint.per-file-ignores]
 "src/qg/apps/*" = ["B018", "E501"]
+# Example/figure scripts: long matplotlib calls and embedded JS are fine.
+"docs/examples/figures/*" = ["E501"]
 
 [tool.ruff.format]
 quote-style = "double"

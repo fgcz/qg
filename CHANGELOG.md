@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - Exported params JSON is now self-contained: it embeds `qg_version` and a minimal `resolved_config` snapshot (the one pattern/instrument/sampler/layouts/QC/format + samples + methods the run used), so `qg params.json` regenerates the queue byte-for-byte without `qg_configs/`; `--prefer {embedded,external}` selects the config source and a config/version mismatch warns.
 - Two bundled, self-contained example runs ship under `qg.examples.params` (`repro_proteomics_12.json`, `lipidomics_standard.json`), each runnable directly with `qg <file>.json`.
+- JASMS-manuscript figure- and screenshot-reproduction scripts now ship in the public repo under `docs/examples/figures/` (with a README), so every published figure regenerates from the `qg` engine alone; figure deps added to the `docs` dependency group (matplotlib, kaleido, pillow).
 - `qg-config-authoring` skill documenting the cross-file edits for the recurring config tasks (new technology, instrument, plate layout + QC samples + pattern, output format), plus `test_config_authoring.py` that builds a `Testing_v3` config from scratch in a temp dir and asserts it loads, validates, and generates queues via the Python API and the `qg` CLI.
 - Local app can load bundled example sample tables: pick a vial/plate example from a dropdown to load it directly, or download it as an editable template. Examples ship in the wheel under `qg.examples.sample_tables` (mirrored by `docs/examples/`).
 
