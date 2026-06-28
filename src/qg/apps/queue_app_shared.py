@@ -23,7 +23,7 @@ import polars as pl
 from loguru import logger
 
 from qg.generator import QueueGenerator, format_table, write_queue
-from qg.params_models import QueueParameters
+from qg.params_models import QueueParameters, stamp_provenance
 from qg.queue_builder import QueueBuilder
 from qg.randomize import draw_seed
 
@@ -96,7 +96,9 @@ def build_queue_input(
             builder = builder.with_bfabric_instance(provenance_instance)
         if not sample_df.is_empty():
             builder = builder.add_samples_from_dataframe(sample_df)
-        return builder.build(), None
+        # Stamp qg_version + resolved_config so the downloaded params JSON (and the
+        # portal work-unit) is self-contained and reproduces without qg_configs/.
+        return stamp_provenance(builder.build(), config), None
     except ValueError as exc:
         return None, str(exc)
 

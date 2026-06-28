@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Literal, Self
 
 from pydantic import AliasChoices, BaseModel, Field
 
+from qg.config_models.resolved import ResolvedConfig
+
 if TYPE_CHECKING:
     from qg.config_models.loader import QGConfiguration
 
@@ -189,6 +191,11 @@ class VialQueueInput(BaseModel):
 
     parameters: QueueParameters
     queue: VialQueue
+    # Provenance for self-contained replication; populated by ``stamp_provenance``.
+    # ``qg_version`` records the generating qg release; ``resolved_config`` inlines the
+    # minimal config the run used so the queue regenerates without ``qg_configs/``.
+    qg_version: str | None = None
+    resolved_config: ResolvedConfig | None = None
 
 
 class PlateQueueInput(BaseModel):
@@ -196,9 +203,37 @@ class PlateQueueInput(BaseModel):
 
     parameters: QueueParameters
     queue: PlateQueue
+    # See VialQueueInput: self-contained replication provenance.
+    qg_version: str | None = None
+    resolved_config: ResolvedConfig | None = None
 
 
 QueueInput = VialQueueInput | PlateQueueInput
+
+
+def _qg_version() -> str | None:
+    """The installed ``qg`` version, or None when running from an unpackaged source tree."""
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        return version("qg")
+    except PackageNotFoundError:
+        return None
+
+
+def stamp_provenance(queue_input: QueueInput, config: QGConfiguration) -> QueueInput:
+    """Return a copy of ``queue_input`` with ``qg_version`` and ``resolved_config`` filled in.
+
+    Producers (GUI download, work-unit upload) call this so the exported JSON is
+    self-contained: the embedded ``resolved_config`` lets ``qg`` regenerate the
+    queue from the file alone, independent of the live ``qg_configs/``.
+    """
+    return queue_input.model_copy(
+        update={
+            "qg_version": _qg_version(),
+            "resolved_config": config.subset_for(queue_input.parameters),
+        }
+    )
 
 
 def write_queue_input(queue_input: QueueInput, output_path: str | Path) -> Path:
@@ -209,10 +244,14 @@ def write_queue_input(queue_input: QueueInput, output_path: str | Path) -> Path:
     return output_path
 
 
-def read_queue_input(input_path: str | Path) -> QueueInput:
-    """Read queue input from JSON file."""
-    input_path = Path(input_path)
-    data = json.loads(input_path.read_text())
+def parse_queue_input(raw: str | bytes) -> QueueInput:
+    """Parse a ``QueueInput`` from JSON text/bytes (plate vs vial by queue shape)."""
+    data = json.loads(raw)
     if "plates" in data.get("queue", {}):
         return PlateQueueInput.model_validate(data)
     return VialQueueInput.model_validate(data)
+
+
+def read_queue_input(input_path: str | Path) -> QueueInput:
+    """Read queue input from a JSON file."""
+    return parse_queue_input(Path(input_path).read_text())

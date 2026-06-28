@@ -1,0 +1,323 @@
+{
+  "parameters": {
+    "tech_area": "Proteomics",
+    "instrument": "ASTRAL_1",
+    "sampler": "Vanquish",
+    "output_format": "xcalibur_sii",
+    "queue_pattern": "standard",
+    "queue_type": "Vial",
+    "plate_layout": "Vanquish_54",
+    "qc_layout_name": "standard",
+    "polarity": [
+      "pos"
+    ],
+    "date": "20260112",
+    "user": "cpanse",
+    "method": {},
+    "randomization": "blocked_uniform",
+    "seed": 1883415883,
+    "inj_vol_override": null,
+    "qc_frequency_override": null,
+    "one_container_per_tray": false,
+    "start_position": "A1",
+    "start_tray": "",
+    "bfabric_instance": null,
+    "level_concentrations": {},
+    "mark_end_of_queue": true
+  },
+  "queue": {
+    "batches": {
+      "41786": {
+        "container_id": 41786,
+        "container_name": "Proteomics cohort"
+      }
+    },
+    "samples": [
+      {
+        "sample_name": "Control_1",
+        "sample_id": 1001,
+        "grouping_var": "Control",
+        "tube_id": null,
+        "container_id": 41786
+      },
+      {
+        "sample_name": "Control_2",
+        "sample_id": 1002,
+        "grouping_var": "Control",
+        "tube_id": null,
+        "container_id": 41786
+      },
+      {
+        "sample_name": "Control_3",
+        "sample_id": 1003,
+        "grouping_var": "Control",
+        "tube_id": null,
+        "container_id": 41786
+      },
+      {
+        "sample_name": "Control_4",
+        "sample_id": 1004,
+        "grouping_var": "Control",
+        "tube_id": null,
+        "container_id": 41786
+      },
+      {
+        "sample_name": "Control_5",
+        "sample_id": 1005,
+        "grouping_var": "Control",
+        "tube_id": null,
+        "container_id": 41786
+      },
+      {
+        "sample_name": "Treated_6",
+        "sample_id": 1006,
+        "grouping_var": "Treated",
+        "tube_id": null,
+        "container_id": 41786
+      },
+      {
+        "sample_name": "Treated_7",
+        "sample_id": 1007,
+        "grouping_var": "Treated",
+        "tube_id": null,
+        "container_id": 41786
+      },
+      {
+        "sample_name": "Treated_8",
+        "sample_id": 1008,
+        "grouping_var": "Treated",
+        "tube_id": null,
+        "container_id": 41786
+      },
+      {
+        "sample_name": "Treated_9",
+        "sample_id": 1009,
+        "grouping_var": "Treated",
+        "tube_id": null,
+        "container_id": 41786
+      },
+      {
+        "sample_name": "KO_10",
+        "sample_id": 1010,
+        "grouping_var": "KO",
+        "tube_id": null,
+        "container_id": 41786
+      },
+      {
+        "sample_name": "KO_11",
+        "sample_id": 1011,
+        "grouping_var": "KO",
+        "tube_id": null,
+        "container_id": 41786
+      },
+      {
+        "sample_name": "KO_12",
+        "sample_id": 1012,
+        "grouping_var": "KO",
+        "tube_id": null,
+        "container_id": 41786
+      }
+    ]
+  },
+  "qg_version": "0.8.0",
+  "resolved_config": {
+    "tech_area": "Proteomics",
+    "instrument": {
+      "tech_area": "Proteomics",
+      "instrument": "ASTRAL_1",
+      "methods_file": "methods/Proteomics/ASTRAL_1_methods.csv",
+      "path_template": "D:\\Data2San\\p{container}\\Proteomics\\ASTRAL_1\\{user}_{date}"
+    },
+    "output_format_name": "xcalibur_sii",
+    "output_format": {
+      "description": "Thermo XCalibur SII format (ASCEND_1)",
+      "file_extension": ".csv",
+      "writer": "xcalibur_csv",
+      "position_format": "{tray}:{grid_position}",
+      "grid_position_format": "{row}{col}",
+      "grid_position_conversion": "identity",
+      "tray_format": null,
+      "columns": {
+        "File Name": "file_name",
+        "Path": "data_path",
+        "Position": "position",
+        "Inj Vol": "inj_vol",
+        "L3 Laboratory": "literal:FGCZ",
+        "Sample ID": "sample_id",
+        "Sample Name": "sample_name",
+        "Instrument Method": "method"
+      },
+      "columns_by_tech": {
+        "Metabolomics": {
+          "Sample Type": "sample_type",
+          "Level": "level"
+        }
+      }
+    },
+    "plate_layout": {
+      "name": "Vanquish_54",
+      "rows": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F"
+      ],
+      "cols": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    "sampler": {
+      "name": "Vanquish",
+      "description": "Thermo Vanquish autosampler",
+      "sampler_type": "well",
+      "trays": [
+        "Y",
+        "R",
+        "G",
+        "B"
+      ],
+      "position_fun": "string_concat"
+    },
+    "queue_pattern_name": "standard",
+    "queue_pattern": {
+      "description": "Standard proteomics: clean-qc pairs, clean-qc-qc ending",
+      "run_QC_after_n_samples": 8,
+      "start": [
+        "QC03",
+        "QC01"
+      ],
+      "middle": [
+        "clean",
+        "QC01"
+      ],
+      "end": [
+        "clean",
+        "QC01",
+        "QC03",
+        "clean"
+      ],
+      "separation": [
+        "clean",
+        "QC01",
+        "clean"
+      ],
+      "middle_extended": null,
+      "middle_extended_frequency_multiplier": null
+    },
+    "qc_layout_name": "standard",
+    "samples": [
+      {
+        "tech_area": "Proteomics",
+        "sample_id": "QC01",
+        "sample_name": "autoQC01",
+        "sample_type": "QC",
+        "level": null,
+        "description": "autoQC01: Standard peptide mix for system suitability",
+        "inj_vol": 2.0,
+        "file_name_template": "{date}_{run}_C{container}_{sample_name}"
+      },
+      {
+        "tech_area": "Proteomics",
+        "sample_id": "QC03",
+        "sample_name": "autoQC03",
+        "sample_type": "QC",
+        "level": null,
+        "description": "autoQC03: Benchmark for performance monitoring",
+        "inj_vol": 1.0,
+        "file_name_template": "{date}_{run}_C{container}_{sample_name}{method_name}"
+      },
+      {
+        "tech_area": "Proteomics",
+        "sample_id": "clean",
+        "sample_name": "clean",
+        "sample_type": "Blank",
+        "level": null,
+        "description": "Buffer blank for column cleaning between sample batches",
+        "inj_vol": 2.0,
+        "file_name_template": "{date}_{run}_C{container}_{sample_name}"
+      },
+      {
+        "tech_area": "Proteomics",
+        "sample_id": "default",
+        "sample_name": "",
+        "sample_type": "Unknown",
+        "level": null,
+        "description": "Default settings for user samples",
+        "inj_vol": 2.0,
+        "file_name_template": "{date}_{run}_C{container}_S{sample_id}_{sample_name}"
+      }
+    ],
+    "methods": [
+      {
+        "sample_type": "QC03",
+        "polarity": "pos",
+        "method_name": "DDA",
+        "method_path": "C:\\Xcalibur\\methods\\test"
+      },
+      {
+        "sample_type": "QC03",
+        "polarity": "pos",
+        "method_name": "DIA",
+        "method_path": "C:\\Xcalibur\\methods\\"
+      },
+      {
+        "sample_type": "default",
+        "polarity": "pos",
+        "method_name": "DIA",
+        "method_path": "C:\\Xcalibur\\methods\\"
+      },
+      {
+        "sample_type": "default",
+        "polarity": "pos",
+        "method_name": "DIA_30min",
+        "method_path": "C:\\Xcalibur\\methods\\"
+      },
+      {
+        "sample_type": "default",
+        "polarity": "pos",
+        "method_name": "DDA",
+        "method_path": "C:\\Xcalibur\\methods\\"
+      }
+    ],
+    "qc_samples_well": [
+      {
+        "tech_area": "Proteomics",
+        "qc_layout_name": "standard",
+        "plate_layout": "Vanquish_54",
+        "sample_id": "QC01",
+        "tray": "B",
+        "row": "F",
+        "col": 9
+      },
+      {
+        "tech_area": "Proteomics",
+        "qc_layout_name": "standard",
+        "plate_layout": "Vanquish_54",
+        "sample_id": "QC03",
+        "tray": "B",
+        "row": "F",
+        "col": 8
+      },
+      {
+        "tech_area": "Proteomics",
+        "qc_layout_name": "standard",
+        "plate_layout": "Vanquish_54",
+        "sample_id": "clean",
+        "tray": "B",
+        "row": "F",
+        "col": 7
+      }
+    ],
+    "qc_samples_tip": []
+  }
+}

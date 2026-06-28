@@ -78,6 +78,7 @@ packages = ["src/qg"]
 artifacts = [
     "src/qg/examples/sample_tables/*.csv",
     "src/qg/examples/sample_tables/*.xlsx",
+    "src/qg/examples/params/*.json",
 ]
 
 [project.scripts]

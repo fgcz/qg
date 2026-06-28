@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from importlib.resources import files
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import polars as pl
 import tomli_w
@@ -32,6 +33,11 @@ from .positions import (
 )
 from .structure import QueuePatternsConfig, SamplesConfig
 from .ui import InstrumentConfigsConfig, TechAreaDefaultsConfig
+
+if TYPE_CHECKING:
+    from qg.params_models import QueueParameters
+
+    from .resolved import ResolvedConfig
 
 # =============================================================================
 # Helper Functions
@@ -521,6 +527,17 @@ class QGConfiguration:
         if sampler.is_tip:
             return self.qc_layouts_tip.get_samples(tech_area, qc_layout_name, plate_layout_name)
         return self.qc_layouts_well.get_samples(tech_area, qc_layout_name, plate_layout_name)
+
+    def subset_for(self, params: QueueParameters) -> ResolvedConfig:
+        """Extract the minimal config fragments ``params`` uses, for embedding in params JSON.
+
+        The returned :class:`~qg.config_models.resolved.ResolvedConfig` is
+        self-contained: ``to_configuration()`` re-expands it into a single-entry
+        ``QGConfiguration`` that regenerates the same queue without ``qg_configs/``.
+        """
+        from .resolved import ResolvedConfig
+
+        return ResolvedConfig.from_configuration(self, params)
 
     @staticmethod
     def create(
