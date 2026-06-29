@@ -16,6 +16,9 @@ parameters JSON to the CLI), configure the queue, preview, and download — no
 FGCZ/B-Fabric required. It also runs as the FGCZ **B-Fabric portal** app (LIMS order
 browsing + workunit upload); see the [B-Fabric guide](docs/bfabric.md).
 
+📖 **Documentation:** [**fgcz.github.io/qg**](https://fgcz.github.io/qg/) — local-app
+and editor guides, the queue-generation algorithm, and the configuration reference.
+
 ## Installation
 
 ```bash
