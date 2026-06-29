@@ -41,6 +41,10 @@ class QueueRow(BaseModel):
       sample category from ``samples.csv`` (the Xcalibur-accepted "Sample Type"
       values). User-sample slots are always ``"Unknown"``; QC slots inherit
       their template's category.
+    * ``qc_class`` (``str | None``) — optional finer display category from
+      ``samples.csv`` (e.g. ``"Pooled QC"``, ``"QC dilution series"``). Used only
+      by visualizations to colour QC injections by type; ``None`` falls back to
+      ``sample_type``. Never written to the instrument queue.
     """
 
     run_number: int
@@ -48,6 +52,7 @@ class QueueRow(BaseModel):
     sample_id: str
     sample_name: str
     sample_type: Literal["Unknown", "Blank", "QC", "Std Bracket"] = "Unknown"
+    qc_class: str | None = None
     level: int | None = None
     tray: str | int
     grid_position: str
@@ -244,6 +249,7 @@ def _build_queue_rows(
                 sample_id=str(sample.sample_id) if sample else slot.slot.sample_id,
                 sample_name=sample.sample_name if sample else sample_cfg.sample_name,
                 sample_type=sample_cfg.sample_type,
+                qc_class=sample_cfg.qc_class,
                 level=sample_cfg.level,
                 tray=pos.tray,
                 grid_position=pos.grid_position,

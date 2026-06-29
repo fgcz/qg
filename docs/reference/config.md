@@ -61,9 +61,9 @@ Technologies (`tech_area`): `Proteomics`, `Metabolomics`, `Lipidomics`.
 QC and default-sample definitions, keyed by `(tech_area, sample_id)`.
 
 ```csv
-tech_area,sample_id,sample_name,sample_type,level,description,inj_vol,file_name_template
-Proteomics,default,"",Unknown,,Default settings for user samples,2.0,{date}_{run}_C{container}_S{sample_id}_{sample_name}
-Proteomics,QC01,autoQC01,QC,,autoQC01: Standard peptide mix,2.0,{date}_{run}_C{container}_{sample_name}
+tech_area,sample_id,sample_name,sample_type,qc_class,level,description,inj_vol,file_name_template
+Proteomics,default,"",Unknown,,,Default settings for user samples,2.0,{date}_{run}_C{container}_S{sample_id}_{sample_name}
+Lipidomics,pooledQCDil1,pooledQCDil1,QC,QC dilution series,,Pooled QC dilution 1,3.0,{date}_{run}_C{container}_{sample_name}_{polarity}
 ```
 
 | Column | Description |
@@ -72,6 +72,7 @@ Proteomics,QC01,autoQC01,QC,,autoQC01: Standard peptide mix,2.0,{date}_{run}_C{c
 | `sample_id` | Unique id within the tech_area (e.g. `QC01`, `clean`, `default`). No spaces. |
 | `sample_name` | Display/file name (empty for the `default` user-sample row) |
 | `sample_type` | Output sample type (`Unknown`, `QC`, `Blank`, `Std Bracket`, …) |
+| `qc_class` | **Optional.** Display category that groups several QC `sample_id`s under one legend entry/colour in the acquisition-timeline visualization (e.g. `Pooled QC`, `QC dilution series`, `EquiSPLASH (IS)`). Display-only — never written to the instrument queue. Blank → falls back to `sample_type`. |
 | `level` | Optional dilution level (used by `level_concentrations`) |
 | `description` | Free text |
 | `inj_vol` | Injection volume (µL) |

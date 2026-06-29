@@ -330,6 +330,18 @@ class TestOutputFormats:
 
         assert len(result) == 1
 
+    def test_qc_class_is_internal_only(self, config):
+        """`qc_class` reaches the queue table (for the viz) but never the instrument output."""
+        from qg.apps.integrations.example_params import read_example_params
+
+        _entry, queue_input = read_example_params("lipidomics_standard")
+        generator = QueueGenerator(config, queue_input)
+
+        table = generator.build_rows().to_table()
+        assert "qc_class" in table.columns
+        assert table.filter(pl.col("qc_class").is_not_null()).height > 0  # populated for QC injections
+        assert "qc_class" not in generator.write()  # but excluded from the formatted output
+
 
 class TestNoQCPattern:
     @pytest.mark.parametrize("num_samples", [1, 5])

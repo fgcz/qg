@@ -13,6 +13,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - JASMS-manuscript figure- and screenshot-reproduction scripts now ship in the public repo under `docs/examples/figures/` (with a README), so every published figure regenerates from the `qg` engine alone; figure deps added to the `docs` dependency group (matplotlib, kaleido, pillow).
 - `qg-config-authoring` skill documenting the cross-file edits for the recurring config tasks (new technology, instrument, plate layout + QC samples + pattern, output format), plus `test_config_authoring.py` that builds a `Testing_v3` config from scratch in a temp dir and asserts it loads, validates, and generates queues via the Python API and the `qg` CLI.
 - Local app can load bundled example sample tables: pick a vial/plate example from a dropdown to load it directly, or download it as an editable template. Examples ship in the wheel under `qg.examples.sample_tables` (mirrored by `docs/examples/`).
+- Acquisition-timeline visualization colours QC injections by *type* via a new optional `qc_class` column on `samples.csv` (e.g. *Pooled QC*, *QC dilution series*, *EquiSPLASH (IS)*; falls back to `sample_type` when unset, and is display-only — never written to the instrument queue), and adds a positive/negative **polarity** track for dual-polarity (metabolomics/lipidomics) runs.
+
+### Changed
+- Acquisition timeline: the "Color by" mode *Group* is renamed *Injection class* (it now colours QC by type as well as samples by group), and per-injection detail is shown on hover only rather than crammed onto the tiles, keeping the strip legible at 50+ injections.
+- The Supporting-Information worked-lipidomics-queue figure is now a scripted screenshot of the app's own *Acquisition Timeline* (captured by `shot_viz.py` after loading the bundled `lipidomics_standard.json` in reproduce mode), so the figure and the live GUI share one renderer and cannot drift.
+
+### Removed
+- `docs/examples/figures/make_lipidomics_queue_figure.py` — the worked-queue figure is captured from the GUI's own timeline instead of a separate matplotlib plot.
 
 ## [0.7.0] - 2026-06-24
 

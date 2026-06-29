@@ -175,6 +175,15 @@ class Sample(BaseModel):
             "values: Unknown (user sample), Blank, QC, or Std Bracket."
         ),
     )
+    qc_class: str | None = Field(
+        default=None,
+        description=(
+            "Optional display category for visualizations (e.g. 'Pooled QC', "
+            "'QC dilution series', 'EquiSPLASH (IS)'). Groups several QC sample_ids "
+            "under one legend entry/colour in the acquisition timeline. Display-only — "
+            "never written to the instrument queue. Falls back to `sample_type` when unset."
+        ),
+    )
     level: int | None = Field(
         default=None,
         description="Calibration level index for `Std Bracket`-type samples; None for everything else.",
@@ -195,6 +204,14 @@ class Sample(BaseModel):
         """Treat empty / null CSV cells as the default 'Unknown'."""
         if v is None or v == "":
             return "Unknown"
+        return v
+
+    @field_validator("qc_class", mode="before")
+    @classmethod
+    def none_when_blank(cls, v):
+        """Treat empty / whitespace CSV cells as unset (None) rather than ''."""
+        if v is None or (isinstance(v, str) and v.strip() == ""):
+            return None
         return v
 
     @field_validator("file_name_template")

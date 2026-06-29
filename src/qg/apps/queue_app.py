@@ -1369,7 +1369,9 @@ def _():
     plate_color_by = mo.ui.dropdown(
         options=["Sample type", "Group (grouping_var)"], value="Sample type", label="Color by"
     )
-    timeline_color_by = mo.ui.dropdown(options=["Group", "QC cadence"], value="Group", label="Color by")
+    timeline_color_by = mo.ui.dropdown(
+        options=["Injection class", "QC cadence"], value="Injection class", label="Color by"
+    )
     return plate_color_by, timeline_color_by
 
 
