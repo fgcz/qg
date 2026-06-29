@@ -3,7 +3,7 @@ from pathlib import Path
 
 from playwright.async_api import async_playwright
 
-IMG = Path("/Users/wolski/projects/queue_generator/img")
+IMG = Path(__file__).resolve().parent
 IMG.mkdir(parents=True, exist_ok=True)
 URL = "http://localhost:2720"
 
