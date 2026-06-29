@@ -196,17 +196,23 @@ def build_timeline_figure(df: pl.DataFrame, color_by: str = "grouping_var") -> g
     if has_polarity:
         _add_polarity_bars(fig, df, row=2)
 
+    # Flat horizontal legend placed *below the x-axis title* so it never overlaps it
+    # and never grows into a tall, scrollbar-clipped column. The single-track strip is
+    # short, so its legend needs a more-negative paper-y (and more bottom margin) than
+    # the taller dual-track figure to clear the axis title.
+    legend_y = -0.7 if not has_polarity else -0.45
     fig.update_layout(
         barmode="overlay",
         template="plotly_white",
-        height=300 if has_polarity else 200,
-        margin={"l": 40, "r": 15, "t": 36, "b": 70},
+        height=320 if has_polarity else 230,
+        margin={"l": 40, "r": 15, "t": 36, "b": 130 if not has_polarity else 120},
         title={"text": title, "x": 0.0, "font": {"size": 12}},
-        # Flat horizontal legend below the plot so it never grows into a tall,
-        # scrollbar-clipped column in the app. Items wrap across the width.
-        legend={"orientation": "h", "yanchor": "top", "y": -0.25, "xanchor": "left", "x": 0.0, "font": {"size": 11}},
+        legend={"orientation": "h", "yanchor": "top", "y": legend_y, "xanchor": "left", "x": 0.0, "font": {"size": 11}},
         bargap=0,
     )
+    # Snug x-range so the strip fills the width instead of floating with auto-padding.
+    n_max = int(df["run_number"].max())
+    fig.update_xaxes(range=[0.5, n_max + 0.5])
     fig.update_xaxes(title_text="acquisition order (injection 1..N)", tickformat="d", row=n_rows, col=1)
     fig.update_yaxes(visible=False, range=[0, 1])
     return fig
