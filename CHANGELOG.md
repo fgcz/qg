@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-06-29
+
 ### Added
 - Exported params JSON is now self-contained: it embeds `qg_version` and a minimal `resolved_config` snapshot (the one pattern/instrument/sampler/layouts/QC/format + samples + methods the run used), so `qg params.json` regenerates the queue byte-for-byte without `qg_configs/`; `--prefer {embedded,external}` selects the config source and a config/version mismatch warns.
 - Two bundled, self-contained example runs ship under `qg.examples.params` (`repro_proteomics_12.json`, `lipidomics_standard.json`), each runnable directly with `qg <file>.json`.

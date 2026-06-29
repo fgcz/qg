@@ -1,0 +1,60 @@
+{
+  "title": "qg: Queue Generation System",
+  "description": "Configuration-driven, multi-vendor acquisition queue generation for mass spectrometry. Turns plain sample lists into batch-aware, vendor-ready acquisition queues with reproducible run-order randomization, systematic pattern-driven QC injection, sampler- and plate-aware positioning, and output writers for XCalibur, Chronos, and Hystar.",
+  "upload_type": "software",
+  "access_right": "open",
+  "license": "Apache-2.0",
+  "keywords": [
+    "mass spectrometry",
+    "proteomics",
+    "metabolomics",
+    "lipidomics",
+    "quality control",
+    "acquisition queue",
+    "run-order randomization",
+    "reproducibility",
+    "LC-MS"
+  ],
+  "creators": [
+    {
+      "name": "Wolski, Witold E.",
+      "affiliation": "Functional Genomics Center Zurich (FGCZ), ETH Zurich and University of Zurich, Zurich, Switzerland"
+    },
+    {
+      "name": "Schwarz, Leonardo",
+      "affiliation": "Functional Genomics Center Zurich (FGCZ), ETH Zurich and University of Zurich, Zurich, Switzerland"
+    },
+    {
+      "name": "Trachsel, Christian",
+      "affiliation": "Functional Genomics Center Zurich (FGCZ), ETH Zurich and University of Zurich, Zurich, Switzerland"
+    },
+    {
+      "name": "Zanella, Martina",
+      "affiliation": "Functional Genomics Center Zurich (FGCZ), ETH Zurich and University of Zurich, Zurich, Switzerland"
+    },
+    {
+      "name": "Riedi, Claudia",
+      "affiliation": "Functional Genomics Center Zurich (FGCZ), ETH Zurich and University of Zurich, Zurich, Switzerland"
+    },
+    {
+      "name": "Schlapbach, Ralph",
+      "affiliation": "Functional Genomics Center Zurich (FGCZ), ETH Zurich and University of Zurich, Zurich, Switzerland"
+    },
+    {
+      "name": "Othman, Alaa",
+      "affiliation": "Functional Genomics Center Zurich (FGCZ), ETH Zurich and University of Zurich, Zurich, Switzerland"
+    },
+    {
+      "name": "Türker, Can",
+      "affiliation": "Functional Genomics Center Zurich (FGCZ), ETH Zurich and University of Zurich, Zurich, Switzerland"
+    },
+    {
+      "name": "Nanni, Paolo",
+      "affiliation": "Functional Genomics Center Zurich (FGCZ), ETH Zurich and University of Zurich, Zurich, Switzerland"
+    },
+    {
+      "name": "Panse, Christian",
+      "affiliation": "Functional Genomics Center Zurich (FGCZ), ETH Zurich and University of Zurich, Zurich, Switzerland"
+    }
+  ]
+}

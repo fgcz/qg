@@ -1,10 +1,51 @@
 cff-version: 1.2.0
 message: "If you use qg, please cite it using the metadata in this file."
 title: "qg: Queue Generation System"
+abstract: "Configuration-driven, multi-vendor acquisition queue generation for mass spectrometry. Turns plain sample lists into batch-aware, vendor-ready acquisition queues with reproducible run-order randomization, systematic pattern-driven QC injection, sampler- and plate-aware positioning, and output writers for XCalibur, Chronos, and Hystar."
 type: software
+version: 0.8.0
+date-released: 2026-06-29
 license: Apache-2.0
-date-released: 2026-06-08
 repository-code: "https://github.com/fgcz/qg"
-abstract: "Queue generation system for mass spectrometry instruments with QC injection scheduling and output writers for XCalibur, Chronos, and Hystar."
+url: "https://fgcz.github.io/qg/"
+keywords:
+  - mass spectrometry
+  - proteomics
+  - metabolomics
+  - lipidomics
+  - quality control
+  - acquisition queue
+  - run-order randomization
+  - reproducibility
+  - LC-MS
 authors:
-  - name: "qg contributors"
+  - given-names: "Witold E."
+    family-names: "Wolski"
+    affiliation: "Functional Genomics Center Zurich (FGCZ), ETH Zurich and University of Zurich, Zurich, Switzerland"
+  - given-names: "Leonardo"
+    family-names: "Schwarz"
+    affiliation: "Functional Genomics Center Zurich (FGCZ), ETH Zurich and University of Zurich, Zurich, Switzerland"
+  - given-names: "Christian"
+    family-names: "Trachsel"
+    affiliation: "Functional Genomics Center Zurich (FGCZ), ETH Zurich and University of Zurich, Zurich, Switzerland"
+  - given-names: "Martina"
+    family-names: "Zanella"
+    affiliation: "Functional Genomics Center Zurich (FGCZ), ETH Zurich and University of Zurich, Zurich, Switzerland"
+  - given-names: "Claudia"
+    family-names: "Riedi"
+    affiliation: "Functional Genomics Center Zurich (FGCZ), ETH Zurich and University of Zurich, Zurich, Switzerland"
+  - given-names: "Ralph"
+    family-names: "Schlapbach"
+    affiliation: "Functional Genomics Center Zurich (FGCZ), ETH Zurich and University of Zurich, Zurich, Switzerland"
+  - given-names: "Alaa"
+    family-names: "Othman"
+    affiliation: "Functional Genomics Center Zurich (FGCZ), ETH Zurich and University of Zurich, Zurich, Switzerland"
+  - given-names: "Can"
+    family-names: "Türker"
+    affiliation: "Functional Genomics Center Zurich (FGCZ), ETH Zurich and University of Zurich, Zurich, Switzerland"
+  - given-names: "Paolo"
+    family-names: "Nanni"
+    affiliation: "Functional Genomics Center Zurich (FGCZ), ETH Zurich and University of Zurich, Zurich, Switzerland"
+  - given-names: "Christian"
+    family-names: "Panse"
+    affiliation: "Functional Genomics Center Zurich (FGCZ), ETH Zurich and University of Zurich, Zurich, Switzerland"

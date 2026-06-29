@@ -1,5 +1,9 @@
 # Queue Generation System
 
+<!-- Zenodo DOI badge — fill in after the first GitHub Release is archived by Zenodo.
+     Use the CONCEPT DOI (always resolves to the latest version), not the version DOI.
+     [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX) -->
+
 Generate sample queues with QC injections for mass spectrometry instruments (XCalibur, Chronos, Hystar).
 
 ## ▶ Try the live demo
