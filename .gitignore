@@ -24,6 +24,10 @@ queue_files/
 *.html
 *_files/
 *.png
+!docs/examples/figures/editor_overview.png
+!docs/examples/figures/editor_queue_patterns.png
+!docs/examples/figures/editor_samples.png
+!docs/examples/figures/editor_qc_layouts_well.png
 plans/
 bfabric_cache/
 deprecated/
