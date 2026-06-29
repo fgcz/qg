@@ -52,6 +52,10 @@ def _color_of(fig: go.Figure, name: str) -> str:
     return next(t.marker.color for t in fig.data if t.name == name)
 
 
+def _pattern_of(fig: go.Figure, name: str) -> str | None:
+    return next(t.marker.pattern.shape for t in fig.data if t.name == name)
+
+
 class TestBuildTimelineFigure:
     def test_group_mode_one_tile_per_injection(self):
         rows = [
@@ -108,6 +112,25 @@ class TestBuildTimelineFigure:
         # No two classes (groups or QC) ever share a colour — guards the blue-on-blue bug.
         colours = [_color_of(fig, n) for n in ("A", "B", "Pooled QC", "System-suitability QC", "Blank")]
         assert len(set(colours)) == len(colours)
+
+    def test_qc_tiles_hatched_samples_solid(self):
+        # QC/blank tiles carry a diagonal hatch (scaffolding); user samples stay solid.
+        rows = [
+            _row(1, grouping_var="A"),
+            _row(2, slot_kind="qc", sample_type="QC", qc_class="Pooled QC"),
+            _row(3, slot_kind="qc", sample_type="Blank"),
+        ]
+        fig = build_timeline_figure(_df(rows), color_by="grouping_var")
+        assert _pattern_of(fig, "Pooled QC") == "/"
+        assert _pattern_of(fig, "Blank") == "/"
+        assert not _pattern_of(fig, "A")  # biological sample: no hatch
+
+    def test_qc_cadence_mode_has_no_hatching(self):
+        # Cadence mode separates QC by highlight colour, not hatch.
+        rows = [_row(1, grouping_var="A"), _row(2, slot_kind="qc")]
+        fig = build_timeline_figure(_df(rows), color_by="qc_cadence")
+        assert not _pattern_of(fig, "QC / blank")
+        assert not _pattern_of(fig, "Sample")
 
     def test_polarity_track_added_for_dual_polarity(self):
         rows = [

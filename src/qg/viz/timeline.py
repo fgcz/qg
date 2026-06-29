@@ -8,7 +8,8 @@ answer the questions a queue operator cares about:
   (matching the plate view); QC/blank injections are coloured by **type**
   (``qc_class`` from ``samples.csv``, falling back to ``sample_type``). Group and
   QC colours are drawn from one shared palette so no two classes ever collide, and
-  ``Blank`` is always grey.
+  ``Blank`` is always grey. QC/blank tiles are additionally **hatched** so scaffolding
+  reads as a different *kind* from the solid biological-sample tiles at a glance.
 * ``color_by="qc_cadence"`` — are QC injections regularly spaced for drift
   monitoring, including across the ``separation`` blocks between containers? QC
   injections are highlighted and their hover reports the gap (in injections)
@@ -43,6 +44,10 @@ _QC_HIGHLIGHT = "#F58518"
 _BLANK_LABEL = "Blank"
 _BLANK_COLOR = "#BFBFBF"
 
+# QC/blank tiles get a diagonal hatch so they read as a different *kind* of injection
+# (scaffolding) from the solid biological-sample tiles, while keeping their own colour.
+_QC_PATTERN = {"shape": "/", "size": 7, "solidity": 0.35, "fgcolor": "rgba(255,255,255,0.85)"}
+
 _POLARITY_COLORS = {"pos": "#9ECAE1", "neg": "#08519C"}
 _POLARITY_LABELS = {"pos": "positive", "neg": "negative"}
 
@@ -60,19 +65,32 @@ def _hover(label_expr: pl.Expr) -> pl.Expr:
 
 
 def _add_category_bars(
-    fig: go.Figure, df: pl.DataFrame, ordered: list[str], color_map: dict[str, str], *, row: int = 1
+    fig: go.Figure,
+    df: pl.DataFrame,
+    ordered: list[str],
+    color_map: dict[str, str],
+    hatched: set[str],
+    *,
+    row: int = 1,
 ) -> None:
-    """One bar trace per color category, each a strip of unit-height tiles."""
+    """One bar trace per color category, each a strip of unit-height tiles.
+
+    Categories in ``hatched`` (the QC/blank scaffolding) get a diagonal stripe so they
+    read as a different *kind* from the solid biological-sample tiles, keeping their colour.
+    """
     for label in ordered:
         sub = df.filter(pl.col("_clr") == label)
         if sub.is_empty():
             continue
+        marker = {"color": color_map.get(label, _NONE_COLOR), "line": {"color": "white", "width": 0.3}}
+        if label in hatched:
+            marker["pattern"] = _QC_PATTERN
         fig.add_trace(
             go.Bar(
                 x=sub["run_number"].to_list(),
                 y=[1] * sub.height,
                 width=1.0,
-                marker={"color": color_map.get(label, _NONE_COLOR), "line": {"color": "white", "width": 0.3}},
+                marker=marker,
                 name=label,
                 text=sub["hover"].to_list(),
                 textposition="none",  # details live in the hover, not crammed onto unreadable tiles
@@ -137,7 +155,9 @@ def _grouping_var_encoding(df: pl.DataFrame) -> tuple[pl.DataFrame, list[str], d
     ordered = [c for c in ([_BLANK_LABEL] + qc_classes + groups) if c in present]
     if _NONE_LABEL in present:
         ordered.append(_NONE_LABEL)
-    return df, ordered, color_map, "Acquisition order — injection class across the run"
+    # QC/blank tiles are hatched so they read as scaffolding; biological samples stay solid.
+    hatched = {_BLANK_LABEL, *qc_classes}
+    return df, ordered, color_map, "Acquisition order — injection class across the run", hatched
 
 
 def _qc_cadence_encoding(df: pl.DataFrame) -> tuple[pl.DataFrame, list[str], dict[str, str], str]:
@@ -158,7 +178,8 @@ def _qc_cadence_encoding(df: pl.DataFrame) -> tuple[pl.DataFrame, list[str], dic
     )
     ordered = [_SAMPLE_LABEL, _QC_LABEL]
     color_map = {_SAMPLE_LABEL: _SAMPLE_COLOR, _QC_LABEL: _QC_HIGHLIGHT}
-    return df, ordered, color_map, "QC cadence — highlighted QC injections along the run"
+    # No hatching here — QC is already set apart from samples by the highlight colour.
+    return df, ordered, color_map, "QC cadence — highlighted QC injections along the run", set()
 
 
 def build_timeline_figure(df: pl.DataFrame, color_by: str = "grouping_var") -> go.Figure:
@@ -177,9 +198,9 @@ def build_timeline_figure(df: pl.DataFrame, color_by: str = "grouping_var") -> g
     df = df.sort("run_number")
 
     if color_by == "qc_cadence":
-        df, ordered, color_map, title = _qc_cadence_encoding(df)
+        df, ordered, color_map, title, hatched = _qc_cadence_encoding(df)
     else:
-        df, ordered, color_map, title = _grouping_var_encoding(df)
+        df, ordered, color_map, title, hatched = _grouping_var_encoding(df)
 
     pols = [p for p in df["polarity"].unique().to_list() if p] if "polarity" in df.columns else []
     has_polarity = len(pols) > 1
@@ -192,7 +213,7 @@ def build_timeline_figure(df: pl.DataFrame, color_by: str = "grouping_var") -> g
         row_heights=[0.6, 0.4] if has_polarity else [1.0],
         vertical_spacing=0.18,
     )
-    _add_category_bars(fig, df, ordered, color_map, row=1)
+    _add_category_bars(fig, df, ordered, color_map, hatched, row=1)
     if has_polarity:
         _add_polarity_bars(fig, df, row=2)
 
