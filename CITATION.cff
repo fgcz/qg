@@ -6,6 +6,14 @@ type: software
 version: 0.8.0
 date-released: 2026-06-29
 license: Apache-2.0
+doi: 10.5281/zenodo.21040574
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.21040573
+    description: "Concept DOI — always resolves to the latest version."
+  - type: doi
+    value: 10.5281/zenodo.21040574
+    description: "Version DOI for the 0.8.0 release."
 repository-code: "https://github.com/fgcz/qg"
 url: "https://fgcz.github.io/qg/"
 keywords:
