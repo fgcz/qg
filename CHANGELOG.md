@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - Acquisition timeline: the "Color by" mode *Group* is renamed *Injection class* (it now colours QC by type as well as samples by group), and per-injection detail is shown on hover only rather than crammed onto the tiles, keeping the strip legible at 50+ injections.
 - The Supporting-Information worked-lipidomics-queue figure is now a scripted screenshot of the app's own *Acquisition Timeline* (captured by `shot_viz.py` after loading the bundled `lipidomics_standard.json` in reproduce mode), so the figure and the live GUI share one renderer and cannot drift.
+- README restructured for the standalone audience: leads with the hosted live demo (`apps-dev.bfabric.org/queue-gen-local/`) and the local app/CLI; all B-Fabric/portal material (install, portal run, cache seeding, deployment) consolidated into a single `docs/bfabric.md` and linked once.
+- Fixed absolute `gitlab.bfabric.org` links in `docs/` that point to files in this repo (README, AGENTS, `src/`, `docs/examples/`) to relative paths so they resolve on the public GitHub mirror.
 
 ### Removed
 - `docs/examples/figures/make_lipidomics_queue_figure.py` — the worked-queue figure is captured from the GUI's own timeline instead of a separate matplotlib plot.

@@ -4,7 +4,7 @@ title: "qg: Queue Generation System"
 type: software
 license: Apache-2.0
 date-released: 2026-06-08
-repository-code: "https://gitlab.bfabric.org/wolski/qg"
+repository-code: "https://github.com/fgcz/qg"
 abstract: "Queue generation system for mass spectrometry instruments with QC injection scheduling and output writers for XCalibur, Chronos, and Hystar."
 authors:
   - name: "qg contributors"

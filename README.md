@@ -2,26 +2,31 @@
 
 Generate sample queues with QC injections for mass spectrometry instruments (XCalibur, Chronos, Hystar).
 
-`qg` runs in two modes:
+## ▶ Try the live demo
 
-- **Local / standalone** — upload a CSV/XLSX sample table in the GUI (or pass a parameters JSON to the CLI), configure the queue, preview, and download. No FGCZ/B-Fabric required.
-- **B-Fabric portal** — the FGCZ deployment: browse LIMS orders, load samples, and upload the queue as a workunit. Requires the `qg[bfabric]` extra.
+**[Launch the queue generator in your browser →](https://apps-dev.bfabric.org/queue-gen-local/)**
+
+No install, no account. Upload a CSV/XLSX sample table (or load a bundled example),
+pick the instrument / sampler / pattern, preview the queue, and download it.
+
+---
+
+`qg` is a standalone tool: upload a CSV/XLSX sample table in the GUI (or pass a
+parameters JSON to the CLI), configure the queue, preview, and download — no
+FGCZ/B-Fabric required. It also runs as the FGCZ **B-Fabric portal** app (LIMS order
+browsing + workunit upload); see the [B-Fabric guide](docs/bfabric.md).
 
 ## Installation
 
 ```bash
-# Core: local app + CLI, no B-Fabric (works in a clean environment)
 pip install qg                 # as a dependency
 uv sync --no-group portal      # for development in this repo, B-Fabric-free
-
-# Full: add the B-Fabric portal (auth, LIMS sample loading, workunit upload, GitLab launcher)
-pip install 'qg[bfabric]'
-uv sync                        # for development: installs the portal extra by default
 ```
 
-The core install has no `bfabric`, `fastapi`, `starlette`, or `python-gitlab`
-dependency — `import qg`, the local app, and the `qg` / `qg-validate` CLIs all
-work without them.
+This installs the local app + the `qg` / `qg-validate` CLIs. The core install has no
+`bfabric`, `fastapi`, `starlette`, or `python-gitlab` dependency — `import qg`, the
+local app, and the CLIs all work without them. For the FGCZ B-Fabric portal,
+install the `qg[bfabric]` extra — see the [B-Fabric guide](docs/bfabric.md).
 
 ## Quick Start
 
@@ -45,25 +50,8 @@ uv run qg config.json -o queue.csv   # generate a queue from a parameters JSON (
 uv run qg-validate                   # validate the config files
 ```
 
-### B-Fabric portal app (requires `qg[bfabric]`)
-
-```bash
-QG_ALLOW_UNAUTHENTICATED=1 uv run marimo run src/qg/apps/queue_app.py
-```
-
-The portal app fails closed without a B-Fabric-authenticated request.
-`QG_ALLOW_UNAUTHENTICATED=1` bypasses auth for local dev and runs as an employee —
-**never set it in production**. The deployed entry point is
-`uv run python src/qg/apps/bfabric_app.py` (needs `WebappIntegrationSettings`:
-`VALIDATION_BFABRIC_INSTANCE`, `SUPPORTED_BFABRIC_INSTANCES`,
-`FEEDER_USER_CREDENTIALS`). See [`docs/users/user_modes.md`](docs/users/user_modes.md).
-
-#### Seed the B-Fabric project cache (portal only)
-
-- **Dev** (single instance, local `~/.bfabricpy.yml`): `uv run qg-find-projects`
-- **Deployment** (all instances in `feeder_user_credentials`): `uv run qg-refresh-cache --all` — see [`docs/developers/deployment.md`](docs/developers/deployment.md)
-
-Both write `bfabric_cache/<instance>/bfabric_container.csv`, which the portal app reads; its "Refresh Projects" button re-runs the dev-style write for the running instance. These commands require the `qg[bfabric]` extra.
+> **Running at FGCZ?** The B-Fabric portal app, its `qg[bfabric]` install, project
+> cache seeding, and deployment all live in the [B-Fabric guide](docs/bfabric.md).
 
 ## Supported Configurations
 
@@ -107,13 +95,4 @@ Static config lives in `qg_configs/`, grouped under
 `core/{structure,position,formatting,methods}/` and `ui/`. The per-file
 reference (purpose, columns, examples) is maintained in one place:
 **[docs/reference/config.md](docs/reference/config.md)**.
-
-## Deployment
-
-The queue app and config editor both run on `fgcz-r-039` (as the `bfabric` user)
-from a single Docker image, deployed via the web-apps repo. The full procedure —
-tag → CI image build, bumping `IMAGE_TAG`, redeploy, rollback, and secrets — is
-maintained in one place: **[docs/developers/deployment.md](docs/developers/deployment.md)**.
-
-> **Security:** never set `QG_ALLOW_UNAUTHENTICATED=1` on a deployment host — it disables auth and runs every request as an employee.
 

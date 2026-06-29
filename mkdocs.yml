@@ -1,7 +1,9 @@
 site_name: Queue Generation System
 site_description: Generate sample queues with QC injections for mass spectrometry instruments (XCalibur, Chronos, Hystar).
-repo_url: https://gitlab.bfabric.org/wolski/qg
-repo_name: wolski/qg
+site_url: https://fgcz.github.io/qg/
+repo_url: https://github.com/fgcz/qg
+repo_name: fgcz/qg
+edit_uri: edit/main/docs/
 docs_dir: docs
 site_dir: public
 # Emit real .html files with relative links so the site can be browsed
@@ -51,13 +53,15 @@ markdown_extensions:
 nav:
   - Home: index.md
   - User Guide:
-      - Local app (no B-Fabric): users/local_app.md
+      - Local app: users/local_app.md
       - Example sample tables: examples/README.md
-      - User modes (auth): users/user_modes.md
       - Config editor: users/editor_guide.md
   - Reference:
       - Algorithm: reference/algorithm.md
       - Configuration: reference/config.md
-  - Developers:
+  - B-Fabric (FGCZ portal):
+      - Overview & setup: bfabric.md
+      - User modes (auth): users/user_modes.md
       - Deployment: developers/deployment.md
+  - Developers:
       - History: developers/history.md

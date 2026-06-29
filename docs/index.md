@@ -2,8 +2,8 @@
 
 Generate sample queues with QC injections for mass spectrometry instruments
 (XCalibur, Chronos, Hystar). It runs **standalone** — upload a CSV/XLSX sample
-table and download a queue — or as the FGCZ **B-Fabric portal** app with LIMS
-sample loading and workunit upload.
+table and download a queue. It also runs as the FGCZ **B-Fabric portal** app with
+LIMS sample loading and workunit upload (see [B-Fabric portal](bfabric.md)).
 
 The system takes a runtime **Queue Parameters** JSON (instrument, sampler,
 samples) plus a set of static **config files** and produces an instrument-ready
@@ -15,22 +15,20 @@ positions, with file names and data paths filled from templates.
 | If you want to… | Read |
 |------------------|------|
 | Generate a queue locally from a CSV/XLSX upload | [Local app](users/local_app.md) |
-| Try ready-made example sample tables | load one from the local app's example dropdown, or browse [`docs/examples/`](https://gitlab.bfabric.org/wolski/qg/-/tree/main/docs/examples) |
-| Run the B-Fabric portal app, understand auth modes | [User modes](users/user_modes.md) |
+| Try ready-made example sample tables | load one from the local app's example dropdown, or browse [`examples/`](examples/README.md) |
 | Add a QC pattern, sample, or layout via the GUI | [Config editor guide](users/editor_guide.md) |
 | Understand the generation pipeline end to end | [Algorithm](reference/algorithm.md) |
 | Look up a config file's purpose and schema | [Configuration](reference/config.md) |
-| Deploy the app + editor in production | [Deployment](developers/deployment.md) |
+| Run the B-Fabric portal app (auth, cache, deploy) | [B-Fabric portal](bfabric.md) |
 | See how the system was built | [History](developers/history.md) |
 
 ## Quick start
 
 Installation (core vs. the `qg[bfabric]` portal extra) and the run/CLI quick start
-are maintained in the project
-[README](https://gitlab.bfabric.org/wolski/qg/-/blob/main/README.md).
+are maintained in the project [README](../README.md).
 The fastest path: `make app-local` (or `qg-app-local`) opens the standalone app —
 load a bundled example from the dropdown (or upload one of the
-[examples](https://gitlab.bfabric.org/wolski/qg/-/tree/main/docs/examples))
+[examples](examples/README.md))
 and download a queue. The routing table above points you to the right page for each task.
 
 ## Core concepts
