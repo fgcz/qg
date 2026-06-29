@@ -5,7 +5,7 @@ import polars as pl
 
 from qg.generator import QueueRow, QueueRowTable
 from qg.viz.plate import _CATEGORICAL_PALETTE
-from qg.viz.timeline import _BLANK_COLOR, _QC_CLASS_PALETTE, build_timeline_figure
+from qg.viz.timeline import _BLANK_COLOR, build_timeline_figure
 
 
 def _row(
@@ -92,16 +92,22 @@ class TestBuildTimelineFigure:
         fig = build_timeline_figure(_df(rows), color_by="grouping_var")
         assert "Blank" in _legend(fig)
 
-    def test_groups_and_qc_use_distinct_palettes(self):
+    def test_group_and_qc_colours_never_collide(self):
         rows = [
             _row(1, grouping_var="A"),
-            _row(2, slot_kind="qc", sample_type="QC", qc_class="Pooled QC"),
-            _row(3, slot_kind="qc", sample_type="Blank"),
+            _row(2, grouping_var="B"),
+            _row(3, slot_kind="qc", sample_type="QC", qc_class="Pooled QC"),
+            _row(4, slot_kind="qc", sample_type="QC", qc_class="System-suitability QC"),
+            _row(5, slot_kind="qc", sample_type="Blank"),
         ]
         fig = build_timeline_figure(_df(rows), color_by="grouping_var")
+        # Groups use the shared categorical palette (so timeline colours match the plate view).
         assert _color_of(fig, "A") in _CATEGORICAL_PALETTE
-        assert _color_of(fig, "Pooled QC") in _QC_CLASS_PALETTE
+        assert _color_of(fig, "B") in _CATEGORICAL_PALETTE
         assert _color_of(fig, "Blank") == _BLANK_COLOR
+        # No two classes (groups or QC) ever share a colour — guards the blue-on-blue bug.
+        colours = [_color_of(fig, n) for n in ("A", "B", "Pooled QC", "System-suitability QC", "Blank")]
+        assert len(set(colours)) == len(colours)
 
     def test_polarity_track_added_for_dual_polarity(self):
         rows = [

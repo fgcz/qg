@@ -4,11 +4,11 @@ One tile per injection along the acquisition axis (``run_number``), recolored to
 answer the questions a queue operator cares about:
 
 * ``color_by="grouping_var"`` ("Injection class") — what is each injection, and is
-  any biological group front- or back-loaded? User samples are colored by group
-  (vivid categorical palette); QC/blank injections are colored by **type**
-  (``qc_class`` from ``samples.csv``, falling back to ``sample_type``) in a neutral
-  palette, so QC vs sample stays legible while the QC composition (blanks,
-  internal standards, pooled QC, dilution series, …) is also visible.
+  any biological group front- or back-loaded? User samples are coloured by group
+  (matching the plate view); QC/blank injections are coloured by **type**
+  (``qc_class`` from ``samples.csv``, falling back to ``sample_type``). Group and
+  QC colours are drawn from one shared palette so no two classes ever collide, and
+  ``Blank`` is always grey.
 * ``color_by="qc_cadence"`` — are QC injections regularly spaced for drift
   monitoring, including across the ``separation`` blocks between containers? QC
   injections are highlighted and their hover reports the gap (in injections)
@@ -36,22 +36,14 @@ _SAMPLE_LABEL = "Sample"
 _SAMPLE_COLOR = "#CFCFCF"
 _QC_HIGHLIGHT = "#F58518"
 
-# Neutral palette for QC injection *classes* (Pooled QC, dilution series, internal
-# standards, …). Deliberately distinct from the vivid `_CATEGORICAL_PALETTE` used for
-# biological groups so "QC vs biological sample" reads at a glance. "Blank" is pinned
-# grey; the remaining classes are assigned in sorted order.
+# "Blank" injections are always grey (the "empty" injection); every other class —
+# biological group or QC type — is drawn from the shared categorical palette. Groups
+# take the first palette slots (so timeline colours match the plate view) and QC
+# types take the remaining slots, guaranteeing group and QC colours never collide.
 _BLANK_LABEL = "Blank"
 _BLANK_COLOR = "#BFBFBF"
-_QC_CLASS_PALETTE = [
-    "#8E44AD",  # purple
-    "#2E86C1",  # blue
-    "#16A085",  # teal
-    "#7D3C98",  # dark purple
-    "#5499C7",  # light blue
-    "#117A65",  # dark teal
-]
 
-_POLARITY_COLORS = {"pos": "#CBD9EF", "neg": "#2F4B7C"}
+_POLARITY_COLORS = {"pos": "#9ECAE1", "neg": "#08519C"}
 _POLARITY_LABELS = {"pos": "positive", "neg": "negative"}
 
 
@@ -68,17 +60,9 @@ def _hover(label_expr: pl.Expr) -> pl.Expr:
 
 
 def _add_category_bars(
-    fig: go.Figure,
-    df: pl.DataFrame,
-    ordered: list[str],
-    color_map: dict[str, str],
-    *,
-    row: int = 1,
-    legendgroup: str | None = None,
-    legendgrouptitle: str | None = None,
+    fig: go.Figure, df: pl.DataFrame, ordered: list[str], color_map: dict[str, str], *, row: int = 1
 ) -> None:
     """One bar trace per color category, each a strip of unit-height tiles."""
-    first = True
     for label in ordered:
         sub = df.filter(pl.col("_clr") == label)
         if sub.is_empty():
@@ -90,8 +74,6 @@ def _add_category_bars(
                 width=1.0,
                 marker={"color": color_map.get(label, _NONE_COLOR), "line": {"color": "white", "width": 0.3}},
                 name=label,
-                legendgroup=legendgroup,
-                legendgrouptitle={"text": legendgrouptitle} if (first and legendgrouptitle) else None,
                 text=sub["hover"].to_list(),
                 textposition="none",  # details live in the hover, not crammed onto unreadable tiles
                 hovertemplate="%{text}<extra></extra>",
@@ -99,7 +81,6 @@ def _add_category_bars(
             row=row,
             col=1,
         )
-        first = False
 
 
 def _add_polarity_bars(fig: go.Figure, df: pl.DataFrame, row: int) -> None:
@@ -108,9 +89,7 @@ def _add_polarity_bars(fig: go.Figure, df: pl.DataFrame, row: int) -> None:
         sub = df.filter(pl.col("polarity") == pol)
         if sub.is_empty():
             continue
-        hover = (
-            "Injection " + pl.col("run_number").cast(pl.Utf8) + "<br>Polarity: " + pl.lit(_POLARITY_LABELS[pol])
-        )
+        hover = "Injection " + pl.col("run_number").cast(pl.Utf8) + "<br>Polarity: " + pl.lit(_POLARITY_LABELS[pol])
         sub = sub.with_columns(hover.alias("_pol_hover"))
         fig.add_trace(
             go.Bar(
@@ -119,8 +98,6 @@ def _add_polarity_bars(fig: go.Figure, df: pl.DataFrame, row: int) -> None:
                 width=1.0,
                 marker={"color": _POLARITY_COLORS[pol], "line": {"color": "white", "width": 0.3}},
                 name=_POLARITY_LABELS[pol],
-                legendgroup="polarity",
-                legendgrouptitle={"text": "polarity"} if pol == "pos" else None,
                 text=sub["_pol_hover"].to_list(),
                 textposition="none",
                 hovertemplate="%{text}<extra></extra>",
@@ -130,8 +107,8 @@ def _add_polarity_bars(fig: go.Figure, df: pl.DataFrame, row: int) -> None:
         )
 
 
-def _grouping_var_encoding(df: pl.DataFrame) -> tuple[pl.DataFrame, list[str], dict[str, str], str, str]:
-    """Color user samples by group (vivid) and QC by type (`qc_class or sample_type`, neutral)."""
+def _grouping_var_encoding(df: pl.DataFrame) -> tuple[pl.DataFrame, list[str], dict[str, str], str]:
+    """Colour user samples by group and QC by type, from one collision-free palette."""
     if "qc_class" not in df.columns:
         df = df.with_columns(pl.lit(None, dtype=pl.Utf8).alias("qc_class"))
     df = df.with_columns(
@@ -142,30 +119,28 @@ def _grouping_var_encoding(df: pl.DataFrame) -> tuple[pl.DataFrame, list[str], d
         _hover("<br>Group: " + pl.col("grouping_var").fill_null("—")),
     )
 
-    qc_classes = sorted(df.filter(pl.col("slot_kind") == "qc")["_clr"].unique().to_list())
     groups = sorted(v for v in df.filter(pl.col("slot_kind") == "user")["_clr"].unique().to_list() if v != _NONE_LABEL)
+    qc_classes = sorted(c for c in df.filter(pl.col("slot_kind") == "qc")["_clr"].unique().to_list() if c != _BLANK_LABEL)
 
     color_map: dict[str, str] = {}
-    ordered: list[str] = []
-    # QC classes first (the system-suitability story), Blank pinned grey at the front.
-    if _BLANK_LABEL in qc_classes:
-        color_map[_BLANK_LABEL] = _BLANK_COLOR
-        ordered.append(_BLANK_LABEL)
-    for i, label in enumerate(c for c in qc_classes if c != _BLANK_LABEL):
-        color_map[label] = _QC_CLASS_PALETTE[i % len(_QC_CLASS_PALETTE)]
-        ordered.append(label)
-    # Biological groups next, on the shared categorical palette.
+    # Groups take the first palette slots (so timeline group colours match the plate
+    # view); QC types take the slots *after* the groups, so the two never collide.
     for i, g in enumerate(groups):
         color_map[g] = _CATEGORICAL_PALETTE[i % len(_CATEGORICAL_PALETTE)]
-        ordered.append(g)
-    if _NONE_LABEL in df["_clr"].to_list():
-        color_map[_NONE_LABEL] = _NONE_COLOR
+    for j, c in enumerate(qc_classes):
+        color_map[c] = _CATEGORICAL_PALETTE[(len(groups) + j) % len(_CATEGORICAL_PALETTE)]
+    color_map[_BLANK_LABEL] = _BLANK_COLOR
+    color_map[_NONE_LABEL] = _NONE_COLOR
+
+    # Legend order: QC scaffolding first (Blank, then QC types), then biological groups.
+    present = set(df["_clr"].to_list())
+    ordered = [c for c in ([_BLANK_LABEL] + qc_classes + groups) if c in present]
+    if _NONE_LABEL in present:
         ordered.append(_NONE_LABEL)
+    return df, ordered, color_map, "Acquisition order — injection class across the run"
 
-    return df, ordered, color_map, "injection class", "Acquisition order — injection class across the run"
 
-
-def _qc_cadence_encoding(df: pl.DataFrame) -> tuple[pl.DataFrame, list[str], dict[str, str], str, str]:
+def _qc_cadence_encoding(df: pl.DataFrame) -> tuple[pl.DataFrame, list[str], dict[str, str], str]:
     """Highlight QC injections and report the gap (in injections) since the previous QC."""
     qc_runs = df.filter(pl.col("slot_kind") == "qc")["run_number"].to_list()
     prev = dict(zip(qc_runs, _gaps(qc_runs), strict=True))
@@ -183,7 +158,7 @@ def _qc_cadence_encoding(df: pl.DataFrame) -> tuple[pl.DataFrame, list[str], dic
     )
     ordered = [_SAMPLE_LABEL, _QC_LABEL]
     color_map = {_SAMPLE_LABEL: _SAMPLE_COLOR, _QC_LABEL: _QC_HIGHLIGHT}
-    return df, ordered, color_map, "QC cadence", "QC cadence — highlighted QC injections along the run"
+    return df, ordered, color_map, "QC cadence — highlighted QC injections along the run"
 
 
 def build_timeline_figure(df: pl.DataFrame, color_by: str = "grouping_var") -> go.Figure:
@@ -202,9 +177,9 @@ def build_timeline_figure(df: pl.DataFrame, color_by: str = "grouping_var") -> g
     df = df.sort("run_number")
 
     if color_by == "qc_cadence":
-        df, ordered, color_map, class_title, title = _qc_cadence_encoding(df)
+        df, ordered, color_map, title = _qc_cadence_encoding(df)
     else:
-        df, ordered, color_map, class_title, title = _grouping_var_encoding(df)
+        df, ordered, color_map, title = _grouping_var_encoding(df)
 
     pols = [p for p in df["polarity"].unique().to_list() if p] if "polarity" in df.columns else []
     has_polarity = len(pols) > 1
@@ -214,22 +189,22 @@ def build_timeline_figure(df: pl.DataFrame, color_by: str = "grouping_var") -> g
         rows=n_rows,
         cols=1,
         shared_xaxes=True,
-        row_heights=[0.68, 0.32] if has_polarity else [1.0],
-        vertical_spacing=0.16,
+        row_heights=[0.6, 0.4] if has_polarity else [1.0],
+        vertical_spacing=0.18,
     )
-    _add_category_bars(fig, df, ordered, color_map, row=1, legendgroup="class", legendgrouptitle=class_title)
+    _add_category_bars(fig, df, ordered, color_map, row=1)
     if has_polarity:
         _add_polarity_bars(fig, df, row=2)
 
     fig.update_layout(
         barmode="overlay",
         template="plotly_white",
-        height=360 if has_polarity else 210,
-        margin={"l": 40, "r": 15, "t": 40, "b": 110 if has_polarity else 85},
+        height=300 if has_polarity else 200,
+        margin={"l": 40, "r": 15, "t": 36, "b": 70},
         title={"text": title, "x": 0.0, "font": {"size": 12}},
-        # Anchor the legend's top well below the x-axis title so the two never overlap.
-        # The class/polarity legend-group titles name the two tracks (no y-axis labels needed).
-        legend={"orientation": "h", "yanchor": "top", "y": -0.45, "xanchor": "left", "x": 0.0},
+        # Flat horizontal legend below the plot so it never grows into a tall,
+        # scrollbar-clipped column in the app. Items wrap across the width.
+        legend={"orientation": "h", "yanchor": "top", "y": -0.25, "xanchor": "left", "x": 0.0, "font": {"size": 11}},
         bargap=0,
     )
     fig.update_xaxes(title_text="acquisition order (injection 1..N)", tickformat="d", row=n_rows, col=1)
