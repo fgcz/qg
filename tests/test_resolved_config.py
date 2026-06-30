@@ -240,7 +240,7 @@ def test_bundled_example_params_are_self_contained():
 
 @pytest.mark.parametrize(
     ("example_id", "expected_rows"),
-    [("repro_proteomics_12", 20), ("lipidomics_standard", 58)],
+    [("repro_proteomics_12", 20), ("lipidomics_standard", 60)],
 )
 def test_bundled_example_row_counts(example_id, expected_rows):
     _, qi = read_example_params(example_id)

@@ -63,7 +63,7 @@ QC and default-sample definitions, keyed by `(tech_area, sample_id)`.
 ```csv
 tech_area,sample_id,sample_name,sample_type,qc_class,level,description,inj_vol,file_name_template
 Proteomics,default,"",Unknown,,,Default settings for user samples,2.0,{date}_{run}_C{container}_S{sample_id}_{sample_name}
-Lipidomics,pooledQCDil1,pooledQCDil1,QC,QC dilution series,,Pooled QC dilution 1,3.0,{date}_{run}_C{container}_{sample_name}_{polarity}
+Lipidomics,pooledQCDil2,pooledQCDil2,QC,QC dilution series,,"Pooled QC dilution 2 (QC2, 1:1 dilution of QC1)",3.0,{date}_{run}_C{container}_{sample_name}_{polarity}
 ```
 
 | Column | Description |

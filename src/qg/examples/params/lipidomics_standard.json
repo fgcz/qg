@@ -120,7 +120,7 @@
       }
     ]
   },
-  "qg_version": "0.8.0",
+  "qg_version": "0.8.1",
   "resolved_config": {
     "tech_area": "Lipidomics",
     "instrument": {
@@ -195,15 +195,16 @@
       "run_QC_after_n_samples": 10,
       "start": [
         "blank",
+        "blank",
         "EquiSPLASH",
         "pooledQC",
         "blank",
-        "pooledQCDil1",
-        "pooledQCDil2",
-        "pooledQCDil3",
-        "pooledQCDil4",
-        "pooledQCDil5",
+        "pooledQCDil7",
         "pooledQCDil6",
+        "pooledQCDil5",
+        "pooledQCDil4",
+        "pooledQCDil3",
+        "pooledQCDil2",
         "blank"
       ],
       "middle": [
@@ -221,12 +222,12 @@
         "pooledQC"
       ],
       "middle_extended": [
-        "pooledQCDil1",
-        "pooledQCDil2",
-        "pooledQCDil3",
-        "pooledQCDil4",
+        "pooledQCDil7",
+        "pooledQCDil6",
         "pooledQCDil5",
-        "pooledQCDil6"
+        "pooledQCDil4",
+        "pooledQCDil3",
+        "pooledQCDil2"
       ],
       "middle_extended_frequency_multiplier": 2
     },
@@ -272,18 +273,7 @@
         "sample_type": "QC",
         "qc_class": "Pooled QC",
         "level": null,
-        "description": "Pooled sample QC for batch correction",
-        "inj_vol": 3.0,
-        "file_name_template": "{date}_{run}_C{container}_{sample_name}_{polarity}"
-      },
-      {
-        "tech_area": "Lipidomics",
-        "sample_id": "pooledQCDil1",
-        "sample_name": "pooledQCDil1",
-        "sample_type": "QC",
-        "qc_class": "QC dilution series",
-        "level": null,
-        "description": "Pooled QC dilution 1 (highest concentration)",
+        "description": "Pooled sample QC for batch correction (QC1)",
         "inj_vol": 3.0,
         "file_name_template": "{date}_{run}_C{container}_{sample_name}_{polarity}"
       },
@@ -294,7 +284,7 @@
         "sample_type": "QC",
         "qc_class": "QC dilution series",
         "level": null,
-        "description": "Pooled QC dilution 2",
+        "description": "Pooled QC dilution 2 (QC2, 1:1 dilution of QC1)",
         "inj_vol": 3.0,
         "file_name_template": "{date}_{run}_C{container}_{sample_name}_{polarity}"
       },
@@ -305,7 +295,7 @@
         "sample_type": "QC",
         "qc_class": "QC dilution series",
         "level": null,
-        "description": "Pooled QC dilution 3",
+        "description": "Pooled QC dilution 3 (QC3, 1:1 dilution of QC2)",
         "inj_vol": 3.0,
         "file_name_template": "{date}_{run}_C{container}_{sample_name}_{polarity}"
       },
@@ -316,7 +306,7 @@
         "sample_type": "QC",
         "qc_class": "QC dilution series",
         "level": null,
-        "description": "Pooled QC dilution 4",
+        "description": "Pooled QC dilution 4 (QC4, 1:1 dilution of QC3)",
         "inj_vol": 3.0,
         "file_name_template": "{date}_{run}_C{container}_{sample_name}_{polarity}"
       },
@@ -327,7 +317,7 @@
         "sample_type": "QC",
         "qc_class": "QC dilution series",
         "level": null,
-        "description": "Pooled QC dilution 5",
+        "description": "Pooled QC dilution 5 (QC5, 1:1 dilution of QC4)",
         "inj_vol": 3.0,
         "file_name_template": "{date}_{run}_C{container}_{sample_name}_{polarity}"
       },
@@ -338,7 +328,18 @@
         "sample_type": "QC",
         "qc_class": "QC dilution series",
         "level": null,
-        "description": "Pooled QC dilution 6 (lowest concentration)",
+        "description": "Pooled QC dilution 6 (QC6, 1:1 dilution of QC5)",
+        "inj_vol": 3.0,
+        "file_name_template": "{date}_{run}_C{container}_{sample_name}_{polarity}"
+      },
+      {
+        "tech_area": "Lipidomics",
+        "sample_id": "pooledQCDil7",
+        "sample_name": "pooledQCDil7",
+        "sample_type": "QC",
+        "qc_class": "QC dilution series",
+        "level": null,
+        "description": "Pooled QC dilution 7 (QC7, 1:1 dilution of QC6, lowest concentration)",
         "inj_vol": 3.0,
         "file_name_template": "{date}_{run}_C{container}_{sample_name}_{polarity}"
       }
@@ -371,7 +372,7 @@
         "tech_area": "Lipidomics",
         "qc_layout_name": "standard",
         "plate_layout": "Vanquish_54",
-        "sample_id": "pooledQCDil1",
+        "sample_id": "pooledQCDil7",
         "tray": "Y",
         "row": "F",
         "col": 2
@@ -380,7 +381,7 @@
         "tech_area": "Lipidomics",
         "qc_layout_name": "standard",
         "plate_layout": "Vanquish_54",
-        "sample_id": "pooledQCDil2",
+        "sample_id": "pooledQCDil6",
         "tray": "Y",
         "row": "F",
         "col": 3
@@ -389,7 +390,7 @@
         "tech_area": "Lipidomics",
         "qc_layout_name": "standard",
         "plate_layout": "Vanquish_54",
-        "sample_id": "pooledQCDil3",
+        "sample_id": "pooledQCDil5",
         "tray": "Y",
         "row": "F",
         "col": 4
@@ -407,7 +408,7 @@
         "tech_area": "Lipidomics",
         "qc_layout_name": "standard",
         "plate_layout": "Vanquish_54",
-        "sample_id": "pooledQCDil5",
+        "sample_id": "pooledQCDil3",
         "tray": "Y",
         "row": "F",
         "col": 6
@@ -416,7 +417,7 @@
         "tech_area": "Lipidomics",
         "qc_layout_name": "standard",
         "plate_layout": "Vanquish_54",
-        "sample_id": "pooledQCDil6",
+        "sample_id": "pooledQCDil2",
         "tray": "Y",
         "row": "F",
         "col": 7
