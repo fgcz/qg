@@ -63,7 +63,7 @@ class TestFormattingConfigs:
         assert config.get_sample("Proteomics", "QC01").sample_type == "QC"
         assert config.get_sample("Proteomics", "clean").sample_type == "Blank"
         assert config.get_sample("Metabolomics", "blank").sample_type == "Blank"
-        assert config.get_sample("Metabolomics", "pooledQCDil1").sample_type == "QC"
+        assert config.get_sample("Metabolomics", "pooledQCDil2").sample_type == "QC"
         assert config.get_sample("Lipidomics", "EquiSPLASH").sample_type == "QC"
         assert config.get_sample("Testing", "clean").sample_type == "Blank"
 

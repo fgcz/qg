@@ -195,7 +195,7 @@ authoritative list):
 |-----------|-------------|------|--------------------------|
 | blank | blank | Blank | 6.0 / 3.5 |
 | pooledQC | pooledQC | QC | 6.0 / 3.5 |
-| pooledQCDil1–6 | pooledQCDil1–6 | QC | 6.0 / 3.5 |
+| pooledQCDil2–7 | pooledQCDil2–7 | QC | 6.0 / 3.5 |
 | 108mix_AA / 108mix_OAP | … | QC | 6.0 (Metabolomics) |
 | cal1–7 | cal | Std Bracket | 6.0 (Metabolomics) |
 | default | (user sample) | Unknown | 6.0 / 3.5 |
