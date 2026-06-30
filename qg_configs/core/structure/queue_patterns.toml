@@ -76,11 +76,11 @@ middle = []
 end = ["blank", "blank", "blank"]
 
 [Metabolomics.cal_series]
-description = "Calibration dilution series (cal1..cal7) bookending the user samples"
+description = "Calibration dilution series (cal1..cal7) after the initial and before the final QC"
 run_QC_after_n_samples = 1
-start = ["cal1", "cal2", "cal3", "cal4", "cal5", "cal6", "cal7"]
-middle = []
-end = ["cal7", "cal6", "cal5", "cal4", "cal3", "cal2", "cal1"]
+start = ["blank", "108mix_AA", "108mix_OAP", "pooledQC", "blank", "cal7", "cal6", "cal5", "cal4", "cal3", "cal2", "cal1", "blank", "pooledQCDil7", "pooledQCDil6", "pooledQCDil5", "pooledQCDil4", "pooledQCDil3", "pooledQCDil2", "pooledQC", "blank"]
+middle = ["pooledQC", "108mix_AA", "108mix_OAP", "blank"]
+end = ["blank", "cal7", "cal6", "cal5", "cal4", "cal3", "cal2", "cal1", "pooledQC", "108mix_AA", "108mix_OAP", "blank"]
 
 [Lipidomics.noqc]
 description = "No QC - no QC samples"

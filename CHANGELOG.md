@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Sample Editor now has a "sample name suffix" dropdown that appends a prep-type suffix to every sample name in the generated queue and preview (QC injections are unaffected); the options are tech-area specific and configured per tech area in `ui/tech_area_defaults.toml` (`sample_name_suffixes`) — `enriched`/`total`/`lip` under Proteomics, `none` only where no vocabulary is set.
 
 ### Changed
+- Reworked the Metabolomics `cal_series` queue pattern to interleave QC and standard injections (`108mix_AA`/`108mix_OAP`, `pooledQC`, dilution series, `blank`) with the calibration series, and repositioned the standards in the well QC layout.
 - Renamed the "Sample Selection" tab to "✎ Edit Samples" and moved it to the front of the tab bar (both apps); the app still opens on Queue Preview.
 - Internal: extracted the shared config-editor substance (`compact_toml`, table/TOML section contracts, payload→`QGConfiguration` reconstruction, methods store) into `qg.apps.editor_core`, used by the marimo config editor and reused by the separate `qg-dash` package; removed the duplicated copies with no behavior change.
 - Internal: deduplicated the portal and local queue-app notebooks by moving every shared cell body (views, config-derived transforms, and widget construction) into `queue_app_shared.py`, leaving each notebook with thin binding cells; no user-visible behavior change (added `test_local_viz.py` to cover the local Visualizations tab, previously only exercised on the portal).

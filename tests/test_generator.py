@@ -485,9 +485,10 @@ class TestWellVisitCounts:
         raw = QueueGenerator(config, qi).build_rows().to_table()
 
         counts = raw.group_by(["tray", "row", "col"]).agg(pl.len().alias("visits")).sort(["tray", "row", "col"])
-        # cal_series bookends user samples: cal1..cal7 once at the start (Y:D1..D7)
-        # and once again in reverse at the end → 2 visits each.
-        cal_visits = counts.filter((pl.col("tray") == "Y") & (pl.col("row") == "D"))
+        # cal_series brackets the user samples: cal1..cal7 appear once in the start
+        # block and once (reversed) in the end block (Y:E1..E7) → 2 visits each.
+        # (Row E also holds 108mix_OAP at E9, so scope to the cal columns 1..7.)
+        cal_visits = counts.filter((pl.col("tray") == "Y") & (pl.col("row") == "E") & (pl.col("col") <= 7))
         assert cal_visits.height == 7
         assert set(cal_visits["visits"].to_list()) == {2}
         # User samples occupy A1/A2, one visit each.
@@ -498,10 +499,10 @@ class TestWellVisitCounts:
 class TestPlateStartTray:
     """`start_tray` in plate mode shifts the user's plate off the default tray.
 
-    The Metabolomics `cal_series` layout reserves `Y:D1..D7`. A plate sample at
-    `D1` collides with the layout's cal1 position on the default tray Y. Picking
-    a different start tray (e.g. ``R``) moves the plate to that tray and the
-    same sample at `D1` no longer collides because the layout's reservations
+    The Metabolomics `cal_series` layout reserves `Y:E1..E7` (cal1..cal7). A plate
+    sample at `E1` collides with the layout's cal1 position on the default tray Y.
+    Picking a different start tray (e.g. ``R``) moves the plate to that tray and the
+    same sample at `E1` no longer collides because the layout's reservations
     are scoped to tray Y.
     """
 
@@ -510,7 +511,7 @@ class TestPlateStartTray:
         from qg.params_models import Plate, PlateCell, PlateQueue, PlateQueueInput
 
         sample = VialSample(sample_name="S1", sample_id=100, container_id=99)
-        cell = PlateCell(sample=sample, position=1, grid_position="D1", plate_id=1)
+        cell = PlateCell(sample=sample, position=1, grid_position="E1", plate_id=1)
         plate = Plate(plate_id=1, tray=None, nr_samples=1)  # tray unassigned → resolver picks
         queue = PlateQueue(
             batches={99: ContainerBatch(container_id=99)},
@@ -536,7 +537,7 @@ class TestPlateStartTray:
 
     def test_default_start_tray_collides_with_cal_series(self, config):
         qi, _, _ = self._plate_input(start_tray="")  # default → first tray Y
-        with pytest.raises(ValueError, match=r"at Y:D1 conflicts with QC position"):
+        with pytest.raises(ValueError, match=r"at Y:E1 conflicts with QC position"):
             QueueGenerator(config, qi).build_rows()
 
     def test_explicit_start_tray_R_relocates_plate_and_avoids_conflict(self, config):
@@ -565,14 +566,15 @@ class TestEffectiveQcLayoutIntersection:
         assert effective == []
 
     def test_intersection_with_matching_pattern_is_full_layout(self, config):
-        """`cal_series` layout + `cal_series` pattern → all cal1..cal7 are effectively used."""
+        """`cal_series` layout + `cal_series` pattern → every pattern sample (cals, QCs,
+        standards, blank) has a layout position, so the whole layout is effectively used."""
         sampler = config.samplers.get_sampler("Vanquish")
         layout_samples = config.get_qc_samples("Metabolomics", "cal_series", "Vanquish_54", sampler)
         layout_samples = [s for s in layout_samples if s.sample_id is not None]
         pattern_used = config.queue_patterns.get_pattern("Metabolomics", "cal_series").get_all_sample_ids()
 
         effective = [s for s in layout_samples if s.sample_id in pattern_used]
-        assert {s.sample_id for s in effective} == {f"cal{i}" for i in range(1, 8)}
+        assert {s.sample_id for s in effective} == pattern_used
 
 
 class TestLevelConcentrationsRoundTrip:
