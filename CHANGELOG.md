@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-06-30
+
 ### Changed
 - The `Proteomics.simple_clean` queue pattern now ends with an extra `clean` injection after the closing QCs.
 - Renamed and reordered the Metabolomics/Lipidomics dilution-series QCs (now `pooledQCDil2`–`pooledQCDil7`, numbered so `pooledQC`=QC1 and concentration decreases to QC7) across the `standard` patterns, well QC layouts, and `samples.csv`, and added a lead-in `blank` to the Lipidomics `standard` start.
