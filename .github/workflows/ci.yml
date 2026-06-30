@@ -1,0 +1,121 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  # Callable so publish.yml can run this whole suite as a release gate before
+  # building the image (restores GitLab's test -> build stage ordering).
+  workflow_call:
+    inputs:
+      # publish.yml passes a unique value here so the release-gate run gets its
+      # own concurrency group and can't be cancelled by a concurrent push to main
+      # (a tag release is already safe — its ref makes the group unique).
+      concurrency-group:
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+# Mirror GitLab's workflow.auto_cancel.on_new_commit: interruptible — a new push
+# to the same ref cancels the in-flight run. When called as a release gate the
+# caller supplies a unique group (above), so the gate itself is never cancelled.
+concurrency:
+  group: ${{ inputs.concurrency-group || format('ci-{0}', github.ref) }}
+  cancel-in-progress: true
+
+jobs:
+  # Fast feedback: every non-browser test. No playwright, no apt — fails fast.
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+      - name: Install Python
+        run: uv python install
+      - name: Sync (dev + portal)
+        run: uv sync --frozen
+      - name: Run unit tests
+        run: uv run --no-sync pytest --ignore=tests/gui --ignore=tests/gui_local
+
+  # Core-install gate: prove `qg` installs, imports, and its non-B-Fabric tests
+  # pass WITHOUT the portal extra (no bfabric/fastapi/starlette/python-gitlab).
+  # Syncs only the `dev` group, omitting the `portal` default-group; asserts
+  # bfabric is absent, then runs the B-Fabric-free suite. Guards the publication
+  # path (a plain `pip install qg` stays B-Fabric-free).
+  core-no-bfabric:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+          # Own cache namespace: this job installs a portal-less subset, so it
+          # must not share the uv.lock-keyed cache with the full-install jobs
+          # (otherwise whichever saves first freezes the wrong dependency set).
+          cache-suffix: core
+      - name: Install Python
+        run: uv python install
+      - name: Sync core only (no portal group)
+        run: uv sync --frozen --no-group portal
+      - name: Assert bfabric absent + core imports
+        run: |
+          uv run --no-sync --no-group portal python -c "import importlib.util as u; assert u.find_spec('bfabric') is None, 'bfabric must be absent on a core install'; import qg, qg.cli.generate_queues, qg.cli.validate_config, qg.apps.queue_app_local; print('core import OK, bfabric absent')"
+      - name: Run B-Fabric-free tests
+        run: uv run --no-sync --no-group portal pytest -m "not bfabric" --ignore=tests/gui --ignore=tests/gui_local
+
+  # Browser suite: tests/gui (portal app) + tests/gui_local (standalone app),
+  # driven in headless Chromium via pytest-playwright. Runs on Microsoft's
+  # official Playwright image, which ships the browsers AND their ~67 apt system
+  # libs pre-baked — so this job needs no `playwright install` and no apt step.
+  # The image tag MUST track the `playwright` pin in uv.lock (currently 1.60.0);
+  # a mismatch surfaces as a clear "browser not found / version" error.
+  # Do NOT set PLAYWRIGHT_BROWSERS_PATH here, or the baked browsers hide.
+  gui:
+    runs-on: ubuntu-latest
+    container: mcr.microsoft.com/playwright:v1.60.0-noble
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      # setup-uv supports container jobs; if it ever fails to fetch/cache uv
+      # inside this image, the known-good fallback (used by the old GitLab job)
+      # is the static installer:
+      #   run: curl -LsSf https://astral.sh/uv/install.sh | sh && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+      - name: Install Python
+        run: uv python install
+      - name: Sync (dev + portal)
+        run: uv sync --frozen
+      - name: Run GUI tests
+        run: uv run --no-sync pytest tests/gui tests/gui_local
+
+  # Static lint of the marimo apps. --strict makes warnings (e.g. the
+  # branch-expression rule, where a bare mo.md(...) inside if/elif/else is
+  # computed then discarded so the output never renders) fail the pipeline.
+  marimo-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+      - name: Install Python
+        run: uv python install
+      - name: Sync (dev + portal)
+        run: uv sync --frozen
+      - name: marimo check (strict)
+        run: uv run --no-sync marimo check --strict src/qg/apps/queue_app.py src/qg/apps/queue_app_local.py src/qg/apps/config_editor.py

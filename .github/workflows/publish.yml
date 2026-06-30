@@ -1,0 +1,77 @@
+name: publish
+
+# CD: build the container image and push it to the GitHub Container Registry
+# (ghcr.io/<owner>/<repo>). Replaces the GitLab `build` job, which cross-built an
+# arm64 OCI tar to NFS. Tagging a release (vX.Y.Z) builds and publishes the image;
+# workflow_dispatch covers the GitLab "manual on main" trigger.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  # Release gate: run the full CI suite against the tagged commit first. Mirrors
+  # GitLab's stages: [test, build] ordering — a red test stage blocks the build.
+  test:
+    uses: ./.github/workflows/ci.yml
+    with:
+      # Unique group so this gate run isn't cancelled by a concurrent push to main.
+      concurrency-group: release-gate-${{ github.run_id }}
+
+  build-push:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # arm64 emulation so a single amd64 runner can build the arm64 leg.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive image tags and labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          # tag push -> the version tag (vX.Y.Z); manual dispatch -> the branch
+          # name (e.g. main), so manual builds get a readable tag, not sha-only.
+          tags: |
+            type=ref,event=tag
+            type=ref,event=branch
+            type=sha
+
+      # Builds the existing Dockerfile (uv base, portal extra by default, uvicorn
+      # entrypoint on :8000) for both platforms. The arm64 image is what the
+      # deploy host runs; amd64 lets the image run on amd64 dev machines too.
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
