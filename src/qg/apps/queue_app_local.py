@@ -981,11 +981,29 @@ def _():
 
 
 @app.cell
-def _(full_samples_df):
+def _():
+    name_suffix = mo.ui.dropdown(
+        options=["none", "enriched", "total", "lip"],
+        value="none",
+        label="Append suffix to every sample name",
+    )
+    return (name_suffix,)
+
+
+@app.cell
+def _(full_samples_df, name_suffix):
+    # Apply the name suffix at the source so it shows in the selection table, the
+    # editor grid, the preview, and the output. Derived from the pristine
+    # full_samples_df each run, so switching suffixes never accumulates.
     if not full_samples_df.is_empty():
-        _n = len(full_samples_df)
+        _display_df = full_samples_df
+        if name_suffix.value != "none":
+            _display_df = full_samples_df.with_columns(
+                (pl.col("sample_name") + "_" + name_suffix.value).alias("sample_name")
+            )
+        _n = len(_display_df)
         samples_table = mo.ui.table(
-            data=full_samples_df,
+            data=_display_df,
             selection="multi",
             initial_selection=list(range(_n)),
             label="Uncheck to exclude samples",
@@ -1084,16 +1102,20 @@ def _(
 
 
 @app.cell
-def _(sample_df, sample_mode_selector, samples_editor, samples_table, selected_orders):
+def _(name_suffix, sample_df, sample_mode_selector, samples_editor, samples_table, selected_orders):
     # Sample Selection tab content
     _order_count = len(selected_orders) if selected_orders else 0
     if sample_df is not None and not sample_df.is_empty():
         _summary = mo.md(f"**{len(sample_df)} samples from {_order_count} group(s)**")
     else:
         _summary = mo.md("**No samples loaded**")
+    if samples_editor is not None:
+        _editor_panel = mo.vstack([name_suffix, samples_editor])
+    else:
+        _editor_panel = mo.md("_No samples loaded_")
     _panels = {
         "Sample Selection": samples_table if samples_table is not None else mo.md("_No samples loaded_"),
-        "Sample Editor": samples_editor if samples_editor is not None else mo.md("_No samples loaded_"),
+        "Sample Editor": _editor_panel,
     }
     _panel_stack = [
         mo.md(f'<div style="display: {"block" if _name == sample_mode_selector.value else "none"}">{_widget}</div>')
@@ -1388,7 +1410,7 @@ def _(
 @app.cell
 def _():
     tab_selector = mo.ui.radio(
-        options=["Queue Preview", "Visualizations", "Sample Selection", "Parameters", "Valid Combinations"],
+        options=["✎ Edit Samples", "Queue Preview", "Visualizations", "Parameters", "Valid Combinations"],
         value="Queue Preview",
         inline=True,
     )
@@ -1407,7 +1429,7 @@ def _(
     _sections = {
         "Queue Preview": queue_preview_content,
         "Visualizations": visualizations_content,
-        "Sample Selection": sample_selection_content,
+        "✎ Edit Samples": sample_selection_content,
         "Parameters": parameters_content,
         "Valid Combinations": valid_combinations_content,
     }

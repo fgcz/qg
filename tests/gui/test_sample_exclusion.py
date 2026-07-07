@@ -49,8 +49,8 @@ def _uncheck_sample(page: Page, sample_name: str) -> None:
     """
     # Wait for the samples table to be present (it renders after order selection
     # propagates through the cells).
-    # samples_table is in the DOM but inside the "Sample Selection" tab panel
-    # (queue_app.py:1444), which renders with ``display:none`` until that tab is
+    # samples_table is in the DOM but inside the "✎ Edit Samples" tab panel
+    # (queue_app.py:1537), which renders with ``display:none`` until that tab is
     # active. ``mo.ui.radio`` doesn't expose a Playwright-friendly clickable
     # surface that reliably switches the tab — locating by label and by
     # marimo-radio both bind to elements that don't propagate the click.

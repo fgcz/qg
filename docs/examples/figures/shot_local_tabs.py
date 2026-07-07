@@ -35,7 +35,7 @@ async def main():
         await page.wait_for_timeout(9000)
 
         for label, fname in [
-            ("Sample Selection", "qg_gui_41786_sample_selection.png"),
+            ("✎ Edit Samples", "qg_gui_41786_sample_selection.png"),
             ("Parameters", "qg_gui_41786_parameters.png"),
             ("Queue Preview", "qg_gui_41786_queue_preview.png"),
         ]:
@@ -62,8 +62,8 @@ async def main():
             await figs.nth(j).screenshot(path=str(IMG / names[j]))
             print("wrote", names[j])
 
-        # Sample editor = the editable table on the Sample Selection tab (element crop)
-        await click(page, "Sample Selection")
+        # Sample editor = the editable table on the ✎ Edit Samples tab (element crop)
+        await click(page, "✎ Edit Samples")
         await page.wait_for_timeout(3000)
         tbls = page.locator("table")
         tc = await tbls.count()

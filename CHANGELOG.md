@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Sample Editor now has a "sample name suffix" dropdown (`none`/`enriched`/`total`/`lip`) that appends the chosen suffix to every sample name in the generated queue and preview; QC injections are unaffected.
+
+### Changed
+- Renamed the "Sample Selection" tab to "✎ Edit Samples" and moved it to the front of the tab bar (both apps); the app still opens on Queue Preview.
+
 ### Fixed
 - Portal app no longer crashes at startup when no B-Fabric container cache exists yet (fresh instance / scrubbed public checkout); the employee project list renders empty until "Refresh Projects" populates it.
 
