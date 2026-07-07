@@ -621,8 +621,8 @@ def _():
 
 
 @app.cell
-def _():
-    name_suffix = shared.make_name_suffix()
+def _(tech_area_field):
+    name_suffix = shared.make_name_suffix(tech_area_field.value)
     return (name_suffix,)
 
 

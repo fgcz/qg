@@ -42,6 +42,7 @@ from qg.apps.queue_app_shared import (
     resolve_default_qc_frequency,
     resolve_output_format,
     resolve_qc_layout_preview,
+    suffix_options_for_tech,
     synthesize_local_orders,
     validate_selection,
 )
@@ -594,3 +595,23 @@ class TestBuildQueueParameters:
         # non-numeric inj-vol surfaces as ValueError rather than being swallowed.
         with pytest.raises(ValueError):
             build_queue_parameters(**self._kwargs(inj_vol_text="abc"))
+
+
+# ---------------------------------------------------------------------------
+# suffix_options_for_tech
+# ---------------------------------------------------------------------------
+
+
+class TestSuffixOptionsForTech:
+    def test_proteomics_offers_prep_types(self):
+        assert suffix_options_for_tech("Proteomics") == ["none", "enriched", "total", "lip"]
+
+    def test_other_tech_areas_get_none_only(self):
+        assert suffix_options_for_tech("Metabolomics") == ["none"]
+        assert suffix_options_for_tech("Lipidomics") == ["none"]
+        assert suffix_options_for_tech("Testing") == ["none"]
+
+    def test_none_is_always_first_option(self):
+        # "none" (the value= default) must be a valid option for every tech area.
+        for tech in ("Proteomics", "Metabolomics", "Lipidomics", "unknown"):
+            assert suffix_options_for_tech(tech)[0] == "none"
