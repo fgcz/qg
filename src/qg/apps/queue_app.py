@@ -11,7 +11,6 @@ with app.setup:
 
     import marimo as mo
     import polars as pl
-    import pydantic
     from loguru import logger
 
     from qg.logging_setup import configure_logging
@@ -23,11 +22,6 @@ with app.setup:
     from qg.apps.integrations.bfabric_context import SessionError, resolve_app_session
     from qg.cli.find_projects import ContainerCache
     from qg.config_models.loader import qg_configuration
-    from qg.config_models.structure import SamplesConfig
-    from qg.params_models import QueueParameters
-    from qg.viz.balance import plate_balance, queue_balance
-    from qg.viz.plate import build_plate_figure, build_plate_wells
-    from qg.viz.timeline import build_timeline_figure
 
 
 @app.cell
@@ -109,41 +103,25 @@ def _(config):
 
 @app.cell
 def _(master_table, tech_area_field):
-    # Filter by tech_area for instrument options
-    if tech_area_field.value:
-        table_by_tech = master_table.filter(pl.col("tech_area") == tech_area_field.value)
-    else:
-        table_by_tech = master_table
+    table_by_tech = shared.filter_by_column(master_table, "tech_area", tech_area_field.value)
     return (table_by_tech,)
 
 
 @app.cell
 def _(instrument_field, table_by_tech):
-    # Filter by instrument for sampler options
-    if instrument_field.value:
-        table_by_instrument = table_by_tech.filter(pl.col("instrument") == instrument_field.value)
-    else:
-        table_by_instrument = table_by_tech
+    table_by_instrument = shared.filter_by_column(table_by_tech, "instrument", instrument_field.value)
     return (table_by_instrument,)
 
 
 @app.cell
 def _(sampler_field, table_by_instrument):
-    # Filter by sampler for pattern options
-    if sampler_field.value:
-        table_by_sampler = table_by_instrument.filter(pl.col("sampler") == sampler_field.value)
-    else:
-        table_by_sampler = table_by_instrument
+    table_by_sampler = shared.filter_by_column(table_by_instrument, "sampler", sampler_field.value)
     return (table_by_sampler,)
 
 
 @app.cell
 def _(pattern_field, table_by_qc_layout):
-    # Final filtered table with all selections
-    if pattern_field.value:
-        filtered_table = table_by_qc_layout.filter(pl.col("pattern_name") == pattern_field.value)
-    else:
-        filtered_table = table_by_qc_layout
+    filtered_table = shared.filter_by_column(table_by_qc_layout, "pattern_name", pattern_field.value)
     return (filtered_table,)
 
 
@@ -170,273 +148,104 @@ def _(launching_order_row, master_table):
 
 @app.cell
 def _(table_by_tech, tech_area_field):
-    # Instrument dropdown - options based on selected tech_area
-    _options = sorted(table_by_tech["instrument"].unique().to_list()) if tech_area_field.value else []
-    _default = _options[0] if _options else None
-
-    instrument_field = mo.ui.dropdown(
-        options=_options,
-        value=_default,
-        label="Instrument",
+    instrument_field = shared.make_column_dropdown(
+        table_by_tech, "instrument", enabled=bool(tech_area_field.value), label="Instrument"
     )
     return (instrument_field,)
 
 
 @app.cell
 def _(instrument_field, table_by_instrument):
-    # Sampler dropdown - options based on selected instrument
-    _options = sorted(table_by_instrument["sampler"].unique().to_list()) if instrument_field.value else []
-    _default = _options[0] if _options else None
-
-    sampler_field = mo.ui.dropdown(
-        options=_options,
-        value=_default,
-        label="Sampler",
+    sampler_field = shared.make_column_dropdown(
+        table_by_instrument, "sampler", enabled=bool(instrument_field.value), label="Sampler"
     )
     return (sampler_field,)
 
 
 @app.cell
 def _(qc_layout_field, table_by_qc_layout):
-    # Pattern dropdown - filtered by QC layout compatibility, with default first
-    if qc_layout_field.value:
-        _df = table_by_qc_layout.select(["pattern_name", "default_pattern"]).unique()
-        _default_patterns = _df.filter(pl.col("pattern_name") == pl.col("default_pattern"))["pattern_name"].to_list()
-        _others = (
-            _df.filter(pl.col("pattern_name") != pl.col("default_pattern"))["pattern_name"].unique().sort().to_list()
-        )
-        _options = _default_patterns + _others
-        _default = _options[0] if _options else None
-    else:
-        _options = []
-        _default = None
-
-    pattern_field = mo.ui.dropdown(
-        options=_options,
-        value=_default,
-        label="Pattern",
-    )
+    pattern_field = shared.make_pattern_field(table_by_qc_layout, enabled=bool(qc_layout_field.value))
     return (pattern_field,)
 
 
 @app.cell
 def _(container_has_plates, container_has_vials, sampler_field, table_by_sampler):
-    # Queue Type dropdown: intersection of what the order has and what the sampler supports.
-    queue_type_warning = None
-    if sampler_field.value:
-        _sampler_supports = set(table_by_sampler["queue_type"].unique().to_list())
-        _order_has: set[str] = set()
-        if container_has_plates:
-            _order_has.add("Plate")
-        if container_has_vials:
-            _order_has.add("Vial")
-        _usable = _sampler_supports & _order_has
-        # Vial-first display keeps Vial as the default when both are present.
-        _options = [t for t in ("Vial", "Plate") if t in _usable]
-        _default = _options[0] if _options else None
-
-        if _order_has and not _usable:
-            queue_type_warning = mo.callout(
-                mo.md(f"Sampler **{sampler_field.value}** is incompatible with this order's samples."),
-                kind="warn",
-            )
-    else:
-        _options = []
-        _default = None
-
-    queue_type_field = mo.ui.dropdown(
-        options=_options,
-        value=_default,
-        label="Queue Type",
+    queue_type_field, queue_type_warning = shared.make_queue_type_field(
+        table_by_sampler,
+        sampler=sampler_field.value,
+        has_plates=container_has_plates,
+        has_vials=container_has_vials,
+        incompatible_subject="this order's samples",
     )
     return queue_type_field, queue_type_warning
 
 
 @app.cell
 def _(queue_type_field, table_by_sampler):
-    # Filter by queue_type for plate_layout options
-    if queue_type_field.value:
-        table_by_queue_type = table_by_sampler.filter(pl.col("queue_type") == queue_type_field.value)
-    else:
-        table_by_queue_type = table_by_sampler
+    table_by_queue_type = shared.filter_by_column(table_by_sampler, "queue_type", queue_type_field.value)
     return (table_by_queue_type,)
 
 
 @app.cell
 def _(queue_type_field, table_by_queue_type):
-    # Plate layout dropdown - options based on selected sampler + queue_type
-    if queue_type_field.value:
-        _options = sorted(table_by_queue_type["plate_layout"].unique().to_list())
-        _default = _options[0] if _options else None
-    else:
-        _options = []
-        _default = None
-
-    plate_layout_field = mo.ui.dropdown(
-        options=_options,
-        value=_default,
-        label="Plate Layout",
+    plate_layout_field = shared.make_column_dropdown(
+        table_by_queue_type, "plate_layout", enabled=bool(queue_type_field.value), label="Plate Layout"
     )
     return (plate_layout_field,)
 
 
 @app.cell
 def _(config, plate_layout_field, queue_type_field):
-    # Start position dropdown — only for Vial mode (skip already-used wells)
-    if queue_type_field.value == "Vial" and plate_layout_field.value:
-        _layout = config.plate_layouts.get_layout(plate_layout_field.value)
-        _positions = [f"{row}{col}" for row in _layout.rows for col in _layout.cols]
-        start_position_field = mo.ui.dropdown(
-            options=_positions,
-            value="A1",
-            label="& position",
-        )
-    else:
-        start_position_field = None
+    start_position_field = shared.make_start_position_field(
+        config, queue_type=queue_type_field.value, plate_layout=plate_layout_field.value
+    )
     return (start_position_field,)
 
 
 @app.cell
 def _(config, sampler_field):
-    # Start tray dropdown — shown for both Vial and Plate modes. In vial mode it
-    # controls where vial assignment begins; in plate mode it relocates the
-    # user's plate to the chosen tray (useful for sidestepping QC-layout
-    # collisions on the default tray).
-    if sampler_field.value:
-        _sampler = config.samplers.get_sampler(sampler_field.value)
-        _trays = [str(t) for t in _sampler.trays]
-        start_tray_field = mo.ui.dropdown(
-            options=_trays,
-            value=_trays[0],
-            label="Start: tray",
-        )
-    else:
-        start_tray_field = None
+    start_tray_field = shared.make_start_tray_field(config, sampler=sampler_field.value)
     return (start_tray_field,)
 
 
 @app.cell
 def _(plate_layout_field, table_by_queue_type):
-    # Filter by plate_layout for QC layout options
-    if plate_layout_field.value:
-        table_by_plate_layout = table_by_queue_type.filter(pl.col("plate_layout") == plate_layout_field.value)
-    else:
-        table_by_plate_layout = table_by_queue_type
+    table_by_plate_layout = shared.filter_by_column(table_by_queue_type, "plate_layout", plate_layout_field.value)
     return (table_by_plate_layout,)
 
 
 @app.cell
 def _(plate_layout_field, table_by_plate_layout):
-    # QC layout dropdown - options based on (tech_area, sampler, plate_layout)
-    if plate_layout_field.value and "qc_layout_name" in table_by_plate_layout.columns:
-        _all_layouts = sorted(table_by_plate_layout["qc_layout_name"].unique().to_list())
-        # Auto-select: prefer the default_pattern's qc_layout_name, else first
-        _default_rows = table_by_plate_layout.filter(pl.col("pattern_name") == pl.col("default_pattern"))
-        if not _default_rows.is_empty():
-            _default_qc = _default_rows["qc_layout_name"].to_list()[0]
-        else:
-            _default_qc = _all_layouts[0] if _all_layouts else None
-        _options = _all_layouts
-        _default = _default_qc if _default_qc in _all_layouts else (_all_layouts[0] if _all_layouts else None)
-    else:
-        _options = []
-        _default = None
-
-    qc_layout_field = mo.ui.dropdown(
-        options=_options,
-        value=_default,
-        label="QC Layout",
-    )
+    qc_layout_field = shared.make_qc_layout_field(table_by_plate_layout, enabled=bool(plate_layout_field.value))
     return (qc_layout_field,)
 
 
 @app.cell
 def _(qc_layout_field, table_by_plate_layout):
-    # Filter by qc_layout for pattern options
-    if qc_layout_field.value:
-        table_by_qc_layout = table_by_plate_layout.filter(pl.col("qc_layout_name") == qc_layout_field.value)
-    else:
-        table_by_qc_layout = table_by_plate_layout
+    table_by_qc_layout = shared.filter_by_column(table_by_plate_layout, "qc_layout_name", qc_layout_field.value)
     return (table_by_qc_layout,)
 
 
 @app.cell
 def _(config, plate_layout_field, qc_layout_field, tech_area_field):
-    # Per-level concentration inputs: shown when the selected QC layout contains
-    # at least one `standard`-type sample (e.g. Metabolomics `cal_series`).
-    _units = ["pmol", "nmol", "umol", "pgml", "ngml", "ugml"]
-    # Halving-dilution preset: level 1 = highest, last level = 1. Up to 7
-    # levels; extra levels fall back to the lowest value.
-    _preset_values = [100, 50, 25, 12, 6, 3, 1]
-    _preset_unit = "umol"
-    concentration_inputs = None
-    if qc_layout_field.value and plate_layout_field.value and tech_area_field.value:
-        _qc_sample_ids = config.qc_layouts_well.get_sample_ids(
-            tech_area_field.value, qc_layout_field.value, plate_layout_field.value
-        )
-        _level_map: dict[int, str] = {}
-        for _sid in _qc_sample_ids:
-            _s = config.samples.get_sample(tech_area_field.value, _sid)
-            if _s.sample_type == "Std Bracket" and _s.level is not None:
-                _level_map[_s.level] = _sid
-
-        if _level_map:
-            _sorted_levels = sorted(_level_map)
-            concentration_inputs = {
-                _level: {
-                    "value": mo.ui.number(
-                        start=1,
-                        stop=999,
-                        step=1,
-                        value=_preset_values[_idx] if _idx < len(_preset_values) else _preset_values[-1],
-                    ),
-                    "unit": mo.ui.dropdown(options=_units, value=_preset_unit),
-                }
-                for _idx, _level in enumerate(_sorted_levels)
-            }
+    concentration_inputs = shared.make_concentration_inputs(
+        config,
+        tech_area=tech_area_field.value,
+        qc_layout=qc_layout_field.value,
+        plate_layout=plate_layout_field.value,
+    )
     return (concentration_inputs,)
 
 
 @app.cell
 def _(concentration_inputs):
-    # Resolved level -> "<value><unit>" mapping, threaded into QueueParameters.
-    if concentration_inputs is None:
-        level_concentrations: dict[int, str] = {}
-    else:
-        level_concentrations = {
-            _level: f"{_widgets['value'].value}{_widgets['unit'].value}"
-            for _level, _widgets in concentration_inputs.items()
-            if _widgets["value"].value is not None
-        }
+    level_concentrations = shared.resolve_level_concentrations(concentration_inputs)
     return (level_concentrations,)
 
 
 @app.cell
 def _(concentration_inputs):
-    # Compact three-column grid: Level | Value | Unit. Empty when nothing to show.
-    if concentration_inputs is None:
-        _concentration_block = mo.md("")
-    else:
-        _widths = [1, 2, 2]
-        _header = mo.hstack(
-            [mo.md("**Level**"), mo.md("**Value**"), mo.md("**Unit**")],
-            widths=_widths,
-            justify="start",
-        )
-        _rows = [
-            mo.hstack(
-                [mo.md(str(_level)), _widgets["value"], _widgets["unit"]],
-                widths=_widths,
-                justify="start",
-                align="center",
-            )
-            for _level, _widgets in concentration_inputs.items()
-        ]
-        _concentration_block = mo.vstack(
-            [mo.md("**Concentration per level**"), _header, *_rows],
-            gap=0.25,
-        )
-    concentration_block = _concentration_block
+    concentration_block = shared.render_concentration_block(concentration_inputs)
     return (concentration_block,)
 
 
@@ -460,49 +269,19 @@ def _(
     selected_orders,
     tech_area_field,
 ):
-    # Validate that all parameters are set and a valid QC layout exists
-    validation_errors = []
-
-    if not selected_orders:
-        # Until an order is picked nothing downstream can resolve; show a single
-        # actionable hint instead of a cascade of "X not selected" entries.
-        validation_errors.append("Please select an order")
-    else:
-        if not tech_area_field.value:
-            validation_errors.append("Tech area not selected")
-        if not instrument_field.value:
-            validation_errors.append("Instrument not selected")
-        if not sampler_field.value:
-            validation_errors.append("Sampler not selected")
-        if not queue_type_field.value:
-            validation_errors.append("Queue type not selected")
-        if not plate_layout_field.value:
-            validation_errors.append("Plate layout not selected")
-        if not qc_layout_field.value:
-            validation_errors.append("QC layout not selected")
-        if not pattern_field.value:
-            validation_errors.append("Pattern not selected")
-
-    # Check combination exists in filtered table
-    if not validation_errors and filtered_table.is_empty():
-        validation_errors.append("No valid combination found")
-
-    # Check QC layout has samples for this combination (skip for patterns with no QC references)
-    if not validation_errors and plate_layout_field.value and qc_layout_field.value:
-        _pattern = config.queue_patterns.get_pattern(tech_area_field.value, pattern_field.value)
-        if _pattern and _pattern.get_all_sample_ids():
-            _qc_samples = config.get_qc_samples(
-                tech_area_field.value,
-                qc_layout_field.value,
-                plate_layout_field.value,
-                config.samplers.get_sampler(sampler_field.value),
-            )
-            if not _qc_samples:
-                validation_errors.append(
-                    f"No QC samples for {tech_area_field.value}/{qc_layout_field.value}/{plate_layout_field.value}"
-                )
-
-    config_valid = len(validation_errors) == 0
+    config_valid, validation_errors = shared.validate_selection(
+        config,
+        selected_orders=selected_orders,
+        tech_area=tech_area_field.value,
+        instrument=instrument_field.value,
+        sampler=sampler_field.value,
+        queue_type=queue_type_field.value,
+        plate_layout=plate_layout_field.value,
+        qc_layout=qc_layout_field.value,
+        pattern=pattern_field.value,
+        filtered_table=filtered_table,
+        no_source_message="Please select an order",
+    )
     return config_valid, validation_errors
 
 
@@ -515,147 +294,71 @@ def _(
     sampler_field,
     validation_errors,
 ):
-    # Combine config validation with dynamic plate capacity check
-    _all_errors = list(validation_errors)
-
-    # Check plate count vs sampler tray capacity (only for plate mode)
-    if (
-        config_valid
-        and queue_type_field.value == "Plate"
-        and sampler_field.value
-        and sample_df is not None
-        and not sample_df.is_empty()
-        and "plate_id" in sample_df.columns
-    ):
-        _sampler = config.samplers.get_sampler(sampler_field.value)
-        if _sampler:
-            _num_trays = len(_sampler.trays)
-            _num_plates = sample_df["plate_id"].n_unique()
-            if _num_plates > _num_trays:
-                _all_errors.append(f"{sampler_field.value} has {_num_trays} trays but {_num_plates} plates selected")
-
-    # Only show validation status when there are errors
-    if not _all_errors:
-        validation_status = None
-    else:
-        _errors_md = "\n".join(f"• {e}" for e in _all_errors)
-        validation_status = mo.callout(mo.md(f"**Issues:**\n{_errors_md}"), kind="warn")
+    validation_status = shared.render_validation_status(
+        config,
+        config_valid=config_valid,
+        validation_errors=validation_errors,
+        queue_type=queue_type_field.value,
+        sampler=sampler_field.value,
+        sample_df=sample_df,
+    )
     return (validation_status,)
 
 
 @app.cell
 def _(config, pattern_field, tech_area_field):
-    # Get default QC frequency from selected pattern (fallback to 16 if not yet selected)
-    if tech_area_field.value and pattern_field.value:
-        _pattern = config.queue_patterns.get_pattern(tech_area_field.value, pattern_field.value)
-        default_qc_frequency = _pattern.run_QC_after_n_samples if _pattern else 16
-    else:
-        default_qc_frequency = 16
+    default_qc_frequency = shared.resolve_default_qc_frequency(config, tech_area_field.value, pattern_field.value)
     return (default_qc_frequency,)
 
 
 @app.cell
 def _(default_qc_frequency):
-    qc_frequency_field = mo.ui.text(
-        value="",
-        label="QC frequency",
-        placeholder=str(default_qc_frequency),
-    )
+    qc_frequency_field = shared.make_qc_frequency_field(default_qc_frequency)
     return (qc_frequency_field,)
 
 
 @app.cell
 def _(config, instrument_field, tech_area_field):
-    # Load available methods from config (empty DataFrame if not yet selected)
-    if tech_area_field.value and instrument_field.value:
-        _methods = config.methods.get_methods(tech_area_field.value, instrument_field.value)
-        methods_df = _methods.to_table() if _methods else pl.DataFrame()
-    else:
-        methods_df = pl.DataFrame()
+    methods_df = shared.load_methods_table(config, tech_area_field.value, instrument_field.value)
     return (methods_df,)
 
 
 @app.cell
 def _(config, instrument_field, methods_df, pattern_field, tech_area_field):
-    # Compute available method names as the intersection across all sample types
-    # in the selected pattern (QC samples + default for user samples).
-    def _get_methods_intersection(polarity: str) -> list[str]:
-        if methods_df.is_empty() or not tech_area_field.value or not instrument_field.value:
-            return []
-        methods_for_instr = config.methods.get_methods(tech_area_field.value, instrument_field.value)
-
-        # Collect sample_ids from pattern + "default" for user samples
-        sample_ids: set[str] = {SamplesConfig.DEFAULT_SAMPLE_ID}
-        if pattern_field.value:
-            _pattern = config.queue_patterns.get_pattern(tech_area_field.value, pattern_field.value)
-            sample_ids |= _pattern.get_all_sample_ids()
-
-        # Intersect method names across all sample types
-        sets = [methods_for_instr.get_method_names(sid, polarity) for sid in sample_ids]
-        # Only include sample types that have at least one method row;
-        # sample types with no rows in the method file are not constrained
-        non_empty = [s for s in sets if s]
-        if not non_empty:
-            return []
-        return sorted(non_empty[0].intersection(*non_empty[1:]), reverse=True)
-
-    _has_polarity = not methods_df.is_empty() and "polarity" in methods_df.columns
-    available_methods_pos = _get_methods_intersection("pos" if _has_polarity else "")
-    available_methods_neg = _get_methods_intersection("neg" if _has_polarity else "")
+    available_methods_pos, available_methods_neg = shared.available_method_names(
+        config, methods_df, tech_area_field.value, instrument_field.value, pattern_field.value
+    )
     return available_methods_neg, available_methods_pos
 
 
 @app.cell
 def _(available_methods_pos, polarity_group):
-    # Method dropdown for positive polarity (with None option)
-    _show_pos = polarity_group.value.get("pos", False)
-    if _show_pos:
-        _options = [""] + available_methods_pos  # Empty string = no method
-        _label_pos = "Method Name (pos)" if polarity_group.value.get("neg", False) else "Method Name"
-        method_field_pos = mo.ui.dropdown(
-            options=_options,
-            value=available_methods_pos[0] if available_methods_pos else "",
-            label=_label_pos,
-        )
-    else:
-        method_field_pos = None
+    _label = "Method Name (pos)" if polarity_group.value.get("neg", False) else "Method Name"
+    method_field_pos = shared.make_method_field(
+        available_methods_pos, show=polarity_group.value.get("pos", False), label=_label
+    )
     return (method_field_pos,)
 
 
 @app.cell
 def _(available_methods_neg, polarity_group):
-    # Method dropdown for negative polarity (with None option)
-    _show_neg = polarity_group.value.get("neg", False)
-    if _show_neg:
-        _options = [""] + available_methods_neg  # Empty string = no method
-        method_field_neg = mo.ui.dropdown(
-            options=_options,
-            value=available_methods_neg[0] if available_methods_neg else "",
-            label="Method Name (neg)",
-        )
-    else:
-        method_field_neg = None
+    method_field_neg = shared.make_method_field(
+        available_methods_neg, show=polarity_group.value.get("neg", False), label="Method Name (neg)"
+    )
     return (method_field_neg,)
 
 
 @app.cell
 def _(config, tech_area_field):
-    _defaults = config.tech_area_defaults.get_default_polarities(tech_area_field.value)
-    polarity_group = mo.ui.batch(
-        mo.md("**Polarity:** {pos} pos {neg} neg"),
-        {
-            "pos": mo.ui.checkbox(value="pos" in _defaults),
-            "neg": mo.ui.checkbox(value="neg" in _defaults),
-        },
+    polarity_group = shared.make_polarity_group(
+        config.tech_area_defaults.get_default_polarities(tech_area_field.value)
     )
     return (polarity_group,)
 
 
 @app.cell
 def _():
-    randomization_field = mo.ui.dropdown(
-        options=["no", "random", "blocked", "blocked_uniform"], value="no", label="Randomization"
-    )
+    randomization_field = shared.make_randomization_field()
     return (randomization_field,)
 
 
@@ -696,60 +399,15 @@ def _(
     sampler_field,
     tech_area_field,
 ):
-    # Show the *effective* QC layout for this run — the intersection of what
-    # the QC layout declares and what the selected pattern actually injects.
-    # With the noqc pattern the intersection is empty and the preview is
-    # hidden (matches runtime semantics in create_qc_layout). When a queue
-    # has been generated we append a `visits` column counting how many times
-    # each well is touched (well-plate samplers only — tip samplers expose
-    # ranges, which would need interval logic; deferred).
-    qc_layout_preview = None
-    if (
-        tech_area_field.value
-        and sampler_field.value
-        and plate_layout_field.value
-        and qc_layout_field.value
-        and pattern_field.value
-    ):
-        _sampler = config.samplers.get_sampler(sampler_field.value)
-        _samples = config.get_qc_samples(
-            tech_area_field.value,
-            qc_layout_field.value,
-            plate_layout_field.value,
-            _sampler,
-        )
-        # Drop noqc placeholder rows (sample_id is None) and any layout row
-        # whose sample_id isn't referenced by the chosen pattern.
-        _pattern = config.queue_patterns.get_pattern(tech_area_field.value, pattern_field.value)
-        _used_sample_ids = _pattern.get_all_sample_ids()
-        _samples = [s for s in _samples if s.sample_id is not None and s.sample_id in _used_sample_ids]
-        if _samples:
-            _rows = []
-            if _sampler.is_tip:
-                # TODO: per-range visit counts for tip samplers (Evosep) — needs
-                # interval intersection against per-row positions.
-                for s in _samples:
-                    _rows.append(
-                        {"sample_id": s.sample_id, "tray": s.tray, "range": f"{s.position_start}-{s.position_end}"}
-                    )
-                qc_layout_preview = pl.DataFrame(_rows)
-            else:
-                for s in _samples:
-                    _rows.append({"sample_id": s.sample_id, "tray": s.tray, "pos": f"{s.row}{s.col}"})
-                _preview = pl.DataFrame(_rows)
-                if raw_queue_df is not None and not raw_queue_df.is_empty():
-                    _well_counts = (
-                        raw_queue_df.group_by(["tray", "row", "col"])
-                        .agg(pl.len().alias("visits"))
-                        .with_columns(pl.concat_str(["row", pl.col("col").cast(pl.Utf8)]).alias("pos"))
-                        .select(["tray", "pos", "visits"])
-                    )
-                    # Align dtypes — preview's tray is Utf8 from the dict; queue's tray may be int.
-                    _well_counts = _well_counts.with_columns(pl.col("tray").cast(_preview["tray"].dtype))
-                    _preview = _preview.join(_well_counts, on=["tray", "pos"], how="left").with_columns(
-                        pl.col("visits").fill_null(0)
-                    )
-                qc_layout_preview = _preview
+    qc_layout_preview = shared.resolve_qc_layout_preview(
+        config,
+        tech_area=tech_area_field.value,
+        sampler=sampler_field.value,
+        plate_layout=plate_layout_field.value,
+        qc_layout=qc_layout_field.value,
+        pattern=pattern_field.value,
+        raw_queue_df=raw_queue_df,
+    )
     return (qc_layout_preview,)
 
 
@@ -780,56 +438,35 @@ def _(
     user_field,
     validation_status,
 ):
-    # Hide the Pattern dropdown when the user picks the "noqc" QC layout — the only
-    # compatible pattern is "noqc" itself, so the choice is degenerate.
-    _queue_items = [qc_layout_field]
-    if qc_layout_field.value != "noqc":
-        _queue_items.append(pattern_field)
-    if concentration_inputs is not None:
-        _queue_items.append(concentration_block)
-    _queue_items.append(polarity_group)
-    if method_field_pos is not None:
-        _queue_items.append(method_field_pos)
-    if method_field_neg is not None:
-        _queue_items.append(method_field_neg)
-
-    _sidebar_items = [
-        mo.md("## Queue Generator"),
-        tech_area_field,
-        instrument_field,
-        sampler_field,
-        queue_type_field,
-        *([] if queue_type_warning is None else [queue_type_warning]),
-        plate_layout_field,
-        *(
-            []
-            if start_tray_field is None
-            else (
-                [mo.hstack([start_tray_field, start_position_field], justify="start")]
-                if start_position_field is not None
-                else [start_tray_field]
-            )
+    mo.sidebar(
+        shared.render_sidebar_body(
+            tech_area_field=tech_area_field,
+            instrument_field=instrument_field,
+            sampler_field=sampler_field,
+            queue_type_field=queue_type_field,
+            queue_type_warning=queue_type_warning,
+            plate_layout_field=plate_layout_field,
+            start_tray_field=start_tray_field,
+            start_position_field=start_position_field,
+            output_format_value=output_format_value,
+            qc_layout_field=qc_layout_field,
+            pattern_field=pattern_field,
+            concentration_inputs=concentration_inputs,
+            concentration_block=concentration_block,
+            polarity_group=polarity_group,
+            method_field_pos=method_field_pos,
+            method_field_neg=method_field_neg,
+            randomization_field=randomization_field,
+            date_field=date_field,
+            user_field=user_field,
+            inj_vol_field=inj_vol_field,
+            qc_frequency_field=qc_frequency_field,
+            validation_status=validation_status,
+            qc_layout_preview=qc_layout_preview,
         ),
-        mo.md(f"**Output:** {output_format_value}"),
-        mo.md("### Queue"),
-        *_queue_items,
-        mo.md("### Options"),
-        randomization_field,
-        date_field,
-        user_field,
-        inj_vol_field,
-        qc_frequency_field,
-    ]
-    # Add validation errors at bottom only if present
-    if validation_status is not None:
-        _sidebar_items.append(validation_status)
-
-    # Add QC layout preview table at the bottom
-    if qc_layout_preview is not None:
-        _sidebar_items.append(mo.md(f"**QC Positions** _{qc_layout_field.value}_"))
-        _sidebar_items.append(qc_layout_preview)
-
-    mo.sidebar(mo.vstack(_sidebar_items), footer=mo.md(f"Version: {app_version}"), width="28rem")
+        footer=mo.md(f"Version: {app_version}"),
+        width="28rem",
+    )
     return
 
 
@@ -979,57 +616,25 @@ def _(full_samples_df, is_employee):
 
 @app.cell
 def _():
-    sample_mode_selector = mo.ui.radio(
-        options=["Sample Selection", "Sample Editor"],
-        value="Sample Selection",
-        inline=True,
-    )
+    sample_mode_selector = shared.make_sample_mode_selector()
     return (sample_mode_selector,)
 
 
 @app.cell
 def _():
-    name_suffix = mo.ui.dropdown(
-        options=["none", "enriched", "total", "lip"],
-        value="none",
-        label="Append suffix to every sample name",
-    )
+    name_suffix = shared.make_name_suffix()
     return (name_suffix,)
 
 
 @app.cell
 def _(full_samples_df, name_suffix):
-    # Apply the name suffix at the source so it shows in the selection table, the
-    # editor grid, the preview, and the output. Derived from the pristine
-    # full_samples_df each run, so switching suffixes never accumulates.
-    if not full_samples_df.is_empty():
-        _display_df = full_samples_df
-        if name_suffix.value != "none":
-            _display_df = full_samples_df.with_columns(
-                (pl.col("sample_name") + "_" + name_suffix.value).alias("sample_name")
-            )
-        _n = len(_display_df)
-        samples_table = mo.ui.table(
-            data=_display_df,
-            selection="multi",
-            initial_selection=list(range(_n)),
-            label="Uncheck to exclude samples",
-            show_download=False,
-            pagination=False,
-        )
-    else:
-        samples_table = None
+    samples_table = shared.make_samples_table(full_samples_df, name_suffix.value)
     return (samples_table,)
 
 
 @app.cell
-def _(full_samples_df, samples_table):
-    if samples_table is not None:
-        _kept = samples_table.value
-        _with_order = _kept.with_row_index("order", offset=1).cast({"order": pl.Float64})
-        samples_editor = mo.ui.data_editor(_with_order, label="Samples (edit order to reorder)", pagination=False)
-    else:
-        samples_editor = None
+def _(samples_table):
+    samples_editor = shared.make_samples_editor(samples_table)
     return (samples_editor,)
 
 
@@ -1064,41 +669,27 @@ def _(
     tech_area_field,
     user_field,
 ):
-    queue_parameters_err = None
-    try:
-        _inj_vol = float(inj_vol_field.value) if inj_vol_field.value.strip() else None
-        _qc_freq = int(qc_frequency_field.value) if qc_frequency_field.value.strip() else None
-        _polarity = [p for p in ("pos", "neg") if polarity_group.value.get(p)]
-
-        # Build method dict from per-polarity selections
-        _method_fields = {"pos": method_field_pos, "neg": method_field_neg}
-        method_dict = {pol: field.value for pol, field in _method_fields.items() if field is not None and field.value}
-
-        queue_parameters = QueueParameters.model_validate(
-            {
-                "tech_area": tech_area_field.value,
-                "instrument": instrument_field.value,
-                "sampler": sampler_field.value,
-                "output_format": output_format_value,
-                "queue_pattern": pattern_field.value,
-                "queue_type": queue_type_field.value,
-                "plate_layout": plate_layout_field.value,
-                "qc_layout_name": qc_layout_field.value,
-                "polarity": _polarity,
-                "date": date_field.value.strftime("%Y%m%d"),
-                "user": user_field.value.strip(),
-                "method": method_dict,
-                "randomization": randomization_field.value,
-                "inj_vol_override": _inj_vol,
-                "qc_frequency_override": _qc_freq,
-                "start_position": start_position_field.value if start_position_field is not None else "A1",
-                "start_tray": start_tray_field.value if start_tray_field is not None else "",
-                "level_concentrations": level_concentrations,
-            }
-        )
-    except pydantic.ValidationError as e:
-        queue_parameters_err = e
-        queue_parameters = None
+    queue_parameters, queue_parameters_err = shared.build_queue_parameters(
+        tech_area=tech_area_field.value,
+        instrument=instrument_field.value,
+        sampler=sampler_field.value,
+        output_format=output_format_value,
+        queue_pattern=pattern_field.value,
+        queue_type=queue_type_field.value,
+        plate_layout=plate_layout_field.value,
+        qc_layout_name=qc_layout_field.value,
+        polarity_flags=polarity_group.value,
+        date=date_field.value,
+        user=user_field.value,
+        method_pos=method_field_pos.value if method_field_pos is not None else None,
+        method_neg=method_field_neg.value if method_field_neg is not None else None,
+        randomization=randomization_field.value,
+        inj_vol_text=inj_vol_field.value,
+        qc_frequency_text=qc_frequency_field.value,
+        start_position=start_position_field.value if start_position_field is not None else None,
+        start_tray=start_tray_field.value if start_tray_field is not None else None,
+        level_concentrations=level_concentrations,
+    )
     return queue_parameters, queue_parameters_err
 
 
@@ -1160,25 +751,15 @@ def _(all_plates, plates_select, selected_orders):
 
 @app.cell
 def _(name_suffix, sample_df, sample_mode_selector, samples_editor, samples_table, selected_orders):
-    # Sample Selection tab content
-    _order_count = len(selected_orders) if selected_orders else 0
-    if sample_df is not None and not sample_df.is_empty():
-        _summary = mo.md(f"**{len(sample_df)} samples from {_order_count} order(s)**")
-    else:
-        _summary = mo.md("**No samples loaded**")
-    if samples_editor is not None:
-        _editor_panel = mo.vstack([name_suffix, samples_editor])
-    else:
-        _editor_panel = mo.md("_No samples loaded_")
-    _panels = {
-        "Sample Selection": samples_table if samples_table is not None else mo.md("_No samples loaded_"),
-        "Sample Editor": _editor_panel,
-    }
-    _panel_stack = [
-        mo.md(f'<div style="display: {"block" if _name == sample_mode_selector.value else "none"}">{_widget}</div>')
-        for _name, _widget in _panels.items()
-    ]
-    sample_selection_content = mo.vstack([_summary, sample_mode_selector, *_panel_stack])
+    sample_selection_content = shared.render_sample_selection_content(
+        sample_df=sample_df,
+        selected_orders=selected_orders,
+        name_suffix=name_suffix,
+        sample_mode_selector=sample_mode_selector,
+        samples_table=samples_table,
+        samples_editor=samples_editor,
+        subject_label="order(s)",
+    )
     return (sample_selection_content,)
 
 
@@ -1366,108 +947,39 @@ def _(
 
 @app.cell
 def _():
-    # Well size for the Plate Layout view; lets the user shrink/grow the plot.
-    plate_well_size = mo.ui.slider(start=14, stop=52, step=2, value=30, label="Well size", show_value=True)
+    plate_well_size = shared.make_plate_well_size()
     return (plate_well_size,)
 
 
 @app.cell
 def _():
-    # Sub-view selector for the Visualizations tab.
-    viz_subtab = mo.ui.radio(
-        options=["Plate Layout", "Acquisition Timeline"],
-        value="Plate Layout",
-        inline=True,
-    )
+    viz_subtab = shared.make_viz_subtab()
     return (viz_subtab,)
 
 
 @app.cell
 def _():
-    # Color encoding for the plate map and the acquisition timeline. Static options;
-    # the content cell degrades gracefully to sample-type coloring when the queue
-    # carries no grouping_var (the common case).
-    plate_color_by = mo.ui.dropdown(
-        options=["Sample type", "Group (grouping_var)"], value="Sample type", label="Color by"
-    )
-    timeline_color_by = mo.ui.dropdown(
-        options=["Injection class", "QC cadence"], value="Injection class", label="Color by"
-    )
+    plate_color_by, timeline_color_by = shared.make_viz_color_selectors()
     return plate_color_by, timeline_color_by
 
 
 @app.cell
 def _(config, plate_color_by, plate_well_size, queue_parameters, raw_queue_df):
-    # Plate Layout sub-view: plate map colored by sample type or covariate, with a
-    # group <-> plate-position balance score. Module globals (build_plate_*, plate_balance)
-    # come from the app.setup block, so they are referenced directly, not as cell params.
-    if raw_queue_df is None or raw_queue_df.is_empty():
-        plate_layout_view = mo.md("_Generate a queue to see the plate layout._")
-    else:
-        _geom = raw_queue_df.filter((pl.col("row") != "") & (pl.col("col") != 0))
-        if _geom.is_empty():
-            plate_layout_view = mo.callout(
-                mo.md("**Plate view not available** for this layout — positions have no row/column geometry."),
-                kind="info",
-            )
-        else:
-            _has_group = _geom["grouping_var"].drop_nulls().len() > 0
-            _want_group = plate_color_by.value.startswith("Group") and _has_group
-            _color_by = "grouping_var" if _want_group else "category"
-            _legend = "grouping_var" if _want_group else "sample type"
-            _score = plate_balance(raw_queue_df)
-            _score_md = (
-                f"Group ↔ plate position (η²): **{_score:.2f}** — 0 = balanced, 1 = separated"
-                if _score is not None
-                else "Group ↔ plate position (η²): **N/A** (no grouping variable)"
-            )
-            _wells = build_plate_wells(_geom)
-            _orders = sorted(_geom["container_id"].unique().to_list())
-            _layout = config.plate_layouts.get_layout(queue_parameters.plate_layout)
-            plate_layout_view = mo.vstack(
-                [
-                    mo.md(f"**Plate layout** — color = {_legend}, shape = order. Hover a well for details."),
-                    mo.md(_score_md),
-                    mo.hstack([plate_color_by, plate_well_size], justify="start", gap=2),
-                    mo.ui.plotly(
-                        build_plate_figure(_wells, _layout, _orders, cell=plate_well_size.value, color_by=_color_by)
-                    ),
-                ]
-            )
+    plate_layout_view = shared.render_plate_layout_view(
+        config, raw_queue_df, queue_parameters, plate_color_by, plate_well_size
+    )
     return (plate_layout_view,)
 
 
 @app.cell
 def _(raw_queue_df, timeline_color_by):
-    # Acquisition Timeline sub-view: per-injection strip recolored by group or QC
-    # cadence, with a group <-> queue-position balance score. No plate geometry
-    # needed, so this also works for vial-mode queues.
-    if raw_queue_df is None or raw_queue_df.is_empty():
-        timeline_view = mo.md("_Generate a queue to see the acquisition timeline._")
-    else:
-        _color_by = "qc_cadence" if timeline_color_by.value == "QC cadence" else "grouping_var"
-        _score = queue_balance(raw_queue_df)
-        _score_md = (
-            f"Group ↔ queue position (η²): **{_score:.2f}** — 0 = balanced, 1 = separated"
-            if _score is not None
-            else "Group ↔ queue position (η²): **N/A** (no grouping variable)"
-        )
-        timeline_view = mo.vstack(
-            [
-                mo.md("**Acquisition timeline** — one tile per injection along run order. Hover for details."),
-                mo.md(_score_md),
-                timeline_color_by,
-                mo.ui.plotly(build_timeline_figure(raw_queue_df, color_by=_color_by)),
-            ]
-        )
+    timeline_view = shared.render_timeline_view(raw_queue_df, timeline_color_by)
     return (timeline_view,)
 
 
 @app.cell
 def _(plate_layout_view, timeline_view, viz_subtab):
-    # Visualizations tab content: a sub-tab selector over the plate and timeline views.
-    _views = {"Plate Layout": plate_layout_view, "Acquisition Timeline": timeline_view}
-    visualizations_content = mo.vstack([viz_subtab, _views[viz_subtab.value]])
+    visualizations_content = shared.render_visualizations_content(viz_subtab, plate_layout_view, timeline_view)
     return (visualizations_content,)
 
 
@@ -1482,65 +994,22 @@ def _(
     sampler_field,
     tech_area_field,
 ):
-    # Valid Combinations tab content - shows ALL combinations with matching rows highlighted
-    # Build match condition based on current selections
-    _match_conditions = []
-    _active_filters = []
-
-    if tech_area_field.value:
-        _match_conditions.append(pl.col("tech_area") == tech_area_field.value)
-        _active_filters.append(f"**tech_area** = {tech_area_field.value}")
-    if instrument_field.value:
-        _match_conditions.append(pl.col("instrument") == instrument_field.value)
-        _active_filters.append(f"**instrument** = {instrument_field.value}")
-    if sampler_field.value:
-        _match_conditions.append(pl.col("sampler") == sampler_field.value)
-        _active_filters.append(f"**sampler** = {sampler_field.value}")
-    if qc_layout_field.value:
-        _match_conditions.append(pl.col("qc_layout_name") == qc_layout_field.value)
-        _active_filters.append(f"**qc_layout** = {qc_layout_field.value}")
-    if pattern_field.value:
-        _match_conditions.append(pl.col("pattern_name") == pattern_field.value)
-        _active_filters.append(f"**pattern_name** = {pattern_field.value}")
-    if queue_type_field.value:
-        _match_conditions.append(pl.col("queue_type") == queue_type_field.value)
-        _active_filters.append(f"**queue_type** = {queue_type_field.value}")
-    if plate_layout_field.value:
-        _match_conditions.append(pl.col("plate_layout") == plate_layout_field.value)
-        _active_filters.append(f"**plate_layout** = {plate_layout_field.value}")
-
-    # Create combined match expression
-    _display_cols = [c for c in master_table.columns if c != "default_pattern"]
-    if _match_conditions:
-        _combined_match = pl.all_horizontal(*_match_conditions)
-        # Add "✓" column for matching rows, sort matches to top
-        _display_table = (
-            master_table.with_columns(pl.when(_combined_match).then(pl.lit("✓")).otherwise(pl.lit("")).alias("✓"))
-            .select(["✓"] + _display_cols)
-            .sort("✓", descending=True)
-        )
-        _match_count = master_table.filter(_combined_match).height
-    else:
-        _display_table = master_table.with_columns(pl.lit("").alias("✓")).select(["✓"] + _display_cols)
-        _match_count = master_table.height
-
-    _filters_md = " | ".join(_active_filters) if _active_filters else "None"
-    valid_combinations_content = mo.vstack(
-        [
-            mo.md(f"**{_match_count}/{len(master_table)} combinations** match | Filters: {_filters_md}"),
-            _display_table,
-        ]
+    valid_combinations_content = shared.render_valid_combinations_content(
+        master_table,
+        tech_area=tech_area_field.value,
+        instrument=instrument_field.value,
+        sampler=sampler_field.value,
+        qc_layout=qc_layout_field.value,
+        pattern=pattern_field.value,
+        queue_type=queue_type_field.value,
+        plate_layout=plate_layout_field.value,
     )
     return (valid_combinations_content,)
 
 
 @app.cell
 def _():
-    tab_selector = mo.ui.radio(
-        options=["✎ Edit Samples", "Queue Preview", "Visualizations", "Parameters", "Valid Combinations"],
-        value="Queue Preview",
-        inline=True,
-    )
+    tab_selector = shared.make_tab_selector()
     return (tab_selector,)
 
 
@@ -1553,19 +1022,14 @@ def _(
     valid_combinations_content,
     visualizations_content,
 ):
-    _sections = {
-        "Queue Preview": queue_preview_content,
-        "Visualizations": visualizations_content,
-        "✎ Edit Samples": sample_selection_content,
-        "Parameters": parameters_content,
-        "Valid Combinations": valid_combinations_content,
-    }
-    # CSS display:none keeps all widgets in the DOM (data_editor preserves visual state)
-    _panels = [
-        mo.md(f'<div style="display: {"block" if _name == tab_selector.value else "none"}">{_content}</div>')
-        for _name, _content in _sections.items()
-    ]
-    mo.vstack([tab_selector, *_panels])
+    shared.render_tabbed_layout(
+        tab_selector,
+        edit_samples_content=sample_selection_content,
+        queue_preview_content=queue_preview_content,
+        visualizations_content=visualizations_content,
+        parameters_content=parameters_content,
+        valid_combinations_content=valid_combinations_content,
+    )
     return
 
 

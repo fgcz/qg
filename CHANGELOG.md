@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - Renamed the "Sample Selection" tab to "✎ Edit Samples" and moved it to the front of the tab bar (both apps); the app still opens on Queue Preview.
+- Internal: deduplicated the portal and local queue-app notebooks by moving every shared cell body (views, config-derived transforms, and widget construction) into `queue_app_shared.py`, leaving each notebook with thin binding cells; no user-visible behavior change (added `test_local_viz.py` to cover the local Visualizations tab, previously only exercised on the portal).
 
 ### Fixed
 - Portal app no longer crashes at startup when no B-Fabric container cache exists yet (fresh instance / scrubbed public checkout); the employee project list renders empty until "Refresh Projects" populates it.

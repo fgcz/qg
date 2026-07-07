@@ -18,6 +18,7 @@ plate_sample_df : pl.DataFrame
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 import polars as pl
@@ -30,12 +31,19 @@ from qg.apps.integrations.example_samples import (
 from qg.apps.integrations.local_samples import parse_sample_table
 from qg.apps.queue_app_shared import (
     GenerationResult,
+    available_method_names,
     build_queue_input,
+    build_queue_parameters,
+    filter_by_column,
     generate_queue,
+    load_methods_table,
     params_json_filename,
     queue_output_filename,
+    resolve_default_qc_frequency,
     resolve_output_format,
+    resolve_qc_layout_preview,
     synthesize_local_orders,
+    validate_selection,
 )
 from qg.config_models.loader import qg_configuration
 from qg.params_models import QueueParameters
@@ -364,3 +372,225 @@ class TestBundledExamples:
         assert result.error is None
         assert result.output_str is not None
         assert result.file_extension == ".csv"
+
+
+# ---------------------------------------------------------------------------
+# filter_by_column
+# ---------------------------------------------------------------------------
+
+
+class TestFilterByColumn:
+    @staticmethod
+    def _table() -> pl.DataFrame:
+        return pl.DataFrame({"tech_area": ["Proteomics", "Metabolomics"], "n": [1, 2]})
+
+    def test_filters_to_matching_rows(self):
+        assert filter_by_column(self._table(), "tech_area", "Proteomics")["n"].to_list() == [1]
+
+    def test_falsy_value_passes_through_unchanged(self):
+        table = self._table()
+        assert filter_by_column(table, "tech_area", None).equals(table)
+        assert filter_by_column(table, "tech_area", "").equals(table)
+
+    def test_no_match_yields_empty(self):
+        assert filter_by_column(self._table(), "tech_area", "Lipidomics").is_empty()
+
+
+# ---------------------------------------------------------------------------
+# resolve_default_qc_frequency
+# ---------------------------------------------------------------------------
+
+
+class TestResolveDefaultQcFrequency:
+    def test_fallback_when_unresolved(self, config):
+        assert resolve_default_qc_frequency(config, None, None) == 16
+        assert resolve_default_qc_frequency(config, "Proteomics", None) == 16
+
+    def test_reads_pattern_value(self, config):
+        freq = resolve_default_qc_frequency(config, "Proteomics", "standard")
+        assert isinstance(freq, int)
+        assert freq > 0
+
+
+# ---------------------------------------------------------------------------
+# load_methods_table / available_method_names
+# ---------------------------------------------------------------------------
+
+
+class TestLoadMethodsTable:
+    def test_empty_when_unresolved(self, config):
+        assert load_methods_table(config, None, None).is_empty()
+        assert load_methods_table(config, "Proteomics", None).is_empty()
+
+    def test_returns_methods_for_instrument(self, config):
+        assert not load_methods_table(config, "Proteomics", "ASTRAL_1").is_empty()
+
+
+class TestAvailableMethodNames:
+    def test_empty_when_methods_df_empty(self, config):
+        pos, neg = available_method_names(config, pl.DataFrame(), "Proteomics", "ASTRAL_1", "standard")
+        assert pos == []
+        assert neg == []
+
+    def test_returns_lists_for_resolved_selection(self, config):
+        methods_df = load_methods_table(config, "Proteomics", "ASTRAL_1")
+        pos, neg = available_method_names(config, methods_df, "Proteomics", "ASTRAL_1", "standard")
+        assert isinstance(pos, list)
+        assert isinstance(neg, list)
+
+
+# ---------------------------------------------------------------------------
+# validate_selection
+# ---------------------------------------------------------------------------
+
+
+class TestValidateSelection:
+    @staticmethod
+    def _kwargs(**overrides) -> dict:
+        kwargs: dict = {
+            "selected_orders": [(37180, None)],
+            "tech_area": "Proteomics",
+            "instrument": "ASTRAL_1",
+            "sampler": "Vanquish",
+            "queue_type": "Vial",
+            "plate_layout": "Vanquish_54",
+            "qc_layout": "standard",
+            "pattern": "standard",
+            "filtered_table": pl.DataFrame({"x": [1]}),
+            "no_source_message": "Please select an order",
+        }
+        kwargs.update(overrides)
+        return kwargs
+
+    def test_no_source_message_when_no_orders(self, config):
+        valid, errors = validate_selection(config, **self._kwargs(selected_orders=[]))
+        assert not valid
+        assert errors == ["Please select an order"]
+
+    def test_no_source_message_is_customizable(self, config):
+        _valid, errors = validate_selection(
+            config, **self._kwargs(selected_orders=[], no_source_message="Upload a sample table")
+        )
+        assert errors == ["Upload a sample table"]
+
+    def test_reports_missing_fields(self, config):
+        valid, errors = validate_selection(config, **self._kwargs(instrument=None, sampler=None))
+        assert not valid
+        assert "Instrument not selected" in errors
+        assert "Sampler not selected" in errors
+
+    def test_empty_filtered_table_is_invalid(self, config):
+        valid, errors = validate_selection(config, **self._kwargs(filtered_table=pl.DataFrame()))
+        assert not valid
+        assert "No valid combination found" in errors
+
+    def test_valid_selection_passes(self, config):
+        valid, errors = validate_selection(config, **self._kwargs())
+        assert valid, errors
+        assert errors == []
+
+
+# ---------------------------------------------------------------------------
+# resolve_qc_layout_preview
+# ---------------------------------------------------------------------------
+
+
+class TestResolveQcLayoutPreview:
+    def test_none_when_selection_incomplete(self, config):
+        assert (
+            resolve_qc_layout_preview(
+                config,
+                tech_area="Proteomics",
+                sampler=None,
+                plate_layout="Vanquish_54",
+                qc_layout="standard",
+                pattern="standard",
+                raw_queue_df=None,
+            )
+            is None
+        )
+
+    def test_returns_preview_for_valid_selection(self, config):
+        preview = resolve_qc_layout_preview(
+            config,
+            tech_area="Proteomics",
+            sampler="Vanquish",
+            plate_layout="Vanquish_54",
+            qc_layout="standard",
+            pattern="standard",
+            raw_queue_df=None,
+        )
+        assert preview is not None
+        assert "sample_id" in preview.columns
+
+
+# ---------------------------------------------------------------------------
+# build_queue_parameters
+# ---------------------------------------------------------------------------
+
+
+class TestBuildQueueParameters:
+    @staticmethod
+    def _kwargs(**overrides) -> dict:
+        base: dict = {
+            "tech_area": "Proteomics",
+            "instrument": "ASTRAL_1",
+            "sampler": "Vanquish",
+            "output_format": "xcalibur",
+            "queue_pattern": "standard",
+            "queue_type": "Vial",
+            "plate_layout": "Vanquish_54",
+            "qc_layout_name": "standard",
+            "polarity_flags": {"pos": True, "neg": False},
+            "date": date(2026, 1, 15),
+            "user": "  tester  ",
+            "method_pos": None,
+            "method_neg": None,
+            "randomization": "no",
+            "inj_vol_text": "",
+            "qc_frequency_text": "",
+            "start_position": None,
+            "start_tray": None,
+            "level_concentrations": {},
+        }
+        base.update(overrides)
+        return base
+
+    def test_builds_valid_params_with_conversions(self):
+        params, err = build_queue_parameters(**self._kwargs())
+        assert err is None
+        assert params is not None
+        assert params.tech_area == "Proteomics"
+        assert params.date == "20260115"  # datetime.date -> %Y%m%d
+        assert params.user == "tester"  # stripped
+        assert params.start_position == "A1"  # None -> default
+        assert params.start_tray == ""  # None -> default
+        assert params.inj_vol_override is None  # blank text -> None
+        assert params.qc_frequency_override is None
+
+    def test_polarity_method_and_overrides(self):
+        params, err = build_queue_parameters(
+            **self._kwargs(
+                polarity_flags={"pos": True, "neg": True},
+                method_pos="M_pos",
+                method_neg="",  # empty selection is dropped
+                inj_vol_text="2.5",
+                qc_frequency_text="8",
+            )
+        )
+        assert err is None
+        assert params.polarity == ["pos", "neg"]
+        assert params.method == {"pos": "M_pos"}
+        assert params.inj_vol_override == 2.5
+        assert params.qc_frequency_override == 8
+
+    def test_invalid_selection_returns_error(self):
+        params, err = build_queue_parameters(**self._kwargs(queue_type="Bogus"))
+        assert params is None
+        assert err is not None
+
+    def test_nonnumeric_inj_vol_still_raises(self):
+        # Matches the original inline cell: only ValidationError is caught, so a
+        # non-numeric inj-vol surfaces as ValueError rather than being swallowed.
+        with pytest.raises(ValueError):
+            build_queue_parameters(**self._kwargs(inj_vol_text="abc"))
