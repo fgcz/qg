@@ -21,7 +21,7 @@ with app.setup:
     from qg.apps import queue_app_shared as shared
     from qg.apps.integrations import bfabric_samples, bfabric_workunit
     from qg.apps.integrations.bfabric_context import SessionError, resolve_app_session
-    from qg.cli.find_projects import ContainerCache, get_cache_dir
+    from qg.cli.find_projects import ContainerCache
     from qg.config_models.loader import qg_configuration
     from qg.config_models.structure import SamplesConfig
     from qg.params_models import QueueParameters
@@ -69,16 +69,14 @@ def _():
 
 
 @app.cell
-def _(client):
-    # Per-instance B-Fabric cache directory for cached project data
-    BFABRIC_CACHE_DIR = get_cache_dir(client)
+def _():
     # Debug/audit dump directory (shared with artifacts and loguru logs)
     DEBUG_DUMP_DIR = Path.home() / ".qg" / "logs"
     # Use --all-projects flag to load all containers (no status filter)
     _args = mo.cli_args()
     USE_ALL_PROJECTS = "all-projects" in _args
     USE_CONTAINER_TYPE = "container-type" in _args
-    return BFABRIC_CACHE_DIR, DEBUG_DUMP_DIR, USE_ALL_PROJECTS, USE_CONTAINER_TYPE
+    return DEBUG_DUMP_DIR, USE_ALL_PROJECTS, USE_CONTAINER_TYPE
 
 
 @app.cell
@@ -857,15 +855,16 @@ def _(USE_ALL_PROJECTS, client, get_refresh, refresh_projects_button, set_refres
 
 
 @app.cell
-def _(BFABRIC_CACHE_DIR, USE_ALL_PROJECTS, USE_CONTAINER_TYPE, get_refresh, is_employee, launching_order_row):
+def _(USE_ALL_PROJECTS, USE_CONTAINER_TYPE, client, get_refresh, is_employee, launching_order_row):
     # Load merged container cache for employees only; non-employees never browse containers.
     if not is_employee:
         projects_df = pl.DataFrame()
     else:
         _ = get_refresh()  # re-read CSV when refresh button is clicked
-        _suffix = "_all" if USE_ALL_PROJECTS else ""
-        _name = "bfabric_container_type" if USE_CONTAINER_TYPE else "bfabric_container"
-        projects_df = pl.read_csv(BFABRIC_CACHE_DIR / f"{_name}{_suffix}.csv").sort("Container ID", descending=True)
+        # Empty (typed) frame when no cache exists yet — the "Refresh Projects" button populates it.
+        projects_df = ContainerCache(client, active_only=not USE_ALL_PROJECTS).read_containers(
+            with_type=USE_CONTAINER_TYPE
+        )
         # Surface the launching order even if it predates the cache (in-memory only).
         if (
             not launching_order_row.is_empty()

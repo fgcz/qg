@@ -41,9 +41,23 @@ class ContainerCache:
     - write_containers()            → <instance>/bfabric_container{suffix}.csv
     - write_containers_with_plates() → <instance>/bfabric_container_type{suffix}.csv
 
-    Plus a single-row fetch that writes nothing:
+    Plus a read helper and a single-row fetch that write nothing:
+    - read_containers()             → cached list, or an empty frame if never refreshed
     - fetch_container_row()         → one container by ID, formatted like the cache
     """
+
+    # Column schema of the cache CSVs (see _format_one). Used to build an empty
+    # frame when no cache exists yet, so callers can render an empty list instead
+    # of crashing on a missing file. bfabric_container_type also carries "Type".
+    _CONTAINER_SCHEMA: dict[str, type[pl.DataType]] = {
+        "Container ID": pl.Int64,
+        "Container Name": pl.String,
+        "Project ID": pl.Int64,
+        "PI": pl.String,
+        "Samples": pl.Int64,
+        "Status": pl.String,
+        "Area": pl.String,
+    }
 
     def __init__(self, client: Bfabric, *, active_only: bool = True) -> None:
         self._client = client
@@ -133,6 +147,28 @@ class ContainerCache:
         containers_with_plates = self._find_plates(all_ids)
         output = self._format(dfs, containers_with_plates)
         return self._write("bfabric_container_type", output)
+
+    def read_containers(self, *, with_type: bool = False) -> pl.DataFrame:
+        """Read the cached container list, sorted by Container ID (descending).
+
+        Mirrors write_containers()/write_containers_with_plates(): with_type
+        selects the plate-aware cache (bfabric_container_type) over the fast one
+        (bfabric_container), and active_only (from __init__) selects the suffix.
+
+        Returns an empty frame with the cache schema when the file is absent
+        (fresh instance / never refreshed / scrubbed derivative), so the app can
+        render an empty list and let the user hit "Refresh Projects" instead of
+        crashing on a missing file.
+        """
+        name = "bfabric_container_type" if with_type else "bfabric_container"
+        path = self._cache_dir / f"{name}{self._suffix}.csv"
+        if not path.exists():
+            logger.info("No container cache at {} yet; returning empty list", path)
+            schema = dict(self._CONTAINER_SCHEMA)
+            if with_type:
+                schema["Type"] = pl.String
+            return pl.DataFrame(schema=schema)
+        return pl.read_csv(path).sort("Container ID", descending=True)
 
     def fetch_container_row(self, container_id: int, *, with_type: bool = False) -> pl.DataFrame:
         """Fetch one container by ID, formatted like the cache (no disk write).

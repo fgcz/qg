@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Portal app no longer crashes at startup when no B-Fabric container cache exists yet (fresh instance / scrubbed public checkout); the employee project list renders empty until "Refresh Projects" populates it.
+
 ## [0.8.1] - 2026-06-30
 
 ### Changed

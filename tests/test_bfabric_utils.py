@@ -238,3 +238,57 @@ def test_fetch_container_row_with_type_emits_plate_row(monkeypatch, tmp_path: Pa
 
     assert sorted(row["Type"].to_list()) == ["Plates", "Vials"]
     assert set(row["Container ID"].to_list()) == {321}
+
+
+# ---------------------------------------------------------------------------
+# ContainerCache.read_containers — cached list, or empty frame when never refreshed
+# ---------------------------------------------------------------------------
+
+
+def test_read_containers_missing_returns_empty_typed_frame(monkeypatch, tmp_path: Path) -> None:
+    """No cache yet (fresh instance / scrubbed derivative) must not crash the reader.
+
+    Returns an empty frame carrying the cache schema so the app's downstream column
+    filters work instead of raising FileNotFoundError at startup.
+    """
+    monkeypatch.setattr("qg.cli.find_projects.get_cache_dir", lambda c: tmp_path / instance_slug(c))
+    cache = ContainerCache(_FakeClient("https://fgcz-bfabric.uzh.ch/bfabric"))
+
+    df = cache.read_containers()
+
+    assert df.is_empty()
+    assert df.columns == ["Container ID", "Container Name", "Project ID", "PI", "Samples", "Status", "Area"]
+    # The exact filters queue_app.py applies to projects_df must not raise on the empty frame.
+    assert df.filter(pl.col("Area").is_in(["Proteomics"])).is_empty()
+    assert df.filter(pl.col("Container ID") == 123).is_empty()
+
+
+def test_read_containers_missing_with_type_adds_type_column(monkeypatch, tmp_path: Path) -> None:
+    """The plate-aware cache carries an extra Type column, even when absent."""
+    monkeypatch.setattr("qg.cli.find_projects.get_cache_dir", lambda c: tmp_path / instance_slug(c))
+    cache = ContainerCache(_FakeClient("https://fgcz-bfabric.uzh.ch/bfabric"))
+
+    df = cache.read_containers(with_type=True)
+
+    assert df.is_empty()
+    assert df.columns[-1] == "Type"
+
+
+def test_read_containers_reads_and_sorts_descending(monkeypatch, tmp_path: Path) -> None:
+    """A present cache is read back and sorted by Container ID descending."""
+    monkeypatch.setattr("qg.cli.find_projects.get_cache_dir", lambda c: tmp_path / instance_slug(c))
+    cache = ContainerCache(_FakeClient("https://fgcz-bfabric.uzh.ch/bfabric"))
+    cache._write("bfabric_container", pl.DataFrame({"Container ID": [1, 3, 2]}))
+
+    assert cache.read_containers()["Container ID"].to_list() == [3, 2, 1]
+
+
+def test_read_containers_honors_active_only_suffix(monkeypatch, tmp_path: Path) -> None:
+    """active_only=False reads the `_all` cache, not the active-only one."""
+    monkeypatch.setattr("qg.cli.find_projects.get_cache_dir", lambda c: tmp_path / instance_slug(c))
+    client = _FakeClient("https://fgcz-bfabric.uzh.ch/bfabric")
+    ContainerCache(client, active_only=False)._write("bfabric_container", pl.DataFrame({"Container ID": [7]}))
+
+    # active-only reader sees no file (different suffix) -> empty; all-projects reader sees the row.
+    assert ContainerCache(client).read_containers().is_empty()
+    assert ContainerCache(client, active_only=False).read_containers()["Container ID"].to_list() == [7]
