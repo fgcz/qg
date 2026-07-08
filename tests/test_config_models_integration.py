@@ -353,10 +353,15 @@ class TestUIConfigs:
         assert config.get_bfabric_areas("Metabolomics") == ["Metabolomics/Biophysics"]
         assert config.get_bfabric_areas("Lipidomics") == ["Metabolomics/Biophysics"]
 
+        assert config.get_sample_name_suffixes("Proteomics") == ["enriched", "total", "lip"]
+        assert config.get_sample_name_suffixes("Metabolomics") == []
+        assert config.get_sample_name_suffixes("Lipidomics") == []
+
         # Unknown tech_area → safe empties
         assert config.get_default_user("UnknownTech") == ""
         assert config.get_default_polarities("UnknownTech") == []
         assert config.get_bfabric_areas("UnknownTech") == []
+        assert config.get_sample_name_suffixes("UnknownTech") == []
 
     def test_tech_area_defaults_dict_round_trip(self):
         """from_dict(to_dict(...)) preserves the polarity list and user."""

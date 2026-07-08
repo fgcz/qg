@@ -4,11 +4,14 @@
 # default_polarities: polarities pre-checked in the polarity group
 # bfabric_areas: B-Fabric "Area" values whose orders belong to this tech area
 #   (used to filter the order browser; empty ⇒ no filtering)
+# sample_name_suffixes: prep-type labels offered in the sample-name suffix dropdown
+#   (appended as _<suffix> to every sample name; empty ⇒ only the "none" no-op)
 
 [Proteomics]
 default_user = "analytic"
 default_polarities = ["pos"]
 bfabric_areas = ["Proteomics"]
+sample_name_suffixes = ["enriched", "total", "lip"]
 
 [Metabolomics]
 default_user = ""

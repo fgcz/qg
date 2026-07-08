@@ -99,6 +99,11 @@ class TechAreaDefault(BaseModel):
         description="B-Fabric 'Area' values whose orders belong to this tech area "
         "(used to filter the order browser); empty ⇒ no filtering",
     )
+    sample_name_suffixes: list[str] = Field(
+        default_factory=list,
+        description="Prep-type labels offered in the sample-name suffix dropdown "
+        "(e.g. enriched/total/lip for Proteomics); empty ⇒ only the 'none' no-op",
+    )
 
     @field_validator("default_user", mode="before")
     @classmethod
@@ -132,6 +137,10 @@ class TechAreaDefaultsConfig(BaseModel):
         d = self.get(tech_area)
         return list(d.bfabric_areas) if d else []
 
+    def get_sample_name_suffixes(self, tech_area: str) -> list[str]:
+        d = self.get(tech_area)
+        return list(d.sample_name_suffixes) if d else []
+
     def to_dict(self) -> dict:
         """Convert to dict for TOML serialization (one table per tech_area)."""
         return {
@@ -139,6 +148,7 @@ class TechAreaDefaultsConfig(BaseModel):
                 "default_user": d.default_user,
                 "default_polarities": list(d.default_polarities),
                 "bfabric_areas": list(d.bfabric_areas),
+                "sample_name_suffixes": list(d.sample_name_suffixes),
             }
             for d in self.defaults
         }

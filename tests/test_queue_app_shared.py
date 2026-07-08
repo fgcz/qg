@@ -603,15 +603,16 @@ class TestBuildQueueParameters:
 
 
 class TestSuffixOptionsForTech:
-    def test_proteomics_offers_prep_types(self):
-        assert suffix_options_for_tech("Proteomics") == ["none", "enriched", "total", "lip"]
+    def test_proteomics_offers_prep_types(self, config):
+        # Vocabulary comes from tech_area_defaults.toml ([Proteomics].sample_name_suffixes).
+        assert suffix_options_for_tech(config, "Proteomics") == ["none", "enriched", "total", "lip"]
 
-    def test_other_tech_areas_get_none_only(self):
-        assert suffix_options_for_tech("Metabolomics") == ["none"]
-        assert suffix_options_for_tech("Lipidomics") == ["none"]
-        assert suffix_options_for_tech("Testing") == ["none"]
+    def test_other_tech_areas_get_none_only(self, config):
+        assert suffix_options_for_tech(config, "Metabolomics") == ["none"]
+        assert suffix_options_for_tech(config, "Lipidomics") == ["none"]
+        assert suffix_options_for_tech(config, "Testing") == ["none"]
 
-    def test_none_is_always_first_option(self):
+    def test_none_is_always_first_option(self, config):
         # "none" (the value= default) must be a valid option for every tech area.
         for tech in ("Proteomics", "Metabolomics", "Lipidomics", "unknown"):
-            assert suffix_options_for_tech(tech)[0] == "none"
+            assert suffix_options_for_tech(config, tech)[0] == "none"

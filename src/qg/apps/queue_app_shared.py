@@ -919,26 +919,26 @@ def make_randomization_field() -> mo.ui.dropdown:
     )
 
 
-def suffix_options_for_tech(tech_area: str) -> list[str]:
+def suffix_options_for_tech(config: QGConfiguration, tech_area: str) -> list[str]:
     """Sample-name suffix options for a tech area.
 
-    ``enriched`` / ``total`` / ``lip`` are Proteomics prep types, so they are only
-    offered under Proteomics; every other tech area gets the ``none`` no-op only,
-    until it defines its own vocabulary. Hardcoded for now — the natural home is a
-    per-tech field in ``ui/tech_area_defaults.toml`` (see qg_todo
-    TODO_sample_tab_ux.md §4).
+    The prep-type vocabulary is per-tech and lives in ``ui/tech_area_defaults.toml``
+    (``sample_name_suffixes``); e.g. Proteomics offers ``enriched`` / ``total`` /
+    ``lip``. The ``none`` no-op is prepended here as a UI concern, so every tech
+    area — including those with no vocabulary yet — offers at least ``none``.
     """
-    return {"Proteomics": ["none", "enriched", "total", "lip"]}.get(tech_area, ["none"])
+    return ["none", *config.tech_area_defaults.get_sample_name_suffixes(tech_area)]
 
 
-def make_name_suffix(tech_area: str) -> mo.ui.dropdown:
+def make_name_suffix(config: QGConfiguration, tech_area: str) -> mo.ui.dropdown:
     """Dropdown appending a controlled prep-type suffix to every sample name.
 
     The option list is tech-area specific (see :func:`suffix_options_for_tech`);
-    non-Proteomics areas show only ``none``. The dropdown stays visible either way.
+    tech areas with no configured vocabulary show only ``none``. The dropdown stays
+    visible either way.
     """
     return mo.ui.dropdown(
-        options=suffix_options_for_tech(tech_area),
+        options=suffix_options_for_tech(config, tech_area),
         value="none",
         label="Append suffix to every sample name",
     )

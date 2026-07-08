@@ -252,8 +252,10 @@ def _(cfg, compact_toml):
             mo.md(
                 "_Per-tech-area UI defaults: one TOML table per tech_area with `default_user` "
                 '(empty ⇒ logged-in user), `default_polarities` as a list (e.g. `["pos", "neg"]`), '
-                "and `bfabric_areas` listing the B-Fabric Area values whose orders belong to this "
-                "tech area (used to filter the order browser; empty ⇒ no filtering)._"
+                "`bfabric_areas` listing the B-Fabric Area values whose orders belong to this "
+                "tech area (used to filter the order browser; empty ⇒ no filtering), and "
+                '`sample_name_suffixes` listing the prep-type labels offered in the sample-name '
+                'suffix dropdown (e.g. `["enriched", "total", "lip"]`; empty ⇒ only the "none" no-op)._'
             ),
             tech_area_defaults_editor,
         ]

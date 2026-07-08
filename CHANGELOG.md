@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
-- Sample Editor now has a "sample name suffix" dropdown that appends a prep-type suffix to every sample name in the generated queue and preview (QC injections are unaffected); the options are tech-area specific — `enriched`/`total`/`lip` under Proteomics, `none` only for other tech areas.
+- Sample Editor now has a "sample name suffix" dropdown that appends a prep-type suffix to every sample name in the generated queue and preview (QC injections are unaffected); the options are tech-area specific and configured per tech area in `ui/tech_area_defaults.toml` (`sample_name_suffixes`) — `enriched`/`total`/`lip` under Proteomics, `none` only where no vocabulary is set.
 
 ### Changed
 - Renamed the "Sample Selection" tab to "✎ Edit Samples" and moved it to the front of the tab bar (both apps); the app still opens on Queue Preview.
