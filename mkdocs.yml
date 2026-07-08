@@ -64,4 +64,5 @@ nav:
       - User modes (auth): developers/user_modes.md
       - Deployment: developers/deployment.md
   - Developers:
+      - Shared app architecture: developers/marimo_shared_app_architecture.md
       - History: developers/history.md
