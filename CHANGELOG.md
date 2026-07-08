@@ -8,9 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - Sample Editor now has a "sample name suffix" dropdown that appends a prep-type suffix to every sample name in the generated queue and preview (QC injections are unaffected); the options are tech-area specific and configured per tech area in `ui/tech_area_defaults.toml` (`sample_name_suffixes`) — `enriched`/`total`/`lip` under Proteomics, `none` only where no vocabulary is set.
+- Full B-Fabric-authenticated Dash config editor (`qg-editor-dash`) that validates, saves (`write_all`), and submits config changes for GitLab review, gated to FGCZ employees, alongside the existing validation-only local Dash viewer (`qg-config-viewer`). Served in production via `apps/bfabric_dash_editor.py`, reusing the same ASGI B-Fabric auth stack as the marimo apps.
 
 ### Changed
 - Renamed the "Sample Selection" tab to "✎ Edit Samples" and moved it to the front of the tab bar (both apps); the app still opens on Queue Preview.
+- Internal: extracted the shared config-editor substance (`compact_toml`, table/TOML section contracts, payload→`QGConfiguration` reconstruction, methods store) into `qg.apps.editor_core`, used by both the marimo config editor and the Dash editors; removed the duplicated copies with no behavior change.
 - Internal: deduplicated the portal and local queue-app notebooks by moving every shared cell body (views, config-derived transforms, and widget construction) into `queue_app_shared.py`, leaving each notebook with thin binding cells; no user-visible behavior change (added `test_local_viz.py` to cover the local Visualizations tab, previously only exercised on the portal).
 
 ### Fixed

@@ -174,11 +174,58 @@ duplication was ~50 full cell bodies that silently diverged.
   over-prefixing, so prefer a fresh descriptive name over `_`-prefixing a whole
   cell's variables where it does not prevent a genuine name clash.
 
+## The config editors: one core, marimo + two Dash variants
+
+The same "shared substance, thin GUI layer" principle governs the config editors,
+and it is what let a full authenticated Dash editor be added without a second GUI
+implementation.
+
+- **`qg.apps.editor_core`** is the framework-neutral core (no marimo, dash,
+  B-Fabric, or GitLab imports): `compact_toml`, the table/TOML section contracts,
+  and reconstruction of a validated `QGConfiguration` from browser/table payloads
+  (`build_config_from_payload`, `config_from_dataframes`, `methods_store_from_config`).
+  A `preserve_comments` flag lets the validate-only path drop TOML header comments
+  while the save/review paths round-trip them.
+- **`config_editor.py`** (marimo) binds to the core: its cells convert
+  data-editor DataFrames to row-dicts and delegate reconstruction. It keeps the
+  marimo-only concerns: the B-Fabric employee gate, `write_all` save, and GitLab
+  review submission.
+- **`dash_editor/app.py`** (`qg-config-viewer`) is the local, validation-only Dash
+  editor: `create_app()` = `_layout` + `_register_callbacks`, calling the core for
+  validation. It imports no B-Fabric/GitLab (guarded by a test).
+- **`dash_editor/full_app.py`** (`qg-editor-dash`) is the full editor. `create_full_app`
+  reuses the local `_layout` and `_register_callbacks` and adds only save/review
+  controls, a session banner, and the employee gate. The portal seam lives in
+  `dash_editor/integrations.py` (the one Dash file importing B-Fabric/GitLab):
+  session resolution, `save_config` (`write_all`), and `submit_review`
+  (`submit_config_changes`).
+
+### Reusing the ASGI auth stack for a WSGI app
+
+The B-Fabric auth is ASGI middleware (`create_bfabric_fastapi_app`) that sets
+`scope["meta"]` and is agnostic to the app it wraps. Dash is a WSGI (Flask) app, so
+`create_bfabric_wsgi_app` wraps it as ASGI with an `asgiref` `WsgiToAsgi` subclass
+that copies `scope["meta"]` into the WSGI environ under `WSGI_META_KEY`. The Dash
+callbacks then recover the authenticated session with the same `resolve_app_session`
+the marimo apps use, reading `flask.request.environ[WSGI_META_KEY]`. Production
+serves it via `apps/bfabric_dash_editor.py`, parallel to `bfabric_app_editor.py`.
+
+This is why marimo vs Dash matters for app *variants*: Dash's layout is a plain
+composable function and its callbacks are functions registered on an app object,
+so `create_full_app` parametrizes one body (local layout + callbacks) into a second
+variant. marimo cannot share a reactive graph across notebooks, so its two apps
+carry the binding-cell boilerplate described above. Both, though, keep their
+substance in a shared plain module — the constant across both frameworks.
+
 ## Working on the apps
 
 - **A change to a shared widget, view, or transform** goes in
   `queue_app_shared.py`, once. Both notebooks pick it up through their binding
   cells; no second edit.
+- **A change to config-editor parsing/serialization/reconstruction** goes in
+  `editor_core.py`, once; the marimo editor and both Dash editors pick it up.
+  B-Fabric/GitLab concerns stay in `config_editor.py` (marimo) or
+  `dash_editor/integrations.py` (full Dash), never in the core.
 - **A change to how an app loads samples or emits its output** goes in that
   notebook's seam cell (or the relevant `apps/integrations/` module), not in the
   shared module.
