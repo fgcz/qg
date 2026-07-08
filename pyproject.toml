@@ -7,6 +7,7 @@ requires-python = ">=3.14"
 dependencies = [
     "altair>=6.0.0",
     "cyclopts>=4.4.4",
+    "dash>=3.0.0",
     "fastexcel>=0.11",
     "ipython>=9.9.0",
     "loguru>=0.7.0",
@@ -20,6 +21,8 @@ dependencies = [
     "vegafusion>=2.0.3",
     "vl-convert-python>=1.9.0",
     "plotly>=6.8.0",
+    "dash-ag-grid>=35.2.0",
+    "dash-ace>=0.2.1",
 ]
 
 [project.optional-dependencies]
@@ -94,6 +97,7 @@ qg-find-projects = "qg.cli.find_projects:main"
 qg-refresh-cache = "qg.cli.refresh_cache:app"
 qg-app = "qg.gitlab.launcher:launch_queue_app"
 qg-app-local = "qg.apps.launcher_local:launch_local_app"
+qg-config-viewer = "qg.apps.dash_editor.launcher:launch_config_viewer"
 qg-editor = "qg.gitlab.launcher:launch_config_editor"
 
 [tool.pytest.ini_options]
