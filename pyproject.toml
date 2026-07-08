@@ -34,6 +34,7 @@ bfabric = [
     "bfabric-rest-proxy",
     "fastapi>=0.128.0",
     "starlette>=0.50.0",
+    "asgiref>=3.8",
     "python-gitlab>=5.0.0",
 ]
 
@@ -99,6 +100,7 @@ qg-app = "qg.gitlab.launcher:launch_queue_app"
 qg-app-local = "qg.apps.launcher_local:launch_local_app"
 qg-config-viewer = "qg.apps.dash_editor.launcher:launch_config_viewer"
 qg-editor = "qg.gitlab.launcher:launch_config_editor"
+qg-editor-dash = "qg.apps.dash_editor.full_launcher:launch_config_editor_dash"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -2021,6 +2021,7 @@ dependencies = [
 
 [package.optional-dependencies]
 bfabric = [
+    { name = "asgiref" },
     { name = "bfabric" },
     { name = "bfabric-asgi-auth" },
     { name = "bfabric-rest-proxy" },
@@ -2055,6 +2056,7 @@ portal = [
 [package.metadata]
 requires-dist = [
     { name = "altair", specifier = ">=6.0.0" },
+    { name = "asgiref", marker = "extra == 'bfabric'", specifier = ">=3.8" },
     { name = "bfabric", marker = "extra == 'bfabric'", git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric&rev=main" },
     { name = "bfabric-asgi-auth", marker = "extra == 'bfabric'", git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric_asgi_auth&rev=main" },
     { name = "bfabric-rest-proxy", marker = "extra == 'bfabric'", git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric_rest_proxy&rev=main" },
