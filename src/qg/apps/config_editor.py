@@ -5,8 +5,6 @@ app = marimo.App(width="full")
 
 with app.setup:
     import os
-    import re
-    import tomllib
     from pathlib import Path
 
     import marimo as mo
@@ -18,26 +16,9 @@ with app.setup:
 
     configure_logging()
 
+    from qg.apps import editor_core
     from qg.bfabric_utils import SessionError, resolve_app_session
-    from qg.config_models.formatting import (
-        InstrumentsConfig,
-        OutputFormatsConfig,
-    )
-    from qg.config_models.loader import (
-        QGConfiguration,
-        qg_configuration,
-        read_header_comments,
-    )
-    from qg.config_models.methods import MethodsForInstrument
-    from qg.config_models.positions import (
-        PlateLayoutsConfig,
-        QCLayoutsTipConfig,
-        QCLayoutsWellConfig,
-        SamplerPlateLayoutsConfig,
-        SamplersConfig,
-    )
-    from qg.config_models.structure import QueuePatternsConfig, SamplesConfig
-    from qg.config_models.ui import InstrumentConfigsConfig, TechAreaDefaultsConfig
+    from qg.config_models.loader import qg_configuration
 
 
 # =============================================================================
@@ -70,63 +51,27 @@ def _():
 
 @app.cell
 def _():
-    def compact_toml(toml_str: str) -> str:
-        """Convert multiline arrays to inline format for readability."""
-        pattern = r"(\w+)\s*=\s*\[\s*\n((?:\s+[^\]]+,?\s*\n)+)\s*\]"
+    # Shared editor substance (compact_toml, section contracts, reconstruction) lives
+    # in qg.apps.editor_core, used by both this marimo editor and the Dash editor.
+    compact_toml = editor_core.compact_toml
 
-        def replace_array(match):
-            key = match.group(1)
-            items_block = match.group(2)
-            items = [item.strip().rstrip(",") for item in items_block.strip().split("\n") if item.strip()]
-            return f"{key} = [{', '.join(items)}]"
+    def build_config_from_editors(editors, methods, *, preserve_comments=False):
+        """Build a validated QGConfiguration from editor widget values.
 
-        return re.sub(pattern, replace_array, toml_str)
-
-    TOML_CONFIG_CLASSES: dict[str, type] = {
-        "samplers": SamplersConfig,
-        "plate_layouts": PlateLayoutsConfig,
-        "queue_patterns": QueuePatternsConfig,
-        "output_formats": OutputFormatsConfig,
-        "tech_area_defaults": TechAreaDefaultsConfig,
-    }
-
-    def parse_toml_editor(editor_value: str, config_cls: type, *, preserve_comments: bool = False):
-        """Parse a TOML code-editor value into a config object."""
-        cfg = config_cls.from_dict(tomllib.loads(editor_value))
-        if preserve_comments:
-            cfg.header_comments = read_header_comments(editor_value)
-        return cfg
-
-    def build_config_from_editors(
-        editors: dict,
-        methods,
-        *,
-        preserve_comments: bool = False,
-    ) -> QGConfiguration:
-        """Build a validated QGConfiguration from editor widget values."""
-        # Apply methods editor changes if present
+        Adapts the marimo editor's per-widget values (CSV tables as DataFrames, TOML
+        as strings, one active methods table) to the framework-neutral core: the full
+        methods store starts from the loaded config and the single active table is
+        overlaid before reconstruction.
+        """
+        csv_tables = {name: editors[name] for name in editor_core.CSV_TABLE_COLUMNS}
+        toml = {name: editors[name] for name in editor_core.TOML_CONFIG_CLASSES}
+        methods_store = editor_core.methods_store_from_config(methods)
         methods_df = editors.get("methods_editor_df")
         if methods_df is not None and not methods_df.is_empty():
-            tech = editors["methods_tech_area"]
-            instr = editors["methods_instrument"]
-            original = methods.get_methods(tech, instr)
-            updated_instr = MethodsForInstrument.from_table(methods_df, config_path=original.config_path)
-            methods = methods.model_copy(deep=True)
-            methods.add_instrument_methods(tech, instr, updated_instr)
-
-        toml_configs = {
-            name: parse_toml_editor(editors[name], cls, preserve_comments=preserve_comments)
-            for name, cls in TOML_CONFIG_CLASSES.items()
-        }
-        return QGConfiguration.create(
-            instruments=InstrumentsConfig.from_table(editors["instruments"]),
-            samples=SamplesConfig.from_table(editors["samples"]),
-            qc_layouts_well=QCLayoutsWellConfig.from_table(editors["qc_layouts_well"]),
-            qc_layouts_tip=QCLayoutsTipConfig.from_table(editors["qc_layouts_tip"]),
-            instrument_configs=InstrumentConfigsConfig.from_table(editors["instrument_configs"]),
-            sampler_plate_layouts=SamplerPlateLayoutsConfig.from_table(editors["sampler_plate_layouts"]),
-            methods=methods,
-            **toml_configs,
+            key = editor_core.method_key(editors["methods_tech_area"], editors["methods_instrument"])
+            methods_store[key] = methods_df.to_dicts()
+        return editor_core.config_from_dataframes(
+            csv_tables, toml, methods_store, preserve_comments=preserve_comments
         )
 
     def error_callout(title: str, error: Exception):
