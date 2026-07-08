@@ -21,7 +21,7 @@ def _find_settings_file() -> Path:
     current = Path(__file__).resolve().parent
     for _ in range(10):
         candidate = current / _SETTINGS_FILENAME
-        if candidate.exists():
+        if candidate.is_file():
             return candidate
         parent = current.parent
         if parent == current:
@@ -30,7 +30,7 @@ def _find_settings_file() -> Path:
 
     # 2. User home directory (works for uv-installed packages)
     home_candidate = Path.home() / _SETTINGS_FILENAME
-    if home_candidate.exists():
+    if home_candidate.is_file():
         return home_candidate
 
     msg = (
@@ -45,8 +45,8 @@ def _find_settings_file() -> Path:
 def _load_from_file(path: Path | None) -> dict[str, str]:
     """Read GitLab settings from a TOML file. Raises FileNotFoundError if missing."""
     if path is not None:
-        if not path.exists():
-            msg = f"Settings file not found: {path}"
+        if not path.is_file():
+            msg = f"Settings file not found or not a file: {path}"
             raise FileNotFoundError(msg)
         settings_path = path
     else:

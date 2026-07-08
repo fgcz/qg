@@ -70,6 +70,15 @@ class TestLoadGitlabSettings:
         with pytest.raises(FileNotFoundError):
             load_gitlab_settings(tmp_path / "nonexistent.toml")
 
+    def test_raises_clear_error_when_path_is_a_directory(self, tmp_path):
+        # Regression: a directory at the settings path (e.g. ~/.qg_settings.toml
+        # accidentally created as a dir) must give a clear FileNotFoundError, not a
+        # cryptic IsADirectoryError from read_text().
+        settings_dir = tmp_path / ".qg_settings.toml"
+        settings_dir.mkdir()
+        with pytest.raises(FileNotFoundError):
+            load_gitlab_settings(settings_dir)
+
     def test_raises_on_missing_gitlab_section(self, tmp_path):
         settings_file = tmp_path / ".qg_settings.toml"
         settings_file.write_text("[other]\nkey = 'val'\n")
