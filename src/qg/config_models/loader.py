@@ -363,7 +363,7 @@ def _validate_configs(
 # QGConfiguration Dataclass
 # =============================================================================
 
-
+# TODO: should be a pydantic model instead of dataclass, to get validation and serialization for free
 @dataclass(slots=True)
 class QGConfiguration:
     """Consolidated container for all configuration files.
