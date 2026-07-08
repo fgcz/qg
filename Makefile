@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help app app-local app-all app-type app-review editor editor-local editor-review editor-dash validate projects projects-all projects-plates _check-not-fgcz
+.PHONY: help app app-local app-all app-type app-review editor editor-local editor-review editor-dash validate settings-init projects projects-all projects-plates _check-not-fgcz
 
 help:
 	@echo "Queue Generation System"
@@ -18,6 +18,7 @@ help:
 	@echo "  editor-review    Run the config editor with git pull (review workflow)"
 	@echo "  editor-dash      Run the full Dash config editor (validate + save + review)"
 	@echo "  validate         Validate all configuration files"
+	@echo "  settings-init    Create .qg_settings.toml from the example (GitLab review)"
 	@echo "  projects         Fetch active projects from B-Fabric (fast)"
 	@echo "  projects-all     Fetch all projects from B-Fabric (no status filter)"
 	@echo "  projects-plates  Fetch active projects with plate detection (slow)"
@@ -67,6 +68,15 @@ editor-dash: _check-not-fgcz
 # Validate all configuration files
 validate:
 	uv run qg-validate
+
+# Create .qg_settings.toml (GitLab review workflow) from the example. Never overwrites.
+settings-init:
+	@if [ -f .qg_settings.toml ]; then \
+		echo ".qg_settings.toml already exists -- not overwriting."; \
+	else \
+		cp .qg_settings.toml.example .qg_settings.toml && \
+		echo "Created .qg_settings.toml (gitignored). Edit it: set [gitlab] url, project, private_token."; \
+	fi
 
 # Fetch active projects from B-Fabric
 projects:
