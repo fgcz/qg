@@ -4,7 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from qg.config_models.loader import QGConfiguration, qg_configuration
+from qg.config_models.loader import ConfigValidationError, QGConfiguration, qg_configuration
+from qg.config_models.structure import QueuePattern
 
 CONFIG_DIR = Path(__file__).parent.parent / "qg_configs"
 
@@ -201,6 +202,21 @@ class TestMethodNameIntersection:
         assert sample_ids == {"default"}
         result = methods.get_method_names("default", "pos")
         assert result == {"DDA", "DIA"}
+
+    def test_pattern_with_disjoint_qc_methods_fails_validation(self, config: QGConfiguration) -> None:
+        """A pattern mixing a DDA-only QC (QC01) and a DIA-only QC (QC04) leaves no method
+        common to all samples, so validation must reject it — otherwise the queue app's
+        method dropdown would be empty. This guards the case an editor 'Validate' would miss."""
+        config.queue_patterns.patterns["Testing"]["test2_pattern"] = QueuePattern(
+            description="mix DDA-only (QC01) and DIA-only (QC04) QC",
+            run_QC_after_n_samples=8,
+            start=["QC04", "QC01"],
+            middle=[],
+            end=["QC04"],
+        )
+        with pytest.raises(ConfigValidationError) as exc:
+            config.serialize_all()
+        assert any("test2_pattern" in m and "no common method" in m for m in exc.value.errors)
 
 
 class TestConfigInstrumentConfigs:

@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Config validation (`qg-validate` and the editors' Validate) now rejects a queue pattern whose QC samples and `default` share no common method name for some instrument/polarity — e.g. a DDA-only QC mixed with a DIA-only QC — which would otherwise pass validation but leave the method dropdown empty and no run buildable.
 - Config editor preview-only mode (`make editor-preview`): validate and reload configs in the browser without saving to disk or opening a GitLab review.
 - Sample-name suffix dropdown in the Sample Editor: appends a tech-area-specific prep suffix (`enriched`/`total`/`lip` for Proteomics) to every sample name; QC injections are unaffected. Configured via `sample_name_suffixes` in `ui/tech_area_defaults.toml`.
 - `no_layout` QC option in Plate mode (all tech areas): generates the plate exactly as provided — no QC injected, no wells reserved — for plates that arrive full of samples. The Pattern picker is hidden when it is selected.
