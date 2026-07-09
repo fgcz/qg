@@ -190,6 +190,12 @@ Proteomics,evosep_qc,Plate_96,clean,6,E1,H12
 The `qc_layout_name` is selected per instrument via `instrument_config.csv`
 (see below); it usually matches the pattern name.
 
+Besides the layouts defined here, the queue apps offer a synthetic
+**`no_layout`** option in **Plate** mode (all tech areas). It is recognised in
+code — not defined in any CSV — and means *use the plate as-is*: no QC layout,
+no QC injected, no wells reserved (so a plate that is full of biological samples
+still queues). Selecting it forces an empty pattern and hides the Pattern picker.
+
 ---
 
 ## core/formatting/
@@ -351,7 +357,7 @@ as `Plate_96`), but `queue` carries `plates` and `cells`:
 | `queue_pattern` | string | Pattern name (e.g. `standard`) |
 | `queue_type` | `Vial` \| `Plate` | Selects vial vs plate position handling |
 | `plate_layout` | string | Plate layout for the sampler/queue_type (e.g. `Vanquish_54`) |
-| `qc_layout_name` | string | QC layout to use (from `qc_layouts_well/tip.csv`) |
+| `qc_layout_name` | string | QC layout to use (from `qc_layouts_well/tip.csv`), or `no_layout` (Plate mode) for a plate-as-is queue with no QC reserved or injected |
 | `polarity` | list | `[]` for proteomics; `["pos", "neg"]` for metabolomics/lipidomics |
 | `date` | string | `YYYYMMDD`; substituted into `path_template` and file names |
 | `user` | string | Username; substituted into `path_template` |
