@@ -37,10 +37,19 @@ class _FakeUri:
 
 @dataclass(frozen=True)
 class _FakePlate:
-    """Plate entity. `refs.sample` is a list of dicts with `id`, `name`, optional `_position`, etc."""
+    """Plate entity. `refs.sample` is a list of dicts with `id`, `name`, optional `_position`, etc.
+
+    Mirrors the real B-Fabric `Entity` dict-style field access (`plate.get("type")`),
+    which production uses to filter out non-injectable Storage plates.
+    """
 
     id: int
     refs: SimpleNamespace  # has .sample: list[dict]
+    type: str | None = None  # e.g. "Storage"; None = ordinary injectable plate
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Mirror `Entity.get` for the fields production reads off a plate."""
+        return {"id": self.id, "type": self.type}.get(key, default)
 
 
 def _flatten_row(row: dict[str, Any]) -> dict[str, Any]:
@@ -115,7 +124,7 @@ class FakeBfabric:
         if endpoint == "plate":
             container_id = int(params["containerid"])
             plates = self._plates_for(container_id)
-            return _FakeReadResult([{"id": p.id} for p in plates.values()])
+            return _FakeReadResult([{"id": p.id, "type": p.type} for p in plates.values()])
         if endpoint == "container":
             # `ContainerCache.fetch_container_row` looks a single container up by id.
             return _FakeReadResult(self._container_record_for(int(params["id"])))
@@ -146,7 +155,9 @@ class FakeBfabric:
             return {}
         raw = json.loads(path.read_text())
         return {
-            _FakeUri(entity_id=p["id"]): _FakePlate(id=p["id"], refs=SimpleNamespace(sample=p.get("samples", [])))
+            _FakeUri(entity_id=p["id"]): _FakePlate(
+                id=p["id"], refs=SimpleNamespace(sample=p.get("samples", [])), type=p.get("type")
+            )
             for p in raw
         }
 

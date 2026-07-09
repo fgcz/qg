@@ -11,7 +11,7 @@ from bfabric import Bfabric
 from bfabric.utils.cli_integration import use_client
 from loguru import logger
 
-from qg.bfabric_utils import instance_slug
+from qg.bfabric_utils import STORAGE_PLATE_TYPE, instance_slug
 
 ACTIVE_STATUSES = [
     "running",
@@ -79,11 +79,22 @@ class ContainerCache:
         return result.to_polars(flatten=True).filter(pl.col("countsamples") > 0)
 
     def _find_plates(self, container_ids: Sequence[int]) -> set[int]:
-        """Check which containers have plates (one query per container, slow)."""
+        """Which containers have at least one non-Storage (injectable) plate.
+
+        One query per container (slow). Storage plates (`type == "Storage"`, e.g.
+        Box 8x8 extract boxes) are excluded so a Storage-only container is not
+        tagged "Plates" in the browser. Cannot use `max_results=1` here: a
+        Storage-only container would still return a row.
+        """
         has_plates: set[int] = set()
         for cid in container_ids:
-            result = self._client.read("plate", {"containerid": cid}, max_results=1)
-            if len(result) > 0:
+            result = self._client.read("plate", {"containerid": cid}, max_results=None)
+            if len(result) == 0:
+                continue
+            df = result.to_polars()
+            if "type" in df.columns:
+                df = df.filter(pl.col("type").fill_null("").str.to_lowercase() != STORAGE_PLATE_TYPE.casefold())
+            if len(df) > 0:
                 has_plates.add(cid)
         logger.info(f"Found {len(has_plates)}/{len(container_ids)} containers with plates")
         return has_plates

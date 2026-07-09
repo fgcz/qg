@@ -77,10 +77,15 @@ def test_get_cache_dir_default_under_repo(monkeypatch) -> None:
     assert path.parent.name == "bfabric_cache"
 
 
-def _fake_plates_dict(sample_dicts: list[dict], plate_id: int = 42) -> dict:
-    """Build a `{uri: plate}` dict shaped like what `client.reader.query("plate", ...)` returns."""
+def _fake_plates_dict(sample_dicts: list[dict], plate_id: int = 42, plate_type: str | None = None) -> dict:
+    """Build a `{uri: plate}` dict shaped like what `client.reader.query("plate", ...)` returns.
+
+    `plate_type` drives the entity's `.get("type")` (e.g. "Storage"); None means no
+    `type` field, i.e. a real injectable plate.
+    """
     fake_plate = MagicMock()
     fake_plate.refs.sample = sample_dicts
+    fake_plate.get = lambda key, default=None: {"type": plate_type}.get(key, default)
     fake_uri = MagicMock()
     fake_uri.components.entity_id = plate_id
     return {fake_uri: fake_plate}
@@ -151,6 +156,52 @@ def test_get_samples_plates_no_filter_when_unrestricted() -> None:
     assert sorted(df["sample_id"].to_list()) == [1, 2, 99]
     # Inventory fetch must be skipped when no restriction is set.
     fake_client.read.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Storage-plate filtering — get_plates() is the single choke point
+# ---------------------------------------------------------------------------
+
+
+def test_get_plates_excludes_storage() -> None:
+    """A Storage plate is dropped; a real (typeless) plate survives."""
+    fake_client = MagicMock()
+    real = _fake_plates_dict([{"id": 1}], plate_id=10, plate_type=None)
+    storage = _fake_plates_dict([{"id": 2}], plate_id=20, plate_type="Storage")
+    fake_client.reader.query.return_value = {**real, **storage}
+
+    result = BfabricHelper(fake_client).get_plates(100)
+
+    assert len(result) == 1
+    assert next(iter(result)).components.entity_id == 10
+
+
+def test_get_plates_excludes_storage_case_insensitive() -> None:
+    """Filtering is case-insensitive on the plate `type`."""
+    fake_client = MagicMock()
+    fake_client.reader.query.return_value = _fake_plates_dict([{"id": 1}], plate_type="storage")
+
+    assert BfabricHelper(fake_client).get_plates(100) == {}
+
+
+def test_get_container_composition_storage_falls_to_vials() -> None:
+    """A container whose only plate is Storage classifies its samples as vials."""
+    fake_client = MagicMock()
+    # Storage plate carries samples 1,2 — but is excluded, so they count as vials.
+    fake_client.reader.query.return_value = _fake_plates_dict([{"id": 1}, {"id": 2}], plate_type="Storage")
+    fake_client.read.return_value.to_polars.return_value = pl.DataFrame({"id": [1, 2]})
+
+    result = BfabricHelper(fake_client).get_container_composition(100)
+
+    assert result == ContainerComposition(has_plates=False, has_vials=True)
+
+
+def test_get_samples_plates_skips_storage() -> None:
+    """get_samples(..., "Plates") yields no rows from a Storage plate."""
+    fake_client = MagicMock()
+    fake_client.reader.query.return_value = _fake_plates_dict(_PLATE_SAMPLES, plate_type="Storage")
+
+    assert BfabricHelper(fake_client).get_samples(100, "Plates").is_empty()
 
 
 # ---------------------------------------------------------------------------
@@ -238,6 +289,38 @@ def test_fetch_container_row_with_type_emits_plate_row(monkeypatch, tmp_path: Pa
 
     assert sorted(row["Type"].to_list()) == ["Plates", "Vials"]
     assert set(row["Container ID"].to_list()) == {321}
+
+
+def _cache_with_plates(plate_df: pl.DataFrame, monkeypatch, tmp_path: Path) -> ContainerCache:
+    """ContainerCache whose plate endpoint returns `plate_df` for container 321."""
+    monkeypatch.setattr("qg.cli.find_projects.get_cache_dir", lambda c: tmp_path / instance_slug(c))
+    client = _FakeClient("https://fgcz-bfabric.uzh.ch/bfabric")
+
+    def _read(endpoint: str, query: dict, max_results: int | None = 1) -> _FakeReadResult:
+        if endpoint == "container":
+            return _FakeReadResult(_container_record(321))
+        if endpoint == "plate":
+            return _FakeReadResult(plate_df)
+        return _FakeReadResult(pl.DataFrame())
+
+    client.read = _read
+    return ContainerCache(client)
+
+
+def test_fetch_container_row_with_type_ignores_storage_only(monkeypatch, tmp_path: Path) -> None:
+    """A container whose only plate is Storage gets no 'Plates' row."""
+    cache = _cache_with_plates(pl.DataFrame({"id": [42], "type": ["Storage"]}), monkeypatch, tmp_path)
+    row = cache.fetch_container_row(321, with_type=True)
+
+    assert row["Type"].to_list() == ["Vials"]
+
+
+def test_fetch_container_row_with_type_mixed_emits_plate_row(monkeypatch, tmp_path: Path) -> None:
+    """A real plate alongside a Storage plate still yields a 'Plates' row."""
+    cache = _cache_with_plates(pl.DataFrame({"id": [42, 43], "type": ["96 well", "Storage"]}), monkeypatch, tmp_path)
+    row = cache.fetch_container_row(321, with_type=True)
+
+    assert sorted(row["Type"].to_list()) == ["Plates", "Vials"]
 
 
 # ---------------------------------------------------------------------------

@@ -42,6 +42,23 @@ class ContainerComposition(NamedTuple):
     has_vials: bool
 
 
+STORAGE_PLATE_TYPE = "Storage"
+"""B-Fabric plate `type` for non-injectable storage plates (e.g. Box 8x8 extract boxes).
+
+These must never be treated as injection plates by the queue generator; they are
+filtered out at every plate fetch site.
+"""
+
+
+def _is_storage_plate(plate: Any) -> bool:
+    """True if a B-Fabric plate entity is a non-injectable Storage plate.
+
+    Case-insensitive and None/whitespace-safe; a plate with no `type` is treated
+    as a real (injectable) plate.
+    """
+    return str(plate.get("type") or "").strip().casefold() == STORAGE_PLATE_TYPE.casefold()
+
+
 class BfabricHelper:
     def __init__(self, client: Bfabric, *, restrict_to_container_id: int | None = None) -> None:
         self.client = client
@@ -92,8 +109,15 @@ class BfabricHelper:
         return df
 
     def get_plates(self, container_id: int) -> dict:
-        """Query plates for a container."""
-        return self.client.reader.query("plate", {"containerid": container_id})
+        """Query plates for a container, excluding non-injectable Storage plates.
+
+        Filtering here is the single choke point: it removes Storage plates from
+        plate-vs-vial classification, the plate picker, and plate-sample loading
+        at once. Samples that sat on a Storage plate fall back to vials via
+        `get_container_composition`.
+        """
+        plates = self.client.reader.query("plate", {"containerid": container_id})
+        return {uri: plate for uri, plate in plates.items() if not _is_storage_plate(plate)}
 
     def has_plates(self, container_id: int) -> bool:
         """Check whether a container has plates."""

@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 - Portal app no longer crashes at startup when no B-Fabric container cache exists yet; the project list renders empty until "Refresh Projects" populates it.
 - GitLab settings loader no longer crashes with a cryptic `IsADirectoryError` when a directory sits at the settings path (e.g. `~/.qg_settings.toml`); it now requires an actual file.
+- B-Fabric "Storage" plates (`type == "Storage"`, e.g. Box 8x8 extract boxes) are no longer treated as injection plates: they never appear in the plate picker, no longer make an order look like a plate order, and their samples fall back to vials.
 
 ## [0.8.1] - 2026-06-30
 
