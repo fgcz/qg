@@ -326,6 +326,54 @@ def _validate_output_format_tech_overlays(
     return errors
 
 
+def _validate_pattern_method_intersection(
+    queue_patterns: QueuePatternsConfig,
+    methods: MethodsConfig,
+) -> list[str]:
+    """Validate that each pattern's QC samples share a usable method per instrument.
+
+    A queue run mixes the user's ``default`` samples with the QC samples a pattern
+    injects, and the method dropdown offers only method names common to all of them
+    (see ``apps.queue_app_shared.available_method_names``). If a pattern's QC samples
+    constrain the method names to disjoint sets — e.g. a DDA-only QC alongside a
+    DIA-only QC — the intersection is empty, no method can be offered, and the run
+    cannot be built. This is not caught by the sample-reference check (each QC exists),
+    so validate it explicitly, per (tech_area, instrument, pattern, polarity). Sample
+    types with no rows in the instrument's methods file are unconstrained and skipped,
+    mirroring the app.
+
+    Returns:
+        List of validation error messages
+    """
+    errors: list[str] = []
+    logger.info("Validating pattern method-name intersection...")
+
+    for tech_area in sorted(methods.methods):
+        patterns = queue_patterns.get_patterns_for_tech_area(tech_area)
+        for instrument in sorted(methods.methods[tech_area]):
+            methods_for_instr = methods.methods[tech_area][instrument]
+            polarities = sorted({m.polarity for m in methods_for_instr.methods})
+            for pattern_name in sorted(patterns):
+                sample_ids = {SamplesConfig.DEFAULT_SAMPLE_ID} | patterns[pattern_name].get_all_sample_ids()
+                for polarity in polarities:
+                    name_sets = [methods_for_instr.get_method_names(sid, polarity) for sid in sample_ids]
+                    constrained = [s for s in name_sets if s]
+                    if constrained and not constrained[0].intersection(*constrained[1:]):
+                        pol_label = f" [{polarity}]" if polarity else ""
+                        msg = (
+                            f"{tech_area}.{pattern_name} on {instrument}{pol_label}: its samples "
+                            f"({sorted(sample_ids)}) share no common method name, so the method dropdown "
+                            f"would be empty and no run could be built"
+                        )
+                        errors.append(msg)
+                        logger.warning(msg)
+
+    if not errors:
+        logger.info("  OK: All patterns have a common method across their samples")
+
+    return errors
+
+
 def _validate_configs(
     *,
     samples: SamplesConfig,
@@ -333,6 +381,7 @@ def _validate_configs(
     qc_layouts_well: QCLayoutsWellConfig,
     qc_layouts_tip: QCLayoutsTipConfig,
     tech_area_defaults: TechAreaDefaultsConfig,
+    methods: MethodsConfig,
     output_formats: OutputFormatsConfig | None = None,
 ) -> list[str]:
     """Validate cross-references between configs.
@@ -346,6 +395,7 @@ def _validate_configs(
     errors.extend(_validate_layout_sample_refs(samples, qc_layouts_well, qc_layouts_tip))
     errors.extend(_validate_pattern_layout_compatibility(queue_patterns, qc_layouts_well, qc_layouts_tip))
     errors.extend(_validate_tech_area_defaults_unique(tech_area_defaults))
+    errors.extend(_validate_pattern_method_intersection(queue_patterns, methods))
     if output_formats is not None:
         errors.extend(_validate_output_format_tech_overlays(samples, output_formats))
 
@@ -566,6 +616,7 @@ class QGConfiguration:
             qc_layouts_well=qc_layouts_well,
             qc_layouts_tip=qc_layouts_tip,
             tech_area_defaults=tech_area_defaults,
+            methods=methods,
             output_formats=output_formats,
         )
         if errors:
@@ -601,6 +652,7 @@ class QGConfiguration:
             qc_layouts_well=self.qc_layouts_well,
             qc_layouts_tip=self.qc_layouts_tip,
             tech_area_defaults=self.tech_area_defaults,
+            methods=self.methods,
             output_formats=self.output_formats,
         )
         if errors:

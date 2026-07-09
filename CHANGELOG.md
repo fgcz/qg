@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Config validation (`qg-validate` and the editors' Validate) now rejects a queue pattern whose QC samples and `default` share no common method name for some instrument/polarity — e.g. a DDA-only QC mixed with a DIA-only QC — which would otherwise pass validation but leave the method dropdown empty and no run buildable.
 - Marimo config editor has a preview-only mode (`make editor-preview`) for browser-only config edits: users can validate and reload the original config without saving to disk or submitting a GitLab review.
 - Sample Editor now has a "sample name suffix" dropdown that appends a prep-type suffix to every sample name in the generated queue and preview (QC injections are unaffected); the options are tech-area specific and configured per tech area in `ui/tech_area_defaults.toml` (`sample_name_suffixes`) — `enriched`/`total`/`lip` under Proteomics, `none` only where no vocabulary is set.
 
