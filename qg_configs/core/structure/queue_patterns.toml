@@ -109,7 +109,7 @@ end = ["QC01"]
 [Testing.test2_pattern]
 description = "Test pattern with QC04 (DIA-only QC)"
 run_QC_after_n_samples = 8
-start = ["QC04"]
+start = ["QC04", "QC01"]
 middle = []
 end = ["QC04"]
 
