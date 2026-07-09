@@ -68,7 +68,7 @@ tests/gui/
 | `non_employee.feature` | `test_non_employee.py` | Pinned-container workflow, no project table |
 | `non_employee_empty.feature` | `test_non_employee_empty.py` | "No samples found" danger callout |
 | `launching_order.feature` | `test_launching_order.py` | Opening from an order defaults Tech Area to its technology; employee order is pre-selected (banner) |
-| `noqc.feature` | `test_noqc.py` | `noqc` QC layout hides the Pattern dropdown |
+| `noqc.feature` | `test_noqc.py` | `no_layout` (plate as-is) offered in Plate mode; hides the Pattern dropdown |
 | `vial_mode.feature` | `test_vial_mode.py` | Start Tray + Start Position visibility |
 | `upload_workunit.feature` | `test_upload_workunit.py` | Mock workunit message + bundled resource count |
 | `params_json.feature` | `test_params_json.py` | Download Params JSON round-trip (full schema) |

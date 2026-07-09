@@ -46,8 +46,6 @@ Lipidomics,standard,Plate_96,pooledQCDil3,Y,H,6
 Lipidomics,standard,Plate_96,pooledQCDil2,Y,H,7
 Lipidomics,standard,Plate_96,pooledQC,Y,H,8
 Lipidomics,standard,Plate_96,EquiSPLASH,Y,H,9
-Metabolomics,noqc,Vanquish_54,,,,
-Metabolomics,noqc,Plate_96,,,,
 Metabolomics,cal_series,Vanquish_54,cal1,Y,E,1
 Metabolomics,cal_series,Vanquish_54,cal2,Y,E,2
 Metabolomics,cal_series,Vanquish_54,cal3,Y,E,3
@@ -82,8 +80,6 @@ Metabolomics,cal_series,Plate_96,pooledQCDil2,Y,H,7
 Metabolomics,cal_series,Plate_96,pooledQC,Y,H,8
 Metabolomics,cal_series,Plate_96,108mix_AA,Y,H,9
 Metabolomics,cal_series,Plate_96,108mix_OAP,Y,H,10
-Lipidomics,noqc,Vanquish_54,,,,
-Lipidomics,noqc,Plate_96,,,,
 Testing,test_both,Vanquish_54,QC01,B,F,9
 Testing,test_both,Vanquish_54,QC04,B,F,8
 Testing,test1,Vanquish_54,QC01,B,F,9

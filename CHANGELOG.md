@@ -9,11 +9,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - Config editor preview-only mode (`make editor-preview`): validate and reload configs in the browser without saving to disk or opening a GitLab review.
 - Sample-name suffix dropdown in the Sample Editor: appends a tech-area-specific prep suffix (`enriched`/`total`/`lip` for Proteomics) to every sample name; QC injections are unaffected. Configured via `sample_name_suffixes` in `ui/tech_area_defaults.toml`.
+- `no_layout` QC option in Plate mode (all tech areas): generates the plate exactly as provided — no QC injected, no wells reserved — for plates that arrive full of samples. The Pattern picker is hidden when it is selected.
 
 ### Changed
 - Metabolomics `cal_series` pattern now interleaves QC and standard injections (`108mix_AA`/`108mix_OAP`, `pooledQC`, dilution series, `blank`) with the calibration series, and repositions the standards in the well QC layout.
 - Renamed the "Sample Selection" tab to "✎ Edit Samples" and moved it to the front (both apps); the app still opens on Queue Preview.
 - Internal: extracted the shared config-editor core into `qg.apps.editor_core` (reused by the separate `qg-dash` package) and deduplicated the portal/local queue-app notebooks into `queue_app_shared.py`; no user-visible change.
+- QC layout rows in `qc_layouts_well.csv` must now fully specify `sample_id`/`tray`/`row`/`col`; the all-blank placeholder row is no longer accepted (it could not be saved via the config editor anyway).
+
+### Removed
+- The `noqc` QC-layout placeholder rows from `qc_layouts_well.csv`. Use the new `no_layout` option (or the `noqc` pattern under a real layout) to run without QC.
 
 ### Fixed
 - Portal app no longer crashes at startup when no B-Fabric container cache exists yet; the project list renders empty until "Refresh Projects" populates it.

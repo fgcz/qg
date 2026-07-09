@@ -223,25 +223,37 @@ class TestPositionConfigs:
         sample_ids = {s.sample_id for s in samples}
         assert "QC01" in sample_ids
 
-    def test_noqc_layout_available_for_metabolomics_and_lipidomics(self):
-        """`noqc` is a selectable QC layout for Metabolomics and Lipidomics; absent for Proteomics."""
+    def test_no_layout_is_a_synthetic_plate_option(self):
+        """`no_layout` is a code-level "plate as-is" option: never a CSV QC layout, but
+        offered in the overview table for Plate combinations of every tech area, paired
+        with the empty `no_layout` pattern. The `noqc` *pattern* still resolves separately.
+        """
+        from qg.config_models.loader import qg_configuration
         from qg.config_models.positions import QCLayoutsWellConfig
+        from qg.config_models.structure import NO_LAYOUT
 
+        # It is never a CSV-backed QC layout for any tech area.
         path = CONFIG_ROOT / "core" / "position" / "qc_layouts_well.csv"
-        df = pl.read_csv(path, comment_prefix="#")
-        config = QCLayoutsWellConfig.from_table(df)
-
-        for tech in ("Metabolomics", "Lipidomics"):
+        well = QCLayoutsWellConfig.from_table(pl.read_csv(path, comment_prefix="#"))
+        for tech in ("Proteomics", "Metabolomics", "Lipidomics"):
             for plate_layout in ("Vanquish_54", "Plate_96"):
-                assert "noqc" in config.get_layout_names(tech, plate_layout), (
-                    f"noqc should be selectable for {tech}/{plate_layout}"
-                )
-                # Empty layout: no real sample positions are exposed.
-                assert config.get_sample_ids(tech, "noqc", plate_layout) == set()
+                assert NO_LAYOUT not in well.get_layout_names(tech, plate_layout)
+                assert "noqc" not in well.get_layout_names(tech, plate_layout)
 
-        # Proteomics is intentionally excluded from the noqc option.
-        for plate_layout in ("Vanquish_54", "Plate_96"):
-            assert "noqc" not in config.get_layout_names("Proteomics", plate_layout)
+        config = qg_configuration()
+        overview = config.to_overview_table()
+        nl = overview.filter(pl.col("qc_layout_name") == NO_LAYOUT)
+        # Offered only for Plate, for every tech area, paired with the no_layout pattern.
+        assert nl.height > 0
+        assert set(nl["queue_type"].to_list()) == {"Plate"}
+        assert set(nl["pattern_name"].to_list()) == {NO_LAYOUT}
+        assert {"Proteomics", "Metabolomics", "Lipidomics"} <= set(nl["tech_area"].to_list())
+
+        # The sentinel pattern resolves to an empty pattern for any tech area...
+        assert config.queue_patterns.get_pattern("Proteomics", NO_LAYOUT).get_all_sample_ids() == set()
+        # ...while the `noqc` *pattern* is unaffected and still resolves for Metab/Lipid.
+        for tech in ("Metabolomics", "Lipidomics"):
+            assert config.queue_patterns.get_pattern(tech, "noqc").get_all_sample_ids() == set()
 
     def test_load_qc_layouts_tip(self):
         """Load qc_layouts_tip.csv into QCLayoutsTipConfig."""

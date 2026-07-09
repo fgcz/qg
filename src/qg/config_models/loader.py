@@ -31,7 +31,7 @@ from .positions import (
     SamplerPlateLayoutsConfig,
     SamplersConfig,
 )
-from .structure import QueuePatternsConfig, SamplesConfig
+from .structure import NO_LAYOUT, QueuePatternsConfig, SamplesConfig
 from .ui import InstrumentConfigsConfig, TechAreaDefaultsConfig
 
 if TYPE_CHECKING:
@@ -476,19 +476,35 @@ class QGConfiguration:
         lp_df = pl.DataFrame(layout_pattern_rows).unique()
         df = df.join(lp_df, on=["tech_area", "sampler", "plate_layout"], how="left")
 
-        return df.select(
-            [
-                "tech_area",
-                "instrument",
-                "sampler",
-                "plate_layout",
-                "queue_type",
-                "output_format",
-                "default_pattern",
-                "qc_layout_name",
-                "pattern_name",
-            ]
+        columns = [
+            "tech_area",
+            "instrument",
+            "sampler",
+            "plate_layout",
+            "queue_type",
+            "output_format",
+            "default_pattern",
+            "qc_layout_name",
+            "pattern_name",
+        ]
+        result = df.select(columns)
+
+        # Synthetic "plate as-is" option (no QC layout, no injections, nothing reserved),
+        # offered for every Plate combination across all tech_areas. It is recognised in
+        # code (structure.get_pattern → EMPTY_PATTERN) rather than defined in any CSV.
+        # Appended post-join and filtered on the resolved queue_type so it never leaks to
+        # Vial combinations that happen to share a (tech_area, sampler, plate_layout).
+        no_layout_rows = (
+            result.filter(pl.col("queue_type") == "Plate")
+            .drop("qc_layout_name", "pattern_name")
+            .unique()
+            .with_columns(
+                pl.lit(NO_LAYOUT).alias("qc_layout_name"),
+                pl.lit(NO_LAYOUT).alias("pattern_name"),
+            )
+            .select(columns)
         )
+        return pl.concat([result, no_layout_rows], how="vertical")
 
     def get_available_qc_layouts(self, tech_area: str, plate_layout: str, sampler: Sampler) -> list[str]:
         """Get QC layout names available for (tech_area, plate_layout, sampler_type)."""

@@ -24,7 +24,7 @@ import polars as pl
 import pydantic
 from loguru import logger
 
-from qg.config_models.structure import SamplesConfig
+from qg.config_models.structure import NO_LAYOUT, SamplesConfig
 from qg.generator import QueueGenerator, format_table, write_queue
 from qg.params_models import QueueParameters, stamp_provenance
 from qg.queue_builder import QueueBuilder
@@ -219,10 +219,11 @@ def resolve_qc_layout_preview(
         return None
     sampler_obj = config.samplers.get_sampler(sampler)
     samples = config.get_qc_samples(tech_area, qc_layout, plate_layout, sampler_obj)
-    # Drop noqc placeholder rows (sample_id is None) and layout rows the pattern never injects.
+    # Keep only the layout rows the selected pattern actually injects. For the
+    # `no_layout` option the pattern is empty, so this yields nothing (no preview).
     queue_pattern = config.queue_patterns.get_pattern(tech_area, pattern)
     used_sample_ids = queue_pattern.get_all_sample_ids()
-    samples = [s for s in samples if s.sample_id is not None and s.sample_id in used_sample_ids]
+    samples = [s for s in samples if s.sample_id in used_sample_ids]
     if not samples:
         return None
     if sampler_obj.is_tip:
@@ -674,12 +675,12 @@ def render_sidebar_body(
 ) -> mo.Html:
     """Assemble the configuration sidebar body (both apps' normal, non-reproduce mode).
 
-    Groups the Queue controls (hiding Pattern under the ``noqc`` layout, showing the
-    concentration grid and method dropdowns only when present), then the Options, then
-    appends validation issues and the QC-position preview when present.
+    Groups the Queue controls (hiding Pattern under the ``no_layout`` plate-as-is
+    option, showing the concentration grid and method dropdowns only when present),
+    then the Options, then appends validation issues and the QC-position preview.
     """
     queue_items = [qc_layout_field]
-    if qc_layout_field.value != "noqc":
+    if qc_layout_field.value != NO_LAYOUT:
         queue_items.append(pattern_field)
     if concentration_inputs is not None:
         queue_items.append(concentration_block)

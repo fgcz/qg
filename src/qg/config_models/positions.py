@@ -256,38 +256,31 @@ class SamplerPlateLayoutsConfig(BaseModel):
 class QCSampleWell(BaseModel):
     """A QC sample position for well-plate samplers (fixed well positions).
 
-    Position fields are optional so an "empty" QC layout can be represented
-    in the CSV with a single row that has no sample_id / position — this is
-    used by the noqc layout, which exists only to make the layout name
-    selectable in the UI; downstream code short-circuits on the noqc pattern
-    before any positions are read.
+    Every row must fully specify its position. Position fields are typed ``| None``
+    only so a blank CSV cell parses (as ``None``) and is then rejected by the
+    validator below, rather than raising an opaque field-level coercion error.
     """
 
     tech_area: str = Field(..., description="Technology area")
     qc_layout_name: str = Field(..., description="QC layout name")
     plate_layout: str = Field(..., description="Plate layout name")
-    sample_id: str | None = Field(default=None, description="QC sample identifier (None for empty/noqc layouts)")
-    tray: str | None = Field(default=None, description="Tray identifier (None for empty/noqc layouts)")
-    row: str | None = Field(default=None, description="Row identifier (None for empty/noqc layouts)")
-    col: int | None = Field(default=None, description="Column identifier (None for empty/noqc layouts)")
+    sample_id: str | None = Field(default=None, description="QC sample identifier")
+    tray: str | None = Field(default=None, description="Tray identifier")
+    row: str | None = Field(default=None, description="Row identifier")
+    col: int | None = Field(default=None, description="Column identifier")
 
     @model_validator(mode="after")
-    def positions_all_set_or_noqc_placeholder(self) -> Self:
-        """Reject partially-filled position fields outside the `noqc` placeholder.
+    def positions_all_set(self) -> Self:
+        """Require every QC layout row to fully specify sample_id/tray/row/col.
 
-        A typo'd row (e.g. a blank `row` cell on a standard layout) would
-        otherwise load successfully and be silently dropped from
-        ``get_sample_ids``, masking the config error.
+        A typo'd row (e.g. a blank `row` cell) would otherwise load successfully
+        and be silently dropped from ``get_sample_ids``, masking the config error.
         """
-        fields = (self.sample_id, self.tray, self.row, self.col)
-        n_set = sum(f is not None for f in fields)
-        if n_set == 4:
-            return self
-        if n_set == 0 and self.qc_layout_name == "noqc":
+        if all(f is not None for f in (self.sample_id, self.tray, self.row, self.col)):
             return self
         raise ValueError(
             f"QC layout row ({self.tech_area}, {self.qc_layout_name}, {self.plate_layout}) "
-            "must have all of sample_id/tray/row/col set, or all four blank with qc_layout_name='noqc'."
+            "must have all of sample_id/tray/row/col set."
         )
 
 

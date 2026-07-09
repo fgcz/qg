@@ -369,9 +369,11 @@ class TestNoQCPattern:
 
 
 class TestNoqcMetabolomicsEndToEnd:
-    """End-to-end check: Metabolomics with the real `noqc` layout + `noqc` pattern."""
+    """End-to-end check: the Metabolomics `noqc` *pattern* under the `standard` QC layout
+    produces only user samples (no QC injected). The `noqc` pattern is retained even
+    though the `noqc` QC *layout* was removed."""
 
-    def test_noqc_layout_produces_only_user_samples(self, config):
+    def test_noqc_pattern_produces_only_user_samples(self, config):
         samples = make_vial_samples(4)
         params = QueueParameters(
             tech_area="Metabolomics",
@@ -381,7 +383,7 @@ class TestNoqcMetabolomicsEndToEnd:
             queue_pattern="noqc",
             queue_type="Vial",
             plate_layout="Vanquish_54",
-            qc_layout_name="noqc",
+            qc_layout_name="standard",
             polarity=["pos"],
             date="20260518",
             user="test",
@@ -507,7 +509,7 @@ class TestPlateStartTray:
     """
 
     @staticmethod
-    def _plate_input(start_tray: str | int = "") -> tuple:
+    def _plate_input(start_tray: str | int = "", pattern: str = "cal_series", qc_layout: str = "cal_series") -> tuple:
         from qg.params_models import Plate, PlateCell, PlateQueue, PlateQueueInput
 
         sample = VialSample(sample_name="S1", sample_id=100, container_id=99)
@@ -523,10 +525,10 @@ class TestPlateStartTray:
             instrument="EXPLORIS_3",
             sampler="Vanquish",
             output_format="xcalibur_sii",
-            queue_pattern="cal_series",
+            queue_pattern=pattern,
             queue_type="Plate",
             plate_layout="Vanquish_54",
-            qc_layout_name="cal_series",
+            qc_layout_name=qc_layout,
             polarity=["pos"],
             date="20260521",
             user="test",
@@ -539,6 +541,21 @@ class TestPlateStartTray:
         qi, _, _ = self._plate_input(start_tray="")  # default → first tray Y
         with pytest.raises(ValueError, match=r"at Y:E1 conflicts with QC position"):
             QueueGenerator(config, qi).build_rows()
+
+    def test_no_layout_uses_plate_as_is(self, config):
+        """The `no_layout` option reserves nothing, so a user sample on Y:E1 — a well the
+        `cal_series` layout would reserve for cal1 — generates cleanly. This is the
+        plate-as-is capability: a plate too full to spare a QC well still queues.
+        """
+        # Same plate + default tray as the colliding case above, only the QC option differs.
+        qi, _, _ = self._plate_input(start_tray="", pattern="no_layout", qc_layout="no_layout")
+        df = QueueGenerator(config, qi).build_rows().to_table()
+
+        # No QC rows injected; the single user sample sits on Y:E1 without conflict.
+        assert df.filter(pl.col("slot_kind") == "qc").height == 0
+        user_rows = df.filter(pl.col("slot_kind") == "user")
+        assert user_rows.height == 1
+        assert user_rows["tray"].to_list() == ["Y"]
 
     def test_explicit_start_tray_R_relocates_plate_and_avoids_conflict(self, config):
         qi, _, _ = self._plate_input(start_tray="R")
@@ -613,7 +630,7 @@ class TestXcaliburSiiTechSpecificColumns:
             queue_pattern="noqc",
             queue_type="Vial",
             plate_layout="Vanquish_54",
-            qc_layout_name="noqc",
+            qc_layout_name="standard",
             polarity=["pos"],
             date="20260519",
             user="test",
@@ -1403,7 +1420,7 @@ class TestEndOfQueueMarker:
             queue_pattern="noqc",
             queue_type="Vial",
             plate_layout="Vanquish_54",
-            qc_layout_name="noqc",
+            qc_layout_name="standard",
             polarity=["pos", "neg"],
             date="20260519",
             user="test",
