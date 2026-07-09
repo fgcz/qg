@@ -7,20 +7,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
-- Marimo config editor has a preview-only mode (`make editor-preview`) for browser-only config edits: users can validate and reload the original config without saving to disk or submitting a GitLab review.
-- Sample Editor now has a "sample name suffix" dropdown that appends a prep-type suffix to every sample name in the generated queue and preview (QC injections are unaffected); the options are tech-area specific and configured per tech area in `ui/tech_area_defaults.toml` (`sample_name_suffixes`) — `enriched`/`total`/`lip` under Proteomics, `none` only where no vocabulary is set.
+- Config editor preview-only mode (`make editor-preview`): validate and reload configs in the browser without saving to disk or opening a GitLab review.
+- Sample-name suffix dropdown in the Sample Editor: appends a tech-area-specific prep suffix (`enriched`/`total`/`lip` for Proteomics) to every sample name; QC injections are unaffected. Configured via `sample_name_suffixes` in `ui/tech_area_defaults.toml`.
 
 ### Changed
-- Reworked the Metabolomics `cal_series` queue pattern to interleave QC and standard injections (`108mix_AA`/`108mix_OAP`, `pooledQC`, dilution series, `blank`) with the calibration series, and repositioned the standards in the well QC layout.
-- Renamed the "Sample Selection" tab to "✎ Edit Samples" and moved it to the front of the tab bar (both apps); the app still opens on Queue Preview.
-- Internal: extracted the shared config-editor substance (`compact_toml`, table/TOML section contracts, payload→`QGConfiguration` reconstruction, methods store) into `qg.apps.editor_core`, used by the marimo config editor and reused by the separate `qg-dash` package; removed the duplicated copies with no behavior change.
-- Internal: deduplicated the portal and local queue-app notebooks by moving every shared cell body (views, config-derived transforms, and widget construction) into `queue_app_shared.py`, leaving each notebook with thin binding cells; no user-visible behavior change (added `test_local_viz.py` to cover the local Visualizations tab, previously only exercised on the portal).
-
-### Removed
-- The Dash config editor (`qg-config-viewer` viewer and `qg-editor-dash` full editor, plus `apps/bfabric_dash_editor.py`) was extracted to a separate `qg-dash` package that depends on `qg`; it is no longer part of this repo. The shared `qg.apps.editor_core` stays here.
+- Metabolomics `cal_series` pattern now interleaves QC and standard injections (`108mix_AA`/`108mix_OAP`, `pooledQC`, dilution series, `blank`) with the calibration series, and repositions the standards in the well QC layout.
+- Renamed the "Sample Selection" tab to "✎ Edit Samples" and moved it to the front (both apps); the app still opens on Queue Preview.
+- Internal: extracted the shared config-editor core into `qg.apps.editor_core` (reused by the separate `qg-dash` package) and deduplicated the portal/local queue-app notebooks into `queue_app_shared.py`; no user-visible change.
 
 ### Fixed
-- Portal app no longer crashes at startup when no B-Fabric container cache exists yet (fresh instance / scrubbed public checkout); the employee project list renders empty until "Refresh Projects" populates it.
+- Portal app no longer crashes at startup when no B-Fabric container cache exists yet; the project list renders empty until "Refresh Projects" populates it.
+- GitLab settings loader no longer crashes with a cryptic `IsADirectoryError` when a directory sits at the settings path (e.g. `~/.qg_settings.toml`); it now requires an actual file.
 
 ## [0.8.1] - 2026-06-30
 
