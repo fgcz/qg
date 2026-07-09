@@ -12,6 +12,15 @@ make editor
 
 This will launch a web-based interface (Marimo app) in your browser.
 
+For a no-persistence trial run, use:
+
+```bash
+make editor-preview
+```
+
+Preview mode lets you edit and validate in the browser, then reload the original
+configuration. It does not save files or submit a GitLab review.
+
 ## Overview of the Interface
 
 The editor is organized into several tabs:
@@ -97,4 +106,5 @@ start = ["blank", "NewStd_Mix", "pooledQC"]
 ## Validate and Save
 
 1.  Click the **Validate** button at the bottom of the app to ensure your configuration is consistent (e.g., verifying that all sample IDs in patterns exist in the Samples table).
-2.  If validation passes, click **Save All** (or **Submit for Review** if in review mode) to write changes to disk.
+2.  If validation passes, click **Save All** to write changes to disk, or **Submit for Review** if in review mode.
+3.  In preview mode, use **Reload Original** to discard browser edits. Preview mode never writes changes to disk.

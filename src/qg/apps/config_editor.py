@@ -86,31 +86,71 @@ def _():
 
 @app.cell
 def _():
-    # Config directory — from CLI arg or default
     cli_args = mo.cli_args()
+    preview_only_mode = "preview-only" in cli_args
+    REVIEW_MODE = not preview_only_mode and "no-review" not in cli_args
+    editor_mode = "preview-only" if preview_only_mode else "review" if REVIEW_MODE else "save"
+    return REVIEW_MODE, cli_args, editor_mode, preview_only_mode
+
+
+@app.cell
+def _(preview_only_mode):
+    reload_original_button = (
+        mo.ui.run_button(label="Reload Original", kind="neutral")
+        if preview_only_mode
+        else None
+    )
+    return (reload_original_button,)
+
+
+@app.cell
+def _(reload_original_button):
+    reload_original_tick = reload_original_button.value if reload_original_button is not None else False
+    return (reload_original_tick,)
+
+
+@app.cell
+def _(cli_args, editor_mode, reload_original_tick):
+    # Config directory — from CLI arg or default
     config_dir = (
         Path(cli_args["config-dir"])
         if "config-dir" in cli_args
         else Path(__file__).parent.parent.parent.parent / "qg_configs"
     )
+    if reload_original_tick:
+        qg_configuration.cache_clear()
     cfg = qg_configuration(config_dir)
     # Capture original contents for in-memory diff (review mode)
     original_contents = cfg.serialize_all()
-    REVIEW_MODE_STARTUP = "no-review" not in cli_args
-    logger.info("Config editor started | config_dir={} | review_mode={}", config_dir, REVIEW_MODE_STARTUP)
+    logger.info(
+        "Config editor started | config_dir={} | mode={} | reloaded={}",
+        config_dir,
+        editor_mode,
+        reload_original_tick,
+    )
     return cfg, config_dir, original_contents
 
 
 @app.cell
-def _():
-    mo.md("""
+def _(editor_mode):
+    _mode_text = {
+        "preview-only": (
+            "Preview-only mode: edit and validate in the browser; "
+            "Reload Original discards edits; nothing is saved."
+        ),
+        "review": "Review mode: validate edits and submit them as a GitLab merge request.",
+        "save": "Save mode: validate edits and write changed config files to disk.",
+    }[editor_mode]
+    mo.md(f"""
     # Queue Generation Config Editor
+
+    _{_mode_text}_
     """)
     return
 
 
 # =============================================================================
-# CSV & TOML Editors (initialized once from cfg — never re-created)
+# CSV & TOML Editors (initialized from cfg; preview reload recreates them)
 # =============================================================================
 
 
@@ -652,26 +692,34 @@ def _(
 
 
 @app.cell
-def _():
-    _args = mo.cli_args()
-    # Review ON by default; pass --no-review to disable
-    REVIEW_MODE = "no-review" not in _args
-    return (REVIEW_MODE,)
-
-
-@app.cell
-def _(REVIEW_MODE):
+def _(editor_mode):
     validate_button = mo.ui.run_button(label="Validate", kind="neutral")
-    save_button = mo.ui.run_button(label="Save All", kind="success") if not REVIEW_MODE else None
+    save_button = (
+        mo.ui.run_button(label="Save All", kind="success")
+        if editor_mode == "save"
+        else None
+    )
     return save_button, validate_button
 
 
 @app.cell
-def _(save_button, validate_button):
+def _(reload_original_button, save_button, validate_button):
     buttons = [validate_button]
+    if reload_original_button is not None:
+        buttons.append(reload_original_button)
     if save_button is not None:
         buttons.append(save_button)
     mo.hstack(buttons, justify="start")
+    return
+
+
+@app.cell
+def _(reload_original_button):
+    mo.stop(reload_original_button is None or not reload_original_button.value)
+    mo.callout(
+        mo.md("**Reloaded original config.** Unsaved browser edits were discarded."),
+        kind="info",
+    )
     return
 
 

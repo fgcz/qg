@@ -7,15 +7,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Marimo config editor has a preview-only mode (`make editor-preview`) for browser-only config edits: users can validate and reload the original config without saving to disk or submitting a GitLab review.
 - Sample Editor now has a "sample name suffix" dropdown that appends a prep-type suffix to every sample name in the generated queue and preview (QC injections are unaffected); the options are tech-area specific and configured per tech area in `ui/tech_area_defaults.toml` (`sample_name_suffixes`) — `enriched`/`total`/`lip` under Proteomics, `none` only where no vocabulary is set.
 
 ### Changed
 - Renamed the "Sample Selection" tab to "✎ Edit Samples" and moved it to the front of the tab bar (both apps); the app still opens on Queue Preview.
 - Internal: extracted the shared config-editor substance (`compact_toml`, table/TOML section contracts, payload→`QGConfiguration` reconstruction, methods store) into `qg.apps.editor_core`, used by the marimo config editor and reused by the separate `qg-dash` package; removed the duplicated copies with no behavior change.
+- Internal: deduplicated the portal and local queue-app notebooks by moving every shared cell body (views, config-derived transforms, and widget construction) into `queue_app_shared.py`, leaving each notebook with thin binding cells; no user-visible behavior change (added `test_local_viz.py` to cover the local Visualizations tab, previously only exercised on the portal).
 
 ### Removed
 - The Dash config editor (`qg-config-viewer` viewer and `qg-editor-dash` full editor, plus `apps/bfabric_dash_editor.py`) was extracted to a separate `qg-dash` package that depends on `qg`; it is no longer part of this repo. The shared `qg.apps.editor_core` stays here.
-- Internal: deduplicated the portal and local queue-app notebooks by moving every shared cell body (views, config-derived transforms, and widget construction) into `queue_app_shared.py`, leaving each notebook with thin binding cells; no user-visible behavior change (added `test_local_viz.py` to cover the local Visualizations tab, previously only exercised on the portal).
 
 ### Fixed
 - Portal app no longer crashes at startup when no B-Fabric container cache exists yet (fresh instance / scrubbed public checkout); the employee project list renders empty until "Refresh Projects" populates it.
