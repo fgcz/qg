@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-07-09
+
 ### Added
 - Config validation (`qg-validate` and the editors' Validate) now rejects a queue pattern whose QC samples and `default` share no common method name for some instrument/polarity — e.g. a DDA-only QC mixed with a DIA-only QC — which would otherwise pass validation but leave the method dropdown empty and no run buildable.
 - Config editor preview-only mode (`make editor-preview`): validate and reload configs in the browser without saving to disk or opening a GitLab review.
