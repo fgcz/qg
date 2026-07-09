@@ -101,8 +101,10 @@ uv run pytest tests/test_file.py::test_name -v
 | `qg-refresh-cache` | `qg.cli.refresh_cache` | Refresh B-Fabric container caches | `qg[bfabric]` |
 | `qg-app` | `qg.gitlab.launcher` | Launch portal queue app (GitLab deployment) | `qg[bfabric]` |
 | `qg-editor` | `qg.gitlab.launcher` | Launch marimo config editor (GitLab deployment) | `qg[bfabric]` |
-| `qg-config-viewer` | `qg.apps.dash_editor.launcher` | Launch the local, validation-only Dash config viewer | — |
-| `qg-editor-dash` | `qg.apps.dash_editor.full_launcher` | Launch the full Dash config editor (dev; save + GitLab review) | `qg[bfabric]` |
+
+> The Dash config editor (`qg-config-viewer`, `qg-editor-dash`) lives in the
+> separate **`qg-dash`** package (sibling `../qg_dash` repo), which depends on
+> `qg`. The shared `qg.apps.editor_core` remains in this repo.
 
 ## Terminology
 
@@ -252,14 +254,10 @@ Both queue apps are thin marimo notebooks over a shared, B-Fabric-free pipeline
 | `apps/queue_app_shared.py` | Shared pipeline helpers (build/generate/filenames/downloads) — no marimo cells, no B-Fabric | no |
 | `apps/launcher_local.py` | `qg-app-local` entry point (runs `queue_app_local.py`) | no |
 | `apps/config_editor.py` | Marimo configuration editor (binds to `editor_core`) | yes |
-| `apps/editor_core.py` | Framework-neutral config-editor core (TOML/table (de)serialization, `compact_toml`, payload→`QGConfiguration`); shared by the marimo editor and both Dash editors | no |
-| `apps/dash_editor/app.py` | Local Dash config editor (`qg-config-viewer`): validate-only, no B-Fabric/GitLab | no |
-| `apps/dash_editor/full_app.py` | Full Dash config editor (`qg-editor-dash`): validate + save + GitLab review, FGCZ-employee gated | yes |
-| `apps/dash_editor/integrations.py` | Dash full-editor portal seam (session/save/review); only Dash file importing B-Fabric/GitLab | yes |
-| `apps/_bfabric_auth.py` | Shared B-Fabric auth: `create_bfabric_fastapi_app` (marimo/ASGI) + `create_bfabric_wsgi_app` (Dash/WSGI) | yes |
+| `apps/editor_core.py` | Framework-neutral config-editor core (TOML/table (de)serialization, `compact_toml`, payload→`QGConfiguration`); used by the marimo editor here and reused by the separate `qg-dash` package | no |
+| `apps/_bfabric_auth.py` | Shared B-Fabric auth: `create_bfabric_fastapi_app` (marimo/ASGI) + `create_bfabric_wsgi_app` (WSGI, used by `qg-dash`) | yes |
 | `apps/bfabric_app.py` | B-Fabric integrated queue app | yes |
 | `apps/bfabric_app_editor.py` | B-Fabric integrated marimo config editor (ASGI) | yes |
-| `apps/bfabric_dash_editor.py` | B-Fabric integrated full Dash config editor (ASGI, wraps the Dash WSGI app) | yes |
 
 **Integrations (`src/qg/apps/integrations/`):** `local_samples.py` (pure CSV/XLSX
 parser → normalized `sample_rows` schema), `bfabric_samples.py` (order/sample

@@ -180,25 +180,32 @@ The same "shared substance, thin GUI layer" principle governs the config editors
 and it is what let a full authenticated Dash editor be added without a second GUI
 implementation.
 
-- **`qg.apps.editor_core`** is the framework-neutral core (no marimo, dash,
-  B-Fabric, or GitLab imports): `compact_toml`, the table/TOML section contracts,
-  and reconstruction of a validated `QGConfiguration` from browser/table payloads
-  (`build_config_from_payload`, `config_from_dataframes`, `methods_store_from_config`).
-  A `preserve_comments` flag lets the validate-only path drop TOML header comments
-  while the save/review paths round-trip them.
-- **`config_editor.py`** (marimo) binds to the core: its cells convert
+> **Location note.** Only `editor_core` and the marimo editor live in this repo.
+> The Dash editors were extracted to the separate **`qg-dash`** package (sibling
+> `../qg_dash` repo), which depends on `qg` and imports `editor_core`,
+> `_bfabric_auth`, and the GitLab bridge from it. The paths below prefixed
+> `qg_dash/` refer to that package; the architecture is unchanged by the split
+> (that it *could* be split cleanly is the point of the shared core).
+
+- **`qg.apps.editor_core`** (this repo) is the framework-neutral core (no marimo,
+  dash, B-Fabric, or GitLab imports): `compact_toml`, the table/TOML section
+  contracts, and reconstruction of a validated `QGConfiguration` from
+  browser/table payloads (`build_config_from_payload`, `config_from_dataframes`,
+  `methods_store_from_config`). A `preserve_comments` flag lets the validate-only
+  path drop TOML header comments while the save/review paths round-trip them.
+- **`config_editor.py`** (marimo, this repo) binds to the core: its cells convert
   data-editor DataFrames to row-dicts and delegate reconstruction. It keeps the
   marimo-only concerns: the B-Fabric employee gate, `write_all` save, and GitLab
   review submission.
-- **`dash_editor/app.py`** (`qg-config-viewer`) is the local, validation-only Dash
-  editor: `create_app()` = `_layout` + `_register_callbacks`, calling the core for
-  validation. It imports no B-Fabric/GitLab (guarded by a test).
-- **`dash_editor/full_app.py`** (`qg-editor-dash`) is the full editor. `create_full_app`
-  reuses the local `_layout` and `_register_callbacks` and adds only save/review
-  controls, a session banner, and the employee gate. The portal seam lives in
-  `dash_editor/integrations.py` (the one Dash file importing B-Fabric/GitLab):
-  session resolution, `save_config` (`write_all`), and `submit_review`
-  (`submit_config_changes`).
+- **`qg_dash/app.py`** (`qg-config-viewer`, in `qg-dash`) is the local,
+  validation-only Dash editor: `create_app()` = `_layout` + `_register_callbacks`,
+  calling the core for validation. It imports no B-Fabric/GitLab (guarded by a test).
+- **`qg_dash/full_app.py`** (`qg-editor-dash`, in `qg-dash`) is the full editor.
+  `create_full_app` reuses the local `_layout` and `_register_callbacks` and adds
+  only save/review controls, a session banner, and the employee gate. The portal
+  seam lives in `qg_dash/integrations.py` (the one Dash file importing
+  B-Fabric/GitLab): session resolution, `save_config` (`write_all`), and
+  `submit_review` (`submit_config_changes`).
 
 ### Reusing the ASGI auth stack for a WSGI app
 
@@ -208,7 +215,9 @@ The B-Fabric auth is ASGI middleware (`create_bfabric_fastapi_app`) that sets
 that copies `scope["meta"]` into the WSGI environ under `WSGI_META_KEY`. The Dash
 callbacks then recover the authenticated session with the same `resolve_app_session`
 the marimo apps use, reading `flask.request.environ[WSGI_META_KEY]`. Production
-serves it via `apps/bfabric_dash_editor.py`, parallel to `bfabric_app_editor.py`.
+serves it via `qg_dash/bfabric_dash_editor.py` (in `qg-dash`), parallel to this
+repo's `bfabric_app_editor.py`. `create_bfabric_wsgi_app` stays here in
+`apps/_bfabric_auth.py`.
 
 This is why marimo vs Dash matters for app *variants*: Dash's layout is a plain
 composable function and its callbacks are functions registered on an app object,
@@ -223,9 +232,9 @@ substance in a shared plain module — the constant across both frameworks.
   `queue_app_shared.py`, once. Both notebooks pick it up through their binding
   cells; no second edit.
 - **A change to config-editor parsing/serialization/reconstruction** goes in
-  `editor_core.py`, once; the marimo editor and both Dash editors pick it up.
-  B-Fabric/GitLab concerns stay in `config_editor.py` (marimo) or
-  `dash_editor/integrations.py` (full Dash), never in the core.
+  `editor_core.py`, once; the marimo editor here and the Dash editors in `qg-dash`
+  pick it up. B-Fabric/GitLab concerns stay in `config_editor.py` (marimo) or
+  `qg-dash`'s `qg_dash/integrations.py` (full Dash), never in the core.
 - **A change to how an app loads samples or emits its output** goes in that
   notebook's seam cell (or the relevant `apps/integrations/` module), not in the
   shared module.

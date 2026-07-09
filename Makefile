@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help app app-local app-all app-type app-review editor editor-local editor-review editor-dash validate settings-init projects projects-all projects-plates _check-not-fgcz
+.PHONY: help app app-local app-all app-type app-review editor editor-review validate settings-init projects projects-all projects-plates _check-not-fgcz
 
 help:
 	@echo "Queue Generation System"
@@ -14,9 +14,7 @@ help:
 	@echo "  app-type         Run the marimo GUI app (with Vial/Plate type column)"
 	@echo "  app-review       Run the queue app with git pull (production)"
 	@echo "  editor           Run the config editor app (no review workflow)"
-	@echo "  editor-local     Run the public Dash config viewer (validation only)"
 	@echo "  editor-review    Run the config editor with git pull (review workflow)"
-	@echo "  editor-dash      Run the full Dash config editor (validate + save + review)"
 	@echo "  validate         Validate all configuration files"
 	@echo "  settings-init    Create .qg_settings.toml from the example (GitLab review)"
 	@echo "  projects         Fetch active projects from B-Fabric (fast)"
@@ -49,10 +47,6 @@ app-type: _check-not-fgcz
 editor: _check-not-fgcz
 	QG_ALLOW_UNAUTHENTICATED=1 uv run marimo run src/qg/apps/config_editor.py -- --no-review
 
-# Run the public Dash config viewer (validation only, no save/review/auth)
-editor-local:
-	uv run qg-config-viewer
-
 # Run the queue app with git pull (production)
 app-review:
 	uv run qg-app
@@ -60,10 +54,6 @@ app-review:
 # Run the config editor with git pull (review workflow)
 editor-review:
 	uv run qg-editor
-
-# Run the full Dash config editor (validate + save + GitLab review; dev auth bypass)
-editor-dash: _check-not-fgcz
-	QG_ALLOW_UNAUTHENTICATED=1 uv run qg-editor-dash
 
 # Validate all configuration files
 validate:
