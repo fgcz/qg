@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-07-10
+
 ### Added
 - `no_layout` ("as-is") QC option is now available for **Vial** queues too, not just Plate — queues the samples exactly as provided, with no QC injected or wells reserved.
 
