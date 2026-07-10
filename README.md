@@ -4,12 +4,16 @@
 
 Generate sample queues with QC injections for mass spectrometry instruments (XCalibur, Chronos, Hystar).
 
-## ▶ Try the live demo
+## ▶ Try the live demos
 
 **[Launch the queue generator in your browser →](https://apps-dev.bfabric.org/queue-gen-local/)**
 
-No install, no account. Upload a CSV/XLSX sample table (or load a bundled example),
-pick the instrument / sampler / pattern, preview the queue, and download it.
+**[Launch the config editor in your browser →](https://apps-dev.bfabric.org/queue-gen-editor-local/)**
+
+No install, no account. The queue generator demo lets you upload a CSV/XLSX
+sample table (or load a bundled example), pick the instrument / sampler /
+pattern, preview the queue, and download it. The config editor demo lets you
+inspect, edit, and validate the configuration in the browser.
 
 ---
 
@@ -100,4 +104,3 @@ Static config lives in `qg_configs/`, grouped under
 `core/{structure,position,formatting,methods}/` and `ui/`. The per-file
 reference (purpose, columns, examples) is maintained in one place:
 **[docs/reference/config.md](docs/reference/config.md)**.
-
