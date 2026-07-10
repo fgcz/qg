@@ -675,7 +675,7 @@ def render_sidebar_body(
 ) -> mo.Html:
     """Assemble the configuration sidebar body (both apps' normal, non-reproduce mode).
 
-    Groups the Queue controls (hiding Pattern under the ``no_layout`` plate-as-is
+    Groups the Queue controls (hiding Pattern under the ``no_layout`` as-is
     option, showing the concentration grid and method dropdowns only when present),
     then the Options, then appends validation issues and the QC-position preview.
     """

@@ -6,12 +6,15 @@
 #   (used to filter the order browser; empty ⇒ no filtering)
 # sample_name_suffixes: prep-type labels offered in the sample-name suffix dropdown
 #   (appended as _<suffix> to every sample name; empty ⇒ only the "none" no-op)
+# allow_no_layout: offer the synthetic "no_layout" (as-is, no QC) option for this
+#   tech area, for both Vial and Plate queues (omitted ⇒ true)
 
 [Proteomics]
 default_user = "analytic"
 default_polarities = ["pos"]
 bfabric_areas = ["Proteomics"]
 sample_name_suffixes = ["enriched", "total", "lip"]
+allow_no_layout = false
 
 [Metabolomics]
 default_user = ""

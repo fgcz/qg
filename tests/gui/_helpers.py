@@ -62,6 +62,13 @@ def expect_dropdown_options(page: Page, label: str, *values: str) -> None:
         expect(options.filter(has_text=v)).to_have_count(1)
 
 
+def expect_dropdown_missing_option(page: Page, label: str, value: str) -> None:
+    """Assert the named sidebar dropdown is present but offers no option matching ``value``."""
+    select = sidebar(page).get_by_label(label)
+    expect(select).to_be_visible()
+    expect(select.locator("option").filter(has_text=value)).to_have_count(0)
+
+
 def expect_dropdown_hidden(page: Page, label: str) -> None:
     """Assert the named sidebar dropdown is not present (e.g. conditional widget hidden)."""
     expect(sidebar(page).get_by_label(label)).to_have_count(0)

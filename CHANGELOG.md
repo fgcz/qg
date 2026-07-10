@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `no_layout` ("as-is") QC option is now available for **Vial** queues too, not just Plate — queues the samples exactly as provided, with no QC injected or wells reserved.
+
+### Changed
+- `no_layout` availability is now configurable per tech area via `allow_no_layout` in `ui/tech_area_defaults.toml` (default on); it is hidden for **Proteomics**, which always wants QC.
+
 ## [0.9.0] - 2026-07-09
 
 ### Added

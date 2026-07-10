@@ -11,9 +11,10 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 SampleType = Literal["Unknown", "Blank", "QC", "Std Bracket"]
 
-# Sentinel QC-layout / pattern value for the "plate as-is" option: no QC layout is
-# applied, no QC samples are injected, and no wells are reserved. It is recognised in
-# code (get_pattern below, to_overview_table) rather than defined in any CSV/TOML.
+# Sentinel QC-layout / pattern value for the "as-is" option (Vial or Plate): no QC
+# layout is applied, no QC samples are injected, and no wells are reserved. It is
+# recognised in code (get_pattern below, to_overview_table) rather than defined in
+# any CSV/TOML.
 NO_LAYOUT = "no_layout"
 
 
@@ -50,9 +51,9 @@ class QueuePattern(BaseModel):
 
 
 # The pattern backing the `NO_LAYOUT` option: references no QC samples, so downstream
-# reservation/injection short-circuits to "plate as-is" (see qc_layout.create_qc_layout).
+# reservation/injection short-circuits to "as-is" (see qc_layout.create_qc_layout).
 EMPTY_PATTERN = QueuePattern(
-    description="No layout — plate as-is (no QC injected or reserved)",
+    description="No layout — queue as-is (no QC injected or reserved)",
     run_QC_after_n_samples=1,
     start=[],
     middle=[],
@@ -79,7 +80,7 @@ class QueuePatternsConfig(BaseModel):
         """Get a specific pattern by tech_area and name.
 
         The `NO_LAYOUT` sentinel resolves to the empty pattern for every tech_area —
-        this is the "plate as-is" special case (no QC injected or reserved).
+        this is the "as-is" special case (no QC injected or reserved).
         """
         if pattern_name == NO_LAYOUT:
             return EMPTY_PATTERN

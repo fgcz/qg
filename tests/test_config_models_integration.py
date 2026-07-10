@@ -223,10 +223,11 @@ class TestPositionConfigs:
         sample_ids = {s.sample_id for s in samples}
         assert "QC01" in sample_ids
 
-    def test_no_layout_is_a_synthetic_plate_option(self):
-        """`no_layout` is a code-level "plate as-is" option: never a CSV QC layout, but
-        offered in the overview table for Plate combinations of every tech area, paired
-        with the empty `no_layout` pattern. The `noqc` *pattern* still resolves separately.
+    def test_no_layout_is_a_synthetic_as_is_option(self):
+        """`no_layout` is a code-level "as-is" option: never a CSV QC layout, but offered
+        in the overview table for Vial and Plate combinations of every tech area that opts
+        in via ``tech_area_defaults.allow_no_layout`` (Proteomics opts out), paired with the
+        empty `no_layout` pattern. The `noqc` *pattern* still resolves separately.
         """
         from qg.config_models.loader import qg_configuration
         from qg.config_models.positions import QCLayoutsWellConfig
@@ -243,17 +244,53 @@ class TestPositionConfigs:
         config = qg_configuration()
         overview = config.to_overview_table()
         nl = overview.filter(pl.col("qc_layout_name") == NO_LAYOUT)
-        # Offered only for Plate, for every tech area, paired with the no_layout pattern.
+        # Offered for both queue types, paired with the no_layout pattern, opt-in per tech.
         assert nl.height > 0
-        assert set(nl["queue_type"].to_list()) == {"Plate"}
+        assert set(nl["queue_type"].to_list()) == {"Vial", "Plate"}
         assert set(nl["pattern_name"].to_list()) == {NO_LAYOUT}
-        assert {"Proteomics", "Metabolomics", "Lipidomics"} <= set(nl["tech_area"].to_list())
+        # Proteomics opts out (allow_no_layout = false); Metabolomics/Lipidomics opt in.
+        nl_techs = set(nl["tech_area"].to_list())
+        assert "Proteomics" not in nl_techs
+        assert {"Metabolomics", "Lipidomics"} <= nl_techs
 
         # The sentinel pattern resolves to an empty pattern for any tech area...
         assert config.queue_patterns.get_pattern("Proteomics", NO_LAYOUT).get_all_sample_ids() == set()
         # ...while the `noqc` *pattern* is unaffected and still resolves for Metab/Lipid.
         for tech in ("Metabolomics", "Lipidomics"):
             assert config.queue_patterns.get_pattern(tech, "noqc").get_all_sample_ids() == set()
+
+    def test_allow_no_layout_flag_toggles_overview_presence(self):
+        """Flipping ``allow_no_layout`` for a tech area toggles its `no_layout` rows in the
+        overview table — the gate is the tech_area_defaults flag, not a hardcoded tech name.
+        """
+        import dataclasses
+
+        from qg.config_models.loader import qg_configuration
+        from qg.config_models.structure import NO_LAYOUT
+
+        config = qg_configuration()
+
+        def no_layout_techs(cfg) -> set[str]:
+            ov = cfg.to_overview_table()
+            return set(ov.filter(pl.col("qc_layout_name") == NO_LAYOUT)["tech_area"].to_list())
+
+        # Baseline: Metabolomics opts in, Proteomics opts out.
+        assert "Metabolomics" in no_layout_techs(config)
+        assert "Proteomics" not in no_layout_techs(config)
+
+        # Flip both flags on a copy of the defaults and rebuild the config container.
+        flipped = []
+        for d in config.tech_area_defaults.defaults:
+            if d.tech_area in ("Proteomics", "Metabolomics"):
+                flipped.append(d.model_copy(update={"allow_no_layout": not d.allow_no_layout}))
+            else:
+                flipped.append(d)
+        toggled = dataclasses.replace(
+            config,
+            tech_area_defaults=config.tech_area_defaults.model_copy(update={"defaults": flipped}),
+        )
+        assert "Proteomics" in no_layout_techs(toggled)
+        assert "Metabolomics" not in no_layout_techs(toggled)
 
     def test_load_qc_layouts_tip(self):
         """Load qc_layouts_tip.csv into QCLayoutsTipConfig."""

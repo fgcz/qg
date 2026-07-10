@@ -545,7 +545,7 @@ class TestPlateStartTray:
     def test_no_layout_uses_plate_as_is(self, config):
         """The `no_layout` option reserves nothing, so a user sample on Y:E1 — a well the
         `cal_series` layout would reserve for cal1 — generates cleanly. This is the
-        plate-as-is capability: a plate too full to spare a QC well still queues.
+        as-is capability: a plate too full to spare a QC well still queues.
         """
         # Same plate + default tray as the colliding case above, only the QC option differs.
         qi, _, _ = self._plate_input(start_tray="", pattern="no_layout", qc_layout="no_layout")
@@ -556,6 +556,29 @@ class TestPlateStartTray:
         user_rows = df.filter(pl.col("slot_kind") == "user")
         assert user_rows.height == 1
         assert user_rows["tray"].to_list() == ["Y"]
+
+    def test_no_layout_uses_vial_as_is(self, config):
+        """`no_layout` also applies to Vial queues: no QC injected, samples queued as-is."""
+        params = QueueParameters(
+            tech_area="Metabolomics",
+            instrument="EXPLORIS_3",
+            sampler="Vanquish",
+            output_format="xcalibur_sii",
+            queue_pattern="no_layout",
+            queue_type="Vial",
+            plate_layout="Vanquish_54",
+            qc_layout_name="no_layout",
+            polarity=["pos"],
+            date="20260521",
+            user="test",
+            method={"pos": "Method_Pos"},
+        )
+        qi = make_vial_queue_input(params, make_vial_samples(3))
+        df = QueueGenerator(config, qi).build_rows().to_table()
+
+        # No QC rows injected; all three user samples queue as provided.
+        assert df.filter(pl.col("slot_kind") == "qc").height == 0
+        assert df.filter(pl.col("slot_kind") == "user").height == 3
 
     def test_explicit_start_tray_R_relocates_plate_and_avoids_conflict(self, config):
         qi, _, _ = self._plate_input(start_tray="R")

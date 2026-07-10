@@ -104,6 +104,12 @@ class TechAreaDefault(BaseModel):
         description="Prep-type labels offered in the sample-name suffix dropdown "
         "(e.g. enriched/total/lip for Proteomics); empty ⇒ only the 'none' no-op",
     )
+    allow_no_layout: bool = Field(
+        default=True,
+        description="Offer the synthetic 'no_layout' (as-is, no QC injected or reserved) "
+        "option for this tech area, for both Vial and Plate queues; false hides it "
+        "(e.g. Proteomics, which always wants QC)",
+    )
 
     @field_validator("default_user", mode="before")
     @classmethod
@@ -141,6 +147,10 @@ class TechAreaDefaultsConfig(BaseModel):
         d = self.get(tech_area)
         return list(d.sample_name_suffixes) if d else []
 
+    def get_allow_no_layout(self, tech_area: str) -> bool:
+        d = self.get(tech_area)
+        return d.allow_no_layout if d else True
+
     def to_dict(self) -> dict:
         """Convert to dict for TOML serialization (one table per tech_area)."""
         return {
@@ -149,6 +159,7 @@ class TechAreaDefaultsConfig(BaseModel):
                 "default_polarities": list(d.default_polarities),
                 "bfabric_areas": list(d.bfabric_areas),
                 "sample_name_suffixes": list(d.sample_name_suffixes),
+                "allow_no_layout": d.allow_no_layout,
             }
             for d in self.defaults
         }

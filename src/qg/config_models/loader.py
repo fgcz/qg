@@ -539,13 +539,16 @@ class QGConfiguration:
         ]
         result = df.select(columns)
 
-        # Synthetic "plate as-is" option (no QC layout, no injections, nothing reserved),
-        # offered for every Plate combination across all tech_areas. It is recognised in
+        # Synthetic "as-is" option (no QC layout, no injections, nothing reserved),
+        # offered for every Vial and Plate combination whose tech_area opts in via
+        # tech_area_defaults.allow_no_layout (Proteomics opts out). It is recognised in
         # code (structure.get_pattern → EMPTY_PATTERN) rather than defined in any CSV.
-        # Appended post-join and filtered on the resolved queue_type so it never leaks to
-        # Vial combinations that happen to share a (tech_area, sampler, plate_layout).
+        # Appended post-join; a tech_area absent from tech_area_defaults defaults to on.
+        disabled_tech = {
+            d.tech_area for d in self.tech_area_defaults.defaults if not d.allow_no_layout
+        }
         no_layout_rows = (
-            result.filter(pl.col("queue_type") == "Plate")
+            result.filter(~pl.col("tech_area").is_in(disabled_tech))
             .drop("qc_layout_name", "pattern_name")
             .unique()
             .with_columns(

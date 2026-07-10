@@ -60,7 +60,7 @@ See [Configuration](config.md) for the per-file reference. The constructor resol
 - the **sampler** + **plate layout** (`sampler.toml`, `plate_layouts.toml`,
   `sampler_plate_layouts.csv`),
 - the **QC layout** (`qc_layouts_well.csv` / `qc_layouts_tip.csv`; the special
-  `no_layout` value applies no layout — plate as-is, nothing reserved),
+  `no_layout` value applies no layout — queue as-is, nothing reserved),
 - the **methods** table (`methods/<Tech>/<instr>_methods.csv`),
 - the **path template** (`instruments.csv`).
 

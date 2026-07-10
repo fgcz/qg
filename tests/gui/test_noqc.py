@@ -1,12 +1,15 @@
-"""GUI scenario for the `no_layout` (plate as-is) QC option.
+"""GUI scenarios for the `no_layout` (queue as-is) QC option.
 
-`no_layout` is a synthetic, code-level QC-layout option offered in Plate mode for
-every tech area (it is not backed by any CSV row). It means "reserve no wells,
-inject no QC, use the plate exactly as provided", so the Pattern picker is
-meaningless and hides — the same sidebar mechanism the old `noqc` layout used.
+`no_layout` is a synthetic, code-level QC-layout option (it is not backed by any
+CSV row). It means "reserve no wells, inject no QC, use the samples exactly as
+provided", so the Pattern picker is meaningless and hides — the same sidebar
+mechanism the old `noqc` layout used. It is offered for both Plate and Vial
+queues, but only for tech areas that opt in via
+``tech_area_defaults.allow_no_layout`` — Proteomics opts out.
 
-The employee path selects a Metabolomics plate order (37195) and switches to Plate
-mode so the QC Layout cascade offers `no_layout`.
+The employee path exercises a Metabolomics plate order (37195, Plate mode) and a
+Metabolomics vial order (37196, Vial mode) — both offer `no_layout` — plus a
+Proteomics plate order (37180) that does not.
 """
 
 from __future__ import annotations
@@ -37,6 +40,11 @@ def _select_order(page: Page, container_id: int) -> None:
 @then(parsers.parse('the "{label}" picker offers "{value}"'))
 def _option_present(page: Page, label: str, value: str) -> None:
     H.expect_dropdown_options(page, label, value)
+
+
+@then(parsers.parse('the "{label}" picker does not offer "{value}"'))
+def _option_absent(page: Page, label: str, value: str) -> None:
+    H.expect_dropdown_missing_option(page, label, value)
 
 
 @then("the Pattern picker is hidden")
