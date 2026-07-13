@@ -1,0 +1,11 @@
+[
+  {
+    "id": 50003,
+    "samples": [
+      {"id": 1301, "name": "Mixed_01", "_position": 1, "_gridposition": "A1"},
+      {"id": 1302, "name": "Mixed_02", "_position": 2, "_gridposition": "A2"},
+      {"id": 1303, "name": "Mixed_03", "_position": 3, "_gridposition": "A3"},
+      {"id": 1304, "name": "Mixed_04", "_position": 4, "_gridposition": "A4"}
+    ]
+  }
+]

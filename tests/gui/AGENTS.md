@@ -32,12 +32,13 @@ If you need to change anything in this list, stop and ask the coordinator instea
 | 37180 | Plate (50001) + 12 samples on `A1`–`A12` | 12 | Proteomics | Default happy-path container |
 | 37181 | Plate (50002) + 4 samples on `B1`–`B4` | 4 | Proteomics | Second container for multi-container scenarios |
 | 37182 | Vials only | 6 | Proteomics | Vial-only container for Vial-mode scenarios |
+| 37183 | Plate (50003) on `A1`–`A4` + 4 off-plate samples | 8 | Metabolomics/Biophysics | Mixed plate+vial container (`has_plates` and `has_vials` both true) for Queue-Type availability scenarios; Metabolomics so it doesn't crowd the Proteomics project-table page |
 | 37190 | Plate (50090) + 8 samples | 8 | Metabolomics/Biophysics | Lipidomics/Metabolomics container; launching-order scenarios |
 | 37195 | Plate (50095) + 6 samples | 6 | Metabolomics/Biophysics | Metabolomics container |
 | 37200 | 5 plates (50201–50205) + 10 samples | 10 | Proteomics | Many-plates container for tray-capacity scenarios |
 | 99999 | Empty | 0 | Proteomics | For "no samples" danger-callout scenario |
 
-`projects.csv` exposes all seven to the employee project table. A few also have a
+`projects.csv` exposes all of the above to the employee project table. A few also have a
 raw container fixture (`container_<id>.json`) so the app can fetch them by id for the
 launching-order pre-load (see below); `container_37190.json` is the Metabolomics one.
 

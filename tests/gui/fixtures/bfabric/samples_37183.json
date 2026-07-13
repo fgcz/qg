@@ -1,0 +1,10 @@
+[
+  {"id": 1301, "name": "Mixed_01", "tubeid": "37183/1", "groupingvar": {"id": 511, "name": "GroupA"}},
+  {"id": 1302, "name": "Mixed_02", "tubeid": "37183/2", "groupingvar": {"id": 511, "name": "GroupA"}},
+  {"id": 1303, "name": "Mixed_03", "tubeid": "37183/3", "groupingvar": {"id": 512, "name": "GroupB"}},
+  {"id": 1304, "name": "Mixed_04", "tubeid": "37183/4", "groupingvar": {"id": 512, "name": "GroupB"}},
+  {"id": 1305, "name": "Mixed_05", "tubeid": "37183/5", "groupingvar": {"id": 511, "name": "GroupA"}},
+  {"id": 1306, "name": "Mixed_06", "tubeid": "37183/6", "groupingvar": {"id": 511, "name": "GroupA"}},
+  {"id": 1307, "name": "Mixed_07", "tubeid": "37183/7", "groupingvar": {"id": 512, "name": "GroupB"}},
+  {"id": 1308, "name": "Mixed_08", "tubeid": "37183/8", "groupingvar": {"id": 512, "name": "GroupB"}}
+]

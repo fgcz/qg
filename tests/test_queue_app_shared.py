@@ -37,6 +37,7 @@ from qg.apps.queue_app_shared import (
     filter_by_column,
     generate_queue,
     load_methods_table,
+    make_queue_type_field,
     params_json_filename,
     queue_output_filename,
     resolve_default_qc_frequency,
@@ -616,3 +617,86 @@ class TestSuffixOptionsForTech:
         # "none" (the value= default) must be a valid option for every tech area.
         for tech in ("Proteomics", "Metabolomics", "Lipidomics", "unknown"):
             assert suffix_options_for_tech(config, tech)[0] == "none"
+
+
+# ---------------------------------------------------------------------------
+# make_queue_type_field
+# ---------------------------------------------------------------------------
+
+
+class TestMakeQueueTypeField:
+    """Queue Type = (sampler-supported types) ∩ (order composition), Vial first.
+
+    This is the single guard that stops an operator running a plate-only order as
+    a Vial queue (or vice versa), and that warns when the sampler cannot run the
+    order at all. The truth table below is that guard's executable spec; the
+    portal-side integration is pinned in
+    ``tests/gui/features/queue_type_availability.feature``.
+    """
+
+    @staticmethod
+    def _table(*queue_types: str) -> pl.DataFrame:
+        # make_queue_type_field reads only the ``queue_type`` column of the frame.
+        return pl.DataFrame({"queue_type": list(queue_types)})
+
+    @pytest.mark.parametrize(
+        ("supports", "has_plates", "has_vials", "options", "default"),
+        [
+            # A both-capable sampler mirrors what the order actually holds.
+            (("Vial", "Plate"), True, False, ["Plate"], "Plate"),  # plate-only order
+            (("Vial", "Plate"), False, True, ["Vial"], "Vial"),  # vial-only order
+            (("Vial", "Plate"), True, True, ["Vial", "Plate"], "Vial"),  # mixed -> both, Vial default
+            (("Vial", "Plate"), False, False, [], None),  # empty container
+            # Single-capability samplers restrict to what they can physically run.
+            (("Vial",), False, True, ["Vial"], "Vial"),
+            (("Plate",), True, True, ["Plate"], "Plate"),  # mixed order, plate-only sampler
+        ],
+    )
+    def test_options_and_default(self, supports, has_plates, has_vials, options, default):
+        field, warning = make_queue_type_field(
+            self._table(*supports),
+            sampler="Vanquish",
+            has_plates=has_plates,
+            has_vials=has_vials,
+            incompatible_subject="the uploaded samples",
+        )
+        assert list(field.options) == options
+        assert field.value == default
+        assert warning is None
+
+    def test_no_sampler_yields_no_options(self):
+        field, warning = make_queue_type_field(
+            self._table("Vial", "Plate"),
+            sampler=None,
+            has_plates=True,
+            has_vials=True,
+            incompatible_subject="the uploaded samples",
+        )
+        assert list(field.options) == []
+        assert field.value is None
+        assert warning is None
+
+    @pytest.mark.parametrize(
+        ("supports", "has_plates", "has_vials"),
+        [
+            (("Vial",), True, False),  # vial-only sampler, plate-only order
+            (("Plate",), False, True),  # plate-only sampler, vial-only order
+        ],
+    )
+    def test_empty_intersection_warns(self, supports, has_plates, has_vials):
+        field, warning = make_queue_type_field(
+            self._table(*supports),
+            sampler="MClass",
+            has_plates=has_plates,
+            has_vials=has_vials,
+            incompatible_subject="the uploaded samples",
+        )
+        assert list(field.options) == []
+        assert field.value is None
+        assert warning is not None
+        # The callout names the sampler and threads through the incompatible_subject.
+        # (The portal's exact "this order's samples" wording is asserted against the
+        # rendered page in tests/gui/features/queue_type_availability.feature.)
+        assert "incompatible" in warning.text
+        assert "MClass" in warning.text
+        assert "the uploaded samples" in warning.text
