@@ -27,20 +27,31 @@ with app.setup:
 
 
 @app.cell
-def _():
-    try:
-        _session = resolve_app_session(
-            mo.app_meta().request,
-            allow_unauthenticated=os.environ.get("QG_ALLOW_UNAUTHENTICATED") == "1",
+def _(preview_only_mode):
+    if preview_only_mode:
+        # Public reviewer preview: no login, no B-Fabric, no employee gate. Running
+        # under `marimo run` there is no B-Fabric middleware, so resolve_app_session
+        # would fall through to Bfabric.connect() and crash without credentials. The
+        # session's only downstream use (authenticated_login) feeds the GitLab-MR
+        # review/save cells, which are inert in preview-only mode, so a placeholder
+        # is safe.
+        authenticated_login = "preview"
+        _banner = mo.md("**Preview mode** — edit and validate in the browser; nothing is saved.")
+    else:
+        try:
+            _session = resolve_app_session(
+                mo.app_meta().request,
+                allow_unauthenticated=os.environ.get("QG_ALLOW_UNAUTHENTICATED") == "1",
+            )
+        except SessionError as _exc:
+            mo.stop(True, mo.callout(mo.md(f"**{_exc.message}**"), kind="danger"))
+        mo.stop(
+            not _session.is_employee,
+            mo.callout(mo.md("**Config editor is restricted to FGCZ employees.**"), kind="danger"),
         )
-    except SessionError as _exc:
-        mo.stop(True, mo.callout(mo.md(f"**{_exc.message}**"), kind="danger"))
-    mo.stop(
-        not _session.is_employee,
-        mo.callout(mo.md("**Config editor is restricted to FGCZ employees.**"), kind="danger"),
-    )
-    authenticated_login = _session.client.auth.login
-    mo.md(_session.banner_message)
+        authenticated_login = _session.client.auth.login
+        _banner = mo.md(_session.banner_message)
+    _banner
     return (authenticated_login,)
 
 

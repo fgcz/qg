@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Config editor `--preview-only` no longer requires B-Fabric credentials, fixing the `queue-gen-editor-local` startup crash (`Bfabric.connect()` / `.bfabricpy.yml` not found).
+
 ## [0.9.1] - 2026-07-10
 
 ### Added

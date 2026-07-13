@@ -1,6 +1,6 @@
 [project]
 name = "qg"
-version = "0.9.1"
+version = "0.9.2"
 description = "Queue generation system for mass spectrometry instruments. Generates sample queues with QC injections for XCalibur, Chronos, and Hystar, with B-Fabric LIMS integration for sample loading and workunit upload."
 readme = "README.md"
 requires-python = ">=3.14"
