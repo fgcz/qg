@@ -12,6 +12,9 @@ os.environ.setdefault("XDG_STATE_HOME", "/tmp/marimo-xdg-state")
 from pathlib import Path
 
 from qg.apps._bfabric_auth import create_bfabric_fastapi_app
+from qg.logging_setup import configure_logging
+
+configure_logging()
 
 app = create_bfabric_fastapi_app(
     Path(__file__).parent / "queue_app.py",

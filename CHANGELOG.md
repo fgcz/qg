@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- Portal apps now route uvicorn/marimo/starlette server logs into the loguru file sink (`~/.qg/logs`); high-volume access logs stay on stdout.
+
 ### Fixed
 - Config editor `--preview-only` no longer requires B-Fabric credentials, fixing the `queue-gen-editor-local` startup crash (`Bfabric.connect()` / `.bfabricpy.yml` not found).
 
