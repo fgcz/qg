@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-07-13
+
 ### Changed
 - Portal apps now route uvicorn/marimo/starlette server logs into the loguru file sink (`~/.qg/logs`); high-volume access logs stay on stdout.
 
