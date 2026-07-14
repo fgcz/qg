@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-07-14
+
+### Changed
+- Renamed the Proteomics `QC03`/`autoQC03` QC sample to `QC02`/`autoQC02` across queue patterns, QC layouts, method files, and `samples.csv`.
+
 ## [0.9.2] - 2026-07-13
 
 ### Changed
