@@ -1,6 +1,6 @@
 tech_area,qc_layout_name,plate_layout,sample_id,tray,position_start,position_end
-Proteomics,evosep_qc,Plate_96,QC03,6,A1,D12
+Proteomics,evosep_qc,Plate_96,QC02,6,A1,D12
 Proteomics,evosep_qc,Plate_96,clean,6,E1,H12
 Testing,standard,Plate_96,QC01,5,A1,D12
-Testing,standard,Plate_96,QC03,5,E1,H12
+Testing,standard,Plate_96,QC02,5,E1,H12
 Testing,standard,Plate_96,clean,6,A1,H12

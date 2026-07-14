@@ -159,9 +159,9 @@ class TestMethodResolution:
     def test_explicit_qc_method_returns_specific_path(self, config: QGConfiguration) -> None:
         """QC sample with explicit method returns that specific method."""
         methods = config.methods.get_methods("Proteomics", "ASTRAL_1")
-        # QC03 has explicit DDA method in ASTRAL_1_methods.csv
-        path = methods.get_method_path("QC03", "pos", "DDA")
-        assert path != "", "QC03 with DDA should return a non-empty method path"
+        # QC02 has explicit DDA method in ASTRAL_1_methods.csv
+        path = methods.get_method_path("QC02", "pos", "DDA")
+        assert path != "", "QC02 with DDA should return a non-empty method path"
 
     def test_nonexistent_method_returns_empty(self, config: QGConfiguration) -> None:
         """Nonexistent sample_type with no default fallback returns empty."""

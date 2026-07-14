@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class Method(BaseModel):
     """A method definition from methods CSV."""
 
-    sample_type: str = Field(..., min_length=1, description="Sample type (default, QC03, QC01, clean, etc.)")
+    sample_type: str = Field(..., min_length=1, description="Sample type (default, QC02, QC01, clean, etc.)")
     polarity: str = Field(default="", description="Polarity (pos, neg, or empty for proteomics)")
     method_name: str = Field(..., min_length=1, description="Method name")
     method_path: str = Field(..., min_length=1, description="Full path to method file")
@@ -47,7 +47,7 @@ class MethodsForInstrument(BaseModel):
         """Get a specific method.
 
         Args:
-            sample_type: Sample type (default, QC03, QC01, clean, etc.)
+            sample_type: Sample type (default, QC02, QC01, clean, etc.)
             polarity: Polarity (pos, neg, or empty)
             method_name: Optional specific method name
 

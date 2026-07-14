@@ -25,9 +25,9 @@ _NOQC_PATTERN = QueuePattern(description="test: no QC", run_QC_after_n_samples=1
 _QC_ONLY_PATTERN = QueuePattern(
     description="test: QC bookends",
     run_QC_after_n_samples=1,
-    start=["clean", "QC01", "QC03"],
+    start=["clean", "QC01", "QC02"],
     middle=[],
-    end=["clean", "QC01", "QC03"],
+    end=["clean", "QC01", "QC02"],
 )
 
 
@@ -943,7 +943,7 @@ class TestDifferentSamplers:
 
 
 class TestEvosepQCPattern:
-    """Integration test for the evosep_qc pattern (Evosep: clean-QC03 bookends)."""
+    """Integration test for the evosep_qc pattern (Evosep: clean-QC02 bookends)."""
 
     def test_evosep_qc_slot_sequence(self, config):
         samples = make_vial_samples(5)
@@ -968,13 +968,13 @@ class TestEvosepQCPattern:
         sample_ids = [row.sample_id for row in result.rows]
         sample_types = [row.slot_kind for row in result.rows]
 
-        # Pattern: start=[clean, QC03] + 5 samples + end=[clean, QC03]
+        # Pattern: start=[clean, QC02] + 5 samples + end=[clean, QC02]
         assert len(result.rows) == 9
         assert sample_types == ["qc", "qc", "user", "user", "user", "user", "user", "qc", "qc"]
         assert sample_ids[0] == "clean"
-        assert sample_ids[1] == "QC03"
+        assert sample_ids[1] == "QC02"
         assert sample_ids[-2] == "clean"
-        assert sample_ids[-1] == "QC03"
+        assert sample_ids[-1] == "QC02"
 
     def test_evosep_qc_positions_on_tray6(self, config):
         samples = make_vial_samples(5)
@@ -1005,13 +1005,13 @@ class TestEvosepQCPattern:
         user_trays = {row.tray for row in user_rows}
         assert not (qc_trays & user_trays), f"QC trays {qc_trays} and user trays {user_trays} should not overlap"
 
-        # QC03 and clean must occupy distinct grid positions
-        qc03_positions = {row.grid_position for row in qc_rows if row.sample_id == "QC03"}
+        # QC02 and clean must occupy distinct grid positions
+        QC02_positions = {row.grid_position for row in qc_rows if row.sample_id == "QC02"}
         clean_positions = {row.grid_position for row in qc_rows if row.sample_id == "clean"}
-        assert qc03_positions, "expected at least one QC03 row"
+        assert QC02_positions, "expected at least one QC02 row"
         assert clean_positions, "expected at least one clean row"
-        overlap = qc03_positions & clean_positions
-        assert not overlap, f"QC03 and clean share positions: {overlap}"
+        overlap = QC02_positions & clean_positions
+        assert not overlap, f"QC02 and clean share positions: {overlap}"
 
     def test_evosep_qc_user_samples_on_trays_1_to_5(self, config):
         samples = make_vial_samples(5)

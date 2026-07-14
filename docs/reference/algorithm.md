@@ -187,7 +187,7 @@ authoritative list):
 | sample_id | sample_name | type | inj_vol |
 |-----------|-------------|------|---------|
 | QC01 | autoQC01 | QC | 2.0 |
-| QC03 | autoQC03 | QC | 1.0 |
+| QC02 | autoQC02 | QC | 1.0 |
 | clean | clean | Blank | 2.0 |
 | default | (user sample) | Unknown | 2.0 |
 

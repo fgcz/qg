@@ -1,7 +1,7 @@
 tech_area,sample_id,sample_name,sample_type,qc_class,level,description,inj_vol,file_name_template
 Proteomics,default,"",Unknown,,,Default settings for user samples,2.0,{date}_{run}_C{container}_S{sample_id}_{sample_name}
 Proteomics,QC01,autoQC01,QC,System-suitability QC,,autoQC01: Standard peptide mix for system suitability,2.0,{date}_{run}_C{container}_{sample_name}
-Proteomics,QC03,autoQC03,QC,Performance QC,,autoQC03: Benchmark for performance monitoring,1.0,{date}_{run}_C{container}_{sample_name}{method_name}
+Proteomics,QC02,autoQC02,QC,Performance QC,,autoQC02: Benchmark for performance monitoring,1.0,{date}_{run}_C{container}_{sample_name}{method_name}
 Proteomics,clean,clean,Blank,,,Buffer blank for column cleaning between sample batches,2.0,{date}_{run}_C{container}_{sample_name}
 Metabolomics,default,"",Unknown,,,Default settings for user samples,6.0,{date}_{run}_C{container}_S{sample_id}_{sample_name}_{polarity}
 Metabolomics,blank,blank,Blank,,,Solvent blank for carryover assessment,6.0,{date}_{run}_C{container}_{sample_name}_{polarity}
@@ -34,6 +34,6 @@ Lipidomics,EquiSPLASH,EquiSPLASH,QC,EquiSPLASH (IS),,EquiSPLASH: Lipidomics inte
 Lipidomics,NIST_Lipids,NIST_Lipids,QC,NIST reference,,NIST: Reference Plasma Lipidomics,3.0,{date}_{run}_C{container}_{sample_name}_{polarity}
 Testing,default,"",Unknown,,,Default settings for test samples,2.0,{date}_{run}_C{container}_S{sample_id}_{sample_name}
 Testing,QC01,testQC01,QC,DDA QC,,testQC01: QC sample with DDA only,2.0,{date}_{run}_C{container}_{sample_name}
-Testing,QC03,testQC03,QC,Performance QC,,testQC03: QC sample for performance monitoring,1.0,{date}_{run}_C{container}_{sample_name}
+Testing,QC02,testQC02,QC,Performance QC,,testQC02: QC sample for performance monitoring,1.0,{date}_{run}_C{container}_{sample_name}
 Testing,QC04,testQC04,QC,DIA QC,,testQC04: QC sample with DIA only,2.0,{date}_{run}_C{container}_{sample_name}
 Testing,clean,clean,Blank,,,Buffer blank for column cleaning,2.0,{date}_{run}_C{container}_{sample_name}

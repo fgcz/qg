@@ -1,6 +1,6 @@
 sample_type,polarity,method_name,method_path
-QC03,pos,DDA,C:\Xcalibur\methods\__autoQC\trap\autoQC03dda
-QC03,pos,DIA,C:\Xcalibur\methods\__autoQC\trap\autoQC03dia
+QC02,pos,DDA,C:\Xcalibur\methods\__autoQC\trap\autoQC02dda
+QC02,pos,DIA,C:\Xcalibur\methods\__autoQC\trap\autoQC02dia
 default,pos,DIA,C:\Xcalibur\methods\
 default,pos,DDA,C:\Xcalibur\methods\
 QC01,pos,DDA,C:\Xcalibur\methods\__autoQC\trap\autoQC01

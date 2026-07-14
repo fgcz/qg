@@ -1,6 +1,6 @@
 sample_type,polarity,method_name,method_path
-QC03,pos,DDA,C:\Xcalibur\methods\test
-QC03,pos,DIA,C:\Xcalibur\methods\
+QC02,pos,DDA,C:\Xcalibur\methods\test
+QC02,pos,DIA,C:\Xcalibur\methods\
 default,pos,DIA,C:\Xcalibur\methods\
 default,pos,DIA_30min,C:\Xcalibur\methods\
 default,pos,DDA,C:\Xcalibur\methods\

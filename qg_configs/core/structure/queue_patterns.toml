@@ -17,25 +17,25 @@
 [Proteomics.standard]
 description = "Standard proteomics: clean-qc pairs, clean-qc-qc ending"
 run_QC_after_n_samples = 8
-start = ["QC03", "QC01"]
+start = ["QC02", "QC01"]
 middle = ["clean", "QC01"]
-end = ["clean", "QC01", "QC03", "clean"]
+end = ["clean", "QC01", "QC02", "clean"]
 separation = ["clean", "QC01", "clean"]
 
 [Proteomics.simple_clean]
 description = "Simple clean: cleans in between each samples"
 run_QC_after_n_samples = 1
-start = ["QC03", "QC01"]
+start = ["QC02", "QC01"]
 middle = ["clean"]
-end = ["clean", "QC01", "QC03", "clean"]
+end = ["clean", "QC01", "QC02", "clean"]
 separation = ["clean", "QC01", "clean"]
 
 [Proteomics.evosep_qc]
-description = "Evosep: clean-QC03 bookends, no QC01"
+description = "Evosep: clean-QC02 bookends, no QC01"
 run_QC_after_n_samples = 12
-start = ["clean", "QC03"]
-middle = ["QC03"]
-end = ["clean", "QC03"]
+start = ["clean", "QC02"]
+middle = ["QC02"]
+end = ["clean", "QC02"]
 
 [Proteomics.conditioning]
 description = "Column conditioning - multiple cleans"

@@ -89,9 +89,9 @@ Named QC patterns keyed `<TechArea>.<pattern>`. Sample ids reference
 [Proteomics.standard]
 description = "Standard proteomics: clean-qc pairs, clean-qc-qc ending"
 run_QC_after_n_samples = 8
-start = ["QC03", "QC01"]
+start = ["QC02", "QC01"]
 middle = ["clean", "QC01"]
-end = ["clean", "QC01", "QC03", "clean"]
+end = ["clean", "QC01", "QC02", "clean"]
 separation = ["clean", "QC01", "clean"]   # injected between project groups
 ```
 
@@ -173,7 +173,7 @@ QC positions on well-plate samplers, keyed by
 ```csv
 tech_area,qc_layout_name,plate_layout,sample_id,tray,row,col
 Proteomics,standard,Vanquish_54,QC01,B,F,9
-Proteomics,standard,Vanquish_54,QC03,B,F,8
+Proteomics,standard,Vanquish_54,QC02,B,F,8
 ```
 
 ### qc_layouts_tip.csv
@@ -183,7 +183,7 @@ QC tip ranges on tip-plate samplers (Evosep). A range spans tips from
 
 ```csv
 tech_area,qc_layout_name,plate_layout,sample_id,tray,position_start,position_end
-Proteomics,evosep_qc,Plate_96,QC03,6,A1,D12
+Proteomics,evosep_qc,Plate_96,QC02,6,A1,D12
 Proteomics,evosep_qc,Plate_96,clean,6,E1,H12
 ```
 

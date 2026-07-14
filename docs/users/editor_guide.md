@@ -54,9 +54,9 @@ Queue patterns define the sequence of QC shots (Blanks, Standards, Pools) inject
 [Proteomics.high_qc]
 description = "High frequency QC for critical samples"
 run_QC_after_n_samples = 4         # Inject middle QCs after every 4 user samples
-start = ["clean", "QC01", "QC03"]
+start = ["clean", "QC01", "QC02"]
 middle = ["clean", "QC01"]
-end = ["clean", "QC01", "QC03"]
+end = ["clean", "QC01", "QC02"]
 separation = ["clean"]             # Optional: injected between project blocks
 ```
 

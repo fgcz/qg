@@ -52,7 +52,7 @@ def _positive_visit_count(page: Page) -> None:
     # back to scanning sidebar text for "1"/"2"/etc adjacent to a well name.
     sb_text = sidebar(page).inner_text()
     # The layout has 5 wells. The standard pattern visits at least the
-    # autoQC03 priming well once. So at least one number >= 1 must appear
+    # autoQC02 priming well once. So at least one number >= 1 must appear
     # between the QC Positions heading and the next sidebar heading.
     qc_idx = sb_text.find("QC Positions")
     assert qc_idx >= 0, f"'QC Positions' not in sidebar text: {sb_text!r}"

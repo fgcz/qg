@@ -193,7 +193,7 @@
       "description": "Standard proteomics: clean-qc pairs, clean-qc-qc ending",
       "run_QC_after_n_samples": 8,
       "start": [
-        "QC03",
+        "QC02",
         "QC01"
       ],
       "middle": [
@@ -203,7 +203,7 @@
       "end": [
         "clean",
         "QC01",
-        "QC03",
+        "QC02",
         "clean"
       ],
       "separation": [
@@ -229,12 +229,12 @@
       },
       {
         "tech_area": "Proteomics",
-        "sample_id": "QC03",
-        "sample_name": "autoQC03",
+        "sample_id": "QC02",
+        "sample_name": "autoQC02",
         "sample_type": "QC",
         "qc_class": "Performance QC",
         "level": null,
-        "description": "autoQC03: Benchmark for performance monitoring",
+        "description": "autoQC02: Benchmark for performance monitoring",
         "inj_vol": 1.0,
         "file_name_template": "{date}_{run}_C{container}_{sample_name}{method_name}"
       },
@@ -263,13 +263,13 @@
     ],
     "methods": [
       {
-        "sample_type": "QC03",
+        "sample_type": "QC02",
         "polarity": "pos",
         "method_name": "DDA",
         "method_path": "C:\\Xcalibur\\methods\\test"
       },
       {
-        "sample_type": "QC03",
+        "sample_type": "QC02",
         "polarity": "pos",
         "method_name": "DIA",
         "method_path": "C:\\Xcalibur\\methods\\"
@@ -307,7 +307,7 @@
         "tech_area": "Proteomics",
         "qc_layout_name": "standard",
         "plate_layout": "Vanquish_54",
-        "sample_id": "QC03",
+        "sample_id": "QC02",
         "tray": "B",
         "row": "F",
         "col": 8

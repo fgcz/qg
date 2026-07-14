@@ -330,7 +330,7 @@ missing, so selecting it failed at instrument lookup):
    columns `sample_type,polarity,method_name,method_path`. Metabolomics and
    Lipidomics need both a `pos` and a `neg` row (polarity expansion);
    Proteomics needs only `pos`. Use `sample_type=default` plus optional per-QC
-   overrides (e.g. a `QC03` row).
+   overrides (e.g. a `QC02` row).
 3. **`ui/instrument_config.csv`** — add a row
    `tech_area,instrument,sampler,output_format,default_pattern` so the
    instrument appears in the queue app menu. One row per (instrument, sampler)
