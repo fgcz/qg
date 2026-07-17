@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-07-17
+
 ### Added
 - Portal app shows a neutral note when an order contains both plate-resident and standalone (vial) samples.
 
