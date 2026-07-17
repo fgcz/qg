@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Portal app shows a neutral note when an order contains both plate-resident and standalone (vial) samples.
+
+### Fixed
+- Portal app: the plate-subset picker is now shown only in Plate mode (in Vial mode it had no effect on the queue).
+
 ## [0.9.3] - 2026-07-14
 
 ### Changed

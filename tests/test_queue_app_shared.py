@@ -37,6 +37,7 @@ from qg.apps.queue_app_shared import (
     filter_by_column,
     generate_queue,
     load_methods_table,
+    make_mixed_order_note,
     make_queue_type_field,
     params_json_filename,
     queue_output_filename,
@@ -700,3 +701,30 @@ class TestMakeQueueTypeField:
         assert "incompatible" in warning.text
         assert "MClass" in warning.text
         assert "the uploaded samples" in warning.text
+
+
+# ---------------------------------------------------------------------------
+# make_mixed_order_note
+# ---------------------------------------------------------------------------
+
+
+class TestMakeMixedOrderNote:
+    """Neutral heads-up shown only when an order holds both plates and vials.
+
+    Portal-only in effect: the local app derives the two flags as mutually
+    exclusive, so this helper returns ``None`` there. The wording is deliberately
+    factual (composition, not consequences) — queue-type guidance is left to a
+    later change.
+    """
+
+    def test_mixed_returns_callout(self):
+        note = make_mixed_order_note(has_plates=True, has_vials=True)
+        assert note is not None
+        assert "plate-resident and standalone" in note.text
+
+    @pytest.mark.parametrize(
+        ("has_plates", "has_vials"),
+        [(True, False), (False, True), (False, False)],
+    )
+    def test_non_mixed_returns_none(self, has_plates, has_vials):
+        assert make_mixed_order_note(has_plates=has_plates, has_vials=has_vials) is None
