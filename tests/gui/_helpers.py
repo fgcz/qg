@@ -213,3 +213,34 @@ def assert_warn(page: Page, text: str) -> None:
 def assert_danger(page: Page, text: str) -> None:
     """Assert a red danger callout containing ``text`` is visible."""
     _assert_callout(page, "danger", text)
+
+
+# ----------------------------------------------------------------------------
+# Plate picker + mixed-order note (portal main-area widgets)
+# ----------------------------------------------------------------------------
+
+# The plate-subset picker is the only `mo.ui.multiselect` in the app (queue_app.py:585),
+# and it renders in the main area (not the sidebar), so a plain element count is an
+# unambiguous shown/hidden probe — its display cell renders `mo.md("")` when hidden.
+_MIXED_NOTE_TEXT = "both plate-resident and standalone"
+
+
+def expect_plate_picker_visible(page: Page) -> None:
+    """Assert the plate-subset multiselect is shown (Plate mode, order has plates)."""
+    expect(page.locator("marimo-multiselect")).to_have_count(1)
+
+
+def expect_plate_picker_hidden(page: Page) -> None:
+    """Assert the plate-subset multiselect is absent (e.g. Vial mode)."""
+    expect(page.locator("marimo-multiselect")).to_have_count(0)
+
+
+def expect_mixed_order_note_visible(page: Page) -> None:
+    """Assert the neutral mixed-composition info callout is shown."""
+    _assert_callout(page, "info", _MIXED_NOTE_TEXT)
+
+
+def expect_mixed_order_note_hidden(page: Page) -> None:
+    """Assert no mixed-composition info callout is shown (text-scoped to this note)."""
+    note = page.locator("marimo-callout-output[data-kind*='info']").filter(has_text=_MIXED_NOTE_TEXT)
+    expect(note).to_have_count(0)

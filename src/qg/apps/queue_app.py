@@ -743,9 +743,22 @@ def _(full_samples_df, is_employee, selected_orders):
 
 
 @app.cell
-def _(all_plates, plates_select, selected_orders):
+def _(container_has_plates, container_has_vials):
+    # Neutral heads-up when the order mixes plate-resident and standalone samples.
+    _mixed_note = shared.make_mixed_order_note(
+        has_plates=bool(container_has_plates), has_vials=bool(container_has_vials)
+    )
+    _mixed_note if _mixed_note is not None else mo.md("")
+    return
+
+
+@app.cell
+def _(all_plates, plates_select, queue_type_field, selected_orders):
+    # Plate subsetting only affects the Plate load path; in Vial mode get_samples ignores
+    # plate_ids (bfabric_utils.py), so showing the picker there is an inert, misleading control.
     _has_plates = any(all_plates.get(o[0]) for o in selected_orders) if selected_orders else False
-    plates_select if _has_plates else mo.md("")
+    _show_picker = _has_plates and queue_type_field.value == "Plate"
+    plates_select if _show_picker else mo.md("")
     return
 
 
