@@ -110,9 +110,7 @@ def _build_slots(
 ) -> list[SlotInfo]:
     """Build slots from SlotEntry list and PlateQueue.
 
-    User-cell row/column geometry is derived here from the cell's
-    ``grid_position`` via the selected ``plate_layout``, the single canonical
-    parser; the cell itself stores only the well coordinate.
+    User-cell row/column is derived from ``grid_position`` via ``plate_layout``.
     """
     slots: list[SlotInfo] = []
     cell_iter = iter(plate_queue.cells)

@@ -239,12 +239,7 @@ class _PlateValidatorWellConfig:
         return self.pool.qc_layout
 
     def _check_collisions(self, queue: PlateQueue) -> None:
-        """Validate every well against the layout and check for QC conflicts.
-
-        ``split_alpha`` is the single canonical parser: it validates the
-        coordinate against the layout and yields the same row/col the formatter
-        derives, so collision detection and formatting can never disagree.
-        """
+        """Validate each well against the layout and reject QC-position conflicts."""
         for cell in queue.cells:
             plate = queue.plates.get(cell.plate_id)
             tray = plate.tray if plate else None
@@ -256,11 +251,7 @@ class _PlateValidatorWellConfig:
                 )
 
     def assign(self, queue: PlateQueue, *, one_container_per_tray: bool = False) -> PlateQueue:  # noqa: ARG002
-        """Assign trays to plates and validate positions against QC reservations.
-
-        Row/column geometry is derived from ``grid_position`` during generation,
-        not stored on the cell, so no split pass runs here.
-        """
+        """Assign trays to plates and validate positions against QC reservations."""
         trays = _trays_with_start_first(self.pool.trays, self._start_tray)
         queue = _assign_trays_if_missing(queue, trays)
         self._check_collisions(queue)
@@ -293,9 +284,7 @@ class _PlateValidatorTipConfig:
     def assign(self, queue: PlateQueue, *, one_container_per_tray: bool = False) -> PlateQueue:  # noqa: ARG002
         """Assign trays to plates and validate every well against the layout.
 
-        Tip plates have no QC-collision pass, so validation happens here via
-        ``split_alpha`` (which raises on an out-of-layout coordinate). Row/column
-        geometry is derived from ``grid_position`` during generation.
+        Tip plates have no QC-collision pass, so wells are validated here directly.
         """
         trays = _trays_with_start_first(self.pool.trays, self._start_tray)
         queue = _assign_trays_if_missing(queue, trays)

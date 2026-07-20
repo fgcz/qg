@@ -5,7 +5,6 @@
 # Minimal validation, just load data from config files.
 # Domain logic is in positions.py (Layer 2).
 
-import re
 import tomllib
 from pathlib import Path
 from typing import ClassVar, Literal, Protocol, Self
@@ -53,31 +52,21 @@ class PlateLayout(BaseModel):
         return (chr(ord("A") + row_idx), col)
 
     def split_alpha(self, pos: str) -> tuple[str, int]:
-        """Parse and validate an alpha well coordinate against this layout.
+        """Split an alpha well like ``"D8"`` into ``("D", 8)``, validated against this layout.
 
-        Splits ``"D8"`` into ``("D", 8)`` and ``"A1"`` into ``("A", 1)``,
-        normalizing the row letter to upper case. This is the single canonical
-        parser for alpha coordinates; :meth:`alpha_to_flat` and all positioning
-        and generation code derive their row/column from it.
+        The row is upper-cased and both components must exist in the layout.
 
         Raises:
-            ValueError: if ``pos`` is not an alpha row followed by an integer
-                column, or if the resulting row or column is not part of this
-                layout.
+            ValueError: if ``pos`` is not one of the layout's rows followed by one
+                of its columns.
         """
-        match = re.fullmatch(r"([A-Za-z]+)(\d+)", pos.strip()) if isinstance(pos, str) else None
-        if match is None:
-            raise ValueError(
-                f"Invalid grid position {pos!r} for layout {self.name!r}: "
-                "expected an alpha row followed by an integer column (e.g. 'A1')."
-            )
-        row = match.group(1).upper()
-        col = int(match.group(2))
-        if row not in self.rows:
-            raise ValueError(f"Grid position {pos!r} has row {row!r} not in layout {self.name!r} rows {self.rows}.")
-        if col not in self.cols:
-            raise ValueError(f"Grid position {pos!r} has column {col} not in layout {self.name!r} columns {self.cols}.")
-        return (row, col)
+        row, col_str = pos[:1].upper(), pos[1:]
+        if row in self.rows and col_str.isdigit() and (col := int(col_str)) in self.cols:
+            return (row, col)
+        raise ValueError(
+            f"Grid position {pos!r} is not a valid well for layout {self.name!r} "
+            f"(rows {self.rows}, columns {self.cols})."
+        )
 
 
 class PlateLayoutsConfig(BaseModel):

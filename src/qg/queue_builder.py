@@ -94,9 +94,6 @@ class QueueBuilder:
             if plate_id not in self._plates:
                 self._plates[plate_id] = Plate(plate_id=plate_id, tray=tray, nr_samples=0)
 
-            # After popping the plate-specific keys, `row` holds only VialSample
-            # fields; the schema no longer carries `position`, so nothing stray
-            # reaches the splat below.
             sample = VialSample(container_id=container_id, **row)
             cell = PlateCell(sample=sample, grid_position=grid_position, plate_id=plate_id)
             self._plate_cells.append(cell)
