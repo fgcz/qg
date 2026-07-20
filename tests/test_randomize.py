@@ -6,8 +6,8 @@ import random as py_random
 
 import pytest
 
-from qg.params_models import ContainerBatch, Plate, PlateCell, PlateQueue, VialSample
-from qg.randomize import draw_seed, randomize_plate_queue
+from qg.params_models import ContainerBatch, Plate, PlateCell, PlateQueue, VialSample, draw_seed
+from qg.randomize import randomize_plate_queue
 
 
 def make_plate_queue(
@@ -121,25 +121,24 @@ class TestNoRandomization:
         queue = make_plate_queue(5)
         original_ids = get_sample_ids(queue)
 
-        result = randomize_plate_queue(queue, "no")
+        result = randomize_plate_queue(queue, "no", 0)  # seed ignored for "no"
 
         assert get_sample_ids(result) == original_ids
 
     def test_returns_same_object(self):
         queue = make_plate_queue(5)
 
-        result = randomize_plate_queue(queue, "no")
+        result = randomize_plate_queue(queue, "no", 0)  # seed ignored for "no"
 
         assert result is queue
 
 
 class TestRandomShuffle:
     def test_shuffles_samples(self):
-        py_random.seed(42)
         queue = make_plate_queue(10)
         original_ids = get_sample_ids(queue)
 
-        result = randomize_plate_queue(queue, "random")
+        result = randomize_plate_queue(queue, "random", 42)
         result_ids = get_sample_ids(result)
 
         assert result_ids != original_ids
@@ -147,7 +146,6 @@ class TestRandomShuffle:
 
     def test_shuffles_within_plate_container_groups(self):
         """Samples on different plates/containers are NOT mixed."""
-        py_random.seed(42)
         # Two groups: (plate=1, container=1) and (plate=2, container=2)
         queue = make_multi_plate_queue(
             [
@@ -156,7 +154,7 @@ class TestRandomShuffle:
             ]
         )
 
-        result = randomize_plate_queue(queue, "random")
+        result = randomize_plate_queue(queue, "random", 42)
 
         # Get ids by (plate_id, container_id)
         group1_ids = [c.sample.sample_id for c in result.cells if c.plate_id == 1]
@@ -169,11 +167,10 @@ class TestRandomShuffle:
 
 class TestBlockedRandomization:
     def test_equal_groups_creates_balanced_blocks(self):
-        py_random.seed(42)
         # A: ids 1,2  B: ids 3,4  C: ids 5,6
         queue = make_grouped_plate_queue({"A": 2, "B": 2, "C": 2})
 
-        result = randomize_plate_queue(queue, "blocked")
+        result = randomize_plate_queue(queue, "blocked", 42)
         result_ids = get_sample_ids(result)
 
         # Each block has exactly one sample from each group
@@ -188,11 +185,10 @@ class TestBlockedRandomization:
         assert set(result_ids) == {1, 2, 3, 4, 5, 6}
 
     def test_unequal_groups_handles_incomplete_blocks(self):
-        py_random.seed(42)
         # A: ids 1,2,3  B: ids 4,5  C: ids 6
         queue = make_grouped_plate_queue({"A": 3, "B": 2, "C": 1})
 
-        result = randomize_plate_queue(queue, "blocked")
+        result = randomize_plate_queue(queue, "blocked", 42)
         result_ids = get_sample_ids(result)
 
         group_ids = {"A": {1, 2, 3}, "B": {4, 5}, "C": {6}}
@@ -216,22 +212,20 @@ class TestBlockedRandomization:
 
     def test_single_group_shuffles_order(self):
         """Single grouping_var group: blocked mode should still shuffle order."""
-        py_random.seed(42)
         queue = make_grouped_plate_queue({"A": 10})
         original_ids = get_sample_ids(queue)
 
-        result = randomize_plate_queue(queue, "blocked")
+        result = randomize_plate_queue(queue, "blocked", 42)
         result_ids = get_sample_ids(result)
 
         assert set(result_ids) == set(original_ids), "All sample IDs must be preserved"
         assert result_ids != original_ids, "Single group should be shuffled, not left in input order"
 
     def test_no_grouping_var_falls_back_to_shuffle(self):
-        py_random.seed(42)
         queue = make_plate_queue(5)  # No grouping_var
         original_ids = get_sample_ids(queue)
 
-        result = randomize_plate_queue(queue, "blocked")
+        result = randomize_plate_queue(queue, "blocked", 42)
         result_ids = get_sample_ids(result)
 
         assert set(result_ids) == set(original_ids)
@@ -247,10 +241,9 @@ class TestUniformBlockedRandomization:
 
     def test_unequal_groups_spread_evenly(self):
         """A x 5, B x 3, C x 2 -> every group spread across the run, not front-loaded."""
-        py_random.seed(42)
         queue = make_grouped_plate_queue({"A": 5, "B": 3, "C": 2})
 
-        result = randomize_plate_queue(queue, "blocked_uniform")
+        result = randomize_plate_queue(queue, "blocked_uniform", 42)
         labels = self._labels(result)
 
         # All samples preserved exactly once, with the right per-group counts.
@@ -267,10 +260,9 @@ class TestUniformBlockedRandomization:
 
     def test_no_majority_only_tail(self):
         """The largest group must not be exhausted only at the end (vs. blocked)."""
-        py_random.seed(1)
         queue = make_grouped_plate_queue({"A": 6, "B": 2})
 
-        labels = self._labels(randomize_plate_queue(queue, "blocked_uniform"))
+        labels = self._labels(randomize_plate_queue(queue, "blocked_uniform", 1))
 
         # B is interleaved (one per half), not stranded in the first slots like RCBD.
         b_positions = [i for i, lab in enumerate(labels) if lab == "B"]
@@ -280,20 +272,18 @@ class TestUniformBlockedRandomization:
 
     def test_equal_groups_match_blocked(self):
         """Equal counts reduce to RCBD: one of each group per block."""
-        py_random.seed(42)
         queue = make_grouped_plate_queue({"A": 2, "B": 2, "C": 2})
 
-        labels = self._labels(randomize_plate_queue(queue, "blocked_uniform"))
+        labels = self._labels(randomize_plate_queue(queue, "blocked_uniform", 42))
 
         assert set(labels[:3]) == {"A", "B", "C"}
         assert set(labels[3:]) == {"A", "B", "C"}
 
     def test_identity_shuffled_within_groups(self):
         """Sample identity within a group is randomized (so is the per-round order)."""
-        py_random.seed(7)
         queue = make_grouped_plate_queue({"A": 5, "B": 3, "C": 2})
 
-        result = randomize_plate_queue(queue, "blocked_uniform")
+        result = randomize_plate_queue(queue, "blocked_uniform", 7)
 
         # All A samples (ids 1-5) preserved exactly once, in some shuffled order.
         a_ids = [c.sample.sample_id for c in result.cells if c.sample.grouping_var == "A"]
@@ -304,7 +294,7 @@ class TestUniformBlockedRandomization:
         seqs = []
         for seed in (1, 7):
             queue = make_grouped_plate_queue({"A": 4, "B": 4, "C": 4, "D": 4})
-            labels = self._labels(randomize_plate_queue(queue, "blocked_uniform", py_random.Random(seed)))
+            labels = self._labels(randomize_plate_queue(queue, "blocked_uniform", seed))
             # Each consecutive block of four is a full permutation of the groups:
             # fair-share spread is preserved and no group clusters.
             for start in range(0, 16, 4):
@@ -315,30 +305,27 @@ class TestUniformBlockedRandomization:
         assert seqs[0] != seqs[1]
 
     def test_single_group_shuffles_order(self):
-        py_random.seed(42)
         queue = make_grouped_plate_queue({"A": 10})
         original_ids = get_sample_ids(queue)
 
-        result_ids = get_sample_ids(randomize_plate_queue(queue, "blocked_uniform"))
+        result_ids = get_sample_ids(randomize_plate_queue(queue, "blocked_uniform", 42))
 
         assert set(result_ids) == set(original_ids)
         assert result_ids != original_ids
 
     def test_no_grouping_var_falls_back_to_shuffle(self):
-        py_random.seed(42)
         queue = make_plate_queue(5)
         original_ids = get_sample_ids(queue)
 
-        result_ids = get_sample_ids(randomize_plate_queue(queue, "blocked_uniform"))
+        result_ids = get_sample_ids(randomize_plate_queue(queue, "blocked_uniform", 42))
 
         assert set(result_ids) == set(original_ids)
         assert result_ids != original_ids
 
     def test_respects_plate_container_boundaries(self):
-        py_random.seed(42)
         queue = make_multi_plate_queue([(1, 100, 5), (2, 200, 5)])
 
-        result = randomize_plate_queue(queue, "blocked_uniform")
+        result = randomize_plate_queue(queue, "blocked_uniform", 42)
 
         group1 = {c.sample.sample_id for c in result.cells if c.plate_id == 1}
         group2 = {c.sample.sample_id for c in result.cells if c.plate_id == 2}
@@ -351,7 +338,6 @@ class TestBoundaryRespect:
 
     def test_same_plate_different_containers(self):
         """Samples on same plate but different containers are NOT mixed."""
-        py_random.seed(42)
         queue = make_multi_plate_queue(
             [
                 (1, 100, 5),  # plate 1, container 100, ids 1-5
@@ -359,7 +345,7 @@ class TestBoundaryRespect:
             ]
         )
 
-        result = randomize_plate_queue(queue, "random")
+        result = randomize_plate_queue(queue, "random", 42)
 
         group1_ids = [c.sample.sample_id for c in result.cells if c.sample.container_id == 100]
         group2_ids = [c.sample.sample_id for c in result.cells if c.sample.container_id == 200]
@@ -369,7 +355,6 @@ class TestBoundaryRespect:
 
     def test_same_container_different_plates(self):
         """Samples in same container but different plates are NOT mixed."""
-        py_random.seed(42)
         queue = make_multi_plate_queue(
             [
                 (1, 100, 5),  # plate 1, container 100, ids 1-5
@@ -377,7 +362,7 @@ class TestBoundaryRespect:
             ]
         )
 
-        result = randomize_plate_queue(queue, "random")
+        result = randomize_plate_queue(queue, "random", 42)
 
         group1_ids = [c.sample.sample_id for c in result.cells if c.plate_id == 1]
         group2_ids = [c.sample.sample_id for c in result.cells if c.plate_id == 2]
@@ -387,7 +372,6 @@ class TestBoundaryRespect:
 
     def test_plate_order_preserved(self):
         """Plate order from B-Fabric input is preserved (plate 2 before plate 1)."""
-        py_random.seed(42)
         # Input order: plate 2 first, then plate 1 (simulating B-Fabric order)
         queue = make_multi_plate_queue(
             [
@@ -398,7 +382,7 @@ class TestBoundaryRespect:
         input_plate_order = [c.plate_id for c in queue.cells]
         assert input_plate_order == [2, 2, 2, 2, 2, 1, 1, 1, 1, 1], "Test setup: plate 2 before plate 1"
 
-        result = randomize_plate_queue(queue, "random")
+        result = randomize_plate_queue(queue, "random", 42)
 
         # Plate order must be preserved: first 5 are plate 2, next 5 are plate 1
         output_plate_order = [c.plate_id for c in result.cells]
@@ -407,7 +391,6 @@ class TestBoundaryRespect:
 
     def test_plate_order_preserved_blocked(self):
         """Plate order preserved with blocked randomization too."""
-        py_random.seed(42)
         # Create cells manually to set grouping_var and preserve plate 2 before plate 1
         cells = []
         batches = {100: ContainerBatch(container_id=100), 200: ContainerBatch(container_id=200)}
@@ -424,7 +407,7 @@ class TestBoundaryRespect:
 
         queue = PlateQueue(batches=batches, plates=plates, cells=cells)
 
-        result = randomize_plate_queue(queue, "blocked")
+        result = randomize_plate_queue(queue, "blocked", 42)
 
         output_plate_order = [c.plate_id for c in result.cells]
         assert output_plate_order[:4] == [2, 2, 2, 2], "Plate 2 samples should come first"
@@ -432,14 +415,14 @@ class TestBoundaryRespect:
 
 
 class TestSeedReproducibility:
-    """An explicit random.Random(seed) makes randomized modes reproducible."""
+    """A given seed makes randomized modes reproducible."""
 
     @pytest.mark.parametrize("mode", ["random", "blocked", "blocked_uniform"])
     def test_same_seed_same_order(self, mode):
         queue = make_grouped_plate_queue({"A": 5, "B": 3, "C": 2})
 
-        first = randomize_plate_queue(queue, mode, py_random.Random(123))
-        second = randomize_plate_queue(queue, mode, py_random.Random(123))
+        first = randomize_plate_queue(queue, mode, 123)
+        second = randomize_plate_queue(queue, mode, 123)
 
         assert get_sample_ids(first) == get_sample_ids(second)
 
@@ -448,21 +431,21 @@ class TestSeedReproducibility:
         # Large input so two seeds almost surely yield a different order.
         queue = make_grouped_plate_queue({"A": 20, "B": 20})
 
-        first = randomize_plate_queue(queue, mode, py_random.Random(1))
-        second = randomize_plate_queue(queue, mode, py_random.Random(2))
+        first = randomize_plate_queue(queue, mode, 1)
+        second = randomize_plate_queue(queue, mode, 2)
 
         assert get_sample_ids(first) != get_sample_ids(second)
         assert set(get_sample_ids(first)) == set(get_sample_ids(second))
 
     def test_seed_independent_of_global_state(self):
-        # A seeded instance ignores the global RNG: perturbing random.seed between
+        # A seeded run ignores the global RNG: perturbing random.seed between
         # calls must not change the result.
         queue = make_plate_queue(15)
 
         py_random.seed(0)
-        first = randomize_plate_queue(queue, "random", py_random.Random(77))
+        first = randomize_plate_queue(queue, "random", 77)
         py_random.seed(999)
-        second = randomize_plate_queue(queue, "random", py_random.Random(77))
+        second = randomize_plate_queue(queue, "random", 77)
 
         assert get_sample_ids(first) == get_sample_ids(second)
 

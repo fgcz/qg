@@ -19,7 +19,6 @@ from qg.params_models import (
     VialSample,
     current_qg_version,
 )
-from qg.randomize import draw_seed
 from qg.utils import LayoutMode
 
 if TYPE_CHECKING:
@@ -120,8 +119,6 @@ class QueueBuilder:
         parameters = self._parameters
         if self._bfabric_base_url is not None:
             parameters = parameters.model_copy(update={"bfabric_instance": self._bfabric_base_url})
-        if parameters.randomization != "no" and parameters.seed is None:
-            parameters = parameters.model_copy(update={"seed": draw_seed()})
 
         provenance = {
             "qg_version": current_qg_version(),

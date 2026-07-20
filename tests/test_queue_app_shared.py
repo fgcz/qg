@@ -196,19 +196,20 @@ class TestBuildQueueInput:
         assert qi is not None
         assert len(qi.queue.samples) == 25
 
-    def test_randomization_draws_seed_onto_returned_input(self, config, vial_sample_df):
-        params = _vial_params(randomization="random", seed=None)
+    def test_returned_input_has_concrete_seed(self, config, vial_sample_df):
+        # QueueParameters always carries a concrete seed (drawn at construction).
+        params = _vial_params(randomization="random")
         qi, err = build_queue_input(config, params, vial_sample_df, has_samples_source=True)
         assert err is None
         assert qi is not None
-        assert qi.parameters.seed is not None
         assert 0 <= qi.parameters.seed < 2**32
 
-    def test_randomization_does_not_mutate_original_params(self, config, vial_sample_df):
-        # model_copy must be used internally; the caller's object must be unchanged.
-        params = _vial_params(randomization="random", seed=None)
-        build_queue_input(config, params, vial_sample_df, has_samples_source=True)
-        assert params.seed is None, "build_queue_input must not mutate the caller's QueueParameters"
+    def test_build_preserves_the_callers_seed(self, config, vial_sample_df):
+        # build_queue_input must neither redraw nor mutate the caller's seed.
+        params = _vial_params(randomization="random")
+        qi, _ = build_queue_input(config, params, vial_sample_df, has_samples_source=True)
+        assert qi is not None
+        assert qi.parameters.seed == params.seed
 
     def test_explicit_seed_is_preserved(self, config, vial_sample_df):
         params = _vial_params(randomization="random", seed=42)

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import random
 import re
 from dataclasses import dataclass
 from typing import Literal
@@ -412,14 +411,9 @@ class QueueGenerator:
             len(self.plate_queue.cells),
         )
 
-        # Apply randomization within plate/container boundaries. Positioned input
-        # validation guarantees randomized modes already carry a concrete seed.
-        if params.randomization == "no":
-            plate_queue = self.plate_queue
-        else:
-            assert params.seed is not None
-            logger.info("Randomization | mode={} | seed={}", params.randomization, params.seed)
-            plate_queue = randomize_plate_queue(self.plate_queue, params.randomization, random.Random(params.seed))
+        # Apply randomization within plate/container boundaries. randomize_plate_queue
+        # short-circuits "no" and owns RNG construction; params.seed is always concrete.
+        plate_queue = randomize_plate_queue(self.plate_queue, params.randomization, params.seed)
 
         # Extract groups: (container_id, num_samples) for each container
         samples_per_container: dict[int, int] = {}

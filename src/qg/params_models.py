@@ -3,16 +3,26 @@
 from __future__ import annotations
 
 import json
+import secrets
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Self
 
-from pydantic import AliasChoices, BaseModel, Field, model_validator
+from pydantic import AliasChoices, BaseModel, Field
 
 from qg import __version__
 from qg.config_models.resolved import ResolvedConfig
 
 if TYPE_CHECKING:
     from qg.config_models.loader import QGConfiguration
+
+
+def draw_seed() -> int:
+    """Draw a fresh 32-bit RNG seed from OS entropy.
+
+    Independent of the global ``random`` state, so a drawn seed is reproducible
+    only via itself (record it to reproduce the run).
+    """
+    return secrets.randbits(32)
 
 
 class VialSample(BaseModel):
@@ -86,9 +96,9 @@ class QueueParameters(BaseModel):
     # Method per polarity: {"pos": "DIA_60min", "neg": "DIA_60min"}
     method: dict[str, str] = Field(default_factory=dict)
     randomization: Literal["no", "random", "blocked", "blocked_uniform"] = "no"
-    # RNG seed for reproducible randomization. QueueBuilder resolves it before a
-    # randomized QueueInput is constructed; None is valid only for "no" mode.
-    seed: int | None = None
+    # RNG seed for reproducible randomization. Always concrete: a fresh seed is
+    # drawn at construction unless one is supplied. Unused when randomization="no".
+    seed: int = Field(default_factory=draw_seed)
     inj_vol_override: float | None = None
     qc_frequency_override: int | None = None
     # If True, samples from different containers are placed on separate trays (vial mode only)
@@ -130,7 +140,6 @@ class QueueParameters(BaseModel):
         user: str = "",
         method: dict[str, str] | None = None,
         randomization: Literal["no", "random", "blocked", "blocked_uniform"] = "no",
-        seed: int | None = None,
         inj_vol_override: float | None = None,
         qc_frequency_override: int | None = None,
         one_container_per_tray: bool = False,
@@ -174,7 +183,6 @@ class QueueParameters(BaseModel):
             user=user,
             method=method or {},
             randomization=randomization,
-            seed=seed,
             inj_vol_override=inj_vol_override,
             qc_frequency_override=qc_frequency_override,
             one_container_per_tray=one_container_per_tray,
@@ -194,13 +202,6 @@ class VialQueueInput(BaseModel):
     qg_version: str
     resolved_config: ResolvedConfig
 
-    @model_validator(mode="after")
-    def require_randomization_seed(self) -> Self:
-        """Require reproducibility provenance for randomized inputs."""
-        if self.parameters.randomization != "no" and self.parameters.seed is None:
-            raise ValueError("Randomized queue input requires a concrete seed")
-        return self
-
     def position_queue(self) -> PositionedQueueInput:
         """Assign physical positions and return generation-ready input."""
         from qg.positionV2 import _position_vial_queue
@@ -215,13 +216,6 @@ class PlateQueueInput(BaseModel):
     queue: PlateQueue
     qg_version: str
     resolved_config: ResolvedConfig
-
-    @model_validator(mode="after")
-    def require_randomization_seed(self) -> Self:
-        """Require reproducibility provenance for randomized inputs."""
-        if self.parameters.randomization != "no" and self.parameters.seed is None:
-            raise ValueError("Randomized queue input requires a concrete seed")
-        return self
 
     def position_queue(self) -> PositionedQueueInput:
         """Validate physical positions and return generation-ready input."""
@@ -238,13 +232,6 @@ class PositionedQueueInput(BaseModel):
     qg_version: str
     resolved_config: ResolvedConfig
 
-    @model_validator(mode="after")
-    def require_randomization_seed(self) -> Self:
-        """Require reproducibility provenance for randomized inputs."""
-        if self.parameters.randomization != "no" and self.parameters.seed is None:
-            raise ValueError("Randomized positioned queue requires a concrete seed")
-        return self
-
 
 QueueInput = VialQueueInput | PlateQueueInput
 
@@ -252,7 +239,7 @@ QueueInput = VialQueueInput | PlateQueueInput
 def current_qg_version() -> str:
     """Return the installed qg version required for queue provenance."""
     if not __version__:
-        raise RuntimeError("The installed qg package has no version metadata")
+        raise RuntimeError("qg package metadata is unavailable; install the qg package before building queues")
     return __version__
 
 

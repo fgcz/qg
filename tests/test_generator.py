@@ -884,7 +884,9 @@ class TestRandomization:
         result_order = [int(row.sample_id) for row in result.rows if row.slot_kind == "user"]
         assert result_order == original_order
 
-    def _random_params(self, *, seed: int | None) -> QueueParameters:
+    def _random_params(self, *, seed: int | None = None) -> QueueParameters:
+        # Omit seed when unspecified so the field's default_factory draws one.
+        extra = {} if seed is None else {"seed": seed}
         return QueueParameters(
             tech_area="Proteomics",
             instrument="ASTRAL_1",
@@ -898,7 +900,7 @@ class TestRandomization:
             date="20260116",
             user="test",
             randomization="random",
-            seed=seed,
+            **extra,
         )
 
     def test_unset_seed_is_drawn_and_recorded(self, config):

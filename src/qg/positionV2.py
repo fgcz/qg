@@ -508,36 +508,39 @@ def _create_input_sampler(
     )
 
 
-def _validated_input(
-    queue_input: QueueInput,
-    config: QGConfiguration,
-    plate_queue: PlateQueue,
-) -> PositionedQueueInput:
-    """Validate a plate queue and retain its source provenance."""
-    parameters = queue_input.parameters
-    validator = _create_input_sampler(config, parameters, LayoutMode.PLATE)
-    validated_queue = validator.assign(plate_queue)
+def _positioned(queue_input: QueueInput, plate_queue: PlateQueue) -> PositionedQueueInput:
+    """Wrap a positioned plate queue, retaining the source provenance."""
     return PositionedQueueInput(
-        parameters=parameters,
-        queue=validated_queue,
+        parameters=queue_input.parameters,
+        queue=plate_queue,
         qg_version=queue_input.qg_version,
         resolved_config=queue_input.resolved_config,
     )
 
 
 def _position_vial_queue(queue_input: VialQueueInput) -> PositionedQueueInput:
-    """Assign and validate physical positions for a vial queue input."""
+    """Assign physical positions for a vial queue input.
+
+    The vial assigner draws positions from a pool that already excludes reserved
+    QC positions and fills in row/col, so its output is generation-ready without a
+    separate plate-validation pass.
+    """
     config = queue_input.resolved_config.to_configuration()
-    parameters = queue_input.parameters
-    assigner = _create_input_sampler(config, parameters, LayoutMode.VIAL)
+    assigner = _create_input_sampler(config, queue_input.parameters, LayoutMode.VIAL)
     plate_queue = assigner.assign(
         queue_input.queue,
-        one_container_per_tray=parameters.one_container_per_tray,
+        one_container_per_tray=queue_input.parameters.one_container_per_tray,
     )
-    return _validated_input(queue_input, config, plate_queue)
+    return _positioned(queue_input, plate_queue)
 
 
 def _position_plate_queue(queue_input: PlateQueueInput) -> PositionedQueueInput:
-    """Validate physical positions for a plate queue input."""
+    """Validate physical positions for a plate queue input.
+
+    User-supplied plate positions still need collision-checking against QC
+    reservations, tray assignment, and the alpha grid_position -> row/col split.
+    """
     config = queue_input.resolved_config.to_configuration()
-    return _validated_input(queue_input, config, queue_input.queue)
+    validator = _create_input_sampler(config, queue_input.parameters, LayoutMode.PLATE)
+    validated_queue = validator.assign(queue_input.queue)
+    return _positioned(queue_input, validated_queue)
