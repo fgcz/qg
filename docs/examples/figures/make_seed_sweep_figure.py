@@ -126,9 +126,7 @@ def _eta_squared(order: list[str]) -> float:
     all_positions = list(range(1, len(order) + 1))
     grand_mean = statistics.fmean(all_positions)
     ss_total = sum((p - grand_mean) ** 2 for p in all_positions)
-    ss_between = sum(
-        len(pos) * (statistics.fmean(pos) - grand_mean) ** 2 for pos in by_group.values() if pos
-    )
+    ss_between = sum(len(pos) * (statistics.fmean(pos) - grand_mean) ** 2 for pos in by_group.values() if pos)
     return ss_between / ss_total if ss_total else 0.0
 
 
@@ -185,8 +183,14 @@ def _box(ax, data_by_mode: dict[str, list[float]], display_by_mode: dict[str, fl
     # Mark the single display seed used by the main-text figure.
     for x, mode in zip(positions, MODES, strict=True):
         ax.plot(
-            x, display_by_mode[mode], marker="D", color="black", markersize=4.5,
-            markeredgecolor="white", markeredgewidth=0.6, zorder=5,
+            x,
+            display_by_mode[mode],
+            marker="D",
+            color="black",
+            markersize=4.5,
+            markeredgecolor="white",
+            markeredgewidth=0.6,
+            zorder=5,
         )
     ax.set_xticks(list(positions))
     ax.set_xticklabels([MODE_LABELS[m] for m in MODES])
@@ -207,21 +211,44 @@ def main() -> int:
         display[mode] = {"eta2": _eta_squared(order), "maxrun": float(_max_run_length(order))}
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.0, 3.2), dpi=300)
-    _box(ax1, {m: sweep[m]["eta2"] for m in MODES}, {m: display[m]["eta2"] for m in MODES},
-         r"$\eta^2$ (group $\leftrightarrow$ time)")
+    _box(
+        ax1,
+        {m: sweep[m]["eta2"] for m in MODES},
+        {m: display[m]["eta2"] for m in MODES},
+        r"$\eta^2$ (group $\leftrightarrow$ time)",
+    )
     ax1.set_title("Global aliasing (lower is better)", fontsize=8.5, loc="left")
-    _box(ax2, {m: sweep[m]["maxrun"] for m in MODES}, {m: display[m]["maxrun"] for m in MODES},
-         "max consecutive run length")
+    _box(
+        ax2,
+        {m: sweep[m]["maxrun"] for m in MODES},
+        {m: display[m]["maxrun"] for m in MODES},
+        "max consecutive run length",
+    )
     ax2.set_title("Local clustering (lower is better)", fontsize=8.5, loc="left")
 
     fig.legend(
-        handles=[Line2D([0], [0], marker="D", linestyle="none", markerfacecolor="black",
-                        markeredgecolor="white", markersize=6, label="single display seed (main-text figure)")],
-        loc="lower center", bbox_to_anchor=(0.5, -0.04), frameon=False, fontsize=7.5,
+        handles=[
+            Line2D(
+                [0],
+                [0],
+                marker="D",
+                linestyle="none",
+                markerfacecolor="black",
+                markeredgecolor="white",
+                markersize=6,
+                label="single display seed (main-text figure)",
+            )
+        ],
+        loc="lower center",
+        bbox_to_anchor=(0.5, -0.04),
+        frameon=False,
+        fontsize=7.5,
     )
     fig.suptitle(
         f"Randomization quality over {N_SEEDS} seeds (unbalanced 56-sample design)",
-        fontsize=10, fontweight="bold", y=1.0,
+        fontsize=10,
+        fontweight="bold",
+        y=1.0,
     )
     fig.tight_layout(rect=(0, 0.04, 1, 0.95))
     OUT_FIG.parent.mkdir(parents=True, exist_ok=True)
@@ -237,14 +264,23 @@ def main() -> int:
             s = _summary(sweep[mode][metric])
             disp = display[mode][metric]
             iqr = f"[{fmt.format(s['q1'])}, {fmt.format(s['q3'])}]"
-            print(f"{mode:>16} {metric:>8} {fmt.format(s['mean']):>8} {fmt.format(s['median']):>8} {iqr:>16} {fmt.format(disp):>8}")
-            rows.append({
-                "mode": mode, "metric": metric, "n_seeds": (1 if mode == "no" else N_SEEDS),
-                "mean": round(s["mean"], 4), "median": round(s["median"], 4),
-                "q1": round(s["q1"], 4), "q3": round(s["q3"], 4),
-                "min": round(s["min"], 4), "max": round(s["max"], 4),
-                "display_seed_value": round(disp, 4),
-            })
+            print(
+                f"{mode:>16} {metric:>8} {fmt.format(s['mean']):>8} {fmt.format(s['median']):>8} {iqr:>16} {fmt.format(disp):>8}"
+            )
+            rows.append(
+                {
+                    "mode": mode,
+                    "metric": metric,
+                    "n_seeds": (1 if mode == "no" else N_SEEDS),
+                    "mean": round(s["mean"], 4),
+                    "median": round(s["median"], 4),
+                    "q1": round(s["q1"], 4),
+                    "q3": round(s["q3"], 4),
+                    "min": round(s["min"], 4),
+                    "max": round(s["max"], 4),
+                    "display_seed_value": round(disp, 4),
+                }
+            )
     with OUT_CSV.open("w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
         w.writeheader()

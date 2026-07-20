@@ -413,6 +413,7 @@ def _validate_configs(
 # QGConfiguration Dataclass
 # =============================================================================
 
+
 # TODO: should be a pydantic model instead of dataclass, to get validation and serialization for free
 @dataclass(slots=True)
 class QGConfiguration:
@@ -544,9 +545,7 @@ class QGConfiguration:
         # tech_area_defaults.allow_no_layout (Proteomics opts out). It is recognised in
         # code (structure.get_pattern → EMPTY_PATTERN) rather than defined in any CSV.
         # Appended post-join; a tech_area absent from tech_area_defaults defaults to on.
-        disabled_tech = {
-            d.tech_area for d in self.tech_area_defaults.defaults if not d.allow_no_layout
-        }
+        disabled_tech = {d.tech_area for d in self.tech_area_defaults.defaults if not d.allow_no_layout}
         no_layout_rows = (
             result.filter(~pl.col("tech_area").is_in(disabled_tech))
             .drop("qc_layout_name", "pattern_name")

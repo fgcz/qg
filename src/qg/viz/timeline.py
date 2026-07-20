@@ -138,7 +138,9 @@ def _grouping_var_encoding(df: pl.DataFrame) -> tuple[pl.DataFrame, list[str], d
     )
 
     groups = sorted(v for v in df.filter(pl.col("slot_kind") == "user")["_clr"].unique().to_list() if v != _NONE_LABEL)
-    qc_classes = sorted(c for c in df.filter(pl.col("slot_kind") == "qc")["_clr"].unique().to_list() if c != _BLANK_LABEL)
+    qc_classes = sorted(
+        c for c in df.filter(pl.col("slot_kind") == "qc")["_clr"].unique().to_list() if c != _BLANK_LABEL
+    )
 
     color_map: dict[str, str] = {}
     # Groups take the first palette slots (so timeline group colours match the plate

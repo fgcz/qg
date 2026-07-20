@@ -11,7 +11,6 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from itertools import product
-from typing import TypeVar
 
 # =============================================================================
 # Enums for config-driven dispatch
@@ -99,11 +98,8 @@ def generate_all_positions(
 # Grouping Helper
 # =============================================================================
 
-T = TypeVar("T")
-K = TypeVar("K")
 
-
-def group_by_key(items: list[T], key: Callable[[T], K]) -> dict[K, list[T]]:
+def group_by_key[T, K](items: list[T], key: Callable[[T], K]) -> dict[K, list[T]]:
     """Group items by key function, preserving order."""
     result: dict[K, list[T]] = {}
     for item in items:

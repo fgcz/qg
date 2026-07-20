@@ -151,8 +151,19 @@ def main() -> int:
     port = _free_port()
     url = f"http://127.0.0.1:{port}"
     proc = subprocess.Popen(
-        [sys.executable, "-m", "marimo", "run", "--headless", "--no-token",
-         "--host", "127.0.0.1", "--port", str(port), str(APP)],
+        [
+            sys.executable,
+            "-m",
+            "marimo",
+            "run",
+            "--headless",
+            "--no-token",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+            str(APP),
+        ],
         cwd=REPO_ROOT,
         env={**os.environ, "PYTHONPATH": str(REPO_ROOT)},
         stdout=subprocess.DEVNULL,

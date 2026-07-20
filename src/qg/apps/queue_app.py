@@ -350,9 +350,7 @@ def _(available_methods_neg, polarity_group):
 
 @app.cell
 def _(config, tech_area_field):
-    polarity_group = shared.make_polarity_group(
-        config.tech_area_defaults.get_default_polarities(tech_area_field.value)
-    )
+    polarity_group = shared.make_polarity_group(config.tech_area_defaults.get_default_polarities(tech_area_field.value))
     return (polarity_group,)
 
 

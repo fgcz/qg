@@ -78,7 +78,9 @@ def _queue_for_ratio(ratio: float) -> PlateQueue:
     pos = 1
     for group, n in sizes.items():
         for _ in range(n):
-            sample = VialSample(sample_name=f"{group}{pos}", sample_id=pos, container_id=CONTAINER_ID, grouping_var=group)
+            sample = VialSample(
+                sample_name=f"{group}{pos}", sample_id=pos, container_id=CONTAINER_ID, grouping_var=group
+            )
             cells.append(PlateCell(sample=sample, grid_position=f"A{pos}", plate_id=PLATE_ID))
             pos += 1
     total = sum(sizes.values())
@@ -124,8 +126,15 @@ def main() -> int:
             me, mr = statistics.fmean(etas), statistics.fmean(runs)
             results["eta2"][mode].append(me)
             results["maxrun"][mode].append(mr)
-            rows.append({"ratio": ratio, "size_A": round(MINOR * ratio), "mode": mode,
-                         "mean_eta2": round(me, 4), "mean_maxrun": round(mr, 3)})
+            rows.append(
+                {
+                    "ratio": ratio,
+                    "size_A": round(MINOR * ratio),
+                    "mode": mode,
+                    "mean_eta2": round(me, 4),
+                    "mean_maxrun": round(mr, 3),
+                }
+            )
 
     # Crossover: smallest ratio at which blocked eta^2 exceeds random eta^2.
     crossover = next(
@@ -135,13 +144,26 @@ def main() -> int:
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.0, 3.2), dpi=300)
     for mode in MODES:
-        ax1.plot(RATIOS, results["eta2"][mode], marker="o", markersize=3.5, color=MODE_COLORS[mode], label=MODE_LABELS[mode])
-        ax2.plot(RATIOS, results["maxrun"][mode], marker="o", markersize=3.5, color=MODE_COLORS[mode], label=MODE_LABELS[mode])
+        ax1.plot(
+            RATIOS, results["eta2"][mode], marker="o", markersize=3.5, color=MODE_COLORS[mode], label=MODE_LABELS[mode]
+        )
+        ax2.plot(
+            RATIOS,
+            results["maxrun"][mode],
+            marker="o",
+            markersize=3.5,
+            color=MODE_COLORS[mode],
+            label=MODE_LABELS[mode],
+        )
     if crossover is not None:
         ax1.axvline(crossover, color="#888888", linestyle=":", linewidth=1)
-        ax1.annotate(f"RCBD > random\nfrom ratio ≈ {crossover:g}", xy=(crossover, 0.0),
-                     xytext=(crossover + 0.15, max(results["eta2"]["blocked"]) * 0.45),
-                     fontsize=7, color="#555555")
+        ax1.annotate(
+            f"RCBD > random\nfrom ratio ≈ {crossover:g}",
+            xy=(crossover, 0.0),
+            xytext=(crossover + 0.15, max(results["eta2"]["blocked"]) * 0.45),
+            fontsize=7,
+            color="#555555",
+        )
     for ax, ylab, title in (
         (ax1, r"mean $\eta^2$ (group $\leftrightarrow$ time)", "Global aliasing"),
         (ax2, "mean max consecutive run length", "Local clustering"),
@@ -152,8 +174,9 @@ def main() -> int:
         for spine in ("top", "right"):
             ax.spines[spine].set_visible(False)
     ax1.legend(frameon=False, fontsize=7.5, loc="upper left")
-    fig.suptitle(f"Effect of group imbalance ({N_SEEDS} seeds/point; B=C=D={MINOR})",
-                 fontsize=10, fontweight="bold", y=1.0)
+    fig.suptitle(
+        f"Effect of group imbalance ({N_SEEDS} seeds/point; B=C=D={MINOR})", fontsize=10, fontweight="bold", y=1.0
+    )
     fig.tight_layout(rect=(0, 0, 1, 0.95))
     OUT_FIG.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(OUT_FIG, dpi=600, bbox_inches="tight")
@@ -167,8 +190,10 @@ def main() -> int:
     print(f"\nImbalance sweep ({N_SEEDS} seeds/point), minor groups = {MINOR}\n")
     print(f"{'ratio':>6} {'A':>4} {'random':>9} {'blocked':>9} {'blk_unif':>9}")
     for i, ratio in enumerate(RATIOS):
-        print(f"{ratio:>6} {round(MINOR*ratio):>4} "
-              f"{results['eta2']['random'][i]:>9.4f} {results['eta2']['blocked'][i]:>9.4f} {results['eta2']['blocked_uniform'][i]:>9.4f}")
+        print(
+            f"{ratio:>6} {round(MINOR * ratio):>4} "
+            f"{results['eta2']['random'][i]:>9.4f} {results['eta2']['blocked'][i]:>9.4f} {results['eta2']['blocked_uniform'][i]:>9.4f}"
+        )
     print(f"\nCrossover (blocked eta^2 first exceeds random): ratio = {crossover}")
     print(f"Wrote {OUT_FIG}\nWrote {OUT_CSV}")
     return 0

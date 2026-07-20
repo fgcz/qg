@@ -190,9 +190,7 @@ def validate_selection(
     if not errors and plate_layout and qc_layout:
         queue_pattern = config.queue_patterns.get_pattern(tech_area, pattern)
         if queue_pattern and queue_pattern.get_all_sample_ids():
-            qc_samples = config.get_qc_samples(
-                tech_area, qc_layout, plate_layout, config.samplers.get_sampler(sampler)
-            )
+            qc_samples = config.get_qc_samples(tech_area, qc_layout, plate_layout, config.samplers.get_sampler(sampler))
             if not qc_samples:
                 errors.append(f"No QC samples for {tech_area}/{qc_layout}/{plate_layout}")
 
@@ -229,8 +227,7 @@ def resolve_qc_layout_preview(
     if sampler_obj.is_tip:
         # TODO: per-range visit counts for tip samplers (Evosep) — needs interval intersection.
         rows = [
-            {"sample_id": s.sample_id, "tray": s.tray, "range": f"{s.position_start}-{s.position_end}"}
-            for s in samples
+            {"sample_id": s.sample_id, "tray": s.tray, "range": f"{s.position_start}-{s.position_end}"} for s in samples
         ]
         return pl.DataFrame(rows)
     rows = [{"sample_id": s.sample_id, "tray": s.tray, "pos": f"{s.row}{s.col}"} for s in samples]
@@ -244,9 +241,7 @@ def resolve_qc_layout_preview(
         )
         # Align dtypes — preview's tray is Utf8 from the dict; queue's tray may be int.
         well_counts = well_counts.with_columns(pl.col("tray").cast(preview["tray"].dtype))
-        preview = preview.join(well_counts, on=["tray", "pos"], how="left").with_columns(
-            pl.col("visits").fill_null(0)
-        )
+        preview = preview.join(well_counts, on=["tray", "pos"], how="left").with_columns(pl.col("visits").fill_null(0))
     return preview
 
 
@@ -950,9 +945,7 @@ def make_polarity_group(default_polarities: list[str]) -> mo.ui.batch:
 
 def make_randomization_field() -> mo.ui.dropdown:
     """Randomization-mode dropdown."""
-    return mo.ui.dropdown(
-        options=["no", "random", "blocked", "blocked_uniform"], value="no", label="Randomization"
-    )
+    return mo.ui.dropdown(options=["no", "random", "blocked", "blocked_uniform"], value="no", label="Randomization")
 
 
 def suffix_options_for_tech(config: QGConfiguration, tech_area: str) -> list[str]:
