@@ -16,7 +16,6 @@ from qg.params_models import (
     VialSample,
     current_qg_version,
 )
-from qg.positioning import position_queue
 from qg.queue_builder import QueueBuilder
 
 from .helpers import make_queue_input
@@ -275,7 +274,7 @@ class TestOutputFormats:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(position_queue(queue_input))
+        generator = QueueGenerator(queue_input.position_queue())
         result = generator.generate()
 
         assert isinstance(result, pl.DataFrame)
@@ -299,7 +298,7 @@ class TestOutputFormats:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(position_queue(queue_input))
+        generator = QueueGenerator(queue_input.position_queue())
         result = generator.generate()
 
         # Verify all literal columns from config have expected constant values
@@ -331,7 +330,7 @@ class TestOutputFormats:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(position_queue(queue_input))
+        generator = QueueGenerator(queue_input.position_queue())
         result = generator.generate()
 
         assert len(result) == 1
@@ -341,7 +340,7 @@ class TestOutputFormats:
         from qg.apps.integrations.example_params import read_example_params
 
         _entry, queue_input = read_example_params("lipidomics_standard")
-        generator = QueueGenerator(position_queue(queue_input))
+        generator = QueueGenerator(queue_input.position_queue())
 
         table = generator.build_rows().to_table()
         assert "qc_class" in table.columns
@@ -368,7 +367,7 @@ class TestNoQCPattern:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(position_queue(queue_input))
+        generator = QueueGenerator(queue_input.position_queue())
         result = generator.generate()
 
         assert len(result) == num_samples
@@ -396,7 +395,7 @@ class TestNoqcMetabolomicsEndToEnd:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        result = QueueGenerator(position_queue(queue_input)).generate()
+        result = QueueGenerator(queue_input.position_queue()).generate()
 
         assert len(result) == len(samples)
 
@@ -421,7 +420,7 @@ class TestMetabolomicsCalSeries:
             method={"pos": "Method_Pos"},
         )
         qi = make_vial_queue_input(params, samples)
-        df = QueueGenerator(position_queue(qi)).generate()
+        df = QueueGenerator(qi.position_queue()).generate()
 
         cal_rows = df.filter(pl.col("Sample Name") == "cal")
         # 7 cal samples at the start + 7 at the end = 14
@@ -461,7 +460,7 @@ class TestMetabolomicsCalSeries:
             },
         )
         qi = make_vial_queue_input(params, samples)
-        df = QueueGenerator(position_queue(qi)).generate()
+        df = QueueGenerator(qi.position_queue()).generate()
 
         names = "\n".join(df["File Name"].to_list())
         # Each level's assigned concentration appears in the filename.
@@ -490,7 +489,7 @@ class TestWellVisitCounts:
             method={"pos": "Method_Pos"},
         )
         qi = make_vial_queue_input(params, samples)
-        raw = QueueGenerator(position_queue(qi)).build_rows().to_table()
+        raw = QueueGenerator(qi.position_queue()).build_rows().to_table()
 
         counts = raw.group_by(["tray", "row", "col"]).agg(pl.len().alias("visits")).sort(["tray", "row", "col"])
         # cal_series brackets the user samples: cal1..cal7 appear once in the start
@@ -560,7 +559,7 @@ class TestPlateStartTray:
     def test_default_start_tray_collides_with_cal_series(self, config):
         qi, _, _ = self._plate_input(config, start_tray="")  # default → first tray Y
         with pytest.raises(ValueError, match=r"at Y:E1 conflicts with QC position"):
-            QueueGenerator(position_queue(qi)).build_rows()
+            QueueGenerator(qi.position_queue()).build_rows()
 
     def test_no_layout_uses_plate_as_is(self, config):
         """The `no_layout` option reserves nothing, so a user sample on Y:E1 — a well the
@@ -569,7 +568,7 @@ class TestPlateStartTray:
         """
         # Same plate + default tray as the colliding case above, only the QC option differs.
         qi, _, _ = self._plate_input(config, start_tray="", pattern="no_layout", qc_layout="no_layout")
-        df = QueueGenerator(position_queue(qi)).build_rows().to_table()
+        df = QueueGenerator(qi.position_queue()).build_rows().to_table()
 
         # No QC rows injected; the single user sample sits on Y:E1 without conflict.
         assert df.filter(pl.col("slot_kind") == "qc").height == 0
@@ -594,7 +593,7 @@ class TestPlateStartTray:
             method={"pos": "Method_Pos"},
         )
         qi = make_vial_queue_input(params, make_vial_samples(3))
-        df = QueueGenerator(position_queue(qi)).build_rows().to_table()
+        df = QueueGenerator(qi.position_queue()).build_rows().to_table()
 
         # No QC rows injected; all three user samples queue as provided.
         assert df.filter(pl.col("slot_kind") == "qc").height == 0
@@ -602,7 +601,7 @@ class TestPlateStartTray:
 
     def test_explicit_start_tray_R_relocates_plate_and_avoids_conflict(self, config):
         qi, _, _ = self._plate_input(config, start_tray="R")
-        df = QueueGenerator(position_queue(qi)).build_rows().to_table()
+        df = QueueGenerator(qi.position_queue()).build_rows().to_table()
 
         # User's sample now lives on tray R, not Y.
         user_rows = df.filter(pl.col("slot_kind") == "user")
@@ -680,7 +679,7 @@ class TestXcaliburSiiTechSpecificColumns:
             method={"pos": "Method_Pos"},
         )
         qi = make_vial_queue_input(params, samples)
-        df = QueueGenerator(position_queue(qi)).generate()
+        df = QueueGenerator(qi.position_queue()).generate()
 
         assert "Sample Type" in df.columns
         assert "Level" in df.columns
@@ -704,7 +703,7 @@ class TestXcaliburSiiTechSpecificColumns:
             user="test",
         )
         qi = make_vial_queue_input(params, samples)
-        df = QueueGenerator(position_queue(qi)).generate()
+        df = QueueGenerator(qi.position_queue()).generate()
 
         assert "Sample Type" not in df.columns
         assert "Level" not in df.columns
@@ -729,7 +728,7 @@ class TestQCOnlyPattern:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(position_queue(queue_input))
+        generator = QueueGenerator(queue_input.position_queue())
         result = generator.generate()
 
         # qc_only pattern: start(3) + samples + end(3) = 6 + num_samples
@@ -763,7 +762,7 @@ class TestRandomization:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(position_queue(queue_input))
+        generator = QueueGenerator(queue_input.position_queue())
         result = generator.build_rows()
 
         result_order = [int(row.sample_id) for row in result.rows if row.slot_kind == "user"]
@@ -803,7 +802,7 @@ class TestRandomization:
         )
         queue_input = make_vial_queue_input(params, samples, container_id)
 
-        generator = QueueGenerator(position_queue(queue_input))
+        generator = QueueGenerator(queue_input.position_queue())
         result = generator.build_rows()
 
         result_ids = [int(row.sample_id) for row in result.rows if row.slot_kind == "user"]
@@ -849,7 +848,7 @@ class TestRandomization:
         )
         queue_input = make_vial_queue_input(params, samples, container_id)
 
-        generator = QueueGenerator(position_queue(queue_input))
+        generator = QueueGenerator(queue_input.position_queue())
         result = generator.build_rows()
 
         user_ids = [int(row.sample_id) for row in result.rows if row.slot_kind == "user"]
@@ -879,7 +878,7 @@ class TestRandomization:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(position_queue(queue_input))
+        generator = QueueGenerator(queue_input.position_queue())
         result = generator.build_rows()
 
         result_order = [int(row.sample_id) for row in result.rows if row.slot_kind == "user"]
@@ -924,12 +923,12 @@ class TestRandomization:
             .add_samples_from_dataframe(pl.DataFrame([sample.model_dump() for sample in samples]))
             .build()
         )
-        first = QueueGenerator(position_queue(first_input)).build_rows()
+        first = QueueGenerator(first_input.position_queue()).build_rows()
         recorded_seed = first_input.parameters.seed
 
         # Feed the recorded seed back: identical user-sample order.
         second_input = make_vial_queue_input(self._random_params(seed=recorded_seed), samples)
-        second = QueueGenerator(position_queue(second_input)).build_rows()
+        second = QueueGenerator(second_input.position_queue()).build_rows()
 
         first_ids = [int(r.sample_id) for r in first.rows if r.slot_kind == "user"]
         second_ids = [int(r.sample_id) for r in second.rows if r.slot_kind == "user"]
@@ -939,7 +938,7 @@ class TestRandomization:
         samples = make_vial_samples(8)
         queue_input = make_vial_queue_input(self._random_params(seed=12345), samples)
 
-        QueueGenerator(position_queue(queue_input)).build_rows()
+        QueueGenerator(queue_input.position_queue()).build_rows()
 
         assert queue_input.parameters.seed == 12345
 
@@ -966,7 +965,7 @@ class TestDifferentSamplers:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(position_queue(queue_input))
+        generator = QueueGenerator(queue_input.position_queue())
         result = generator.generate()
 
         assert isinstance(result, pl.DataFrame)
@@ -993,7 +992,7 @@ class TestEvosepQCPattern:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(position_queue(queue_input))
+        generator = QueueGenerator(queue_input.position_queue())
         result = generator.build_rows()
 
         sample_ids = [row.sample_id for row in result.rows]
@@ -1024,7 +1023,7 @@ class TestEvosepQCPattern:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(position_queue(queue_input))
+        generator = QueueGenerator(queue_input.position_queue())
         result = generator.build_rows()
 
         qc_rows = [row for row in result.rows if row.slot_kind == "qc"]
@@ -1061,7 +1060,7 @@ class TestEvosepQCPattern:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(position_queue(queue_input))
+        generator = QueueGenerator(queue_input.position_queue())
         result = generator.build_rows()
 
         user_rows = [row for row in result.rows if row.slot_kind == "user"]
@@ -1086,7 +1085,7 @@ class TestEvosepQCPattern:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(position_queue(queue_input))
+        generator = QueueGenerator(queue_input.position_queue())
         result = generator.build_rows()
 
         # start(2) + 50 samples + 4 middle QC (every 12 samples) + end(2) = 58
@@ -1113,7 +1112,7 @@ class TestEvosepChronosOutputFormat:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(position_queue(queue_input))
+        generator = QueueGenerator(queue_input.position_queue())
         result = generator.generate()
 
         # grid_position column should contain numeric 1-96 (alpha_to_flat conversion)
@@ -1143,7 +1142,7 @@ class TestEvosepHystarOutputFormat:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(position_queue(queue_input))
+        generator = QueueGenerator(queue_input.position_queue())
         result = generator.generate()
 
         # Position should be S{tray}-{row}{col} format
@@ -1173,7 +1172,7 @@ class TestMetabolomicsPolarity:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(position_queue(queue_input))
+        generator = QueueGenerator(queue_input.position_queue())
         result = generator.build_rows()
 
         # 2 samples x 2 polarities = 4 rows
@@ -1205,7 +1204,7 @@ class TestChronosNonRowA:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(position_queue(queue_input))
+        generator = QueueGenerator(queue_input.position_queue())
         result = generator.generate()
 
         vial_col = _output_col(config, "chronos", "grid_position")
@@ -1234,7 +1233,7 @@ class TestChronosFormat:
             user="test",
         )
         queue_input = make_vial_queue_input(params, samples)
-        return QueueGenerator(position_queue(queue_input))
+        return QueueGenerator(queue_input.position_queue())
 
     def test_chronos_column_order(self, config):
         """Chronos columns must match the output_formats config."""
@@ -1306,7 +1305,7 @@ class TestChronosWriter:
         )
         queue_input = make_vial_queue_input(params, samples)
 
-        generator = QueueGenerator(position_queue(queue_input))
+        generator = QueueGenerator(queue_input.position_queue())
         csv_text = generator.write()
 
         reader = csv.reader(io.StringIO(csv_text))
@@ -1447,7 +1446,7 @@ class TestEndOfQueueMarker:
     def test_single_container_marks_only_last_file(self, config):
         """Exactly one file is marked, and it is the last (max run_number) injection."""
         qi = make_queue_input(num_samples=5)  # Proteomics standard, container 12345
-        raw = QueueGenerator(position_queue(qi)).build_rows().to_table()
+        raw = QueueGenerator(qi.position_queue()).build_rows().to_table()
 
         eoq = raw.filter(pl.col("file_name").str.ends_with("_eoq"))
         assert eoq.height == 1
@@ -1457,7 +1456,7 @@ class TestEndOfQueueMarker:
     def test_multi_container_marks_one_file_per_subqueue(self, config):
         """Each container subqueue gets exactly one `_eoq`, at its last slot."""
         qi = make_queue_input(groups=[(1, 3), (2, 4)])  # two containers
-        raw = QueueGenerator(position_queue(qi)).build_rows().to_table()
+        raw = QueueGenerator(qi.position_queue()).build_rows().to_table()
 
         eoq = raw.filter(pl.col("file_name").str.ends_with("_eoq"))
         assert sorted(eoq["container_id"].to_list()) == [1, 2]
@@ -1485,7 +1484,7 @@ class TestEndOfQueueMarker:
             user="test",
         )
         qi = make_vial_queue_input(params, samples)
-        raw = QueueGenerator(position_queue(qi)).build_rows().to_table()
+        raw = QueueGenerator(qi.position_queue()).build_rows().to_table()
 
         eoq = raw.filter(pl.col("file_name").str.ends_with("_eoq"))
         assert eoq.height == 2
@@ -1497,6 +1496,6 @@ class TestEndOfQueueMarker:
         """With mark_end_of_queue=False no filename carries the marker."""
         qi = make_queue_input(num_samples=5)
         qi.parameters.mark_end_of_queue = False
-        raw = QueueGenerator(position_queue(qi)).build_rows().to_table()
+        raw = QueueGenerator(qi.position_queue()).build_rows().to_table()
 
         assert not raw.filter(pl.col("file_name").str.ends_with("_eoq")).height

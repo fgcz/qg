@@ -18,7 +18,6 @@ from qg.artifacts import (
     save_positioning_artifacts,
 )
 from qg.generator import QueueGenerator
-from qg.positioning import position_queue
 
 from .helpers import make_queue_input
 
@@ -80,7 +79,7 @@ class TestCleanupOldArtifacts:
 def test_explicit_commit_saves_source_positioned_and_raw(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(artifacts, "ARTIFACTS_DIR", tmp_path)
     source = make_queue_input(num_samples=3)
-    positioned = position_queue(source)
+    positioned = source.position_queue()
     raw_queue = QueueGenerator(positioned).build_rows().to_table()
 
     stem = save_positioning_artifacts(source, positioned, stem="run")
@@ -101,7 +100,7 @@ def test_pipeline_methods_do_not_write_artifacts(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(artifacts, "ARTIFACTS_DIR", artifact_dir)
     source = make_queue_input(num_samples=3)
 
-    positioned = position_queue(source)
+    positioned = source.position_queue()
     QueueGenerator(positioned).write()
 
     assert not artifact_dir.exists()

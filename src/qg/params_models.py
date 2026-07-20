@@ -201,6 +201,12 @@ class VialQueueInput(BaseModel):
             raise ValueError("Randomized queue input requires a concrete seed")
         return self
 
+    def position_queue(self) -> PositionedQueueInput:
+        """Assign physical positions and return generation-ready input."""
+        from qg.positionV2 import _position_vial_queue
+
+        return _position_vial_queue(self)
+
 
 class PlateQueueInput(BaseModel):
     """Input for plate-based queue generation."""
@@ -216,6 +222,12 @@ class PlateQueueInput(BaseModel):
         if self.parameters.randomization != "no" and self.parameters.seed is None:
             raise ValueError("Randomized queue input requires a concrete seed")
         return self
+
+    def position_queue(self) -> PositionedQueueInput:
+        """Validate physical positions and return generation-ready input."""
+        from qg.positionV2 import _position_plate_queue
+
+        return _position_plate_queue(self)
 
 
 class PositionedQueueInput(BaseModel):

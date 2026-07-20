@@ -8,10 +8,10 @@ The queue generator follows a **stateless functional pipeline** design:
   without mutating shared state.
 - Stages are composable and independently testable.
 
-Physical positioning is orchestrated by `position_queue()` in
-[`positioning.py`](../../src/qg/positioning.py). It converts vial inputs or
-validates plate inputs and returns a `PositionedQueueInput`. The remaining
-pipeline is orchestrated by `QueueGenerator.build_rows()` in
+Physical positioning is orchestrated by `QueueInput.position_queue()`. Its
+implementation in [`positionV2.py`](../../src/qg/positionV2.py) converts vial
+inputs or validates plate inputs and returns a `PositionedQueueInput`. The
+remaining pipeline is orchestrated by `QueueGenerator.build_rows()` in
 [`generator.py`](../../src/qg/generator.py).
 
 ## Inputs
@@ -74,7 +74,7 @@ See [Configuration](config.md) for the per-file reference. The constructor resol
 ```
 VialQueueInput / PlateQueueInput
     │
-0.  position_queue(queue_input)                                  -> PositionedQueueInput
+0.  queue_input.position_queue()                                 -> PositionedQueueInput
     │
 1.  randomize_plate_queue(plate_queue, randomization)            -> PlateQueue
 2.  build_multi_container_queue_structure(groups, pattern, …)    -> list[SlotEntry]
@@ -89,7 +89,7 @@ VialQueueInput / PlateQueueInput
     CSV / XML output
 ```
 
-### 0. `position_queue(queue_input)`
+### 0. `queue_input.position_queue()`
 
 Vial inputs are assigned deterministic physical plate/tray positions using the
 configured sampler, plate layout, start position, and QC reservations. Plate

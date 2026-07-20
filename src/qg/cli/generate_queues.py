@@ -11,7 +11,6 @@ from loguru import logger
 from qg.artifacts import save_generation_artifact, save_positioning_artifacts
 from qg.generator import QueueGenerator, format_table, write_queue
 from qg.params_models import read_queue_input
-from qg.positioning import position_queue
 
 
 def cli_main() -> None:
@@ -42,7 +41,7 @@ def cli_main() -> None:
             logger.disable("qg")
 
         queue_input = read_queue_input(input_json)
-        positioned_input = position_queue(queue_input)
+        positioned_input = queue_input.position_queue()
         generator = QueueGenerator(positioned_input)
         queue_rows = generator.build_rows()
         generated = format_table(

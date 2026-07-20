@@ -38,7 +38,6 @@ from qg.params_models import (
     VialSample,
     current_qg_version,
 )
-from qg.positioning import position_queue
 from qg.viz.plate import build_plate_figure, build_plate_wells
 from qg.viz.timeline import build_timeline_figure
 
@@ -98,7 +97,7 @@ def main() -> int:
     config = qg_configuration()
     queue_input = _queue_input(config)
     order_ids = sorted(queue_input.queue.batches)
-    rows = QueueGenerator(position_queue(queue_input)).build_rows().to_table()
+    rows = QueueGenerator(queue_input.position_queue()).build_rows().to_table()
     layout = config.plate_layouts.get_layout("Vanquish_54")
 
     # (A) Plate layout, colored by sample type.

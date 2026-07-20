@@ -9,7 +9,6 @@ import pytest
 
 from qg.config_models.loader import qg_configuration
 from qg.params_models import PlateQueueInput, PositionedQueueInput
-from qg.positioning import position_queue
 
 from .helpers import make_queue_input
 
@@ -257,7 +256,7 @@ def test_assign_positions_cli_outputs_positioned_json_to_stdout(tmp_path):
 
 def test_assign_positions_cli_validates_plate_input(tmp_path):
     source = make_queue_input(num_samples=4)
-    expected = position_queue(source)
+    expected = source.position_queue()
     plate_input = PlateQueueInput(
         parameters=source.parameters,
         queue=expected.queue,

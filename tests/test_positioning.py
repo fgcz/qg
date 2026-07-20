@@ -11,7 +11,6 @@ import pytest
 
 from qg.generator import QueueGenerator
 from qg.params_models import PlateQueueInput, PositionedQueueInput
-from qg.positioning import position_queue
 
 from .helpers import make_queue_input
 
@@ -20,7 +19,7 @@ def test_vial_input_becomes_positioned_without_mutating_source():
     source = make_queue_input(num_samples=5)
     before = source.model_dump_json()
 
-    positioned = position_queue(source)
+    positioned = source.position_queue()
 
     assert isinstance(positioned, PositionedQueueInput)
     assert len(positioned.queue.cells) == 5
@@ -31,7 +30,7 @@ def test_vial_input_becomes_positioned_without_mutating_source():
 
 def test_plate_input_is_validated_into_positioned_input():
     source = make_queue_input(num_samples=3)
-    assigned = position_queue(source)
+    assigned = source.position_queue()
     plate_source = PlateQueueInput(
         parameters=source.parameters,
         queue=assigned.queue,
@@ -39,7 +38,7 @@ def test_plate_input_is_validated_into_positioned_input():
         resolved_config=source.resolved_config,
     )
 
-    positioned = position_queue(plate_source)
+    positioned = plate_source.position_queue()
 
     assert positioned.queue == assigned.queue
 
@@ -55,8 +54,7 @@ def test_generated_plate_ids_are_stable_across_processes(tmp_path):
     code = (
         "import json,sys; "
         "from qg.params_models import read_queue_input; "
-        "from qg.positioning import position_queue; "
-        "q=position_queue(read_queue_input(sys.argv[1])); "
+        "q=read_queue_input(sys.argv[1]).position_queue(); "
         "print(json.dumps(sorted(q.queue.plates)))"
     )
 

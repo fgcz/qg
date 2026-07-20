@@ -28,7 +28,6 @@ from qg.artifacts import save_generation_artifact, save_positioning_artifacts
 from qg.config_models.structure import NO_LAYOUT, SamplesConfig
 from qg.generator import QueueGenerator, format_table, write_queue
 from qg.params_models import QueueParameters
-from qg.positioning import position_queue
 from qg.queue_builder import QueueBuilder
 from qg.viz.balance import plate_balance, queue_balance
 from qg.viz.plate import build_plate_figure, build_plate_wells
@@ -378,7 +377,7 @@ def generate_queue(
     if queue_input is None:
         return result
     try:
-        result.positioned_input = position_queue(queue_input)
+        result.positioned_input = queue_input.position_queue()
         generator = QueueGenerator(result.positioned_input)
         queue_rows = generator.build_rows()
         result.raw_df = queue_rows.to_table()

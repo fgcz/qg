@@ -24,7 +24,12 @@ from qg.params_models import (
     Plate,
     PlateCell,
     PlateQueue,
+    PlateQueueInput,
+    PositionedQueueInput,
+    QueueInput,
+    QueueParameters,
     VialQueue,
+    VialQueueInput,
     VialSample,
 )
 from qg.qc_layout import QCLayoutTip, QCLayoutWell, create_qc_layout
@@ -476,3 +481,63 @@ def create_assembled_sampler(
             return _VialPlateAssignerTipConfig(sampler, plate_layout, qc_layout, start_position, start_tray)
         else:
             return _VialPlateAssignerWellConfig(sampler, plate_layout, qc_layout, start_position, start_tray)
+
+
+def _create_input_sampler(
+    config: QGConfiguration,
+    parameters: QueueParameters,
+    layout_mode: LayoutMode,
+) -> AssembledSampler:
+    """Create the configured sampler used to position a queue input."""
+    pattern = config.queue_patterns.get_pattern(
+        parameters.tech_area,
+        parameters.queue_pattern,
+    )
+    sampler = config.samplers.get_sampler(parameters.sampler)
+    start_tray = parameters.start_tray if parameters.start_tray != "" else sampler.trays[0]
+    return create_assembled_sampler(
+        sampler_name=parameters.sampler,
+        layout_mode=layout_mode,
+        config=config,
+        tech_area=parameters.tech_area,
+        pattern_sample_ids=pattern.get_all_sample_ids(),
+        plate_layout_name=parameters.plate_layout,
+        qc_layout_name=parameters.qc_layout_name,
+        start_position=parameters.start_position,
+        start_tray=start_tray,
+    )
+
+
+def _validated_input(
+    queue_input: QueueInput,
+    config: QGConfiguration,
+    plate_queue: PlateQueue,
+) -> PositionedQueueInput:
+    """Validate a plate queue and retain its source provenance."""
+    parameters = queue_input.parameters
+    validator = _create_input_sampler(config, parameters, LayoutMode.PLATE)
+    validated_queue = validator.assign(plate_queue)
+    return PositionedQueueInput(
+        parameters=parameters,
+        queue=validated_queue,
+        qg_version=queue_input.qg_version,
+        resolved_config=queue_input.resolved_config,
+    )
+
+
+def _position_vial_queue(queue_input: VialQueueInput) -> PositionedQueueInput:
+    """Assign and validate physical positions for a vial queue input."""
+    config = queue_input.resolved_config.to_configuration()
+    parameters = queue_input.parameters
+    assigner = _create_input_sampler(config, parameters, LayoutMode.VIAL)
+    plate_queue = assigner.assign(
+        queue_input.queue,
+        one_container_per_tray=parameters.one_container_per_tray,
+    )
+    return _validated_input(queue_input, config, plate_queue)
+
+
+def _position_plate_queue(queue_input: PlateQueueInput) -> PositionedQueueInput:
+    """Validate physical positions for a plate queue input."""
+    config = queue_input.resolved_config.to_configuration()
+    return _validated_input(queue_input, config, queue_input.queue)

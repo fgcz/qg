@@ -168,9 +168,7 @@ def test_testing_v3_generates_via_python(v3_config_dir: Path) -> None:
     cfg = qg_configuration(v3_config_dir)
     queue_input = make_testing_v3_input(cfg, num_samples=5)
 
-    from qg.positioning import position_queue
-
-    df = QueueGenerator(position_queue(queue_input)).generate()
+    df = QueueGenerator(queue_input.position_queue()).generate()
 
     names = [str(n) for n in df["Sample Name"].to_list()]
     user_rows = [n for n in names if n.startswith("Sample_")]

@@ -23,7 +23,6 @@ from qg.params_models import (
     current_qg_version,
     read_queue_input,
 )
-from qg.positioning import position_queue
 
 sys.path.insert(0, str(Path(__file__).parent))
 from helpers import make_queue_input, make_samples  # noqa: E402
@@ -55,7 +54,7 @@ def _vial_input(config, params: QueueParameters, n: int = 6) -> VialQueueInput:
 
 def _regen_matches(config, queue_input) -> bool:
     """Generate twice from the self-contained positioned representation."""
-    positioned = position_queue(queue_input)
+    positioned = queue_input.position_queue()
     base = QueueGenerator(positioned).write()
     restored = type(positioned).model_validate_json(positioned.model_dump_json())
     repro = QueueGenerator(restored).write()
@@ -176,7 +175,7 @@ def test_every_vial_combination_regenerates_byte_identical(config):
             user="t",
         )
         qi = _vial_input(config, params)
-        assert QueueGenerator(position_queue(qi)).build_rows().to_table().shape[0] > 0, f"empty queue for {row}"
+        assert QueueGenerator(qi.position_queue()).build_rows().to_table().shape[0] > 0, f"empty queue for {row}"
         assert _regen_matches(config, qi), f"mismatch for {row}"
         checked += 1
     assert checked > 0, "no vial combinations found to check"
@@ -228,7 +227,7 @@ def test_cli_reproduces_without_config_dir(config, tmp_path):
         text=True,
     )
     assert result.returncode == 0, result.stderr
-    assert out.read_text() == QueueGenerator(position_queue(qi)).write()
+    assert out.read_text() == QueueGenerator(qi.position_queue()).write()
 
 
 # --------------------------------------------------------------------------- #
@@ -241,7 +240,7 @@ def test_bundled_example_params_are_self_contained():
     assert {e.id for e in entries} == {"repro_proteomics_12", "lipidomics_standard"}
     for entry in entries:
         _, qi = read_example_params(entry.id)
-        rows = QueueGenerator(position_queue(qi)).build_rows().to_table()
+        rows = QueueGenerator(qi.position_queue()).build_rows().to_table()
         assert rows.shape[0] > 0, f"{entry.id} generated an empty queue"
 
 
@@ -251,7 +250,7 @@ def test_bundled_example_params_are_self_contained():
 )
 def test_bundled_example_row_counts(example_id, expected_rows):
     _, qi = read_example_params(example_id)
-    rows = QueueGenerator(position_queue(qi)).build_rows().to_table()
+    rows = QueueGenerator(qi.position_queue()).build_rows().to_table()
     assert rows.shape[0] == expected_rows
 
 

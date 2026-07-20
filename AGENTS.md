@@ -8,6 +8,27 @@ Queue generation system for mass spectrometry instruments. Generates sample queu
 
 **Python version:** >=3.14
 
+## Design and Abstraction Rules
+
+- Prefer cohesive ownership over orchestration layers. When concrete input
+  types already have the state needed for an operation, give them the same
+  method and use normal method dispatch instead of switching on a union with
+  `isinstance`.
+- Do not create a module whose main purpose is to wrap one existing module or
+  route between concrete types. A new module must own a distinct, cohesive
+  responsibility. Before adding one, state what it owns that no existing
+  module owns.
+- Do not introduce protocols, strategies, factories, or extension points for
+  imagined future implementations. Add an abstraction only when multiple real
+  implementations or call sites demonstrate the need.
+- Treat `T | None = None` as an exception requiring a genuine optional domain
+  value. Never use `None` as a hidden instruction to construct a default,
+  select behavior, or defer required state; require the value or expose the
+  concrete default explicitly.
+- Keep behavior beside the subsystem that already owns the domain operation.
+  Before extracting code, ask whether the new file removes a dependency or
+  merely adds another hop.
+
 ## Release Process
 
 ### During development (every MR)
@@ -179,13 +200,14 @@ Key fields:
 
 ### Pipeline (Stateless Functions)
 
-Positioning is executed first by `position_queue()` in `positioning.py`; the
+Positioning is executed first by `QueueInput.position_queue()`; its implementation
+lives in `positionV2.py`, and the
 remaining stages run in `QueueGenerator.build_rows()`:
 
 ```
 QueueInput (JSON: vial or plate)
     |
-0. position_queue(queue_input) -> PositionedQueueInput
+0. queue_input.position_queue() -> PositionedQueueInput
     |
 1. randomize_plate_queue(plate_queue, randomization) -> PlateQueue
 2. build_multi_container_queue_structure(groups, pattern) -> list[SlotEntry]
@@ -205,9 +227,8 @@ CSV / XML Output
 | Module | Purpose |
 |--------|---------|
 | `generator.py` | `QueueGenerator` class (config resolution + pipeline execution) |
-| `positioning.py` | Public vial assignment / plate validation stage |
 | `queue_structure.py` | `build_multi_container_queue_structure()`, `SlotEntry` |
-| `positionV2.py` | Position generation for well/tip samplers |
+| `positionV2.py` | Vial assignment, plate validation, and well/tip sampler positioning |
 | `utils.py` | Shared position types/helpers (used by `positionV2.py`, `qc_positions.py`) |
 | `qc_layout.py` | `QCLayoutWell`, `QCLayoutTip` classes |
 | `qc_positions.py` | `QCPositionProvider` |
