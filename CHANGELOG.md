@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.5] - 2026-07-20
+
+### Fixed
+- Proteomics `autoQC02` injection volume corrected to 2.0 µL (per CWL).
+
 ## [0.9.4] - 2026-07-17
 
 ### Added
