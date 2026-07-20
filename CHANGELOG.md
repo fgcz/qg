@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 - Plate wells outside the selected layout are now rejected during positioning instead of silently generating an instrument position for a well that does not exist.
+- Vial queue type now offers only off-plate samples; for an order holding both plate and vial samples, plate-resident samples are no longer duplicated into the vial queue.
 
 ## [0.9.5] - 2026-07-20
 

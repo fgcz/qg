@@ -160,6 +160,23 @@ def test_get_samples_plates_no_filter_when_unrestricted() -> None:
     fake_client.read.assert_not_called()
 
 
+def test_get_samples_vials_excludes_on_plate_samples() -> None:
+    """Vial mode offers only off-plate samples: a mixed container drops plate-resident ones."""
+    fake_client = MagicMock()
+    # Plate 50001 holds samples 1 and 2.
+    fake_client.reader.query.return_value = _fake_plates_dict(
+        [{"id": 1, "name": "OnPlate1"}, {"id": 2, "name": "OnPlate2"}], plate_id=50001
+    )
+    # The container holds those two plus two standalone vials (3, 4).
+    fake_client.read.return_value.to_polars.return_value = pl.DataFrame(
+        {"id": [1, 2, 3, 4], "name": ["OnPlate1", "OnPlate2", "Vial3", "Vial4"], "tubeid": ["a", "b", "c", "d"]}
+    )
+
+    df = BfabricHelper(fake_client).get_samples(100, "Vials")
+
+    assert sorted(df["sample_id"].to_list()) == [3, 4]
+
+
 # ---------------------------------------------------------------------------
 # Storage-plate filtering — get_plates() is the single choke point
 # ---------------------------------------------------------------------------

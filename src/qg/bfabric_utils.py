@@ -139,7 +139,12 @@ class BfabricHelper:
         )
 
     def _load_vial_samples(self, container_id: int) -> list[VialSampleRow]:
-        """Load samples for a vial container."""
+        """Load the container's off-plate vial samples.
+
+        A sample sitting on a (non-Storage) plate belongs to Plate mode, so a
+        mixed container offers only its standalone vials as Vials.
+        """
+        on_plate = {s["id"] for plate in self.get_plates(container_id).values() for s in plate.refs.sample}
         df = self.client.read("sample", {"containerid": container_id}, max_results=None).to_polars(flatten=True)
         return [
             VialSampleRow(
@@ -150,6 +155,7 @@ class BfabricHelper:
                 grouping_var=row.get("groupingvar_name"),
             )
             for row in df.iter_rows(named=True)
+            if row["id"] not in on_plate
         ]
 
     def _fetch_allowed_sample_ids(self, container_id: int) -> set[int]:
