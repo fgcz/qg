@@ -92,17 +92,14 @@ def _build_plate_queue(
     tray_for_plate: dict[int, str | int] = {}
     plate_id_for_tray: dict[str | int, int] = {}
 
-    for i, (sample, pos) in enumerate(pairs):
+    for sample, pos in pairs:
         plate_id = plate_id_for_tray.setdefault(pos.tray, len(plate_id_for_tray) + 1)
         tray_for_plate[plate_id] = pos.tray
         cells.append(
             PlateCell(
                 sample=sample,
-                position=i + 1,
                 grid_position=pos.grid_position,
                 plate_id=plate_id,
-                row=pos.row,
-                col=pos.col,
             )
         )
 
@@ -242,31 +239,32 @@ class _PlateValidatorWellConfig:
         return self.pool.qc_layout
 
     def _check_collisions(self, queue: PlateQueue) -> None:
-        """Check that no user positions conflict with QC positions."""
+        """Validate every well against the layout and check for QC conflicts.
+
+        ``split_alpha`` is the single canonical parser: it validates the
+        coordinate against the layout and yields the same row/col the formatter
+        derives, so collision detection and formatting can never disagree.
+        """
         for cell in queue.cells:
             plate = queue.plates.get(cell.plate_id)
             tray = plate.tray if plate else None
-            pos = Position(tray, cell.grid_position, row=cell.grid_position[0], col=int(cell.grid_position[1:]))
+            row, col = self.plate_layout.split_alpha(cell.grid_position)
+            pos = Position(tray, cell.grid_position, row=row, col=col)
             if pos in self.pool.reserved:
                 raise ValueError(
                     f"Sample '{cell.sample.sample_name}' at {tray}:{cell.grid_position} conflicts with QC position"
                 )
 
     def assign(self, queue: PlateQueue, *, one_container_per_tray: bool = False) -> PlateQueue:  # noqa: ARG002
-        """Assign trays to plates, validate no QC conflicts, populate row/col."""
+        """Assign trays to plates and validate positions against QC reservations.
+
+        Row/column geometry is derived from ``grid_position`` during generation,
+        not stored on the cell, so no split pass runs here.
+        """
         trays = _trays_with_start_first(self.pool.trays, self._start_tray)
         queue = _assign_trays_if_missing(queue, trays)
         self._check_collisions(queue)
-        # B-Fabric provides grid_position="A1" but row="" and col=0.
-        # Split alpha grid_position into row and col components for format_table().
-        split_cells = []
-        for cell in queue.cells:
-            if isinstance(cell.grid_position, str) and cell.row == "":
-                row, col = self.plate_layout.split_alpha(cell.grid_position)
-                split_cells.append(cell.model_copy(update={"row": row, "col": col}))
-            else:
-                split_cells.append(cell)
-        return PlateQueue(batches=queue.batches, plates=queue.plates, cells=split_cells)
+        return queue
 
 
 class _PlateValidatorTipConfig:
@@ -293,19 +291,17 @@ class _PlateValidatorTipConfig:
         return self.pool.qc_layout
 
     def assign(self, queue: PlateQueue, *, one_container_per_tray: bool = False) -> PlateQueue:  # noqa: ARG002
-        """Assign trays to plates and populate row/col from alpha grid_position."""
+        """Assign trays to plates and validate every well against the layout.
+
+        Tip plates have no QC-collision pass, so validation happens here via
+        ``split_alpha`` (which raises on an out-of-layout coordinate). Row/column
+        geometry is derived from ``grid_position`` during generation.
+        """
         trays = _trays_with_start_first(self.pool.trays, self._start_tray)
         queue = _assign_trays_if_missing(queue, trays)
-        # B-Fabric provides grid_position="D8" but row="" and col=0.
-        # Split alpha grid_position into row and col components for format_table().
-        split_cells = []
         for cell in queue.cells:
-            if isinstance(cell.grid_position, str) and cell.row == "":
-                row, col = self.plate_layout.split_alpha(cell.grid_position)
-                split_cells.append(cell.model_copy(update={"row": row, "col": col}))
-            else:
-                split_cells.append(cell)
-        return PlateQueue(batches=queue.batches, plates=queue.plates, cells=split_cells)
+            self.plate_layout.split_alpha(cell.grid_position)
+        return queue
 
 
 # =============================================================================

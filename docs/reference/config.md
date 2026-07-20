@@ -344,7 +344,7 @@ as `Plate_96`), but `queue` carries `plates` and `cells`:
     "cells": [
       {
         "sample": {"sample_name": "S1", "sample_id": 123456, "tube_id": null, "container_id": 37180, "grouping_var": null},
-        "position": 1, "grid_position": "A1", "plate_id": 1, "row": "A", "col": 1
+        "grid_position": "A1", "plate_id": 1
       }
     ]
   }
@@ -387,7 +387,7 @@ instrument's `path_template` (`…\{user}_{date}`) to form the per-row data path
 | `batches` | both | Map of `container_id` → `{container_id, container_name?}`. Multi-container support lives here, with a `separation` QC block inserted between containers. |
 | `samples` | vial | List of `VialSample` (JSON alias `cells` also accepted) |
 | `plates` | plate | Map of `plate_id` → `{plate_id, tray?, nr_samples}` |
-| `cells` | plate | List of `PlateCell` (a `VialSample` plus `position`/`grid_position`/`plate_id`/`row`/`col`) |
+| `cells` | plate | List of `PlateCell` (a `VialSample` plus `plate_id`/`grid_position`; row/col and any flat index are derived from `grid_position`) |
 
 ### `VialSample` fields
 

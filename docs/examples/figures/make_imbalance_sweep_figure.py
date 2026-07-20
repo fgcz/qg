@@ -79,7 +79,7 @@ def _queue_for_ratio(ratio: float) -> PlateQueue:
     for group, n in sizes.items():
         for _ in range(n):
             sample = VialSample(sample_name=f"{group}{pos}", sample_id=pos, container_id=CONTAINER_ID, grouping_var=group)
-            cells.append(PlateCell(sample=sample, position=pos, grid_position=f"A{pos}", plate_id=PLATE_ID))
+            cells.append(PlateCell(sample=sample, grid_position=f"A{pos}", plate_id=PLATE_ID))
             pos += 1
     total = sum(sizes.values())
     return PlateQueue(

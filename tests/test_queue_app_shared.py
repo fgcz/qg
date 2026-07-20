@@ -106,7 +106,12 @@ def _vial_params(**overrides) -> QueueParameters:
 
 
 def _plate_params(**overrides) -> QueueParameters:
-    """Minimal valid Proteomics/Plate QueueParameters (Vanquish, 4-tray sampler)."""
+    """Minimal valid Proteomics/Plate QueueParameters (Vanquish, 4-tray sampler).
+
+    Vanquish uses ``Plate_96`` in Plate mode (``sampler_plate_layouts.csv``);
+    ``Vanquish_54`` is its Vial-mode layout, so plate wells beyond column 9 would
+    not exist on it.
+    """
     defaults: dict = {
         "tech_area": "Proteomics",
         "instrument": "ASTRAL_1",
@@ -114,7 +119,7 @@ def _plate_params(**overrides) -> QueueParameters:
         "output_format": "xcalibur",
         "queue_pattern": "standard",
         "queue_type": "Plate",
-        "plate_layout": "Vanquish_54",
+        "plate_layout": "Plate_96",
         "qc_layout_name": "standard",
         "polarity": ["pos"],
         "date": "20260101",

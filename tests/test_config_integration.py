@@ -416,7 +416,7 @@ class TestQueueInputCreate:
 
         sample = VialSample(sample_name="S1", sample_id=1001, container_id=12345)
         with pytest.raises(ValidationError):
-            PlateCell(sample=sample, position=1, plate_id=1)  # missing grid_position
+            PlateCell(sample=sample, plate_id=1)  # missing grid_position
 
     def test_plate_queue_input_with_positions_succeeds(self, config) -> None:
         """PlateQueueInput succeeds when cells have grid_position."""
@@ -448,7 +448,7 @@ class TestQueueInputCreate:
         queue = PlateQueue(
             batches={12345: ContainerBatch(container_id=12345)},
             plates={plate_id: Plate(plate_id=plate_id, tray="Y", nr_samples=1)},
-            cells=[PlateCell(sample=sample, position=1, grid_position="A1", plate_id=plate_id)],
+            cells=[PlateCell(sample=sample, grid_position="A1", plate_id=plate_id)],
         )
         queue_input = PlateQueueInput(
             parameters=params,

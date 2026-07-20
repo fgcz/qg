@@ -36,14 +36,18 @@ class VialSample(BaseModel):
 
 
 class PlateCell(BaseModel):
-    """A sample placed in a plate well."""
+    """A sample placed in a plate well.
+
+    ``(plate_id, grid_position)`` identifies the well. Row/column geometry and any
+    flat vendor index are derived from ``grid_position`` plus the plate layout at
+    the point they are needed (queue-row generation, formatting); they are not
+    stored here, so a cell cannot carry a well representation that disagrees with
+    itself.
+    """
 
     sample: VialSample
-    position: int
+    plate_id: int  # FK to Plate
     grid_position: str
-    plate_id: int | None  # FK to Plate
-    row: str = ""
-    col: int = 0
 
 
 class ContainerBatch(BaseModel):

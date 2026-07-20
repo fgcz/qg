@@ -187,8 +187,7 @@ class BfabricHelper:
                         sample_name=sample["name"],
                         sample_id=sample["id"],
                         container_id=container_id,
-                        position=sample.get("_position"),
-                        grid_position=sample.get("_gridposition"),
+                        grid_position=sample["_gridposition"],
                         plate_id=plate_id,
                         grouping_var=_gv,
                     )

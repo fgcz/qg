@@ -5,6 +5,7 @@
 # Minimal validation, just load data from config files.
 # Domain logic is in positions.py (Layer 2).
 
+import re
 import tomllib
 from pathlib import Path
 from typing import ClassVar, Literal, Protocol, Self
@@ -34,10 +35,11 @@ class PlateLayout(BaseModel):
     def alpha_to_flat(self, pos: str) -> int:
         """Convert alpha position to flat 1-based index (row-major).
 
-        A1 → 1, A12 → 12, B1 → 13, H12 → 96.
+        A1 → 1, A12 → 12, B1 → 13, H12 → 96. Parsing and layout validation are
+        delegated to :meth:`split_alpha`, so an out-of-layout coordinate raises
+        there rather than producing a nonsensical index.
         """
-        row_letter = pos[0].upper()
-        col = int(pos[1:])
+        row_letter, col = self.split_alpha(pos)
         row_idx = ord(row_letter) - ord("A")
         return row_idx * len(self.cols) + col
 
@@ -51,11 +53,31 @@ class PlateLayout(BaseModel):
         return (chr(ord("A") + row_idx), col)
 
     def split_alpha(self, pos: str) -> tuple[str, int]:
-        """Parse alpha grid position into (row, col) components.
+        """Parse and validate an alpha well coordinate against this layout.
 
-        'D8' → ('D', 8), 'A1' → ('A', 1).
+        Splits ``"D8"`` into ``("D", 8)`` and ``"A1"`` into ``("A", 1)``,
+        normalizing the row letter to upper case. This is the single canonical
+        parser for alpha coordinates; :meth:`alpha_to_flat` and all positioning
+        and generation code derive their row/column from it.
+
+        Raises:
+            ValueError: if ``pos`` is not an alpha row followed by an integer
+                column, or if the resulting row or column is not part of this
+                layout.
         """
-        return (pos[0].upper(), int(pos[1:]))
+        match = re.fullmatch(r"([A-Za-z]+)(\d+)", pos.strip()) if isinstance(pos, str) else None
+        if match is None:
+            raise ValueError(
+                f"Invalid grid position {pos!r} for layout {self.name!r}: "
+                "expected an alpha row followed by an integer column (e.g. 'A1')."
+            )
+        row = match.group(1).upper()
+        col = int(match.group(2))
+        if row not in self.rows:
+            raise ValueError(f"Grid position {pos!r} has row {row!r} not in layout {self.name!r} rows {self.rows}.")
+        if col not in self.cols:
+            raise ValueError(f"Grid position {pos!r} has column {col} not in layout {self.name!r} columns {self.cols}.")
+        return (row, col)
 
 
 class PlateLayoutsConfig(BaseModel):

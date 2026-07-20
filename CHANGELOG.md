@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Queue inputs now require embedded version/config provenance, and `QueueGenerator` accepts positioned inputs only.
 - Audit artifacts in `~/.qg/logs` are now written as `*_source_queue.json`, `*_positioned_queue.json`, and `*_raw_queue.csv` at the download/upload/CLI commit point (previously a single `*_params.json` saved during generation).
 - Generated plate IDs are now deterministic sequential integers (by tray order) instead of process-dependent hashes.
+- Plate cells now store only `plate_id` and `grid_position`; row/column and flat vendor indices are derived from `grid_position` and validated against the selected plate layout.
+
+### Fixed
+- Plate wells outside the selected layout are now rejected during positioning instead of silently generating an instrument position for a well that does not exist.
 
 ## [0.9.5] - 2026-07-20
 

@@ -21,9 +21,7 @@ def make_plate_queue(
         VialSample(sample_name=f"sample_{i}", sample_id=id_offset + i, container_id=container_id)
         for i in range(1, n_samples + 1)
     ]
-    cells = [
-        PlateCell(sample=s, position=i + 1, grid_position=f"A{i + 1}", plate_id=plate_id) for i, s in enumerate(samples)
-    ]
+    cells = [PlateCell(sample=s, grid_position=f"A{i + 1}", plate_id=plate_id) for i, s in enumerate(samples)]
     return PlateQueue(
         batches={container_id: ContainerBatch(container_id=container_id)},
         plates={plate_id: Plate(plate_id=plate_id, tray="Y", nr_samples=n_samples)},
@@ -56,7 +54,6 @@ def make_multi_plate_queue(
             cells.append(
                 PlateCell(
                     sample=sample,
-                    position=i + 1,
                     grid_position=f"A{i + 1}",
                     plate_id=plate_id,
                 )
@@ -96,7 +93,6 @@ def make_grouped_plate_queue(
             cells.append(
                 PlateCell(
                     sample=sample,
-                    position=pos,
                     grid_position=f"A{pos}",
                     plate_id=plate_id,
                 )
@@ -399,11 +395,11 @@ class TestBoundaryRespect:
         # Plate 2 first (container 100)
         for i, group in enumerate(["A", "A", "B", "B"]):
             s = VialSample(sample_name=f"p2_{group}{i}", sample_id=i + 1, container_id=100, grouping_var=group)
-            cells.append(PlateCell(sample=s, position=i, grid_position=f"A{i}", plate_id=2))
+            cells.append(PlateCell(sample=s, grid_position=f"A{i}", plate_id=2))
         # Plate 1 second (container 200)
         for i, group in enumerate(["A", "A", "B", "B"]):
             s = VialSample(sample_name=f"p1_{group}{i}", sample_id=i + 5, container_id=200, grouping_var=group)
-            cells.append(PlateCell(sample=s, position=i, grid_position=f"A{i}", plate_id=1))
+            cells.append(PlateCell(sample=s, grid_position=f"A{i}", plate_id=1))
 
         queue = PlateQueue(batches=batches, plates=plates, cells=cells)
 

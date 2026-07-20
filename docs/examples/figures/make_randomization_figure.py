@@ -94,7 +94,7 @@ def _submission_queue() -> PlateQueue:
                 container_id=CONTAINER_ID,
                 grouping_var=group,
             )
-            cells.append(PlateCell(sample=sample, position=pos, grid_position=f"A{pos}", plate_id=PLATE_ID))
+            cells.append(PlateCell(sample=sample, grid_position=f"A{pos}", plate_id=PLATE_ID))
             pos += 1
     return PlateQueue(
         batches={CONTAINER_ID: ContainerBatch(container_id=CONTAINER_ID, container_name="Cohort")},

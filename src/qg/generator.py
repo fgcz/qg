@@ -106,8 +106,14 @@ def _build_slots(
     samples_config: SamplesConfig,
     tech_area: str,
     default_sample_id: str,
+    plate_layout: PlateLayout,
 ) -> list[SlotInfo]:
-    """Build slots from SlotEntry list and PlateQueue."""
+    """Build slots from SlotEntry list and PlateQueue.
+
+    User-cell row/column geometry is derived here from the cell's
+    ``grid_position`` via the selected ``plate_layout``, the single canonical
+    parser; the cell itself stores only the well coordinate.
+    """
     slots: list[SlotInfo] = []
     cell_iter = iter(plate_queue.cells)
 
@@ -121,11 +127,12 @@ def _build_slots(
             user_cell = next(cell_iter, None)
             if not user_cell:
                 continue
+            row, col = plate_layout.split_alpha(user_cell.grid_position)
             position = Position(
                 tray=plate_queue.plates[user_cell.plate_id].tray,
                 grid_position=user_cell.grid_position,
-                row=user_cell.row,
-                col=user_cell.col,
+                row=row,
+                col=col,
             )
         else:
             position = qc_provider.get_position(entry.sample_id)
@@ -437,7 +444,13 @@ class QueueGenerator:
 
         # Build slots
         slots = _build_slots(
-            slot_entries, plate_queue, qc_provider, self.samples_config, params.tech_area, default_sample_id
+            slot_entries,
+            plate_queue,
+            qc_provider,
+            self.samples_config,
+            params.tech_area,
+            default_sample_id,
+            self._plate_layout,
         )
 
         # Expand polarities

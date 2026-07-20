@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from qg.config_models.loader import qg_configuration
+from qg.config_models.positions import PlateLayout
 from qg.config_models.structure import QueuePattern, SamplesConfig
 from qg.params_models import ContainerBatch, Plate, PlateCell, PlateQueue, VialQueue, VialSample
 from qg.positionV2 import create_assembled_sampler
@@ -466,7 +467,6 @@ def _create_plate_queue_with_alpha_positions(positions: list[str]) -> PlateQueue
                 tube_id=f"12345/{i}",
                 container_id=12345,
             ),
-            position=i + 1,
             grid_position=pos,
             plate_id=1,
         )
@@ -478,7 +478,11 @@ def _create_plate_queue_with_alpha_positions(positions: list[str]) -> PlateQueue
 
 
 class TestEvosepPlateAlphaPassthrough:
-    """Tests for Evosep plate mode: alpha positions pass through, row/col populated."""
+    """Tests for Evosep plate mode: alpha positions pass through and are validated.
+
+    Row/column geometry is no longer stored on the cell; it is derived from
+    ``grid_position`` during generation (see ``test_generator.py``).
+    """
 
     def test_alpha_positions_pass_through(self, config) -> None:
         """Alpha positions stay as alpha (no conversion to numeric)."""
@@ -493,23 +497,6 @@ class TestEvosepPlateAlphaPassthrough:
         assert result.cells[0].grid_position == "A1"
         assert result.cells[1].grid_position == "D8"
         assert result.cells[2].grid_position == "H12"
-
-    def test_row_col_populated_from_alpha(self, config) -> None:
-        """Row and col components are split from alpha grid_position."""
-        pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
-        sampler = create_assembled_sampler(
-            "Evosep", "plate", config, "Proteomics", pattern.get_all_sample_ids(), "Plate_96", "standard"
-        )
-        queue = _create_plate_queue_with_alpha_positions(["A1", "D8", "H12"])
-
-        result = sampler.assign(queue)
-
-        assert result.cells[0].row == "A"
-        assert result.cells[0].col == 1
-        assert result.cells[1].row == "D"
-        assert result.cells[1].col == 8
-        assert result.cells[2].row == "H"
-        assert result.cells[2].col == 12
 
     def test_all_corner_positions(self, config) -> None:
         """Test all four corners of 96-well plate stay as alpha."""
@@ -532,27 +519,25 @@ class TestEvosepPlateAlphaPassthrough:
 # =============================================================================
 
 
-class TestWellPlateModeRowColSplit:
-    """Tests for well-plate plate mode: row/col populated from grid_position."""
+class TestWellPlateModeValidation:
+    """Tests for well-plate plate mode: grid_position preserved and validated.
+
+    Row/column geometry is derived from ``grid_position`` during generation, so
+    ``assign`` only preserves the coordinate and rejects wells outside the layout.
+    """
 
     @pytest.mark.parametrize("sampler,layout", [("Vanquish", "Vanquish_54"), ("MClass", "MClass_48")])
-    def test_row_col_populated_from_alpha(self, config, sampler: str, layout: str) -> None:
-        """Row and col components are split from alpha grid_position."""
+    def test_out_of_layout_position_rejected(self, config, sampler: str, layout: str) -> None:
+        """A submitted well outside the selected layout fails validation."""
         pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
         assembled = create_assembled_sampler(
             sampler, "plate", config, "Proteomics", pattern.get_all_sample_ids(), layout, "standard"
         )
-        # Use positions in rows A-E to avoid QC positions (F6-F9)
-        queue = _create_plate_queue_with_alpha_positions(["A1", "B3", "E6"])
+        # Column 99 does not exist in either well-plate layout.
+        queue = _create_plate_queue_with_alpha_positions(["A99"])
 
-        result = assembled.assign(queue)
-
-        assert result.cells[0].row == "A"
-        assert result.cells[0].col == 1
-        assert result.cells[1].row == "B"
-        assert result.cells[1].col == 3
-        assert result.cells[2].row == "E"
-        assert result.cells[2].col == 6
+        with pytest.raises(ValueError, match=r"A99"):
+            assembled.assign(queue)
 
     @pytest.mark.parametrize("sampler,layout", [("Vanquish", "Vanquish_54"), ("MClass", "MClass_48")])
     def test_grid_position_preserved(self, config, sampler: str, layout: str) -> None:
@@ -569,36 +554,39 @@ class TestWellPlateModeRowColSplit:
         assert result.cells[1].grid_position == "B3"
         assert result.cells[2].grid_position == "E6"
 
-    @pytest.mark.parametrize("sampler,layout", [("Vanquish", "Vanquish_54"), ("MClass", "MClass_48")])
-    def test_already_split_cells_unchanged(self, config, sampler: str, layout: str) -> None:
-        """Cells that already have row/col populated are not re-split."""
-        pattern = QueuePattern(description="test", run_QC_after_n_samples=1, start=[], middle=[], end=[])
-        assembled = create_assembled_sampler(
-            sampler, "plate", config, "Proteomics", pattern.get_all_sample_ids(), layout, "standard"
-        )
-        cells = [
-            PlateCell(
-                sample=VialSample(
-                    sample_name="S1",
-                    sample_id=1000,
-                    tube_id="12345/0",
-                    container_id=12345,
-                ),
-                position=1,
-                grid_position="B3",
-                plate_id=1,
-                row="B",
-                col=3,
-            ),
-        ]
-        plates = {1: Plate(plate_id=1, tray=None, nr_samples=1)}
-        batches = {12345: ContainerBatch(container_id=12345)}
-        queue = PlateQueue(batches=batches, plates=plates, cells=cells)
 
-        result = assembled.assign(queue)
+# =============================================================================
+# split_alpha: the single canonical, validated coordinate parser
+# =============================================================================
 
-        assert result.cells[0].row == "B"
-        assert result.cells[0].col == 3
+
+class TestSplitAlphaValidation:
+    """`split_alpha` is the one parser; `alpha_to_flat` derives from it."""
+
+    _LAYOUT = PlateLayout(name="P96", rows=list("ABCDEFGH"), cols=list(range(1, 13)))
+
+    def test_parses_and_normalizes(self) -> None:
+        assert self._LAYOUT.split_alpha("A1") == ("A", 1)
+        assert self._LAYOUT.split_alpha("D8") == ("D", 8)
+        # Two-digit column and lower-case row both parse to the canonical form.
+        assert self._LAYOUT.split_alpha("A12") == ("A", 12)
+        assert self._LAYOUT.split_alpha("h12") == ("H", 12)
+
+    @pytest.mark.parametrize("bad", ["", "A", "1", "AA", "A1B", "A0", " ", "Z1", "A13", "A99"])
+    def test_rejects_invalid_or_out_of_layout(self, bad: str) -> None:
+        """Malformed, unknown-row, zero-column, and out-of-range wells all raise."""
+        with pytest.raises(ValueError, match=r"P96"):
+            self._LAYOUT.split_alpha(bad)
+
+    def test_alpha_to_flat_agrees_with_split_alpha(self) -> None:
+        """Both parse identically, and flat numbering is unchanged for valid wells."""
+        assert self._LAYOUT.alpha_to_flat("A1") == 1
+        assert self._LAYOUT.alpha_to_flat("A12") == 12
+        assert self._LAYOUT.alpha_to_flat("B1") == 13
+        assert self._LAYOUT.alpha_to_flat("H12") == 96
+        # alpha_to_flat delegates its parse, so it rejects the same bad input.
+        with pytest.raises(ValueError, match=r"P96"):
+            self._LAYOUT.alpha_to_flat("A99")
 
 
 # =============================================================================

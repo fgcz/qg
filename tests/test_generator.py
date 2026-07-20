@@ -523,7 +523,7 @@ class TestPlateStartTray:
         from qg.params_models import Plate, PlateCell, PlateQueue, PlateQueueInput
 
         sample = VialSample(sample_name="S1", sample_id=100, container_id=99)
-        cell = PlateCell(sample=sample, position=1, grid_position="E1", plate_id=1)
+        cell = PlateCell(sample=sample, grid_position="E1", plate_id=1)
         plate = Plate(plate_id=1, tray=None, nr_samples=1)  # tray unassigned → resolver picks
         queue = PlateQueue(
             batches={99: ContainerBatch(container_id=99)},
@@ -1403,7 +1403,7 @@ class TestQueueInputRoundTrip:
         )
 
         sample = VialSample(sample_name="S1", sample_id=100, container_id=99)
-        cell = PlateCell(sample=sample, position=1, grid_position="D8", plate_id=1, row="D", col=8)
+        cell = PlateCell(sample=sample, grid_position="D8", plate_id=1)
         plate = Plate(plate_id=1, tray="Y", nr_samples=1)
         queue = PlateQueue(
             batches={99: ContainerBatch(container_id=99)},
@@ -1436,10 +1436,113 @@ class TestQueueInputRoundTrip:
 
         assert isinstance(restored, PlateQueueInput)
         assert restored.queue.cells[0].grid_position == "D8"
-        assert restored.queue.cells[0].row == "D"
-        assert restored.queue.cells[0].col == 8
+        assert restored.queue.cells[0].plate_id == 1
         assert restored.queue.cells[0].sample.sample_name == "S1"
         assert restored.queue.plates[1].tray == "Y"
+
+
+class TestPlateCellCanonicalWell:
+    """PlateCell stores one well; row/col/position are neither persisted nor trusted."""
+
+    @staticmethod
+    def _plate_input(config, cells):
+        from qg.params_models import Plate, PlateQueue, PlateQueueInput
+
+        params = QueueParameters(
+            tech_area="Proteomics",
+            instrument="ASTRAL_1",
+            sampler="Vanquish",
+            output_format="xcalibur",
+            queue_pattern="_test_noqc",  # no QC reservations, so any well is free
+            queue_type="Plate",
+            plate_layout="Plate_96",
+            qc_layout_name="standard",
+            polarity=["pos"],
+            date="20260101",
+            user="test",
+        )
+        queue = PlateQueue(
+            batches={99: ContainerBatch(container_id=99)},
+            plates={1: Plate(plate_id=1, tray="Y", nr_samples=len(cells))},
+            cells=cells,
+        )
+        return PlateQueueInput(
+            parameters=params,
+            queue=queue,
+            qg_version=current_qg_version(),
+            resolved_config=config.subset_for(params),
+        )
+
+    def test_plate_id_is_required(self):
+        """A cell without a concrete plate_id is not a valid positioned cell."""
+        from pydantic import ValidationError
+
+        from qg.params_models import PlateCell
+
+        sample = VialSample(sample_name="S1", sample_id=1, container_id=99)
+        with pytest.raises(ValidationError):
+            PlateCell(sample=sample, grid_position="A1", plate_id=None)
+
+    def test_legacy_extra_fields_ignored_and_not_re_emitted(self):
+        """A serialized cell with position/row/col loads via grid_position (extra='ignore')."""
+        from qg.params_models import PlateCell
+
+        cell = PlateCell.model_validate(
+            {
+                "sample": {"sample_name": "S1", "sample_id": 1, "container_id": 99},
+                "plate_id": 1,
+                "grid_position": "A1",
+                "position": 7,  # legacy fields that must be dropped
+                "row": "Z",
+                "col": 99,
+            }
+        )
+        assert cell.grid_position == "A1"
+        dumped = cell.model_dump()
+        assert not ({"position", "row", "col"} & set(dumped))
+
+    def test_inconsistent_legacy_cell_generates_the_grid_position_well(self, config):
+        """grid_position='A1' with legacy row='Z'/col=99 generates A1, not Z99 (bug regression)."""
+        from qg.params_models import PlateCell
+
+        cell = PlateCell.model_validate(
+            {
+                "sample": {"sample_name": "S1", "sample_id": 1, "container_id": 99},
+                "plate_id": 1,
+                "grid_position": "A1",
+                "position": 7,
+                "row": "Z",
+                "col": 99,
+            }
+        )
+        raw = QueueGenerator(self._plate_input(config, [cell]).position_queue()).build_rows().to_table()
+        user = raw.filter(pl.col("slot_kind") == "user")
+        assert user.height == 1
+        assert user["grid_position"].item() == "A1"
+        assert user["row"].item() == "A"
+        assert user["col"].item() == 1
+
+    def test_collision_and_formatter_derive_the_same_well(self, config):
+        """The generated (row, col) equals split_alpha(grid_position) — one source of truth."""
+        from qg.params_models import PlateCell
+
+        cell = PlateCell(
+            sample=VialSample(sample_name="S1", sample_id=1, container_id=99), grid_position="C7", plate_id=1
+        )
+        raw = QueueGenerator(self._plate_input(config, [cell]).position_queue()).build_rows().to_table()
+        user = raw.filter(pl.col("slot_kind") == "user")
+        assert user["row"].item() == "C"
+        assert user["col"].item() == 7
+
+    def test_out_of_layout_well_fails_during_positioning(self, config):
+        """An impossible well is rejected at position_queue(), before generation."""
+        from qg.params_models import PlateCell
+
+        cell = PlateCell(
+            sample=VialSample(sample_name="S1", sample_id=1, container_id=99), grid_position="A99", plate_id=1
+        )
+        with pytest.raises(ValueError, match=r"A99"):
+            self._plate_input(config, [cell]).position_queue()
 
 
 class TestEndOfQueueMarker:

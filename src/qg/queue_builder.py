@@ -87,7 +87,6 @@ class QueueBuilder:
             plate_id = row.pop("plate_id")
             grid_position = row.pop("grid_position")
             tray = row.pop("tray")
-            position = row.pop("position", 0)
 
             if container_id not in self._batches:
                 self._batches[container_id] = ContainerBatch(container_id=container_id)
@@ -95,8 +94,11 @@ class QueueBuilder:
             if plate_id not in self._plates:
                 self._plates[plate_id] = Plate(plate_id=plate_id, tray=tray, nr_samples=0)
 
+            # After popping the plate-specific keys, `row` holds only VialSample
+            # fields; the schema no longer carries `position`, so nothing stray
+            # reaches the splat below.
             sample = VialSample(container_id=container_id, **row)
-            cell = PlateCell(sample=sample, position=position, grid_position=grid_position, plate_id=plate_id)
+            cell = PlateCell(sample=sample, grid_position=grid_position, plate_id=plate_id)
             self._plate_cells.append(cell)
 
         # Update sample counts

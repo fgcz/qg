@@ -91,10 +91,12 @@ def _fake_plates_dict(sample_dicts: list[dict], plate_id: int = 42, plate_type: 
     return {fake_uri: fake_plate}
 
 
+# B-Fabric still returns a flat `_position`; qg ignores it and uses `_gridposition`
+# as the authoritative well, so every plate sample must carry a grid position.
 _PLATE_SAMPLES = [
-    {"name": "S1", "id": 1, "_position": None, "_gridposition": None, "groupingvar": None},
-    {"name": "S2", "id": 2, "_position": None, "_gridposition": None, "groupingvar": None},
-    {"name": "FOREIGN", "id": 99, "_position": None, "_gridposition": None, "groupingvar": None},
+    {"name": "S1", "id": 1, "_position": None, "_gridposition": "A1", "groupingvar": None},
+    {"name": "S2", "id": 2, "_position": None, "_gridposition": "A2", "groupingvar": None},
+    {"name": "FOREIGN", "id": 99, "_position": None, "_gridposition": "A3", "groupingvar": None},
 ]
 
 
