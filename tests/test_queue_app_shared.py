@@ -715,22 +715,16 @@ class TestMakeQueueTypeField:
 
 
 class TestMakeMixedOrderNote:
-    """Neutral heads-up shown only when an order holds both plates and vials.
+    """Inline red note shown only when an order holds both plates and vials."""
 
-    Portal-only in effect: the local app derives the two flags as mutually
-    exclusive, so this helper returns ``None`` there. The wording is deliberately
-    factual (composition, not consequences) — queue-type guidance is left to a
-    later change.
-    """
-
-    def test_mixed_returns_callout(self):
+    def test_mixed_returns_red_note(self):
         note = make_mixed_order_note(has_plates=True, has_vials=True)
-        assert note is not None
-        assert "plate-resident and standalone" in note.text
+        assert "plate-resident and standalone" in note
+        assert "color:crimson" in note
 
     @pytest.mark.parametrize(
         ("has_plates", "has_vials"),
         [(True, False), (False, True), (False, False)],
     )
-    def test_non_mixed_returns_none(self, has_plates, has_vials):
-        assert make_mixed_order_note(has_plates=has_plates, has_vials=has_vials) is None
+    def test_non_mixed_returns_empty(self, has_plates, has_vials):
+        assert make_mixed_order_note(has_plates=has_plates, has_vials=has_vials) == ""

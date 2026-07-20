@@ -848,18 +848,15 @@ def make_queue_type_field(
     return mo.ui.dropdown(options=options, value=default, label="Queue Type"), warning
 
 
-def make_mixed_order_note(*, has_plates: bool, has_vials: bool) -> mo.Html | None:
-    """Neutral note when an order holds both plate-resident and standalone (vial) samples.
+def make_mixed_order_note(*, has_plates: bool, has_vials: bool) -> str:
+    """Inline red markdown note when an order holds both plate-resident and standalone
+    (vial) samples; empty string otherwise.
 
-    Purely informational — it states the composition, not its consequences (queue-type
-    guidance is intentionally left to a later change). Returns ``None`` unless both are present.
+    Portal-only in effect: the local app derives the two flags as mutually exclusive.
     """
     if has_plates and has_vials:
-        return mo.callout(
-            mo.md("This order contains both plate-resident and standalone (vial) samples."),
-            kind="info",
-        )
-    return None
+        return ' <span style="color:crimson">— contains both plate-resident and standalone (vial) samples</span>'
+    return ""
 
 
 def make_start_position_field(

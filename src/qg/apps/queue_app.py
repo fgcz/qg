@@ -711,7 +711,15 @@ def _(banner_message, entity_id, is_employee, project_table, refresh_projects_bu
 
 
 @app.cell
-def _(container_type, is_employee, selected_orders):
+def _(
+    container_has_plates,
+    container_has_vials,
+    container_type,
+    full_samples_df,
+    is_employee,
+    project_table,
+    selected_orders,
+):
     # Assign each branch to a cell-local and display it as the last unnested
     # expression — a bare ``mo.md(...)`` inside a branch is computed then discarded.
     if not is_employee:
@@ -719,9 +727,16 @@ def _(container_type, is_employee, selected_orders):
     elif not selected_orders:
         _banner = mo.md("**Select orders from the table above**")
     else:
-        _container_ids = [o[0] for o in selected_orders]
-        _ids_str = ", ".join(str(c) for c in _container_ids)
-        _banner = mo.md(f"**Selected:** {len(selected_orders)} order(s): {_ids_str} ({container_type})")
+        # Count the samples actually loaded for the chosen queue type (Vial excludes
+        # plate-resident samples), not the container's total.
+        _n = 0 if full_samples_df is None else len(full_samples_df)
+        _note = shared.make_mixed_order_note(has_plates=bool(container_has_plates), has_vials=bool(container_has_vials))
+        if len(selected_orders) == 1:
+            _row = project_table.value.to_dicts()[0]
+            _who = f"{_row['Container ID']} {_row.get('Container Name', '')}".strip()
+        else:
+            _who = f"{len(selected_orders)} order(s): " + ", ".join(str(o[0]) for o in selected_orders)
+        _banner = mo.md(f"**Selected:** {_who} ({container_type}) — {_n} samples{_note}")
     _banner
     return
 
@@ -737,16 +752,6 @@ def _(full_samples_df, is_employee, selected_orders):
     else:
         _empty_order_warning = mo.md("")
     _empty_order_warning
-    return
-
-
-@app.cell
-def _(container_has_plates, container_has_vials):
-    # Neutral heads-up when the order mixes plate-resident and standalone samples.
-    _mixed_note = shared.make_mixed_order_note(
-        has_plates=bool(container_has_plates), has_vials=bool(container_has_vials)
-    )
-    _mixed_note if _mixed_note is not None else mo.md("")
     return
 
 
