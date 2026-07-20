@@ -231,7 +231,7 @@ class TestBuildQueueInput:
 
 class TestGenerateQueue:
     def test_none_input_returns_empty_result(self, config):
-        result = generate_queue(config, None, None)
+        result = generate_queue(None, None)
         assert isinstance(result, GenerationResult)
         assert result.generated_df is None
         assert result.output_str is None
@@ -239,7 +239,7 @@ class TestGenerateQueue:
 
     def test_happy_path_vial(self, config, vial_sample_df):
         qi, _ = build_queue_input(config, _vial_params(), vial_sample_df, has_samples_source=True)
-        result = generate_queue(config, qi, _vial_params())
+        result = generate_queue(qi, _vial_params())
         assert result.error is None
         assert result.generated_df is not None
         assert result.raw_df is not None
@@ -280,7 +280,7 @@ class TestGenerateQueue:
         assert build_err is None, f"build_queue_input failed: {build_err}"
         assert qi is not None
 
-        result = generate_queue(config, qi, params)
+        result = generate_queue(qi, params)
 
         assert result.generated_df is None
         assert result.error is not None
@@ -290,7 +290,7 @@ class TestGenerateQueue:
     def test_output_str_and_generated_df_consistent(self, config, vial_sample_df):
         """The output CSV rows should match the DataFrame row count."""
         qi, _ = build_queue_input(config, _vial_params(), vial_sample_df, has_samples_source=True)
-        result = generate_queue(config, qi, _vial_params())
+        result = generate_queue(qi, _vial_params())
         assert result.generated_df is not None
         assert result.output_str is not None
         assert len(result.generated_df) > 0
@@ -358,7 +358,7 @@ class TestBundledExamples:
         parsed = parse_sample_table(data, read_example_sample_table(example_id)[0].filename)
         qi, err = build_queue_input(config, params, parsed.df, has_samples_source=True)
         assert err is None and qi is not None
-        return generate_queue(config, qi, params)
+        return generate_queue(qi, params)
 
     def test_catalog_has_a_loadable_vial_and_plate(self):
         modes = {e.mode for e in list_example_sample_tables()}

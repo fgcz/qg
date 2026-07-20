@@ -32,7 +32,8 @@ pip install qg                 # as a dependency
 uv sync --no-group portal      # for development in this repo, B-Fabric-free
 ```
 
-This installs the local app + the `qg` / `qg-validate` CLIs. The core install has no
+This installs the local app plus the `qg`, `qg-assign-positions`, and `qg-validate`
+CLIs. The core install has no
 `bfabric`, `fastapi`, `starlette`, or `python-gitlab` dependency — `import qg`, the
 local app, and the CLIs all work without them. For the FGCZ B-Fabric portal,
 install the `qg[bfabric]` extra — see the [B-Fabric guide](docs/bfabric.md).
@@ -56,6 +57,7 @@ parameters JSON. See [`docs/users/local_app.md`](docs/users/local_app.md).
 
 ```bash
 uv run qg config.json -o queue.csv   # generate a queue from a parameters JSON (stdout if no -o)
+uv run qg-assign-positions config.json -o positioned.json  # assign/validate physical positions only
 uv run qg-validate                   # validate the config files
 ```
 

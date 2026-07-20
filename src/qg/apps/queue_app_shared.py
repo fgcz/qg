@@ -24,18 +24,19 @@ import polars as pl
 import pydantic
 from loguru import logger
 
+from qg.artifacts import save_generation_artifact, save_positioning_artifacts
 from qg.config_models.structure import NO_LAYOUT, SamplesConfig
 from qg.generator import QueueGenerator, format_table, write_queue
-from qg.params_models import QueueParameters, stamp_provenance
+from qg.params_models import QueueParameters
+from qg.positioning import position_queue
 from qg.queue_builder import QueueBuilder
-from qg.randomize import draw_seed
 from qg.viz.balance import plate_balance, queue_balance
 from qg.viz.plate import build_plate_figure, build_plate_wells
 from qg.viz.timeline import build_timeline_figure
 
 if TYPE_CHECKING:
     from qg.config_models.loader import QGConfiguration
-    from qg.params_models import QueueInput
+    from qg.params_models import PositionedQueueInput, QueueInput
 
 
 def synthesize_local_orders(full_samples_df: pl.DataFrame) -> list[tuple[int, None]]:
@@ -341,17 +342,12 @@ def build_queue_input(
     if not (queue_parameters and has_samples_source and sample_df is not None):
         return None, None
     try:
-        params = queue_parameters
-        if params.randomization != "no" and params.seed is None:
-            params = params.model_copy(update={"seed": draw_seed()})
-        builder = QueueBuilder(config).with_parameters(params)
+        builder = QueueBuilder(config).with_parameters(queue_parameters)
         if provenance_instance is not None:
             builder = builder.with_bfabric_instance(provenance_instance)
         if not sample_df.is_empty():
             builder = builder.add_samples_from_dataframe(sample_df)
-        # Stamp qg_version + resolved_config so the downloaded params JSON (and the
-        # portal work-unit) is self-contained and reproduces without qg_configs/.
-        return stamp_provenance(builder.build(), config), None
+        return builder.build(), None
     except ValueError as exc:
         return None, str(exc)
 
@@ -363,12 +359,14 @@ class GenerationResult:
     generated_df: pl.DataFrame | None = None
     raw_df: pl.DataFrame | None = None
     output_str: str | None = None
+    positioned_input: PositionedQueueInput | None = None
     file_extension: str = ".csv"
     error: str | None = None
 
 
 def generate_queue(
-    config: QGConfiguration, queue_input: QueueInput | None, queue_parameters: QueueParameters | None
+    queue_input: QueueInput | None,
+    queue_parameters: QueueParameters | None,
 ) -> GenerationResult:
     """Run generation once so preview and downloaded file are identical.
 
@@ -380,7 +378,8 @@ def generate_queue(
     if queue_input is None:
         return result
     try:
-        generator = QueueGenerator(config, queue_input)
+        result.positioned_input = position_queue(queue_input)
+        generator = QueueGenerator(result.positioned_input)
         queue_rows = generator.build_rows()
         result.raw_df = queue_rows.to_table()
         result.generated_df = format_table(
@@ -427,10 +426,33 @@ def params_download_button(queue_input: QueueInput, filename: str) -> mo.Html:
     return mo.download(data=data.encode("utf-8"), filename=filename, label="Download Params JSON")
 
 
-def queue_download_button(queue_output_str: str, filename: str, *, disabled: bool = False) -> mo.Html:
-    """A `Download Queue File` button. ``disabled`` lets the portal gate it behind upload."""
+def commit_run_artifacts(
+    source_input: QueueInput,
+    positioned_input: PositionedQueueInput,
+    raw_queue: pl.DataFrame,
+) -> None:
+    """Persist audit artifacts at an explicit download or upload commit point."""
+    stem = save_positioning_artifacts(source_input, positioned_input)
+    save_generation_artifact(positioned_input, raw_queue, stem=stem)
+
+
+def queue_download_button(
+    queue_output_str: str,
+    filename: str,
+    *,
+    source_input: QueueInput,
+    positioned_input: PositionedQueueInput,
+    raw_queue: pl.DataFrame,
+    disabled: bool = False,
+) -> mo.Html:
+    """Build a queue download that persists audit artifacts when clicked."""
+
+    def committed_content() -> bytes:
+        commit_run_artifacts(source_input, positioned_input, raw_queue)
+        return queue_output_str.encode("utf-8")
+
     return mo.download(
-        data=lambda: queue_output_str.encode("utf-8"),
+        data=committed_content,
         filename=filename,
         label="Download Queue File",
         disabled=disabled,

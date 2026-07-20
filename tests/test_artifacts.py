@@ -2,12 +2,25 @@
 
 from __future__ import annotations
 
+import json
 import re
 import time
 from pathlib import Path
 from unittest.mock import patch
 
-from qg.artifacts import _ARTIFACT_SUFFIXES, RETENTION_DAYS, _cleanup_old_artifacts, build_timestamp
+import qg.artifacts as artifacts
+from qg.artifacts import (
+    _ARTIFACT_SUFFIXES,
+    RETENTION_DAYS,
+    _cleanup_old_artifacts,
+    build_timestamp,
+    save_generation_artifact,
+    save_positioning_artifacts,
+)
+from qg.generator import QueueGenerator
+from qg.positioning import position_queue
+
+from .helpers import make_queue_input
 
 
 class TestBuildTimestamp:
@@ -62,3 +75,33 @@ class TestCleanupOldArtifacts:
         _cleanup_old_artifacts(tmp_path)
 
         assert log_file.exists()
+
+
+def test_explicit_commit_saves_source_positioned_and_raw(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(artifacts, "ARTIFACTS_DIR", tmp_path)
+    source = make_queue_input(num_samples=3)
+    positioned = position_queue(source)
+    raw_queue = QueueGenerator(positioned).build_rows().to_table()
+
+    stem = save_positioning_artifacts(source, positioned, stem="run")
+    save_generation_artifact(positioned, raw_queue, stem=stem)
+
+    assert {path.name for path in tmp_path.iterdir()} == {
+        "run_source_queue.json",
+        "run_positioned_queue.json",
+        "run_raw_queue.csv",
+    }
+    positioned_json = json.loads((tmp_path / "run_positioned_queue.json").read_text())
+    assert len(positioned_json["queue"]["cells"]) == 3
+    assert positioned_json["parameters"]["randomization"] == "no"
+
+
+def test_pipeline_methods_do_not_write_artifacts(monkeypatch, tmp_path: Path):
+    artifact_dir = tmp_path / "artifacts"
+    monkeypatch.setattr(artifacts, "ARTIFACTS_DIR", artifact_dir)
+    source = make_queue_input(num_samples=3)
+
+    positioned = position_queue(source)
+    QueueGenerator(positioned).write()
+
+    assert not artifact_dir.exists()

@@ -530,7 +530,7 @@ def _(
                 mo.callout(
                     mo.md(
                         f"**Loaded from `{loaded_params_source}`.**\n\n"
-                        f"qg version `{loaded_queue_input.qg_version or 'n/a'}`\n\n"
+                        f"qg version `{loaded_queue_input.qg_version}`\n\n"
                         f"{_p.tech_area} / {_p.instrument} / {_p.sampler}\n\n"
                         f"pattern `{_p.queue_pattern}`, layout `{_p.plate_layout}`, "
                         f"QC `{_p.qc_layout_name}`\n\n"
@@ -786,26 +786,23 @@ def _(
 
 
 @app.cell
-def _(config, loaded_queue_input, queue_input, queue_parameters):
+def _(loaded_queue_input, queue_input, queue_parameters):
     # Generate the queue exactly once so preview and download are identical. When
-    # reproducing a loaded run, regenerate from its embedded resolved_config so the
-    # result is independent of the local qg_configs tree.
-    if loaded_queue_input is not None and loaded_queue_input.resolved_config is not None:
-        _gen_config = loaded_queue_input.resolved_config.to_configuration()
-        _gen_params = loaded_queue_input.parameters
-    else:
-        _gen_config = config
-        _gen_params = queue_parameters
-    _result = shared.generate_queue(_gen_config, queue_input, _gen_params)
+    # reproducing a loaded run, its required embedded configuration makes the
+    # result independent of the local qg_configs tree.
+    _gen_params = loaded_queue_input.parameters if loaded_queue_input is not None else queue_parameters
+    _result = shared.generate_queue(queue_input, _gen_params)
     generated_queue_df = _result.generated_df
     raw_queue_df = _result.raw_df
     queue_output_str = _result.output_str
+    positioned_queue_input = _result.positioned_input
     generation_error = _result.error
     output_file_extension = _result.file_extension
     return (
         generated_queue_df,
         generation_error,
         output_file_extension,
+        positioned_queue_input,
         queue_output_str,
         raw_queue_df,
     )
@@ -829,6 +826,8 @@ def _(
     formatted_ticket_toggle,
     generated_queue_df,
     generation_error,
+    positioned_queue_input,
+    queue_input,
     queue_output_filename,
     queue_output_str,
     queue_parameters,
@@ -837,9 +836,21 @@ def _(
     # Queue Preview tab content — local mode enables download immediately (no upload gate).
     if generation_error:
         queue_preview_content = mo.callout(mo.md(f"**Generation Error:** {generation_error}"), kind="danger")
-    elif generated_queue_df is not None and queue_output_str is not None:
+    elif (
+        generated_queue_df is not None
+        and positioned_queue_input is not None
+        and queue_input is not None
+        and queue_output_str is not None
+        and raw_queue_df is not None
+    ):
         _display_df = generated_queue_df if formatted_ticket_toggle.value else raw_queue_df
-        _download_button = shared.queue_download_button(queue_output_str, queue_output_filename)
+        _download_button = shared.queue_download_button(
+            queue_output_str,
+            queue_output_filename,
+            source_input=queue_input,
+            positioned_input=positioned_queue_input,
+            raw_queue=raw_queue_df,
+        )
         _rand_label = (
             f" | randomization: {queue_parameters.randomization}" if queue_parameters.randomization != "no" else ""
         )

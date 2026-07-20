@@ -844,28 +844,35 @@ def _(
 
 
 @app.cell
-def _(feeder_uploader, gather_workunit_parameters):
+def _(feeder_uploader, gather_workunit_parameters, positioned_queue_input, queue_input, raw_queue_df):
     def upload_workunit() -> str:
         params = gather_workunit_parameters()
-        return feeder_uploader.upload(params)
+        result = feeder_uploader.upload(params)
+        assert queue_input is not None
+        assert positioned_queue_input is not None
+        assert raw_queue_df is not None
+        shared.commit_run_artifacts(queue_input, positioned_queue_input, raw_queue_df)
+        return result
 
     return (upload_workunit,)
 
 
 @app.cell
-def _(config, queue_input, queue_parameters):
+def _(queue_input, queue_parameters):
     # Generate the queue exactly once so preview and download are identical
-    # (randomization is non-deterministic per build).
-    _result = shared.generate_queue(config, queue_input, queue_parameters)
+    # for the seed persisted in queue_input.
+    _result = shared.generate_queue(queue_input, queue_parameters)
     generated_queue_df = _result.generated_df
     raw_queue_df = _result.raw_df
     queue_output_str = _result.output_str
+    positioned_queue_input = _result.positioned_input
     generation_error = _result.error
     output_file_extension = _result.file_extension
     return (
         generated_queue_df,
         generation_error,
         output_file_extension,
+        positioned_queue_input,
         queue_output_str,
         raw_queue_df,
     )
@@ -918,6 +925,8 @@ def _(
     formatted_ticket_toggle,
     generated_queue_df,
     generation_error,
+    positioned_queue_input,
+    queue_input,
     queue_output_filename,
     queue_output_str,
     queue_parameters,
@@ -929,11 +938,22 @@ def _(
     # Queue Preview tab content
     if generation_error:
         queue_preview_content = mo.callout(mo.md(f"**Generation Error:** {generation_error}"), kind="danger")
-    elif generated_queue_df is not None and queue_output_str is not None:
+    elif (
+        generated_queue_df is not None
+        and positioned_queue_input is not None
+        and queue_input is not None
+        and queue_output_str is not None
+        and raw_queue_df is not None
+    ):
         _display_df = generated_queue_df if formatted_ticket_toggle.value else raw_queue_df
 
         _download_button = shared.queue_download_button(
-            queue_output_str, queue_output_filename, disabled=upload_result is None
+            queue_output_str,
+            queue_output_filename,
+            source_input=queue_input,
+            positioned_input=positioned_queue_input,
+            raw_queue=raw_queue_df,
+            disabled=upload_result is None,
         )
 
         _rand_label = (

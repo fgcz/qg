@@ -6,8 +6,9 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Self
 
-from pydantic import AliasChoices, BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field, model_validator
 
+from qg import __version__
 from qg.config_models.resolved import ResolvedConfig
 
 if TYPE_CHECKING:
@@ -85,9 +86,8 @@ class QueueParameters(BaseModel):
     # Method per polarity: {"pos": "DIA_60min", "neg": "DIA_60min"}
     method: dict[str, str] = Field(default_factory=dict)
     randomization: Literal["no", "random", "blocked", "blocked_uniform"] = "no"
-    # RNG seed for reproducible randomization. When unset, a seed is drawn at
-    # generation time and recorded back here so the run can be reproduced from the
-    # exported params JSON / B-Fabric workunit.
+    # RNG seed for reproducible randomization. QueueBuilder resolves it before a
+    # randomized QueueInput is constructed; None is valid only for "no" mode.
     seed: int | None = None
     inj_vol_override: float | None = None
     qc_frequency_override: int | None = None
@@ -191,11 +191,15 @@ class VialQueueInput(BaseModel):
 
     parameters: QueueParameters
     queue: VialQueue
-    # Provenance for self-contained replication; populated by ``stamp_provenance``.
-    # ``qg_version`` records the generating qg release; ``resolved_config`` inlines the
-    # minimal config the run used so the queue regenerates without ``qg_configs/``.
-    qg_version: str | None = None
-    resolved_config: ResolvedConfig | None = None
+    qg_version: str
+    resolved_config: ResolvedConfig
+
+    @model_validator(mode="after")
+    def require_randomization_seed(self) -> Self:
+        """Require reproducibility provenance for randomized inputs."""
+        if self.parameters.randomization != "no" and self.parameters.seed is None:
+            raise ValueError("Randomized queue input requires a concrete seed")
+        return self
 
 
 class PlateQueueInput(BaseModel):
@@ -203,41 +207,56 @@ class PlateQueueInput(BaseModel):
 
     parameters: QueueParameters
     queue: PlateQueue
-    # See VialQueueInput: self-contained replication provenance.
-    qg_version: str | None = None
-    resolved_config: ResolvedConfig | None = None
+    qg_version: str
+    resolved_config: ResolvedConfig
+
+    @model_validator(mode="after")
+    def require_randomization_seed(self) -> Self:
+        """Require reproducibility provenance for randomized inputs."""
+        if self.parameters.randomization != "no" and self.parameters.seed is None:
+            raise ValueError("Randomized queue input requires a concrete seed")
+        return self
+
+
+class PositionedQueueInput(BaseModel):
+    """Generation-ready queue whose physical positions have been validated."""
+
+    parameters: QueueParameters
+    queue: PlateQueue
+    qg_version: str
+    resolved_config: ResolvedConfig
+
+    @model_validator(mode="after")
+    def require_randomization_seed(self) -> Self:
+        """Require reproducibility provenance for randomized inputs."""
+        if self.parameters.randomization != "no" and self.parameters.seed is None:
+            raise ValueError("Randomized positioned queue requires a concrete seed")
+        return self
 
 
 QueueInput = VialQueueInput | PlateQueueInput
 
 
-def _qg_version() -> str | None:
-    """The installed ``qg`` version, or None when running from an unpackaged source tree."""
-    from importlib.metadata import PackageNotFoundError, version
-
-    try:
-        return version("qg")
-    except PackageNotFoundError:
-        return None
-
-
-def stamp_provenance(queue_input: QueueInput, config: QGConfiguration) -> QueueInput:
-    """Return a copy of ``queue_input`` with ``qg_version`` and ``resolved_config`` filled in.
-
-    Producers (GUI download, work-unit upload) call this so the exported JSON is
-    self-contained: the embedded ``resolved_config`` lets ``qg`` regenerate the
-    queue from the file alone, independent of the live ``qg_configs/``.
-    """
-    return queue_input.model_copy(
-        update={
-            "qg_version": _qg_version(),
-            "resolved_config": config.subset_for(queue_input.parameters),
-        }
-    )
+def current_qg_version() -> str:
+    """Return the installed qg version required for queue provenance."""
+    if not __version__:
+        raise RuntimeError("The installed qg package has no version metadata")
+    return __version__
 
 
 def write_queue_input(queue_input: QueueInput, output_path: str | Path) -> Path:
     """Write queue input to JSON file."""
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(queue_input.model_dump_json(indent=2))
+    return output_path
+
+
+def write_positioned_queue_input(
+    queue_input: PositionedQueueInput,
+    output_path: str | Path,
+) -> Path:
+    """Write a generation-ready positioned queue to a JSON file."""
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(queue_input.model_dump_json(indent=2))
@@ -255,3 +274,13 @@ def parse_queue_input(raw: str | bytes) -> QueueInput:
 def read_queue_input(input_path: str | Path) -> QueueInput:
     """Read queue input from a JSON file."""
     return parse_queue_input(Path(input_path).read_text())
+
+
+def parse_positioned_queue_input(raw: str | bytes) -> PositionedQueueInput:
+    """Parse a generation-ready positioned queue from JSON text or bytes."""
+    return PositionedQueueInput.model_validate_json(raw)
+
+
+def read_positioned_queue_input(input_path: str | Path) -> PositionedQueueInput:
+    """Read a generation-ready positioned queue from a JSON file."""
+    return parse_positioned_queue_input(Path(input_path).read_text())

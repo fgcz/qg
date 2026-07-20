@@ -85,9 +85,10 @@ def _build_plate_queue(
     """Build PlateQueue from sample-position pairs."""
     cells: list[PlateCell] = []
     tray_for_plate: dict[int, str | int] = {}
+    plate_id_for_tray: dict[str | int, int] = {}
 
     for i, (sample, pos) in enumerate(pairs):
-        plate_id = hash(pos.tray) & 0xFFFFFFFF
+        plate_id = plate_id_for_tray.setdefault(pos.tray, len(plate_id_for_tray) + 1)
         tray_for_plate[plate_id] = pos.tray
         cells.append(
             PlateCell(

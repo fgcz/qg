@@ -68,6 +68,9 @@ QG_ALLOW_UNAUTHENTICATED=1 uv run marimo run src/qg/apps/queue_app.py
 # Generate queue from JSON params
 uv run qg input.json -o output.csv
 
+# Assign/validate physical sample positions without generating a vendor queue
+uv run qg-assign-positions input.json -o positioned.json
+
 # Validate config files
 uv run qg-validate
 
@@ -95,6 +98,7 @@ uv run pytest tests/test_file.py::test_name -v
 | Command | Module | Purpose | Needs extra |
 |---------|--------|---------|-------------|
 | `qg` | `qg.cli.generate_queues` | Main queue generation from JSON params | — |
+| `qg-assign-positions` | `qg.cli.assign_positions` | Assign/validate positions and emit positioned JSON | — |
 | `qg-validate` | `qg.cli.validate_config` | Validate config files | — |
 | `qg-app-local` | `qg.apps.launcher_local` | Launch the standalone local upload app | — |
 | `qg-find-projects` | `qg.cli.find_projects` | Project discovery utility | `qg[bfabric]` |
@@ -105,6 +109,11 @@ uv run pytest tests/test_file.py::test_name -v
 > The Dash config editor (`qg-config-viewer`, `qg-editor-dash`) lives in the
 > separate **`qg-dash`** package (sibling `../qg_dash` repo), which depends on
 > `qg`. The shared `qg.apps.editor_core` remains in this repo.
+>
+> **`qg-dash` is out of scope for work in this repo — ignore it entirely.** Do
+> not read it, do not treat it as a dependent to protect, and do not weigh
+> whether a change here breaks its API. Downstream breakage in `qg-dash` is not a
+> constraint on `qg` development; it is reconciled separately in that repo.
 
 ## Terminology
 
@@ -116,7 +125,8 @@ uv run pytest tests/test_file.py::test_name -v
 ## Queue Parameters JSON Structure
 
 Defined in `src/qg/params_models.py`. `QueueInput` is `VialQueueInput | PlateQueueInput`,
-each `{parameters, queue}`. `read_queue_input()` picks plate vs vial by whether
+each `{parameters, queue, qg_version, resolved_config}` with required provenance.
+`read_queue_input()` picks plate vs vial by whether
 `queue` contains `plates`. (Vial example shown; the plate `queue` has `batches` +
 `plates` + `cells`.)
 
@@ -159,7 +169,7 @@ Key fields:
 - `sampler`: bare name (`Vanquish`). `queue_type` (`Vial`/`Plate`) + `plate_layout` select the layout; `qc_layout_name` selects the QC layout.
 - `output_format`: `xcalibur` / `xcalibur_sii` / `chronos` / `hystar` (Hystar emits `.xml`).
 - `randomization`: string `"no"` / `"random"` / `"blocked"` / `"blocked_uniform"` (not a bool).
-- `seed`: optional `int | None` RNG seed. Used when set; otherwise a seed is drawn at generation (for randomized modes) and recorded back so the run is reproducible.
+- `seed`: optional `int | None` RNG seed. `QueueBuilder` records a concrete seed at input construction for every randomized mode; `None` is valid only for `randomization="no"`.
 - `method`: `dict[str, str]` per-polarity methods: `{"pos": "Method_Pos", "neg": "Method_Neg"}`.
 - `qc_frequency_override`: override pattern's `run_QC_after_n_samples`.
 - `queue.batches`: `container_id` → `ContainerBatch`; multi-container support lives here, not in `parameters`. `queue.samples` (vial; alias `cells`) / `queue.cells` (plate) carry the samples.
@@ -169,10 +179,13 @@ Key fields:
 
 ### Pipeline (Stateless Functions)
 
-Executed by `QueueGenerator.build_rows()` in `generator.py`:
+Positioning is executed first by `position_queue()` in `positioning.py`; the
+remaining stages run in `QueueGenerator.build_rows()`:
 
 ```
-QueueInput (JSON)
+QueueInput (JSON: vial or plate)
+    |
+0. position_queue(queue_input) -> PositionedQueueInput
     |
 1. randomize_plate_queue(plate_queue, randomization) -> PlateQueue
 2. build_multi_container_queue_structure(groups, pattern) -> list[SlotEntry]
@@ -192,6 +205,7 @@ CSV / XML Output
 | Module | Purpose |
 |--------|---------|
 | `generator.py` | `QueueGenerator` class (config resolution + pipeline execution) |
+| `positioning.py` | Public vial assignment / plate validation stage |
 | `queue_structure.py` | `build_multi_container_queue_structure()`, `SlotEntry` |
 | `positionV2.py` | Position generation for well/tip samplers |
 | `utils.py` | Shared position types/helpers (used by `positionV2.py`, `qc_positions.py`) |

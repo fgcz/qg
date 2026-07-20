@@ -147,7 +147,7 @@ class TestExamples:
         )
         assert error is None
 
-        result = shared.generate_queue(config, queue_input, params)
+        result = shared.generate_queue(queue_input, params)
         assert result.error is None
 
         user_rows = result.raw_df.filter(pl.col("slot_kind") == "user")

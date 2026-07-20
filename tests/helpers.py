@@ -1,8 +1,19 @@
 """Shared test helper functions for creating test data."""
 
 from datetime import date
+from pathlib import Path
 
-from qg.params_models import ContainerBatch, QueueParameters, VialQueue, VialQueueInput, VialSample
+from qg.config_models.loader import QGConfiguration, qg_configuration
+from qg.params_models import (
+    ContainerBatch,
+    QueueParameters,
+    VialQueue,
+    VialQueueInput,
+    VialSample,
+    current_qg_version,
+)
+
+CONFIG_DIR = Path(__file__).parent.parent / "qg_configs"
 
 
 def make_samples(
@@ -69,6 +80,7 @@ def make_queue_input(
     qc_layout_name: str = "standard",
     output_format: str = "xcalibur",
     container_id: int = 12345,
+    config: QGConfiguration | None = None,
 ) -> VialQueueInput:
     """Create a VialQueueInput for testing.
 
@@ -120,4 +132,10 @@ def make_queue_input(
         all_samples = make_samples(num_samples, container_id)
 
     queue = VialQueue(batches=batches, samples=all_samples)
-    return VialQueueInput(parameters=params, queue=queue)
+    resolved_config = (config or qg_configuration(CONFIG_DIR)).subset_for(params)
+    return VialQueueInput(
+        parameters=params,
+        queue=queue,
+        qg_version=current_qg_version(),
+        resolved_config=resolved_config,
+    )

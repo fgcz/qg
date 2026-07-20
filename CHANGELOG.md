@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Added a standalone `qg-assign-positions` command and public positioning API for auditable vial-to-plate assignment.
+
+### Changed
+- Queue inputs now require embedded version/config provenance, and `QueueGenerator` accepts positioned inputs only.
+
 ## [0.9.5] - 2026-07-20
 
 ### Fixed

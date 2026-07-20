@@ -17,7 +17,9 @@ from qg.params_models import (
     VialQueue,
     VialQueueInput,
     VialSample,
+    current_qg_version,
 )
+from qg.randomize import draw_seed
 from qg.utils import LayoutMode
 
 if TYPE_CHECKING:
@@ -118,13 +120,22 @@ class QueueBuilder:
         parameters = self._parameters
         if self._bfabric_base_url is not None:
             parameters = parameters.model_copy(update={"bfabric_instance": self._bfabric_base_url})
+        if parameters.randomization != "no" and parameters.seed is None:
+            parameters = parameters.model_copy(update={"seed": draw_seed()})
+
+        provenance = {
+            "qg_version": current_qg_version(),
+            "resolved_config": self.config.subset_for(parameters),
+        }
 
         if self._layout_mode == LayoutMode.PLATE:
             return PlateQueueInput(
                 parameters=parameters,
                 queue=PlateQueue(batches=self._batches, plates=self._plates, cells=self._plate_cells),
+                **provenance,
             )
         return VialQueueInput(
             parameters=parameters,
             queue=VialQueue(batches=self._batches, samples=self._vial_samples),
+            **provenance,
         )

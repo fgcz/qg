@@ -9,6 +9,7 @@ teaches an author to write.
 """
 
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -97,6 +98,11 @@ TESTING_V3_FILES: dict[str, str] = {
 }
 
 
+def _cli(name: str) -> Path:
+    """Resolve an entry point from the active Python environment."""
+    return Path(sys.executable).with_name(name)
+
+
 def write_testing_v3_config(root: Path) -> Path:
     """Write a complete, minimal Testing_v3 config tree under ``root``.
 
@@ -109,7 +115,7 @@ def write_testing_v3_config(root: Path) -> Path:
     return root
 
 
-def make_testing_v3_input(num_samples: int = 5):
+def make_testing_v3_input(config, num_samples: int = 5):
     """Build a VialQueueInput targeting the from-scratch Testing_v3 config."""
     return make_queue_input(
         num_samples=num_samples,
@@ -121,6 +127,7 @@ def make_testing_v3_input(num_samples: int = 5):
         plate_layout="TestingV3_12",
         qc_layout_name="v3std",
         output_format="xcalibur",
+        config=config,
     )
 
 
@@ -149,7 +156,7 @@ def test_testing_v3_config_loads(v3_config_dir: Path) -> None:
 def test_testing_v3_validates_via_cli(v3_config_dir: Path) -> None:
     """`qg-validate -c <dir>` accepts the from-scratch config (fresh subprocess)."""
     result = subprocess.run(
-        ["uv", "run", "qg-validate", "-c", str(v3_config_dir)],
+        [_cli("qg-validate"), "-c", str(v3_config_dir)],
         capture_output=True,
         text=True,
     )
@@ -159,9 +166,11 @@ def test_testing_v3_validates_via_cli(v3_config_dir: Path) -> None:
 def test_testing_v3_generates_via_python(v3_config_dir: Path) -> None:
     """QueueGenerator produces a queue: 5 user rows bracketed by QCv3 injections."""
     cfg = qg_configuration(v3_config_dir)
-    queue_input = make_testing_v3_input(num_samples=5)
+    queue_input = make_testing_v3_input(cfg, num_samples=5)
 
-    df = QueueGenerator(cfg, queue_input).generate()
+    from qg.positioning import position_queue
+
+    df = QueueGenerator(position_queue(queue_input)).generate()
 
     names = [str(n) for n in df["Sample Name"].to_list()]
     user_rows = [n for n in names if n.startswith("Sample_")]
@@ -173,13 +182,14 @@ def test_testing_v3_generates_via_python(v3_config_dir: Path) -> None:
 
 def test_testing_v3_generates_via_cli(v3_config_dir: Path, tmp_path: Path) -> None:
     """`qg <input> -o <out> -c <dir>` generates a CSV for the from-scratch config."""
-    queue_input = make_testing_v3_input(num_samples=5)
+    cfg = qg_configuration(v3_config_dir)
+    queue_input = make_testing_v3_input(cfg, num_samples=5)
     input_file = tmp_path / "input.json"
     input_file.write_text(queue_input.model_dump_json(indent=2))
     output_file = tmp_path / "output.csv"
 
     result = subprocess.run(
-        ["uv", "run", "qg", str(input_file), "-o", str(output_file), "-c", str(v3_config_dir)],
+        [_cli("qg"), str(input_file), "-o", str(output_file)],
         capture_output=True,
         text=True,
     )
