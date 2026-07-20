@@ -235,7 +235,7 @@
         "qc_class": "Performance QC",
         "level": null,
         "description": "autoQC02: Benchmark for performance monitoring",
-        "inj_vol": 1.0,
+        "inj_vol": 2.0,
         "file_name_template": "{date}_{run}_C{container}_{sample_name}{method_name}"
       },
       {

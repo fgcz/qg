@@ -1,6 +1,6 @@
 Bracket Type=4,,,,,,,
 File Name,Path,Position,Inj Vol,L3 Laboratory,Sample ID,Sample Name,Instrument Method
-20260520_001_C37180_autoQC02dia,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,B:H11,1.0,FGCZ,QC02,autoQC02,C:\Xcalibur\methods\
+20260520_001_C37180_autoQC02dia,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,B:H11,2.0,FGCZ,QC02,autoQC02,C:\Xcalibur\methods\
 20260520_002_C37180_autoQC01,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,B:H12,2.0,FGCZ,QC01,autoQC01,""
 20260520_003_C37180_S1001_Sample_01,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,Y:A1,1.0,FGCZ,1001,Sample_01,C:\Xcalibur\methods\
 20260520_004_C37180_S1002_Sample_02,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,Y:A2,1.0,FGCZ,1002,Sample_02,C:\Xcalibur\methods\
@@ -18,5 +18,5 @@ File Name,Path,Position,Inj Vol,L3 Laboratory,Sample ID,Sample Name,Instrument M
 20260520_016_C37180_S1012_Sample_12,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,Y:A12,1.0,FGCZ,1012,Sample_12,C:\Xcalibur\methods\
 20260520_017_C37180_clean,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,B:H10,2.0,FGCZ,clean,clean,""
 20260520_018_C37180_autoQC01,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,B:H12,2.0,FGCZ,QC01,autoQC01,""
-20260520_019_C37180_autoQC02dia,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,B:H11,1.0,FGCZ,QC02,autoQC02,C:\Xcalibur\methods\
+20260520_019_C37180_autoQC02dia,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,B:H11,2.0,FGCZ,QC02,autoQC02,C:\Xcalibur\methods\
 20260520_020_C37180_clean_eoq,D:\Data2San\p37180\Proteomics\ASTRAL_1\analytic_20260520,B:H10,2.0,FGCZ,clean,clean,""
