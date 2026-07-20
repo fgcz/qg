@@ -28,6 +28,10 @@ Queue generation system for mass spectrometry instruments. Generates sample queu
 - Keep behavior beside the subsystem that already owns the domain operation.
   Before extracting code, ask whether the new file removes a dependency or
   merely adds another hop.
+- Do not generalize input parsing or validation beyond the shapes the rest of
+  the system produces or consumes (e.g. a regex for multi-letter well rows when
+  every layout and `alpha_to_flat` assume a single letter); validate against the
+  known valid values instead.
 
 ## Release Process
 
@@ -413,6 +417,14 @@ Process (CHANGELOG bullet, version bump, `uv lock`).
 | `helpers.py` | Shared test helpers and fixtures |
 
 ## Coding Standards
+
+### Comments
+
+Let the code say *what* it does; comments and docstrings are for what it can't —
+the *why*, invariants, gotchas, and a public function's contract (what it returns
+and raises). Never narrate a change in a comment ("no longer carries X", "now does
+Y") — that documents a diff, not the code, so it belongs in the commit message and
+goes stale in the file.
 
 ### Exception Handling
 
