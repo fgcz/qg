@@ -6,17 +6,27 @@ import json
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
+from qg.config_models.loader import qg_configuration
 from qg.generator import QueueGenerator
 from qg.params_models import PlateQueueInput, PositionedQueueInput
 
 from .helpers import make_queue_input
 
+CONFIG_DIR = Path(__file__).parent.parent / "qg_configs"
 
-def test_vial_input_becomes_positioned_without_mutating_source():
-    source = make_queue_input(num_samples=5)
+
+@pytest.fixture
+def config():
+    qg_configuration.cache_clear()
+    return qg_configuration(CONFIG_DIR)
+
+
+def test_vial_input_becomes_positioned_without_mutating_source(config):
+    source = make_queue_input(config=config, num_samples=5)
     before = source.model_dump_json()
 
     positioned = source.position_queue()
@@ -28,8 +38,8 @@ def test_vial_input_becomes_positioned_without_mutating_source():
     assert positioned.resolved_config == source.resolved_config
 
 
-def test_plate_input_is_validated_into_positioned_input():
-    source = make_queue_input(num_samples=3)
+def test_plate_input_is_validated_into_positioned_input(config):
+    source = make_queue_input(config=config, num_samples=3)
     assigned = source.position_queue()
     plate_source = PlateQueueInput(
         parameters=source.parameters,
@@ -43,14 +53,14 @@ def test_plate_input_is_validated_into_positioned_input():
     assert positioned.queue == assigned.queue
 
 
-def test_queue_generator_rejects_unpositioned_input():
+def test_queue_generator_rejects_unpositioned_input(config):
     with pytest.raises(TypeError, match="PositionedQueueInput"):
-        QueueGenerator(make_queue_input(num_samples=1))  # type: ignore[arg-type]
+        QueueGenerator(config, make_queue_input(config=config, num_samples=1))  # type: ignore[arg-type]
 
 
-def test_generated_plate_ids_are_stable_across_processes(tmp_path):
+def test_generated_plate_ids_are_stable_across_processes(config, tmp_path):
     source_path = tmp_path / "source.json"
-    source_path.write_text(make_queue_input(num_samples=60).model_dump_json())
+    source_path.write_text(make_queue_input(config=config, num_samples=60).model_dump_json())
     code = (
         "import json,sys; "
         "from qg.params_models import read_queue_input; "

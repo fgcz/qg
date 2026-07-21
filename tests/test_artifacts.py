@@ -8,6 +8,8 @@ import time
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 import qg.artifacts as artifacts
 from qg.artifacts import (
     _ARTIFACT_SUFFIXES,
@@ -17,9 +19,18 @@ from qg.artifacts import (
     save_generation_artifact,
     save_positioning_artifacts,
 )
+from qg.config_models.loader import qg_configuration
 from qg.generator import QueueGenerator
 
 from .helpers import make_queue_input
+
+CONFIG_DIR = Path(__file__).parent.parent / "qg_configs"
+
+
+@pytest.fixture
+def config():
+    qg_configuration.cache_clear()
+    return qg_configuration(CONFIG_DIR)
 
 
 class TestBuildTimestamp:
@@ -76,11 +87,11 @@ class TestCleanupOldArtifacts:
         assert log_file.exists()
 
 
-def test_explicit_commit_saves_source_positioned_and_raw(monkeypatch, tmp_path: Path):
+def test_explicit_commit_saves_source_positioned_and_raw(config, monkeypatch, tmp_path: Path):
     monkeypatch.setattr(artifacts, "ARTIFACTS_DIR", tmp_path)
-    source = make_queue_input(num_samples=3)
+    source = make_queue_input(config=config, num_samples=3)
     positioned = source.position_queue()
-    raw_queue = QueueGenerator(positioned).build_rows().to_table()
+    raw_queue = QueueGenerator(config, positioned).build_rows().to_table()
 
     stem = save_positioning_artifacts(source, positioned, stem="run")
     save_generation_artifact(positioned, raw_queue, stem=stem)
@@ -95,12 +106,12 @@ def test_explicit_commit_saves_source_positioned_and_raw(monkeypatch, tmp_path: 
     assert positioned_json["parameters"]["randomization"] == "no"
 
 
-def test_pipeline_methods_do_not_write_artifacts(monkeypatch, tmp_path: Path):
+def test_pipeline_methods_do_not_write_artifacts(config, monkeypatch, tmp_path: Path):
     artifact_dir = tmp_path / "artifacts"
     monkeypatch.setattr(artifacts, "ARTIFACTS_DIR", artifact_dir)
-    source = make_queue_input(num_samples=3)
+    source = make_queue_input(config=config, num_samples=3)
 
     positioned = source.position_queue()
-    QueueGenerator(positioned).write()
+    QueueGenerator(config, positioned).write()
 
     assert not artifact_dir.exists()

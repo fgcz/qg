@@ -8,6 +8,8 @@ import pytest
 
 pytest.importorskip("bfabric")  # core install (no qg[bfabric]) skips this module
 
+from bfabric.entities.core.uri import EntityUri  # noqa: E402
+
 from qg.bfabric_utils import BfabricHelper, ContainerComposition, instance_slug  # noqa: E402
 from qg.cli.find_projects import ContainerCache, get_cache_dir  # noqa: E402
 
@@ -77,17 +79,64 @@ def test_get_cache_dir_default_under_repo(monkeypatch) -> None:
     assert path.parent.name == "bfabric_cache"
 
 
-def _fake_plates_dict(sample_dicts: list[dict], plate_id: int = 42, plate_type: str | None = None) -> dict:
+_BFABRIC_INSTANCE = "https://fgcz-bfabric.uzh.ch/bfabric/"
+
+
+class _FakeReferences:
+    """B-Fabric reference double with separate URI and entity access paths."""
+
+    def __init__(self, sample_dicts: list[dict], *, allow_sample_access: bool) -> None:
+        self.uris = {
+            "sample": [EntityUri.from_components(_BFABRIC_INSTANCE, "sample", sample["id"]) for sample in sample_dicts]
+        }
+        self._sample_dicts = sample_dicts
+        self._allow_sample_access = allow_sample_access
+
+    @property
+    def sample(self) -> list[dict]:
+        if not self._allow_sample_access:
+            raise AssertionError("ID-only path accessed refs.sample")
+        return self._sample_dicts
+
+
+class _FakePlate:
+    """Minimal plate entity exposing B-Fabric's reference interfaces."""
+
+    def __init__(
+        self,
+        sample_dicts: list[dict],
+        plate_type: str | None,
+        *,
+        allow_sample_access: bool,
+    ) -> None:
+        self.refs = _FakeReferences(
+            sample_dicts,
+            allow_sample_access=allow_sample_access,
+        )
+        self._plate_type = plate_type
+
+    def get(self, key: str, default: object = None) -> object:
+        return self._plate_type if key == "type" else default
+
+
+def _fake_plates_dict(
+    sample_dicts: list[dict],
+    plate_id: int = 42,
+    plate_type: str | None = None,
+    *,
+    allow_sample_access: bool = True,
+) -> dict[EntityUri, _FakePlate]:
     """Build a `{uri: plate}` dict shaped like what `client.reader.query("plate", ...)` returns.
 
     `plate_type` drives the entity's `.get("type")` (e.g. "Storage"); None means no
     `type` field, i.e. a real injectable plate.
     """
-    fake_plate = MagicMock()
-    fake_plate.refs.sample = sample_dicts
-    fake_plate.get = lambda key, default=None: {"type": plate_type}.get(key, default)
-    fake_uri = MagicMock()
-    fake_uri.components.entity_id = plate_id
+    fake_plate = _FakePlate(
+        sample_dicts,
+        plate_type,
+        allow_sample_access=allow_sample_access,
+    )
+    fake_uri = EntityUri.from_components(_BFABRIC_INSTANCE, "plate", plate_id)
     return {fake_uri: fake_plate}
 
 
@@ -145,6 +194,42 @@ def test_get_container_composition(
 
     helper = BfabricHelper(fake_client)
     assert helper.get_container_composition(100) == expected
+
+
+def test_id_only_paths_do_not_access_sample_entities() -> None:
+    """Composition and vial loading use reference URIs, not loaded entities."""
+    fake_client = MagicMock()
+    fake_client.reader.query.return_value = _fake_plates_dict(
+        [{"id": 1}],
+        allow_sample_access=False,
+    )
+    fake_client.read.return_value.to_polars.return_value = pl.DataFrame(
+        {
+            "id": [1, 2],
+            "name": ["OnPlate", "Vial"],
+            "tubeid": ["plate", "vial"],
+        }
+    )
+
+    helper = BfabricHelper(fake_client)
+
+    assert helper.get_container_composition(100) == ContainerComposition(
+        has_plates=True,
+        has_vials=True,
+    )
+    assert helper.get_samples(100, "Vials")["sample_id"].to_list() == [2]
+
+
+def test_get_container_composition_empty_plate() -> None:
+    """An empty plate contributes no on-plate samples."""
+    fake_client = MagicMock()
+    fake_client.reader.query.return_value = _fake_plates_dict([])
+    fake_client.read.return_value.to_polars.return_value = pl.DataFrame({"id": [1]})
+
+    assert BfabricHelper(fake_client).get_container_composition(100) == ContainerComposition(
+        has_plates=False,
+        has_vials=True,
+    )
 
 
 def test_get_samples_plates_no_filter_when_unrestricted() -> None:

@@ -4,7 +4,6 @@ __generated_with = "0.19.4"
 app = marimo.App(width="full", sql_output="polars")
 
 with app.setup:
-    import importlib.metadata
     import os
     from datetime import date
     from pathlib import Path
@@ -13,6 +12,7 @@ with app.setup:
     import polars as pl
     from loguru import logger
 
+    from qg import __version__
     from qg.logging_setup import configure_logging
 
     configure_logging()
@@ -58,7 +58,7 @@ def _():
 
 @app.cell
 def _():
-    app_version = importlib.metadata.version("qg")
+    app_version = __version__
     return (app_version,)
 
 
@@ -89,7 +89,7 @@ def _():
     # Load configs via qg_configuration() — from CLI arg or default path
     _args = mo.cli_args()
     _config_dir = Path(_args["config-dir"]) if "config-dir" in _args else None
-    config = qg_configuration(_config_dir)
+    config = qg_configuration(_config_dir) if _config_dir is not None else qg_configuration()
     logger.info("Queue app started | config_dir={}", _config_dir or "default")
     return (config,)
 
@@ -861,10 +861,10 @@ def _(feeder_uploader, gather_workunit_parameters, positioned_queue_input, queue
 
 
 @app.cell
-def _(queue_input, queue_parameters):
+def _(config, queue_input, queue_parameters):
     # Generate the queue exactly once so preview and download are identical
     # for the seed persisted in queue_input.
-    _result = shared.generate_queue(queue_input, queue_parameters)
+    _result = shared.generate_queue(config, queue_input, queue_parameters)
     generated_queue_df = _result.generated_df
     raw_queue_df = _result.raw_df
     queue_output_str = _result.output_str

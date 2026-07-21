@@ -1,19 +1,16 @@
 """Shared test helper functions for creating test data."""
 
 from datetime import date
-from pathlib import Path
 
-from qg.config_models.loader import QGConfiguration, qg_configuration
+from qg import __version__
+from qg.config_models.loader import QGConfiguration
 from qg.params_models import (
     ContainerBatch,
     QueueParameters,
     VialQueue,
     VialQueueInput,
     VialSample,
-    current_qg_version,
 )
-
-CONFIG_DIR = Path(__file__).parent.parent / "qg_configs"
 
 
 def make_samples(
@@ -70,6 +67,7 @@ def make_sample_groups(
 def make_queue_input(
     groups: list[tuple[int, int]] | None = None,
     *,
+    config: QGConfiguration,
     num_samples: int = 5,
     tech_area: str = "Proteomics",
     instrument: str = "ASTRAL_1",
@@ -80,7 +78,6 @@ def make_queue_input(
     qc_layout_name: str = "standard",
     output_format: str = "xcalibur",
     container_id: int = 12345,
-    config: QGConfiguration | None = None,
 ) -> VialQueueInput:
     """Create a VialQueueInput for testing.
 
@@ -90,6 +87,7 @@ def make_queue_input(
 
     Args:
         groups: Optional list of (container_id, num_samples) tuples for multi-group.
+        config: Configuration whose resolved subset is embedded in the input.
         num_samples: Number of samples (single-group mode only).
         tech_area: Technology identifier.
         instrument: Instrument name.
@@ -132,10 +130,10 @@ def make_queue_input(
         all_samples = make_samples(num_samples, container_id)
 
     queue = VialQueue(batches=batches, samples=all_samples)
-    resolved_config = (config or qg_configuration(CONFIG_DIR)).subset_for(params)
+    resolved_config = config.subset_for(params)
     return VialQueueInput(
         parameters=params,
         queue=queue,
-        qg_version=current_qg_version(),
+        qg_version=__version__,
         resolved_config=resolved_config,
     )

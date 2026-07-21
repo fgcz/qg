@@ -102,6 +102,9 @@ def _default_config_dir() -> Path:
     return (Path(__file__).parent.parent.parent.parent / "qg_configs").resolve()
 
 
+_DEFAULT_CONFIG_DIR = _default_config_dir()
+
+
 # =============================================================================
 # Exception Class
 # =============================================================================
@@ -748,7 +751,7 @@ class QGConfiguration:
 
 
 @lru_cache(maxsize=1)
-def qg_configuration(config_dir: Path | None = None) -> QGConfiguration:
+def qg_configuration(config_dir: Path = _DEFAULT_CONFIG_DIR) -> QGConfiguration:
     """Load all configuration files from a directory.
 
     Args:
@@ -764,8 +767,6 @@ def qg_configuration(config_dir: Path | None = None) -> QGConfiguration:
         FileNotFoundError: If required config files are missing
         pydantic.ValidationError: If config data doesn't match schema
     """
-    if config_dir is None:
-        config_dir = _default_config_dir()
     config_dir = Path(config_dir)
 
     # Load configs using ClassVar paths as single source of truth

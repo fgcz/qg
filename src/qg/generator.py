@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import polars as pl
 from loguru import logger
@@ -20,6 +20,9 @@ from qg.qc_positions import Position, QCPositionProvider, create_qc_position_pro
 from qg.queue_structure import SlotEntry, build_multi_container_queue_structure
 from qg.randomize import randomize_plate_queue
 from qg.utils import get_position_function
+
+if TYPE_CHECKING:
+    from qg.config_models.loader import QGConfiguration
 
 # Suffix appended to the basename of the last file of each container subqueue
 # when mark_end_of_queue is enabled. The instrument turns "..._eoq" into
@@ -291,7 +294,7 @@ def format_table(
     queue_rows: QueueRowTable,
     output_format: OutputFormat,
     plate_layout: PlateLayout,
-    tech_area: str | None = None,
+    tech_area: str,
 ) -> pl.DataFrame:
     """Format queue rows as DataFrame for the given output format.
 
@@ -345,15 +348,13 @@ def format_table(
 
 
 class QueueGenerator:
-    """Generate an instrument queue from physically positioned samples."""
+    """Generate an instrument queue from injected config and positioned samples."""
 
-    def __init__(self, queue_input: PositionedQueueInput) -> None:
+    def __init__(self, config: QGConfiguration, queue_input: PositionedQueueInput) -> None:
         if not isinstance(queue_input, PositionedQueueInput):
             raise TypeError("QueueGenerator requires a PositionedQueueInput")
 
         self.queue_input = queue_input
-        config = queue_input.resolved_config.to_configuration()
-        self._config = config
         params = queue_input.parameters
 
         self.pattern = config.queue_patterns.get_pattern(params.tech_area, params.queue_pattern)

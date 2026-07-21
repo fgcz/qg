@@ -41,7 +41,7 @@ def test_validate_config_cli():
 
 def test_generate_queues_cli(config, tmp_path):
     """Test qg CLI generates CSV output to file."""
-    queue_input = make_queue_input(num_samples=5)
+    queue_input = make_queue_input(config=config, num_samples=5)
     input_file = tmp_path / "input.json"
     input_file.write_text(queue_input.model_dump_json(indent=2))
 
@@ -69,7 +69,7 @@ def test_generate_queues_cli(config, tmp_path):
 
 def test_generate_queues_cli_stdout(config, tmp_path):
     """Test qg CLI outputs to stdout when no -o given."""
-    queue_input = make_queue_input(num_samples=5)
+    queue_input = make_queue_input(config=config, num_samples=5)
     input_file = tmp_path / "input.json"
     input_file.write_text(queue_input.model_dump_json(indent=2))
 
@@ -92,7 +92,7 @@ def test_generate_queues_cli_stdout(config, tmp_path):
 
 def test_generate_queues_cli_seed_reproducible(config, tmp_path):
     """A seed set in the input JSON makes a randomized run reproducible across invocations."""
-    queue_input = make_queue_input(num_samples=10)
+    queue_input = make_queue_input(config=config, num_samples=10)
     queue_input.parameters.randomization = "random"
     queue_input.parameters.seed = 123
     input_file = tmp_path / "input.json"
@@ -133,9 +133,9 @@ def test_generate_queues_cli_malformed_json(tmp_path):
     assert result.returncode != 0
 
 
-def test_generate_queues_cli_unknown_instrument(tmp_path):
+def test_generate_queues_cli_unknown_instrument(config, tmp_path):
     """qg exits non-zero when the input names an instrument absent from the config."""
-    queue_input = make_queue_input(num_samples=3)
+    queue_input = make_queue_input(config=config, num_samples=3)
     queue_input.parameters.instrument = "BOGUS_99"
     input_file = tmp_path / "input.json"
     input_file.write_text(queue_input.model_dump_json(indent=2))
@@ -189,7 +189,7 @@ def test_refresh_cache_cli_help():
 
 def test_generate_queues_cli_hystar_xml(config, tmp_path):
     """Test qg CLI generates XML output for hystar format."""
-    queue_input = make_queue_input(num_samples=3, output_format="hystar")
+    queue_input = make_queue_input(config=config, num_samples=3, output_format="hystar")
     input_file = tmp_path / "input.json"
     input_file.write_text(queue_input.model_dump_json(indent=2))
 
@@ -220,8 +220,8 @@ def test_generate_queues_cli_hystar_xml(config, tmp_path):
     assert "ACQEND_EXECUTE=" in content
 
 
-def test_assign_positions_cli_outputs_positioned_json(tmp_path):
-    queue_input = make_queue_input(num_samples=5)
+def test_assign_positions_cli_outputs_positioned_json(config, tmp_path):
+    queue_input = make_queue_input(config=config, num_samples=5)
     input_file = tmp_path / "input.json"
     input_file.write_text(queue_input.model_dump_json(indent=2))
     output_file = tmp_path / "positioned.json"
@@ -238,8 +238,8 @@ def test_assign_positions_cli_outputs_positioned_json(tmp_path):
     assert positioned.qg_version == queue_input.qg_version
 
 
-def test_assign_positions_cli_outputs_positioned_json_to_stdout(tmp_path):
-    queue_input = make_queue_input(num_samples=3)
+def test_assign_positions_cli_outputs_positioned_json_to_stdout(config, tmp_path):
+    queue_input = make_queue_input(config=config, num_samples=3)
     input_file = tmp_path / "input.json"
     input_file.write_text(queue_input.model_dump_json(indent=2))
 
@@ -254,8 +254,8 @@ def test_assign_positions_cli_outputs_positioned_json_to_stdout(tmp_path):
     assert len(positioned.queue.cells) == 3
 
 
-def test_assign_positions_cli_validates_plate_input(tmp_path):
-    source = make_queue_input(num_samples=4)
+def test_assign_positions_cli_validates_plate_input(config, tmp_path):
+    source = make_queue_input(config=config, num_samples=4)
     expected = source.position_queue()
     plate_input = PlateQueueInput(
         parameters=source.parameters,
@@ -276,8 +276,8 @@ def test_assign_positions_cli_validates_plate_input(tmp_path):
     assert PositionedQueueInput.model_validate_json(result.stdout) == expected
 
 
-def test_positioned_cli_output_generates_same_vendor_queue(tmp_path):
-    source = make_queue_input(num_samples=8)
+def test_positioned_cli_output_generates_same_vendor_queue(config, tmp_path):
+    source = make_queue_input(config=config, num_samples=8)
     source_path = tmp_path / "source.json"
     positioned_path = tmp_path / "positioned.json"
     direct_output = tmp_path / "direct.csv"
@@ -296,8 +296,8 @@ def test_positioned_cli_output_generates_same_vendor_queue(tmp_path):
     assert staged_output.read_bytes() == direct_output.read_bytes()
 
 
-def test_assign_positions_cli_rejects_missing_provenance(tmp_path):
-    data = make_queue_input(num_samples=2).model_dump(mode="json")
+def test_assign_positions_cli_rejects_missing_provenance(config, tmp_path):
+    data = make_queue_input(config=config, num_samples=2).model_dump(mode="json")
     data.pop("qg_version")
     data.pop("resolved_config")
     input_file = tmp_path / "unstamped.json"

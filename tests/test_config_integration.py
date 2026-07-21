@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from qg import __version__
 from qg.config_models.loader import ConfigValidationError, QGConfiguration, qg_configuration
 from qg.config_models.structure import QueuePattern
 
@@ -428,7 +429,6 @@ class TestQueueInputCreate:
             PlateQueueInput,
             QueueParameters,
             VialSample,
-            current_qg_version,
         )
 
         params = QueueParameters(
@@ -453,7 +453,7 @@ class TestQueueInputCreate:
         queue_input = PlateQueueInput(
             parameters=params,
             queue=queue,
-            qg_version=current_qg_version(),
+            qg_version=__version__,
             resolved_config=config.subset_for(params),
         )
         assert len(queue_input.queue.cells) == 1
@@ -466,7 +466,6 @@ class TestQueueInputCreate:
             VialQueue,
             VialQueueInput,
             VialSample,
-            current_qg_version,
         )
 
         params = QueueParameters(
@@ -492,7 +491,7 @@ class TestQueueInputCreate:
         queue_input = VialQueueInput(
             parameters=params,
             queue=queue,
-            qg_version=current_qg_version(),
+            qg_version=__version__,
             resolved_config=config.subset_for(params),
         )
         assert len(queue_input.queue.samples) == 2

@@ -48,15 +48,13 @@ from qg.utils import (
 
 def _trays_with_start_first(
     trays: list[str] | list[int],
-    start_tray: str | int | None,
+    start_tray: str | int,
 ) -> list[str] | list[int]:
     """Return ``trays`` reordered so that ``start_tray`` comes first.
 
     The GUI emits string-valued trays (``mo.ui.dropdown`` options are strings)
     while tip samplers store integer trays — match leniently.
     """
-    if start_tray is None or start_tray == "":
-        return list(trays)
     for t in trays:
         if t == start_tray or str(t) == str(start_tray):
             return [t] + [other for other in trays if other != t]
@@ -127,8 +125,8 @@ class _PositionPoolWell:
         sampler: Sampler,
         plate_layout: PlateLayout,
         qc_layout: QCLayoutWell,
-        start_position: str = "A1",
-        start_tray: str | int | None = None,
+        start_position: str,
+        start_tray: str | int,
     ) -> None:
         self.position_fun = get_position_function(sampler.position_fun)
         self.trays = sampler.trays
@@ -136,9 +134,6 @@ class _PositionPoolWell:
         # Store precomputed QC layout and its reserved positions
         self.qc_layout = qc_layout
         self.reserved = qc_layout.reserved
-
-        # Resolve start_tray: default to first tray
-        effective_start_tray = start_tray if start_tray is not None else sampler.trays[0]
 
         # Generate all positions and filter out reserved
         self.all_positions = generate_all_positions(
@@ -148,7 +143,7 @@ class _PositionPoolWell:
 
         # Filter: skip trays before start_tray, apply start_position offset on start_tray
         tray_strs = [str(t) for t in sampler.trays]
-        start_tray_idx = tray_strs.index(str(effective_start_tray))
+        start_tray_idx = tray_strs.index(str(start_tray))
         start_flat = plate_layout.alpha_to_flat(start_position)
         self.available = [
             p
@@ -174,8 +169,8 @@ class _PositionPoolTip:
         sampler: Sampler,
         plate_layout: PlateLayout,
         qc_layout: QCLayoutTip,
-        start_position: str = "A1",
-        start_tray: str | int | None = None,
+        start_position: str,
+        start_tray: str | int,
     ) -> None:
         self.position_fun = get_position_function(sampler.position_fun)
         self.trays = sampler.trays
@@ -183,9 +178,6 @@ class _PositionPoolTip:
         # Store precomputed QC layout and its reserved positions
         self.qc_layout = qc_layout
         self.reserved = qc_layout.reserved
-
-        # Resolve start_tray: default to first tray
-        effective_start_tray = start_tray if start_tray is not None else sampler.trays[0]
 
         # Generate all positions (don't filter - Evosep uses consumable tips)
         self.all_positions = generate_all_positions(
@@ -195,7 +187,7 @@ class _PositionPoolTip:
 
         # Filter: skip trays before start_tray, apply start_position offset on start_tray
         tray_strs = [str(t) for t in sampler.trays]
-        start_tray_idx = tray_strs.index(str(effective_start_tray))
+        start_tray_idx = tray_strs.index(str(start_tray))
         start_flat = plate_layout.alpha_to_flat(start_position)
         self.available = [
             p
@@ -228,9 +220,9 @@ class _PlateValidatorWellConfig:
         sampler: Sampler,
         plate_layout: PlateLayout,
         qc_layout: QCLayoutWell,
-        start_tray: str | int | None = None,
+        start_tray: str | int,
     ) -> None:
-        self.pool = _PositionPoolWell(sampler, plate_layout, qc_layout)
+        self.pool = _PositionPoolWell(sampler, plate_layout, qc_layout, "A1", sampler.trays[0])
         self.plate_layout = plate_layout
         self._start_tray = start_tray
 
@@ -271,9 +263,9 @@ class _PlateValidatorTipConfig:
         sampler: Sampler,
         plate_layout: PlateLayout,
         qc_layout: QCLayoutTip,
-        start_tray: str | int | None = None,
+        start_tray: str | int,
     ) -> None:
-        self.pool = _PositionPoolTip(sampler, plate_layout, qc_layout)
+        self.pool = _PositionPoolTip(sampler, plate_layout, qc_layout, "A1", sampler.trays[0])
         self.plate_layout = plate_layout
         self._start_tray = start_tray
 
@@ -310,8 +302,8 @@ class _VialPlateAssignerWellConfig:
         sampler: Sampler,
         plate_layout: PlateLayout,
         qc_layout: QCLayoutWell,
-        start_position: str = "A1",
-        start_tray: str | int | None = None,
+        start_position: str,
+        start_tray: str | int,
     ) -> None:
         self.pool = _PositionPoolWell(sampler, plate_layout, qc_layout, start_position, start_tray)
 
@@ -360,8 +352,8 @@ class _VialPlateAssignerTipConfig:
         sampler: Sampler,
         plate_layout: PlateLayout,
         qc_layout: QCLayoutTip,
-        start_position: str = "A1",
-        start_tray: str | int | None = None,
+        start_position: str,
+        start_tray: str | int,
     ) -> None:
         self.pool = _PositionPoolTip(sampler, plate_layout, qc_layout, start_position, start_tray)
 
@@ -417,7 +409,7 @@ def create_assembled_sampler(
     plate_layout_name: str,
     qc_layout_name: str,
     start_position: str = "A1",
-    start_tray: str | int | None = None,
+    start_tray: str | int = "",
 ) -> AssembledSampler:
     """Factory to create correct sampler class based on mode and sampler type.
 
@@ -430,9 +422,10 @@ def create_assembled_sampler(
         plate_layout_name: Plate layout name (e.g., "Vanquish_54")
         qc_layout_name: QC layout name (e.g., "standard", "evosep_qc")
         start_position: Alpha grid position to start from on start tray (vial mode only)
-        start_tray: Tray to start from. None = first tray. In vial mode it controls
-            where vial assignment begins; in plate mode it relocates the user's plate
-            to the chosen tray (used to escape QC-layout collisions on the default tray).
+        start_tray: Tray to start from. An empty string selects the first tray. In
+            vial mode it controls where vial assignment begins; in plate mode it
+            relocates the user's plate to the chosen tray (used to escape QC-layout
+            collisions on the default tray).
 
     Returns:
         One of 4 AssembledSampler classes based on layout_mode + sampler type
@@ -441,6 +434,7 @@ def create_assembled_sampler(
     sampler = config.samplers.get_sampler(sampler_name)
     plate_layout = config.plate_layouts.get_layout(plate_layout_name)
     position_fun = get_position_function(sampler.position_fun)
+    effective_start_tray = start_tray if start_tray != "" else sampler.trays[0]
 
     # Create QC layout (empty when pattern has no QC references)
     qc_layout = create_qc_layout(
@@ -458,14 +452,26 @@ def create_assembled_sampler(
     is_tip = sampler.is_tip
     if layout_mode == LayoutMode.PLATE:
         if is_tip:
-            return _PlateValidatorTipConfig(sampler, plate_layout, qc_layout, start_tray)
+            return _PlateValidatorTipConfig(sampler, plate_layout, qc_layout, effective_start_tray)
         else:
-            return _PlateValidatorWellConfig(sampler, plate_layout, qc_layout, start_tray)
+            return _PlateValidatorWellConfig(sampler, plate_layout, qc_layout, effective_start_tray)
     else:  # vial
         if is_tip:
-            return _VialPlateAssignerTipConfig(sampler, plate_layout, qc_layout, start_position, start_tray)
+            return _VialPlateAssignerTipConfig(
+                sampler,
+                plate_layout,
+                qc_layout,
+                start_position,
+                effective_start_tray,
+            )
         else:
-            return _VialPlateAssignerWellConfig(sampler, plate_layout, qc_layout, start_position, start_tray)
+            return _VialPlateAssignerWellConfig(
+                sampler,
+                plate_layout,
+                qc_layout,
+                start_position,
+                effective_start_tray,
+            )
 
 
 def _create_input_sampler(
@@ -503,7 +509,7 @@ def _positioned(queue_input: QueueInput, plate_queue: PlateQueue) -> PositionedQ
     )
 
 
-def _position_vial_queue(queue_input: VialQueueInput) -> PositionedQueueInput:
+def position_vial_queue(queue_input: VialQueueInput) -> PositionedQueueInput:
     """Assign physical positions for a vial queue input.
 
     The vial assigner draws positions from a pool that already excludes reserved
@@ -519,7 +525,7 @@ def _position_vial_queue(queue_input: VialQueueInput) -> PositionedQueueInput:
     return _positioned(queue_input, plate_queue)
 
 
-def _position_plate_queue(queue_input: PlateQueueInput) -> PositionedQueueInput:
+def position_plate_queue(queue_input: PlateQueueInput) -> PositionedQueueInput:
     """Validate physical positions for a plate queue input.
 
     User-supplied plate positions still need collision-checking against QC

@@ -45,6 +45,24 @@ jobs:
       - name: Run unit tests
         run: uv run --no-sync pytest --ignore=tests/gui --ignore=tests/gui_local
 
+  # Keep the checked-in Python sources aligned with the repository's Pyright
+  # configuration. This mirrors the local pre-commit hook.
+  pyright:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+      - name: Install Python
+        run: uv python install
+      - name: Sync (dev + portal)
+        run: uv sync --frozen
+      - name: Run Pyright
+        run: uv run --no-sync python -m pyright
+
   # Core-install gate: prove `qg` installs, imports, and its non-B-Fabric tests
   # pass WITHOUT the portal extra (no bfabric/fastapi/starlette/python-gitlab).
   # Syncs only the `dev` group, omitting the `portal` default-group; asserts

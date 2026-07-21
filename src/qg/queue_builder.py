@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Self
 
 import polars as pl
 
+from qg import __version__
 from qg.params_models import (
     ContainerBatch,
     Plate,
@@ -17,7 +18,6 @@ from qg.params_models import (
     VialQueue,
     VialQueueInput,
     VialSample,
-    current_qg_version,
 )
 from qg.utils import LayoutMode
 
@@ -120,7 +120,7 @@ class QueueBuilder:
             parameters = parameters.model_copy(update={"bfabric_instance": self._bfabric_base_url})
 
         provenance = {
-            "qg_version": current_qg_version(),
+            "qg_version": __version__,
             "resolved_config": self.config.subset_for(parameters),
         }
 

@@ -10,7 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added a standalone `qg-assign-positions` command and public positioning API for auditable vial-to-plate assignment.
 
 ### Changed
-- Queue inputs now require embedded version/config provenance, and `QueueGenerator` accepts positioned inputs only.
+- GitHub Actions now runs Pyright as a dedicated type-checking job.
+- Queue inputs now require embedded version/config provenance, and `QueueGenerator` requires an explicitly supplied configuration plus positioned input.
+- Package metadata is now required at import and is the single source for queue version provenance.
+- B-Fabric composition checks now use sample reference IDs without loading full sample entities.
 - Audit artifacts in `~/.qg/logs` are now written as `*_source_queue.json`, `*_positioned_queue.json`, and `*_raw_queue.csv` at the download/upload/CLI commit point (previously a single `*_params.json` saved during generation).
 - Generated plate IDs are now deterministic sequential integers (by tray order) instead of process-dependent hashes.
 - Plate cells now store only `plate_id` and `grid_position`; row/column and flat vendor indices are derived from `grid_position` and validated against the selected plate layout.

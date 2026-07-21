@@ -56,8 +56,13 @@ The full field reference lives in [Configuration](config.md#queue-parameters-jso
 
 ### Config files
 
-Loaded once via `qg_configuration()` and resolved for the requested instrument.
-See [Configuration](config.md) for the per-file reference. The constructor resolves:
+Loaded once via `qg_configuration()` and passed explicitly to `QueueGenerator`.
+Interactive callers inject the configuration owned by the UI. The CLI and local
+reproduce mode explicitly reconstruct the embedded `resolved_config` at their
+composition boundary, then inject that configuration. `QueueGenerator` does not
+select a configuration source internally.
+
+See [Configuration](config.md) for the per-file reference. The constructor selects:
 
 - the **pattern** (`queue_patterns.toml`),
 - the **sampler** + **plate layout** (`sampler.toml`, `plate_layouts.toml`,

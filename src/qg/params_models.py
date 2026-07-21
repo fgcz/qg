@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, Literal, Self
 
 from pydantic import AliasChoices, BaseModel, Field
 
-from qg import __version__
 from qg.config_models.resolved import ResolvedConfig
 
 if TYPE_CHECKING:
@@ -205,9 +204,9 @@ class VialQueueInput(BaseModel):
 
     def position_queue(self) -> PositionedQueueInput:
         """Assign physical positions and return generation-ready input."""
-        from qg.positionV2 import _position_vial_queue
+        from qg.positionV2 import position_vial_queue
 
-        return _position_vial_queue(self)
+        return position_vial_queue(self)
 
 
 class PlateQueueInput(BaseModel):
@@ -220,9 +219,9 @@ class PlateQueueInput(BaseModel):
 
     def position_queue(self) -> PositionedQueueInput:
         """Validate physical positions and return generation-ready input."""
-        from qg.positionV2 import _position_plate_queue
+        from qg.positionV2 import position_plate_queue
 
-        return _position_plate_queue(self)
+        return position_plate_queue(self)
 
 
 class PositionedQueueInput(BaseModel):
@@ -235,13 +234,6 @@ class PositionedQueueInput(BaseModel):
 
 
 QueueInput = VialQueueInput | PlateQueueInput
-
-
-def current_qg_version() -> str:
-    """Return the installed qg version required for queue provenance."""
-    if not __version__:
-        raise RuntimeError("qg package metadata is unavailable; install the qg package before building queues")
-    return __version__
 
 
 def write_queue_input(queue_input: QueueInput, output_path: str | Path) -> Path:

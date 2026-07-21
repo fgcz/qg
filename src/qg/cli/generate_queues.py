@@ -42,7 +42,8 @@ def cli_main() -> None:
 
         queue_input = read_queue_input(input_json)
         positioned_input = queue_input.position_queue()
-        generator = QueueGenerator(positioned_input)
+        config = positioned_input.resolved_config.to_configuration()
+        generator = QueueGenerator(config, positioned_input)
         queue_rows = generator.build_rows()
         generated = format_table(
             queue_rows,

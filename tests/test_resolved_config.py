@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from qg import __version__
 from qg.apps.integrations.example_params import list_example_params, read_example_params
 from qg.config_models.loader import qg_configuration
 from qg.generator import QueueGenerator
@@ -20,7 +21,6 @@ from qg.params_models import (
     QueueParameters,
     VialQueue,
     VialQueueInput,
-    current_qg_version,
     read_queue_input,
 )
 
@@ -47,17 +47,19 @@ def _vial_input(config, params: QueueParameters, n: int = 6) -> VialQueueInput:
     return VialQueueInput(
         parameters=params,
         queue=VialQueue(batches=batches, samples=make_samples(n, container_id)),
-        qg_version=current_qg_version(),
+        qg_version=__version__,
         resolved_config=config.subset_for(params),
     )
 
 
-def _regen_matches(config, queue_input) -> bool:
+def _regen_matches(queue_input) -> bool:
     """Generate twice from the self-contained positioned representation."""
     positioned = queue_input.position_queue()
-    base = QueueGenerator(positioned).write()
+    base_config = positioned.resolved_config.to_configuration()
+    base = QueueGenerator(base_config, positioned).write()
     restored = type(positioned).model_validate_json(positioned.model_dump_json())
-    repro = QueueGenerator(restored).write()
+    restored_config = restored.resolved_config.to_configuration()
+    repro = QueueGenerator(restored_config, restored).write()
     return repro == base
 
 
@@ -67,7 +69,7 @@ def _regen_matches(config, queue_input) -> bool:
 
 
 def test_subset_for_captures_minimal_set(config):
-    qi = make_queue_input(num_samples=12)
+    qi = make_queue_input(config=config, num_samples=12)
     rc = config.subset_for(qi.parameters)
 
     # Only the fragments the run uses, not the whole config.
@@ -97,7 +99,7 @@ def test_roundtrip_json_preserves_resolved_config(config, tmp_path):
 
 
 def test_load_without_required_provenance_fails(config, tmp_path):
-    data = make_queue_input(num_samples=5).model_dump(mode="json")
+    data = make_queue_input(config=config, num_samples=5).model_dump(mode="json")
     data.pop("qg_version", None)
     data.pop("resolved_config", None)
     path = tmp_path / "legacy.json"
@@ -113,14 +115,14 @@ def test_load_without_required_provenance_fails(config, tmp_path):
 
 
 def test_regenerates_byte_identical_proteomics(config):
-    assert _regen_matches(config, make_queue_input(num_samples=12))
+    assert _regen_matches(make_queue_input(config=config, num_samples=12))
 
 
 def test_randomized_reproducible_from_embedded(config):
-    qi = make_queue_input(groups=[(111, 6), (222, 4), (333, 2)])
+    qi = make_queue_input(groups=[(111, 6), (222, 4), (333, 2)], config=config)
     qi.parameters.randomization = "blocked_uniform"
     qi.parameters.seed = 424242
-    assert _regen_matches(config, qi)
+    assert _regen_matches(qi)
 
 
 def test_lipidomics_dual_polarity_self_contained(config):
@@ -147,7 +149,7 @@ def test_lipidomics_dual_polarity_self_contained(config):
         date="20260101",
         user="t",
     )
-    assert _regen_matches(config, _vial_input(config, params))
+    assert _regen_matches(_vial_input(config, params))
 
 
 def test_every_vial_combination_regenerates_byte_identical(config):
@@ -175,8 +177,10 @@ def test_every_vial_combination_regenerates_byte_identical(config):
             user="t",
         )
         qi = _vial_input(config, params)
-        assert QueueGenerator(qi.position_queue()).build_rows().to_table().shape[0] > 0, f"empty queue for {row}"
-        assert _regen_matches(config, qi), f"mismatch for {row}"
+        assert QueueGenerator(config, qi.position_queue()).build_rows().to_table().shape[0] > 0, (
+            f"empty queue for {row}"
+        )
+        assert _regen_matches(qi), f"mismatch for {row}"
         checked += 1
     assert checked > 0, "no vial combinations found to check"
 
@@ -187,13 +191,13 @@ def test_every_vial_combination_regenerates_byte_identical(config):
 
 
 def test_no_false_drift_against_same_config(config):
-    qi = make_queue_input(num_samples=8)
+    qi = make_queue_input(config=config, num_samples=8)
     rc = config.subset_for(qi.parameters)
     assert rc.differs_from(config, qi.parameters) is False
 
 
 def test_drift_detected_when_config_changes(config):
-    qi = make_queue_input(num_samples=8)
+    qi = make_queue_input(config=config, num_samples=8)
     rc = config.subset_for(qi.parameters)
 
     # A config whose pattern content changed under the same name. Replace with a
@@ -206,7 +210,19 @@ def test_drift_detected_when_config_changes(config):
 
     assert rc.differs_from(tweaked, qi.parameters) is True
     # The embedded snapshot still reproduces the ORIGINAL queue, immune to the drift.
-    assert _regen_matches(config, qi)
+    assert _regen_matches(qi)
+
+
+def test_generator_uses_the_injected_config(config):
+    qi = make_queue_input(config=config, num_samples=3)
+    positioned = qi.position_queue()
+    injected = positioned.resolved_config.model_copy(deep=True).to_configuration()
+    injected.output_formats.get_format("xcalibur").columns["Config Source"] = "literal:injected"
+
+    assert "Config Source" not in positioned.resolved_config.output_format.columns
+    generated = QueueGenerator(injected, positioned).generate()
+
+    assert generated["Config Source"].to_list() == ["injected"] * len(generated)
 
 
 # --------------------------------------------------------------------------- #
@@ -227,7 +243,9 @@ def test_cli_reproduces_without_config_dir(config, tmp_path):
         text=True,
     )
     assert result.returncode == 0, result.stderr
-    assert out.read_text() == QueueGenerator(qi.position_queue()).write()
+    positioned = qi.position_queue()
+    snapshot_config = positioned.resolved_config.to_configuration()
+    assert out.read_text() == QueueGenerator(snapshot_config, positioned).write()
 
 
 # --------------------------------------------------------------------------- #
@@ -240,7 +258,9 @@ def test_bundled_example_params_are_self_contained():
     assert {e.id for e in entries} == {"repro_proteomics_12", "lipidomics_standard"}
     for entry in entries:
         _, qi = read_example_params(entry.id)
-        rows = QueueGenerator(qi.position_queue()).build_rows().to_table()
+        positioned = qi.position_queue()
+        snapshot_config = positioned.resolved_config.to_configuration()
+        rows = QueueGenerator(snapshot_config, positioned).build_rows().to_table()
         assert rows.shape[0] > 0, f"{entry.id} generated an empty queue"
 
 
@@ -250,7 +270,9 @@ def test_bundled_example_params_are_self_contained():
 )
 def test_bundled_example_row_counts(example_id, expected_rows):
     _, qi = read_example_params(example_id)
-    rows = QueueGenerator(qi.position_queue()).build_rows().to_table()
+    positioned = qi.position_queue()
+    snapshot_config = positioned.resolved_config.to_configuration()
+    rows = QueueGenerator(snapshot_config, positioned).build_rows().to_table()
     assert rows.shape[0] == expected_rows
 
 

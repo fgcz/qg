@@ -325,7 +325,7 @@ class TestMethodsConfigs:
 
         assert len(methods.methods) > 0
         # Check default method exists
-        method = methods.get_method("default", "pos")
+        method = methods.get_method("default", "pos", "DIA")
         assert method is not None
 
     def test_load_all_methods(self):

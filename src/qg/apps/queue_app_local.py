@@ -4,7 +4,6 @@ __generated_with = "0.19.4"
 app = marimo.App(width="full", sql_output="polars")
 
 with app.setup:
-    import importlib.metadata
     import os
     from datetime import date
     from pathlib import Path
@@ -14,6 +13,7 @@ with app.setup:
     import pydantic
     from loguru import logger
 
+    from qg import __version__
     from qg.logging_setup import configure_logging
 
     configure_logging()
@@ -34,7 +34,7 @@ with app.setup:
 
 @app.cell
 def _():
-    app_version = importlib.metadata.version("qg")
+    app_version = __version__
     return (app_version,)
 
 
@@ -43,7 +43,7 @@ def _():
     # Load configs via qg_configuration() — from CLI arg or default path
     _args = mo.cli_args()
     _config_dir = Path(_args["config-dir"]) if "config-dir" in _args else None
-    config = qg_configuration(_config_dir)
+    config = qg_configuration(_config_dir) if _config_dir is not None else qg_configuration()
     logger.info("Local queue app started | config_dir={}", _config_dir or "default")
     return (config,)
 
@@ -784,12 +784,15 @@ def _(
 
 
 @app.cell
-def _(loaded_queue_input, queue_input, queue_parameters):
+def _(config, loaded_queue_input, queue_input, queue_parameters):
     # Generate the queue exactly once so preview and download are identical. When
     # reproducing a loaded run, its required embedded configuration makes the
     # result independent of the local qg_configs tree.
     _gen_params = loaded_queue_input.parameters if loaded_queue_input is not None else queue_parameters
-    _result = shared.generate_queue(queue_input, _gen_params)
+    _generation_config = (
+        loaded_queue_input.resolved_config.to_configuration() if loaded_queue_input is not None else config
+    )
+    _result = shared.generate_queue(_generation_config, queue_input, _gen_params)
     generated_queue_df = _result.generated_df
     raw_queue_df = _result.raw_df
     queue_output_str = _result.output_str

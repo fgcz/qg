@@ -28,6 +28,7 @@ from pathlib import Path
 import polars as pl
 from PIL import Image
 
+from qg import __version__
 from qg.config_models.loader import qg_configuration
 from qg.generator import QueueGenerator
 from qg.params_models import (
@@ -36,7 +37,6 @@ from qg.params_models import (
     VialQueue,
     VialQueueInput,
     VialSample,
-    current_qg_version,
 )
 from qg.viz.plate import build_plate_figure, build_plate_wells
 from qg.viz.timeline import build_timeline_figure
@@ -84,7 +84,7 @@ def _queue_input(config) -> VialQueueInput:
     return VialQueueInput(
         parameters=params,
         queue=queue,
-        qg_version=current_qg_version(),
+        qg_version=__version__,
         resolved_config=config.subset_for(params),
     )
 
@@ -97,7 +97,7 @@ def main() -> int:
     config = qg_configuration()
     queue_input = _queue_input(config)
     order_ids = sorted(queue_input.queue.batches)
-    rows = QueueGenerator(queue_input.position_queue()).build_rows().to_table()
+    rows = QueueGenerator(config, queue_input.position_queue()).build_rows().to_table()
     layout = config.plate_layouts.get_layout("Vanquish_54")
 
     # (A) Plate layout, colored by sample type.

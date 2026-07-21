@@ -208,6 +208,11 @@ Positioning is executed first by `QueueInput.position_queue()`; its implementati
 lives in `positionV2.py`, and the
 remaining stages run in `QueueGenerator.build_rows()`:
 
+`QueueGenerator` always receives its `QGConfiguration` explicitly. Interactive
+apps pass the UI-owned configuration; CLI or saved-run reproduction code may
+reconstruct the embedded `resolved_config`, but must do so at that composition
+boundary rather than inside the generator.
+
 ```
 QueueInput (JSON: vial or plate)
     |
@@ -230,7 +235,7 @@ CSV / XML Output
 
 | Module | Purpose |
 |--------|---------|
-| `generator.py` | `QueueGenerator` class (config resolution + pipeline execution) |
+| `generator.py` | `QueueGenerator` class (injected config + pipeline execution) |
 | `queue_structure.py` | `build_multi_container_queue_structure()`, `SlotEntry` |
 | `positionV2.py` | Vial assignment, plate validation, and well/tip sampler positioning |
 | `utils.py` | Shared position types/helpers (used by `positionV2.py`, `qc_positions.py`) |

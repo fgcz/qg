@@ -44,16 +44,15 @@ class QCLayoutTip:
         is_empty: True if no QC samples (e.g., noqc pattern).
     """
 
-    def __init__(self, qc_samples: list[QCSampleTip], plate_layout: PlateLayout | None = None) -> None:
+    def __init__(self, qc_samples: list[QCSampleTip], plate_layout: PlateLayout) -> None:
         self.sample_map: dict[str, QCSampleTip] = {s.sample_id: s for s in qc_samples}
         self.reserved: set[Position] = set()
-        if plate_layout is not None:
-            for s in qc_samples:
-                start_flat = plate_layout.alpha_to_flat(s.position_start)
-                end_flat = plate_layout.alpha_to_flat(s.position_end)
-                for flat in range(start_flat, end_flat + 1):
-                    row, col = plate_layout.flat_to_row_col(flat)
-                    self.reserved.add(Position(s.tray, f"{row}{col}", row=row, col=col))
+        for sample in qc_samples:
+            start_flat = plate_layout.alpha_to_flat(sample.position_start)
+            end_flat = plate_layout.alpha_to_flat(sample.position_end)
+            for flat in range(start_flat, end_flat + 1):
+                row, col = plate_layout.flat_to_row_col(flat)
+                self.reserved.add(Position(sample.tray, f"{row}{col}", row=row, col=col))
         self.is_empty: bool = len(qc_samples) == 0
 
 
@@ -65,7 +64,7 @@ def create_qc_layout(
     plate_layout_name: str,
     sampler_name: str,
     position_fun: Callable[[str, int], str],
-    plate_layout: PlateLayout | None = None,
+    plate_layout: PlateLayout,
 ) -> QCLayoutWell | QCLayoutTip:
     """Create a QC layout wrapper, returning an empty layout when the pattern has no QC references.
 

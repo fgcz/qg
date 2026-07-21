@@ -5,6 +5,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 
+from qg import __version__
 from qg.config_models.loader import qg_configuration
 from qg.params_models import PlateQueueInput, QueueParameters, VialQueueInput
 from qg.queue_builder import QueueBuilder
@@ -60,6 +61,7 @@ class TestVialMode:
         result = QueueBuilder(config).with_parameters(queue_parameters).add_samples_from_dataframe(df).build()
 
         assert isinstance(result, VialQueueInput)
+        assert result.qg_version == __version__
         assert len(result.queue.batches) == 1
         assert len(result.queue.samples) == 3
 

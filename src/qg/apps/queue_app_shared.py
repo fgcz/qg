@@ -359,6 +359,7 @@ class GenerationResult:
 
 
 def generate_queue(
+    config: QGConfiguration,
     queue_input: QueueInput | None,
     queue_parameters: QueueParameters | None,
 ) -> GenerationResult:
@@ -373,7 +374,7 @@ def generate_queue(
         return result
     try:
         result.positioned_input = queue_input.position_queue()
-        generator = QueueGenerator(result.positioned_input)
+        generator = QueueGenerator(config, result.positioned_input)
         queue_rows = generator.build_rows()
         result.raw_df = queue_rows.to_table()
         result.generated_df = format_table(
