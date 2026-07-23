@@ -7,12 +7,14 @@ import secrets
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Self
 
-from pydantic import AliasChoices, BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field, field_validator, model_validator
 
 from qg.config_models.resolved import ResolvedConfig
 
 if TYPE_CHECKING:
     from qg.config_models.loader import QGConfiguration
+    from qg.config_models.positions import PlateLayout
+    from qg.utils import Position
 
 
 def draw_seed() -> int:
@@ -78,6 +80,28 @@ class PlateQueue(BaseModel):
     plates: dict[int, Plate] = Field(default_factory=dict)
     cells: list[PlateCell] = Field(default_factory=list)
 
+    def cell_position(self, cell: PlateCell, plate_layout: PlateLayout) -> Position:
+        """Resolve a cell's validated physical position.
+
+        Raises:
+            ValueError: If the cell references an unknown plate, the plate has
+                no tray, or the grid position is outside ``plate_layout``.
+        """
+        from qg.utils import Position
+
+        plate = self.plates.get(cell.plate_id)
+        if plate is None:
+            raise ValueError(f"Sample cell references unknown plate {cell.plate_id}.")
+        if plate.tray is None:
+            raise ValueError(f"Positioned queue plate {cell.plate_id} is missing a tray.")
+        row, col = plate_layout.split_alpha(cell.grid_position)
+        return Position(
+            tray=plate.tray,
+            grid_position=cell.grid_position,
+            row=row,
+            col=col,
+        )
+
 
 class QueueParameters(BaseModel):
     """Queue generation parameters."""
@@ -122,8 +146,14 @@ class QueueParameters(BaseModel):
     # from filenames alone (the instrument turns "..._eoq" into "..._eoq.raw").
     mark_end_of_queue: bool = True
 
+    @field_validator("seed", mode="before")
     @classmethod
-    def create(
+    def draw_seed_for_legacy_null(cls, value: object) -> object:
+        """Replace the nullable seed emitted by older qg versions."""
+        return draw_seed() if value is None else value
+
+    @classmethod
+    def create(  # noqa: PLR0913
         cls,
         configs: QGConfiguration,
         *,
@@ -232,6 +262,14 @@ class PositionedQueueInput(BaseModel):
     qg_version: str
     resolved_config: ResolvedConfig
 
+    @model_validator(mode="after")
+    def plates_have_trays(self) -> Self:
+        """Require the positioning stage to resolve every plate to a tray."""
+        missing = sorted(plate_id for plate_id, plate in self.queue.plates.items() if plate.tray is None)
+        if missing:
+            raise ValueError(f"Positioned queue plate(s) {missing} are missing a tray.")
+        return self
+
 
 QueueInput = VialQueueInput | PlateQueueInput
 
@@ -266,13 +304,3 @@ def parse_queue_input(raw: str | bytes) -> QueueInput:
 def read_queue_input(input_path: str | Path) -> QueueInput:
     """Read queue input from a JSON file."""
     return parse_queue_input(Path(input_path).read_text())
-
-
-def parse_positioned_queue_input(raw: str | bytes) -> PositionedQueueInput:
-    """Parse a generation-ready positioned queue from JSON text or bytes."""
-    return PositionedQueueInput.model_validate_json(raw)
-
-
-def read_positioned_queue_input(input_path: str | Path) -> PositionedQueueInput:
-    """Read a generation-ready positioned queue from a JSON file."""
-    return parse_positioned_queue_input(Path(input_path).read_text())

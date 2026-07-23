@@ -13,7 +13,8 @@
 from __future__ import annotations
 
 from collections import Counter
-from typing import Protocol
+from collections.abc import Sequence
+from typing import Literal, Protocol, overload
 
 from qg.config_models.loader import QGConfiguration
 from qg.config_models.positions import (
@@ -47,9 +48,9 @@ from qg.utils import (
 
 
 def _trays_with_start_first(
-    trays: list[str] | list[int],
+    trays: Sequence[str | int],
     start_tray: str | int,
-) -> list[str] | list[int]:
+) -> list[str | int]:
     """Return ``trays`` reordered so that ``start_tray`` comes first.
 
     The GUI emits string-valued trays (``mo.ui.dropdown`` options are strings)
@@ -61,7 +62,7 @@ def _trays_with_start_first(
     raise ValueError(f"start_tray={start_tray!r} not in available trays {trays}")
 
 
-def _assign_trays_if_missing(queue: PlateQueue, available_trays: list[str] | list[int]) -> PlateQueue:
+def _assign_trays_if_missing(queue: PlateQueue, available_trays: Sequence[str | int]) -> PlateQueue:
     """Assign trays to plates that don't have one."""
     plates_needing_tray = [p for p in queue.plates.values() if p.tray is None]
     if not plates_needing_tray:
@@ -109,6 +110,28 @@ def _build_plate_queue(
     return PlateQueue(batches=batches, plates=plates, cells=cells)
 
 
+def _filter_positions_from_start(
+    positions: Sequence[Position],
+    trays: Sequence[str | int],
+    start_tray: str | int,
+    start_position: str,
+    plate_layout: PlateLayout,
+) -> list[Position]:
+    """Keep positions on or after the configured tray and well."""
+    tray_strs = [str(tray) for tray in trays]
+    start_tray_idx = tray_strs.index(str(start_tray))
+    start_flat = plate_layout.alpha_to_flat(start_position)
+    return [
+        position
+        for position in positions
+        if tray_strs.index(str(position.tray)) > start_tray_idx
+        or (
+            tray_strs.index(str(position.tray)) == start_tray_idx
+            and plate_layout.alpha_to_flat(position.grid_position) >= start_flat
+        )
+    ]
+
+
 # =============================================================================
 # Position Pools (DRY: shared position computation)
 # =============================================================================
@@ -141,19 +164,13 @@ class _PositionPoolWell:
         )
         self.available = [p for p in self.all_positions if p not in self.reserved]
 
-        # Filter: skip trays before start_tray, apply start_position offset on start_tray
-        tray_strs = [str(t) for t in sampler.trays]
-        start_tray_idx = tray_strs.index(str(start_tray))
-        start_flat = plate_layout.alpha_to_flat(start_position)
-        self.available = [
-            p
-            for p in self.available
-            if tray_strs.index(str(p.tray)) > start_tray_idx
-            or (
-                tray_strs.index(str(p.tray)) == start_tray_idx
-                and plate_layout.alpha_to_flat(p.grid_position) >= start_flat
-            )
-        ]
+        self.available = _filter_positions_from_start(
+            self.available,
+            sampler.trays,
+            start_tray,
+            start_position,
+            plate_layout,
+        )
 
         self.by_tray = group_by_key(self.available, key=lambda p: p.tray)
 
@@ -185,19 +202,13 @@ class _PositionPoolTip:
         )
         self.available = self.all_positions
 
-        # Filter: skip trays before start_tray, apply start_position offset on start_tray
-        tray_strs = [str(t) for t in sampler.trays]
-        start_tray_idx = tray_strs.index(str(start_tray))
-        start_flat = plate_layout.alpha_to_flat(start_position)
-        self.available = [
-            p
-            for p in self.available
-            if tray_strs.index(str(p.tray)) > start_tray_idx
-            or (
-                tray_strs.index(str(p.tray)) == start_tray_idx
-                and plate_layout.alpha_to_flat(p.grid_position) >= start_flat
-            )
-        ]
+        self.available = _filter_positions_from_start(
+            self.available,
+            sampler.trays,
+            start_tray,
+            start_position,
+            plate_layout,
+        )
 
         self.by_tray = group_by_key(self.available, key=lambda p: p.tray)
 
@@ -208,12 +219,7 @@ class _PositionPoolTip:
 
 
 class _PlateValidatorWellConfig:
-    """Validates PlateQueue positions against QC reservations (well-plate samplers).
-
-    For Plate mode: user provides PlateQueue with positions already assigned.
-    This class validates that user positions don't conflict with QC positions,
-    and splits alpha grid_position into row/col components.
-    """
+    """Validates well-plate coordinates and rejects QC-position conflicts."""
 
     def __init__(
         self,
@@ -233,13 +239,10 @@ class _PlateValidatorWellConfig:
     def _check_collisions(self, queue: PlateQueue) -> None:
         """Validate each well against the layout and reject QC-position conflicts."""
         for cell in queue.cells:
-            plate = queue.plates.get(cell.plate_id)
-            tray = plate.tray if plate else None
-            row, col = self.plate_layout.split_alpha(cell.grid_position)
-            pos = Position(tray, cell.grid_position, row=row, col=col)
+            pos = queue.cell_position(cell, self.plate_layout)
             if pos in self.pool.reserved:
                 raise ValueError(
-                    f"Sample '{cell.sample.sample_name}' at {tray}:{cell.grid_position} conflicts with QC position"
+                    f"Sample '{cell.sample.sample_name}' at {pos.tray}:{cell.grid_position} conflicts with QC position"
                 )
 
     def assign(self, queue: PlateQueue, *, one_container_per_tray: bool = False) -> PlateQueue:  # noqa: ARG002
@@ -251,12 +254,7 @@ class _PlateValidatorWellConfig:
 
 
 class _PlateValidatorTipConfig:
-    """Validates PlateQueue positions for tip-plate plate mode.
-
-    For Plate mode with Evosep: assigns trays and splits alpha grid_position
-    into row/col components. B-Fabric provides alpha positions (e.g., "D8") which
-    are now the internal representation — no numeric conversion needed.
-    """
+    """Assigns trays and validates tip-plate coordinates."""
 
     def __init__(
         self,
@@ -281,7 +279,7 @@ class _PlateValidatorTipConfig:
         trays = _trays_with_start_first(self.pool.trays, self._start_tray)
         queue = _assign_trays_if_missing(queue, trays)
         for cell in queue.cells:
-            self.plate_layout.split_alpha(cell.grid_position)
+            queue.cell_position(cell, self.plate_layout)
         return queue
 
 
@@ -400,7 +398,7 @@ class VialAssigner(Protocol):
 AssembledSampler = PlateValidator | VialAssigner
 
 
-def create_assembled_sampler(
+def create_assembled_sampler(  # noqa: PLR0913
     sampler_name: str,
     layout_mode: LayoutMode,
     config: QGConfiguration,
@@ -448,30 +446,42 @@ def create_assembled_sampler(
         plate_layout,
     )
 
-    # Return correct class based on layout_mode + sampler type
-    is_tip = sampler.is_tip
+    # Return the concrete class selected by layout mode and QC layout type.
     if layout_mode == LayoutMode.PLATE:
-        if is_tip:
+        if isinstance(qc_layout, QCLayoutTip):
             return _PlateValidatorTipConfig(sampler, plate_layout, qc_layout, effective_start_tray)
-        else:
-            return _PlateValidatorWellConfig(sampler, plate_layout, qc_layout, effective_start_tray)
-    else:  # vial
-        if is_tip:
-            return _VialPlateAssignerTipConfig(
-                sampler,
-                plate_layout,
-                qc_layout,
-                start_position,
-                effective_start_tray,
-            )
-        else:
-            return _VialPlateAssignerWellConfig(
-                sampler,
-                plate_layout,
-                qc_layout,
-                start_position,
-                effective_start_tray,
-            )
+        return _PlateValidatorWellConfig(sampler, plate_layout, qc_layout, effective_start_tray)
+    if isinstance(qc_layout, QCLayoutTip):
+        return _VialPlateAssignerTipConfig(
+            sampler,
+            plate_layout,
+            qc_layout,
+            start_position,
+            effective_start_tray,
+        )
+    return _VialPlateAssignerWellConfig(
+        sampler,
+        plate_layout,
+        qc_layout,
+        start_position,
+        effective_start_tray,
+    )
+
+
+@overload
+def _create_input_sampler(
+    config: QGConfiguration,
+    parameters: QueueParameters,
+    layout_mode: Literal[LayoutMode.VIAL],
+) -> VialAssigner: ...
+
+
+@overload
+def _create_input_sampler(
+    config: QGConfiguration,
+    parameters: QueueParameters,
+    layout_mode: Literal[LayoutMode.PLATE],
+) -> PlateValidator: ...
 
 
 def _create_input_sampler(
@@ -484,8 +494,6 @@ def _create_input_sampler(
         parameters.tech_area,
         parameters.queue_pattern,
     )
-    sampler = config.samplers.get_sampler(parameters.sampler)
-    start_tray = parameters.start_tray if parameters.start_tray != "" else sampler.trays[0]
     return create_assembled_sampler(
         sampler_name=parameters.sampler,
         layout_mode=layout_mode,
@@ -495,7 +503,7 @@ def _create_input_sampler(
         plate_layout_name=parameters.plate_layout,
         qc_layout_name=parameters.qc_layout_name,
         start_position=parameters.start_position,
-        start_tray=start_tray,
+        start_tray=parameters.start_tray,
     )
 
 

@@ -56,7 +56,7 @@ class QCLayoutTip:
         self.is_empty: bool = len(qc_samples) == 0
 
 
-def create_qc_layout(
+def create_qc_layout(  # noqa: PLR0913
     config: QGConfiguration,
     tech_area: str,
     qc_layout_name: str,
@@ -90,8 +90,8 @@ def create_qc_layout(
             return QCLayoutTip([], plate_layout)
         return QCLayoutWell([], position_fun)
 
-    qc_samples = config.get_qc_samples(tech_area, qc_layout_name, plate_layout_name, sampler)
-
     if is_tip:
-        return QCLayoutTip(qc_samples, plate_layout)
-    return QCLayoutWell(qc_samples, position_fun)
+        qc_samples_tip = config.qc_layouts_tip.get_samples(tech_area, qc_layout_name, plate_layout_name)
+        return QCLayoutTip(qc_samples_tip, plate_layout)
+    qc_samples_well = config.qc_layouts_well.get_samples(tech_area, qc_layout_name, plate_layout_name)
+    return QCLayoutWell(qc_samples_well, position_fun)

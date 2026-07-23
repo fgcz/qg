@@ -191,7 +191,7 @@ class MethodsConfig(BaseModel):
             MethodsConfig with all methods loaded
         """
         methods_dir = config_dir / cls.config_folder
-        tables: dict[tuple[str, str], pl.DataFrame] = {}
+        tables: dict[tuple[str, str], tuple[pl.DataFrame, Path]] = {}
 
         for instr in instruments.instruments:
             # methods_file is like "methods/Proteomics/ASTRAL_1_methods.csv"

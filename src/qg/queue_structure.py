@@ -62,6 +62,41 @@ def _compute_extended_positions(num_middle_blocks: int, multiplier: int) -> set[
     return positions
 
 
+def _entries(sample_ids: list[str], container_id: int) -> list[SlotEntry]:
+    """Attach container context to a block of sample IDs."""
+    return [SlotEntry(sample_id=sample_id, container_id=container_id) for sample_id in sample_ids]
+
+
+def _build_group_entries(
+    container_id: int,
+    num_samples: int,
+    pattern: QueuePattern,
+    default_sample_id: str,
+    run_qc_after_n: int,
+) -> list[SlotEntry]:
+    """Build one container's user samples and periodic middle-QC blocks."""
+    middle_positions = set(_compute_middle_block_positions(num_samples, run_qc_after_n))
+    extended_positions = _compute_extended_positions(
+        len(middle_positions),
+        pattern.middle_extended_frequency_multiplier or 0,
+    )
+
+    result: list[SlotEntry] = []
+    middle_block_idx = 0
+    for sample_idx in range(num_samples):
+        result.append(SlotEntry(sample_id=default_sample_id, container_id=container_id))
+        if sample_idx not in middle_positions:
+            continue
+        middle = (
+            pattern.middle_extended
+            if middle_block_idx in extended_positions and pattern.middle_extended
+            else pattern.middle
+        )
+        result.extend(_entries(middle, container_id))
+        middle_block_idx += 1
+    return result
+
+
 def build_multi_container_queue_structure(
     groups: list[tuple[int, int]],  # (container_id, num_samples)
     pattern: QueuePattern,
@@ -84,18 +119,14 @@ def build_multi_container_queue_structure(
         List of SlotEntry with container context
     """
     if not groups:
-        result: list[SlotEntry] = []
-        for sample_id in pattern.start:
-            result.append(SlotEntry(sample_id=sample_id, container_id=0))
-        for sample_id in pattern.end:
-            result.append(SlotEntry(sample_id=sample_id, container_id=0))
-        return result
+        return _entries(pattern.start + pattern.end, 0)
 
     # Apply QC frequency override if specified
     run_qc_after_n = qc_frequency_override if qc_frequency_override is not None else pattern.run_QC_after_n_samples
 
     separation_block = pattern.effective_separation
-    structure: list[SlotEntry] = []
+    first_container_id = groups[0][0]
+    structure = _entries(pattern.start, first_container_id)
 
     logger.debug(
         "Building multi-group structure: {} groups, pattern '{}', separation={}",
@@ -104,43 +135,29 @@ def build_multi_container_queue_structure(
         separation_block,
     )
 
-    # Start block - use first group's container_id
-    first_container_id = groups[0][0]
-    for sample_id in pattern.start:
-        structure.append(SlotEntry(sample_id=sample_id, container_id=first_container_id))
-
     # Process each group
     for group_idx, (container_id, num_samples) in enumerate(groups):
         # Insert separation block before each group (except first)
         # Separation block belongs to the group being finished (previous group)
         if group_idx > 0 and separation_block:
             prev_container_id = groups[group_idx - 1][0]
-            for sample_id in separation_block:
-                structure.append(SlotEntry(sample_id=sample_id, container_id=prev_container_id))
+            structure.extend(_entries(separation_block, prev_container_id))
 
         # Build group structure (user samples + middle QCs)
         if num_samples > 0:
-            middle_positions = set(_compute_middle_block_positions(num_samples, run_qc_after_n))
-            extended_positions = _compute_extended_positions(
-                len(middle_positions), pattern.middle_extended_frequency_multiplier or 0
+            structure.extend(
+                _build_group_entries(
+                    container_id,
+                    num_samples,
+                    pattern,
+                    default_sample_id,
+                    run_qc_after_n,
+                )
             )
-
-            middle_block_idx = 0
-            for i in range(num_samples):
-                structure.append(SlotEntry(sample_id=default_sample_id, container_id=container_id))
-                if i in middle_positions:
-                    if middle_block_idx in extended_positions and pattern.middle_extended:
-                        for sample_id in pattern.middle_extended:
-                            structure.append(SlotEntry(sample_id=sample_id, container_id=container_id))
-                    else:
-                        for sample_id in pattern.middle:
-                            structure.append(SlotEntry(sample_id=sample_id, container_id=container_id))
-                    middle_block_idx += 1
 
     # End block - use last group's container_id
     last_container_id = groups[-1][0]
-    for sample_id in pattern.end:
-        structure.append(SlotEntry(sample_id=sample_id, container_id=last_container_id))
+    structure.extend(_entries(pattern.end, last_container_id))
 
     user_count = sum(1 for s in structure if s.sample_id == default_sample_id)
     qc_count = len(structure) - user_count

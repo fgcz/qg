@@ -51,6 +51,8 @@ _QC_PATTERN = {"shape": "/", "size": 7, "solidity": 0.35, "fgcolor": "rgba(255,2
 _POLARITY_COLORS = {"pos": "#9ECAE1", "neg": "#08519C"}
 _POLARITY_LABELS = {"pos": "positive", "neg": "negative"}
 
+type _TimelineEncoding = tuple[pl.DataFrame, list[str], dict[str, str], str, set[str]]
+
 
 def _hover(label_expr: pl.Expr) -> pl.Expr:
     return (
@@ -125,7 +127,7 @@ def _add_polarity_bars(fig: go.Figure, df: pl.DataFrame, row: int) -> None:
         )
 
 
-def _grouping_var_encoding(df: pl.DataFrame) -> tuple[pl.DataFrame, list[str], dict[str, str], str]:
+def _grouping_var_encoding(df: pl.DataFrame) -> _TimelineEncoding:
     """Colour user samples by group and QC by type, from one collision-free palette."""
     if "qc_class" not in df.columns:
         df = df.with_columns(pl.lit(None, dtype=pl.Utf8).alias("qc_class"))
@@ -162,7 +164,7 @@ def _grouping_var_encoding(df: pl.DataFrame) -> tuple[pl.DataFrame, list[str], d
     return df, ordered, color_map, "Acquisition order — injection class across the run", hatched
 
 
-def _qc_cadence_encoding(df: pl.DataFrame) -> tuple[pl.DataFrame, list[str], dict[str, str], str]:
+def _qc_cadence_encoding(df: pl.DataFrame) -> _TimelineEncoding:
     """Highlight QC injections and report the gap (in injections) since the previous QC."""
     qc_runs = df.filter(pl.col("slot_kind") == "qc")["run_number"].to_list()
     prev = dict(zip(qc_runs, _gaps(qc_runs), strict=True))
@@ -234,7 +236,9 @@ def build_timeline_figure(df: pl.DataFrame, color_by: str = "grouping_var") -> g
         bargap=0,
     )
     # Snug x-range so the strip fills the width instead of floating with auto-padding.
-    n_max = int(df["run_number"].max())
+    n_max = df["run_number"].max()
+    if not isinstance(n_max, int):
+        raise ValueError("Timeline run_number values must be non-empty integers.")
     fig.update_xaxes(range=[0.5, n_max + 0.5])
     fig.update_xaxes(title_text="acquisition order (injection 1..N)", tickformat="d", row=n_rows, col=1)
     fig.update_yaxes(visible=False, range=[0, 1])

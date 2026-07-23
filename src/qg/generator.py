@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
@@ -128,13 +129,7 @@ def _build_slots(
             user_cell = next(cell_iter, None)
             if not user_cell:
                 continue
-            row, col = plate_layout.split_alpha(user_cell.grid_position)
-            position = Position(
-                tray=plate_queue.plates[user_cell.plate_id].tray,
-                grid_position=user_cell.grid_position,
-                row=row,
-                col=col,
-            )
+            position = plate_queue.cell_position(user_cell, plate_layout)
         else:
             position = qc_provider.get_position(entry.sample_id)
 
@@ -152,7 +147,7 @@ def _build_slots(
     return slots
 
 
-def _expand_polarities(slots: list[SlotInfo], polarities: list[str]) -> list[ExpandedSlot]:
+def _expand_polarities(slots: list[SlotInfo], polarities: Sequence[str]) -> list[ExpandedSlot]:
     """Duplicate slots for each polarity, assign run_number."""
     expanded: list[ExpandedSlot] = []
     run = 1

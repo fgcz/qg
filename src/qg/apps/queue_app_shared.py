@@ -163,38 +163,33 @@ def validate_selection(
 
     Returns ``(is_valid, errors)``.
     """
-    errors: list[str] = []
     if not selected_orders:
         # Until a source is picked nothing downstream can resolve; show one actionable
         # hint instead of a cascade of "X not selected" entries.
-        errors.append(no_source_message)
-    else:
-        if not tech_area:
-            errors.append("Tech area not selected")
-        if not instrument:
-            errors.append("Instrument not selected")
-        if not sampler:
-            errors.append("Sampler not selected")
-        if not queue_type:
-            errors.append("Queue type not selected")
-        if not plate_layout:
-            errors.append("Plate layout not selected")
-        if not qc_layout:
-            errors.append("QC layout not selected")
-        if not pattern:
-            errors.append("Pattern not selected")
+        return False, [no_source_message]
 
-    if not errors and filtered_table.is_empty():
-        errors.append("No valid combination found")
+    required_selections = (
+        (tech_area, "Tech area not selected"),
+        (instrument, "Instrument not selected"),
+        (sampler, "Sampler not selected"),
+        (queue_type, "Queue type not selected"),
+        (plate_layout, "Plate layout not selected"),
+        (qc_layout, "QC layout not selected"),
+        (pattern, "Pattern not selected"),
+    )
+    errors = [message for value, message in required_selections if not value]
+    if errors:
+        return False, errors
+    if filtered_table.is_empty():
+        return False, ["No valid combination found"]
 
-    if not errors and plate_layout and qc_layout:
-        queue_pattern = config.queue_patterns.get_pattern(tech_area, pattern)
-        if queue_pattern and queue_pattern.get_all_sample_ids():
-            qc_samples = config.get_qc_samples(tech_area, qc_layout, plate_layout, config.samplers.get_sampler(sampler))
-            if not qc_samples:
-                errors.append(f"No QC samples for {tech_area}/{qc_layout}/{plate_layout}")
+    queue_pattern = config.queue_patterns.get_pattern(tech_area, pattern)
+    if queue_pattern.get_all_sample_ids():
+        qc_samples = config.get_qc_samples(tech_area, qc_layout, plate_layout, config.samplers.get_sampler(sampler))
+        if not qc_samples:
+            return False, [f"No QC samples for {tech_area}/{qc_layout}/{plate_layout}"]
 
-    return len(errors) == 0, errors
+    return True, []
 
 
 def resolve_qc_layout_preview(

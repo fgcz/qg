@@ -1,26 +1,111 @@
+default_install_hook_types: [pre-commit, pre-push]
+
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.9.0
+    rev: v0.15.11
     hooks:
       - id: ruff
         args: [--fix]
+        stages: [pre-commit]
       - id: ruff-format
+        stages: [pre-commit]
 
   - repo: local
     hooks:
       - id: pyright
         name: pyright
-        entry: uv run --group dev python -m pyright
+        entry: uv run --frozen --group dev pyright
         language: system
         types: [python]
         pass_filenames: false
+        stages: [pre-commit]
 
-      - id: pytest
-        name: pytest
-        # GUI tests under tests/gui/ spawn uvicorn + headless Chromium and take
-        # ~1 min; that's too slow for every commit. Run them in CI or explicitly
-        # via `uv run pytest tests/gui/`.
-        entry: uv run pytest -x -q --ignore=tests/gui
+      - id: deptry
+        name: dependency declarations
+        entry: uv run --frozen --group dev deptry .
         language: system
-        types: [python]
+        always_run: true
         pass_filenames: false
+        stages: [pre-commit]
+
+      - id: marimo-check
+        name: marimo check (strict)
+        entry: >-
+          uv run --frozen marimo check --strict
+          src/qg/apps/queue_app.py
+          src/qg/apps/queue_app_local.py
+          src/qg/apps/config_editor.py
+        language: system
+        always_run: true
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: pytest-coverage
+        name: tests and coverage
+        entry: >-
+          uv run --frozen pytest -x -q
+          --ignore=tests/gui
+          --ignore=tests/gui_local
+          --cov=qg
+          --cov-branch
+          --cov-report=xml:coverage.xml
+          --cov-report=term-missing:skip-covered
+        language: system
+        always_run: true
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: diff-cover
+        name: changed-line coverage
+        entry: >-
+          uv run --frozen diff-cover coverage.xml
+          --compare-branch=origin/main
+          --fail-under=60
+        language: system
+        always_run: true
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: package-smoke
+        name: package smoke
+        entry: uv run --frozen python scripts/package_smoke.py
+        language: system
+        always_run: true
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: core-no-bfabric
+        name: core profile without B-Fabric
+        entry: >-
+          uv run --isolated --frozen --no-group portal
+          python scripts/core_profile_check.py
+        language: system
+        always_run: true
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: gui-tests
+        name: browser GUI tests
+        entry: uv run --frozen pytest tests/gui tests/gui_local
+        language: system
+        always_run: true
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: mkdocs-strict
+        name: strict documentation build
+        entry: uv run --frozen --group docs mkdocs build --strict
+        language: system
+        always_run: true
+        pass_filenames: false
+        stages: [pre-push]
+
+      # The scheduled workflow remains blocking. This local hook is manual until
+      # bfabric-asgi-auth permits the non-vulnerable Starlette 1.x line.
+      - id: dependency-audit
+        name: dependency vulnerability audit
+        entry: uv run --frozen pip-audit --local --skip-editable --progress-spinner=off
+        language: system
+        always_run: true
+        pass_filenames: false
+        stages: [manual]

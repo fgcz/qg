@@ -513,6 +513,48 @@ class TestEvosepPlateAlphaPassthrough:
         assert result.cells[2].grid_position == "H1"
         assert result.cells[3].grid_position == "H12"
 
+    def test_out_of_layout_position_rejected(self, config) -> None:
+        """A submitted tip position outside the plate layout fails validation."""
+        sampler = create_assembled_sampler(
+            "Evosep",
+            "plate",
+            config,
+            "Proteomics",
+            set(),
+            "Plate_96",
+            "standard",
+        )
+        queue = _create_plate_queue_with_alpha_positions(["A99"])
+
+        with pytest.raises(ValueError, match=r"A99"):
+            sampler.assign(queue)
+
+
+@pytest.mark.parametrize(
+    ("sampler_name", "layout"),
+    [
+        ("Vanquish", "Vanquish_54"),
+        ("MClass", "MClass_48"),
+        ("Evosep", "Plate_96"),
+    ],
+)
+def test_plate_mode_rejects_unknown_plate(config, sampler_name: str, layout: str) -> None:
+    """All plate samplers reject a cell whose plate foreign key is absent."""
+    sampler = create_assembled_sampler(
+        sampler_name,
+        "plate",
+        config,
+        "Proteomics",
+        set(),
+        layout,
+        "standard",
+    )
+    queue = _create_plate_queue_with_alpha_positions(["A1"])
+    queue.cells[0].plate_id = 999
+
+    with pytest.raises(ValueError, match=r"unknown plate 999"):
+        sampler.assign(queue)
+
 
 # =============================================================================
 # Tests for Well-plate Plate mode - row/col splitting

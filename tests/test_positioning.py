@@ -58,6 +58,15 @@ def test_queue_generator_rejects_unpositioned_input(config):
         QueueGenerator(config, make_queue_input(config=config, num_samples=1))  # type: ignore[arg-type]
 
 
+def test_positioned_input_rejects_plate_without_tray(config):
+    source = make_queue_input(config=config, num_samples=1)
+    data = source.position_queue().model_dump()
+    data["queue"]["plates"][1]["tray"] = None
+
+    with pytest.raises(ValueError, match="missing a tray"):
+        PositionedQueueInput.model_validate(data)
+
+
 def test_generated_plate_ids_are_stable_across_processes(config, tmp_path):
     source_path = tmp_path / "source.json"
     source_path.write_text(make_queue_input(config=config, num_samples=60).model_dump_json())

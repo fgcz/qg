@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import ClassVar, Literal, Protocol, Self
 
 import polars as pl
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 from qg.utils import GridPositionConversion, PositionFunction
 
@@ -265,34 +265,15 @@ class SamplerPlateLayoutsConfig(BaseModel):
 
 
 class QCSampleWell(BaseModel):
-    """A QC sample position for well-plate samplers (fixed well positions).
-
-    Every row must fully specify its position. Position fields are typed ``| None``
-    only so a blank CSV cell parses (as ``None``) and is then rejected by the
-    validator below, rather than raising an opaque field-level coercion error.
-    """
+    """A fully specified QC sample position for a well-plate sampler."""
 
     tech_area: str = Field(..., description="Technology area")
     qc_layout_name: str = Field(..., description="QC layout name")
     plate_layout: str = Field(..., description="Plate layout name")
-    sample_id: str | None = Field(default=None, description="QC sample identifier")
-    tray: str | None = Field(default=None, description="Tray identifier")
-    row: str | None = Field(default=None, description="Row identifier")
-    col: int | None = Field(default=None, description="Column identifier")
-
-    @model_validator(mode="after")
-    def positions_all_set(self) -> Self:
-        """Require every QC layout row to fully specify sample_id/tray/row/col.
-
-        A typo'd row (e.g. a blank `row` cell) would otherwise load successfully
-        and be silently dropped from ``get_sample_ids``, masking the config error.
-        """
-        if all(f is not None for f in (self.sample_id, self.tray, self.row, self.col)):
-            return self
-        raise ValueError(
-            f"QC layout row ({self.tech_area}, {self.qc_layout_name}, {self.plate_layout}) "
-            "must have all of sample_id/tray/row/col set."
-        )
+    sample_id: str = Field(..., description="QC sample identifier")
+    tray: str = Field(..., description="Tray identifier")
+    row: str = Field(..., description="Row identifier")
+    col: int = Field(..., description="Column identifier")
 
 
 class QCLayoutsWellConfig(BaseModel):
@@ -322,10 +303,8 @@ class QCLayoutsWellConfig(BaseModel):
         )
 
     def get_sample_ids(self, tech_area: str, qc_layout_name: str, plate_layout: str) -> set[str]:
-        """Get sample_ids available in a specific layout (None placeholders excluded)."""
-        return {
-            s.sample_id for s in self.get_samples(tech_area, qc_layout_name, plate_layout) if s.sample_id is not None
-        }
+        """Get sample_ids available in a specific layout."""
+        return {s.sample_id for s in self.get_samples(tech_area, qc_layout_name, plate_layout)}
 
     def to_table(self) -> pl.DataFrame:
         """Convert to polars DataFrame."""

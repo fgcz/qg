@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import BinaryIO
 from xml.etree import ElementTree as ET
 
 import polars as pl
@@ -10,14 +11,14 @@ import polars as pl
 
 def write_hystar_xml(
     df: pl.DataFrame,
-    path: Path | str,
+    path: Path | str | BinaryIO,
     acqend_execute: str = r"C:\FGCZ\Biobeamer\biobeamer.bat",
 ) -> None:
     """Write DataFrame as HyStar XML sequence file.
 
     Args:
         df: DataFrame with columns: Position, SampleID, Volume, DataPath, SuperMethod
-        path: Output file path
+        path: Output path or writable binary stream.
         acqend_execute: Post-acquisition script path
 
     The DataFrame should already be formatted via output_formats.toml [hystar].
@@ -42,7 +43,7 @@ def write_hystar_xml(
             "ResultDatafile": f"{data_path}\\{sample_id}.d",
             "ACQEND_EXECUTE": acqend_execute,
         }
-        ET.SubElement(root, "Sample", **attrs)
+        ET.SubElement(root, "Sample", attrs)
 
     tree = ET.ElementTree(root)
     ET.indent(tree, space="  ")

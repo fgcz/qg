@@ -9,10 +9,10 @@ The queue generator follows a **stateless functional pipeline** design:
 - Stages are composable and independently testable.
 
 Physical positioning is orchestrated by `QueueInput.position_queue()`. Its
-implementation in [`positionV2.py`](../../src/qg/positionV2.py) converts vial
+implementation in [`positionV2.py`](https://github.com/fgcz/qg/blob/main/src/qg/positionV2.py) converts vial
 inputs or validates plate inputs and returns a `PositionedQueueInput`. The
 remaining pipeline is orchestrated by `QueueGenerator.build_rows()` in
-[`generator.py`](../../src/qg/generator.py).
+[`generator.py`](https://github.com/fgcz/qg/blob/main/src/qg/generator.py).
 
 ## Inputs
 

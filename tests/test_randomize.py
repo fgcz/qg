@@ -6,7 +6,15 @@ import random as py_random
 
 import pytest
 
-from qg.params_models import ContainerBatch, Plate, PlateCell, PlateQueue, VialSample, draw_seed
+from qg.params_models import (
+    ContainerBatch,
+    Plate,
+    PlateCell,
+    PlateQueue,
+    QueueParameters,
+    VialSample,
+    draw_seed,
+)
 from qg.randomize import randomize_plate_queue
 
 
@@ -452,3 +460,22 @@ class TestDrawSeed:
         assert all(isinstance(s, int) and 0 <= s < 2**32 for s in seeds)
         # Overwhelmingly likely to be distinct; guards against a constant return.
         assert len(seeds) > 1
+
+    def test_legacy_null_seed_is_replaced(self):
+        params = QueueParameters.model_validate(
+            {
+                "tech_area": "Proteomics",
+                "instrument": "ASTRAL_1",
+                "sampler": "Vanquish",
+                "output_format": "xcalibur",
+                "queue_pattern": "standard",
+                "queue_type": "Vial",
+                "plate_layout": "Vanquish_54",
+                "qc_layout_name": "standard",
+                "date": "20260723",
+                "seed": None,
+            }
+        )
+
+        assert isinstance(params.seed, int)
+        assert 0 <= params.seed < 2**32

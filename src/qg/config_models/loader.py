@@ -174,51 +174,48 @@ def _validate_layout_sample_refs(
     Returns:
         List of validation error messages
     """
-    errors: list[str] = []
     logger.info("Validating QC layout sample references...")
 
-    all_ok = True
+    def unknown_references(
+        source: str,
+        qc_samples: list[QCSampleWell] | list[QCSampleTip],
+    ) -> list[str]:
+        by_tech: dict[str, set[str]] = {}
+        for qc_sample in qc_samples:
+            by_tech.setdefault(qc_sample.tech_area, set()).add(qc_sample.sample_id)
 
-    # Validate well-plate layout samples (None rows are the noqc placeholder; skip)
-    well_tech_samples: dict[str, set[str]] = {}
-    for qc_sample in qc_layouts_well.samples:
-        if qc_sample.sample_id is None:
-            continue
-        tech = qc_sample.tech_area
-        if tech not in well_tech_samples:
-            well_tech_samples[tech] = set()
-        well_tech_samples[tech].add(qc_sample.sample_id)
+        messages: list[str] = []
+        for tech, sample_ids in by_tech.items():
+            valid_sample_ids = {s.sample_id for s in samples.get_by_tech_area(tech)}
+            unknown = sample_ids - valid_sample_ids
+            if unknown:
+                messages.append(f"{source}: {tech} references unknown samples: {unknown}")
+        return messages
 
-    for tech, sample_ids in well_tech_samples.items():
-        valid_sample_ids = {s.sample_id for s in samples.get_by_tech_area(tech)}
-        unknown = sample_ids - valid_sample_ids
-        if unknown:
-            msg = f"qc_layouts_well.csv: {tech} references unknown samples: {unknown}"
-            errors.append(msg)
-            logger.warning(msg)
-            all_ok = False
+    errors = unknown_references("qc_layouts_well.csv", qc_layouts_well.samples)
+    errors.extend(unknown_references("qc_layouts_tip.csv", qc_layouts_tip.samples))
+    for message in errors:
+        logger.warning(message)
 
-    # Validate tip-plate layout samples
-    tip_tech_samples: dict[str, set[str]] = {}
-    for qc_sample in qc_layouts_tip.samples:
-        tech = qc_sample.tech_area
-        if tech not in tip_tech_samples:
-            tip_tech_samples[tech] = set()
-        tip_tech_samples[tech].add(qc_sample.sample_id)
-
-    for tech, sample_ids in tip_tech_samples.items():
-        valid_sample_ids = {s.sample_id for s in samples.get_by_tech_area(tech)}
-        unknown = sample_ids - valid_sample_ids
-        if unknown:
-            msg = f"qc_layouts_tip.csv: {tech} references unknown samples: {unknown}"
-            errors.append(msg)
-            logger.warning(msg)
-            all_ok = False
-
-    if all_ok:
+    if not errors:
         logger.info("  OK: All QC layouts reference valid samples")
 
     return errors
+
+
+def _layout_sample_sets_by_tech(
+    qc_samples: list[QCSampleWell] | list[QCSampleTip],
+) -> dict[str, list[set[str]]]:
+    """Collect each distinct QC layout's sample IDs, grouped by technology."""
+    by_layout: dict[tuple[str, str, str], set[str]] = {}
+    for sample in qc_samples:
+        key = (sample.tech_area, sample.qc_layout_name, sample.plate_layout)
+        by_layout.setdefault(key, set()).add(sample.sample_id)
+
+    by_tech: dict[str, list[set[str]]] = {}
+    for (tech_area, _, _), sample_ids in by_layout.items():
+        by_tech.setdefault(tech_area, []).append(sample_ids)
+    return by_tech
 
 
 def _validate_pattern_layout_compatibility(
@@ -238,41 +235,20 @@ def _validate_pattern_layout_compatibility(
     errors: list[str] = []
     logger.info("Validating pattern/layout compatibility...")
 
-    all_ok = True
+    layouts_by_tech = _layout_sample_sets_by_tech(qc_layouts_well.samples)
+    for tech_area, sample_sets in _layout_sample_sets_by_tech(qc_layouts_tip.samples).items():
+        layouts_by_tech.setdefault(tech_area, []).extend(sample_sets)
+
     for tech_area in queue_patterns.get_technologies():
+        available_layouts = layouts_by_tech.get(tech_area, [])
         for pattern_name, pattern in queue_patterns.get_patterns_for_tech_area(tech_area).items():
             required = pattern.get_all_sample_ids()
-            if not required:
-                continue
+            if required and not any(required <= available for available in available_layouts):
+                message = f"{tech_area}.{pattern_name} requires {required} but no QC layout provides all of them"
+                errors.append(message)
+                logger.warning(message)
 
-            # Collect all (qc_layout_name, plate_layout) → sample_ids from both well and tip
-            found_compatible = False
-            for qc_sample in qc_layouts_well.samples:
-                if qc_sample.tech_area != tech_area:
-                    continue
-                available = qc_layouts_well.get_sample_ids(tech_area, qc_sample.qc_layout_name, qc_sample.plate_layout)
-                if required <= available:
-                    found_compatible = True
-                    break
-
-            if not found_compatible:
-                for qc_sample in qc_layouts_tip.samples:
-                    if qc_sample.tech_area != tech_area:
-                        continue
-                    available = qc_layouts_tip.get_sample_ids(
-                        tech_area, qc_sample.qc_layout_name, qc_sample.plate_layout
-                    )
-                    if required <= available:
-                        found_compatible = True
-                        break
-
-            if not found_compatible:
-                msg = f"{tech_area}.{pattern_name} requires {required} but no QC layout provides all of them"
-                errors.append(msg)
-                logger.warning(msg)
-                all_ok = False
-
-    if all_ok:
+    if not errors:
         logger.info("  OK: All patterns have at least one compatible QC layout")
 
     return errors
@@ -611,7 +587,7 @@ class QGConfiguration:
         return ResolvedConfig.from_configuration(self, params)
 
     @staticmethod
-    def create(
+    def create(  # noqa: PLR0913
         *,
         samples: SamplesConfig,
         instruments: InstrumentsConfig,

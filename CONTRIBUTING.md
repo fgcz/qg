@@ -7,8 +7,19 @@ management and MkDocs for documentation.
 
 ```bash
 uv sync
+uv run playwright install chromium
+uv run pre-commit install --install-hooks
 uv run qg-validate
 uv run pytest
+```
+
+The pre-commit hook runs Ruff, Pyright, deptry, and strict marimo validation.
+The pre-push hook mirrors the complete CI gate, including coverage, packaging,
+an isolated core-only profile, browser tests, and strict documentation. Run the
+scheduled security check locally with:
+
+```bash
+uv run pre-commit run dependency-audit --hook-stage manual --all-files
 ```
 
 Run a single test with:

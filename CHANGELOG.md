@@ -10,7 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added a standalone `qg-assign-positions` command and public positioning API for auditable vial-to-plate assignment.
 
 ### Changed
-- GitHub Actions now runs Pyright as a dedicated type-checking job.
+- GitHub Actions and staged pre-commit hooks now enforce the same linting, type, dependency, coverage, packaging, core-profile, GUI, marimo, and strict documentation checks.
+- GitLab release builds now wait for the non-browser test and static-quality gate before writing an OCI archive to NFS.
 - Queue inputs now require embedded version/config provenance, and `QueueGenerator` requires an explicitly supplied configuration plus positioned input.
 - Package metadata is now required at import and is the single source for queue version provenance.
 - B-Fabric composition checks now use sample reference IDs without loading full sample entities.
@@ -19,6 +20,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Plate cells now store only `plate_id` and `grid_position`; row/column and flat vendor indices are derived from `grid_position` and validated against the selected plate layout.
 
 ### Fixed
+- Archived queue inputs with a `null` seed can be loaded while retaining a concrete reproducibility seed downstream.
+- All plate samplers now reject cells that reference an unknown plate during positioning.
 - Plate wells outside the selected layout are now rejected during positioning instead of silently generating an instrument position for a well that does not exist.
 - Vial queue type now offers only off-plate samples; for an order holding both plate and vial samples, plate-resident samples are no longer duplicated into the vial queue.
 
