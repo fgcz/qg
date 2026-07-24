@@ -287,7 +287,8 @@ possible — it validates cross-references before saving.
 
 The runtime input to queue generation (distinct from the static config files
 above), defined in `src/qg/params_models.py`. A `QueueInput` is one of two
-shapes — `VialQueueInput` or `PlateQueueInput` — each `{parameters, queue}`.
+shapes — `VialQueueInput` or `PlateQueueInput` — each containing `parameters`,
+`queue`, required `qg_version`, and required `resolved_config` fields.
 `read_queue_input()` selects plate vs vial by whether `queue` contains `plates`.
 See [Algorithm](algorithm.md) for how each field flows through the pipeline.
 
@@ -323,7 +324,9 @@ See [Algorithm](algorithm.md) for how each field flows through the pipeline.
     "samples": [
       {"sample_name": "S1", "sample_id": 123456, "tube_id": "37180/1", "container_id": 37180, "grouping_var": null}
     ]
-  }
+  },
+  "qg_version": "0.10.0",
+  "resolved_config": {"...": "embedded configuration snapshot"}
 }
 ```
 
@@ -341,7 +344,7 @@ as `Plate_96`), but `queue` carries `plates` and `cells`:
     "cells": [
       {
         "sample": {"sample_name": "S1", "sample_id": 123456, "tube_id": null, "container_id": 37180, "grouping_var": null},
-        "position": 1, "grid_position": "A1", "plate_id": 1, "row": "A", "col": 1
+        "grid_position": "A1", "plate_id": 1
       }
     ]
   }
@@ -365,7 +368,7 @@ as `Plate_96`), but `queue` carries `plates` and `cells`:
 | `user` | string | Username; substituted into `path_template` |
 | `method` | dict | Per-polarity method names: `{"pos": "...", "neg": "..."}` |
 | `randomization` | string | `"no"` / `"random"` / `"blocked"` / `"blocked_uniform"` (see [Algorithm](algorithm.md)) |
-| `seed` | int? | RNG seed for reproducible randomization. When null and a randomized mode is selected, a seed is drawn at generation and recorded back here. |
+| `seed` | int? | RNG seed for reproducible randomization. Input construction records a concrete seed for every randomized mode; null is valid only for `randomization="no"`. |
 | `inj_vol_override` | float? | Override injection volume (null → use `samples.csv`) |
 | `qc_frequency_override` | int? | Override pattern `run_QC_after_n_samples` (null → use pattern) |
 | `one_container_per_tray` | bool | Place each container on its own tray (vial mode) |
@@ -384,7 +387,7 @@ instrument's `path_template` (`…\{user}_{date}`) to form the per-row data path
 | `batches` | both | Map of `container_id` → `{container_id, container_name?}`. Multi-container support lives here, with a `separation` QC block inserted between containers. |
 | `samples` | vial | List of `VialSample` (JSON alias `cells` also accepted) |
 | `plates` | plate | Map of `plate_id` → `{plate_id, tray?, nr_samples}` |
-| `cells` | plate | List of `PlateCell` (a `VialSample` plus `position`/`grid_position`/`plate_id`/`row`/`col`) |
+| `cells` | plate | List of `PlateCell` (a `VialSample` plus `plate_id`/`grid_position`; row/col and any flat index are derived from `grid_position`) |
 
 ### `VialSample` fields
 

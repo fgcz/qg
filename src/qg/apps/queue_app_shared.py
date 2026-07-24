@@ -24,18 +24,18 @@ import polars as pl
 import pydantic
 from loguru import logger
 
+from qg.artifacts import save_generation_artifact, save_positioning_artifacts
 from qg.config_models.structure import NO_LAYOUT, SamplesConfig
 from qg.generator import QueueGenerator, format_table, write_queue
-from qg.params_models import QueueParameters, stamp_provenance
+from qg.params_models import QueueParameters
 from qg.queue_builder import QueueBuilder
-from qg.randomize import draw_seed
 from qg.viz.balance import plate_balance, queue_balance
 from qg.viz.plate import build_plate_figure, build_plate_wells
 from qg.viz.timeline import build_timeline_figure
 
 if TYPE_CHECKING:
     from qg.config_models.loader import QGConfiguration
-    from qg.params_models import QueueInput
+    from qg.params_models import PositionedQueueInput, QueueInput
 
 
 def synthesize_local_orders(full_samples_df: pl.DataFrame) -> list[tuple[int, None]]:
@@ -163,40 +163,33 @@ def validate_selection(
 
     Returns ``(is_valid, errors)``.
     """
-    errors: list[str] = []
     if not selected_orders:
         # Until a source is picked nothing downstream can resolve; show one actionable
         # hint instead of a cascade of "X not selected" entries.
-        errors.append(no_source_message)
-    else:
-        if not tech_area:
-            errors.append("Tech area not selected")
-        if not instrument:
-            errors.append("Instrument not selected")
-        if not sampler:
-            errors.append("Sampler not selected")
-        if not queue_type:
-            errors.append("Queue type not selected")
-        if not plate_layout:
-            errors.append("Plate layout not selected")
-        if not qc_layout:
-            errors.append("QC layout not selected")
-        if not pattern:
-            errors.append("Pattern not selected")
+        return False, [no_source_message]
 
-    if not errors and filtered_table.is_empty():
-        errors.append("No valid combination found")
+    required_selections = (
+        (tech_area, "Tech area not selected"),
+        (instrument, "Instrument not selected"),
+        (sampler, "Sampler not selected"),
+        (queue_type, "Queue type not selected"),
+        (plate_layout, "Plate layout not selected"),
+        (qc_layout, "QC layout not selected"),
+        (pattern, "Pattern not selected"),
+    )
+    errors = [message for value, message in required_selections if not value]
+    if errors:
+        return False, errors
+    if filtered_table.is_empty():
+        return False, ["No valid combination found"]
 
-    if not errors and plate_layout and qc_layout:
-        queue_pattern = config.queue_patterns.get_pattern(tech_area, pattern)
-        if queue_pattern and queue_pattern.get_all_sample_ids():
-            qc_samples = config.get_qc_samples(
-                tech_area, qc_layout, plate_layout, config.samplers.get_sampler(sampler)
-            )
-            if not qc_samples:
-                errors.append(f"No QC samples for {tech_area}/{qc_layout}/{plate_layout}")
+    queue_pattern = config.queue_patterns.get_pattern(tech_area, pattern)
+    if queue_pattern.get_all_sample_ids():
+        qc_samples = config.get_qc_samples(tech_area, qc_layout, plate_layout, config.samplers.get_sampler(sampler))
+        if not qc_samples:
+            return False, [f"No QC samples for {tech_area}/{qc_layout}/{plate_layout}"]
 
-    return len(errors) == 0, errors
+    return True, []
 
 
 def resolve_qc_layout_preview(
@@ -229,8 +222,7 @@ def resolve_qc_layout_preview(
     if sampler_obj.is_tip:
         # TODO: per-range visit counts for tip samplers (Evosep) — needs interval intersection.
         rows = [
-            {"sample_id": s.sample_id, "tray": s.tray, "range": f"{s.position_start}-{s.position_end}"}
-            for s in samples
+            {"sample_id": s.sample_id, "tray": s.tray, "range": f"{s.position_start}-{s.position_end}"} for s in samples
         ]
         return pl.DataFrame(rows)
     rows = [{"sample_id": s.sample_id, "tray": s.tray, "pos": f"{s.row}{s.col}"} for s in samples]
@@ -244,9 +236,7 @@ def resolve_qc_layout_preview(
         )
         # Align dtypes — preview's tray is Utf8 from the dict; queue's tray may be int.
         well_counts = well_counts.with_columns(pl.col("tray").cast(preview["tray"].dtype))
-        preview = preview.join(well_counts, on=["tray", "pos"], how="left").with_columns(
-            pl.col("visits").fill_null(0)
-        )
+        preview = preview.join(well_counts, on=["tray", "pos"], how="left").with_columns(pl.col("visits").fill_null(0))
     return preview
 
 
@@ -341,17 +331,12 @@ def build_queue_input(
     if not (queue_parameters and has_samples_source and sample_df is not None):
         return None, None
     try:
-        params = queue_parameters
-        if params.randomization != "no" and params.seed is None:
-            params = params.model_copy(update={"seed": draw_seed()})
-        builder = QueueBuilder(config).with_parameters(params)
+        builder = QueueBuilder(config).with_parameters(queue_parameters)
         if provenance_instance is not None:
             builder = builder.with_bfabric_instance(provenance_instance)
         if not sample_df.is_empty():
             builder = builder.add_samples_from_dataframe(sample_df)
-        # Stamp qg_version + resolved_config so the downloaded params JSON (and the
-        # portal work-unit) is self-contained and reproduces without qg_configs/.
-        return stamp_provenance(builder.build(), config), None
+        return builder.build(), None
     except ValueError as exc:
         return None, str(exc)
 
@@ -363,12 +348,15 @@ class GenerationResult:
     generated_df: pl.DataFrame | None = None
     raw_df: pl.DataFrame | None = None
     output_str: str | None = None
+    positioned_input: PositionedQueueInput | None = None
     file_extension: str = ".csv"
     error: str | None = None
 
 
 def generate_queue(
-    config: QGConfiguration, queue_input: QueueInput | None, queue_parameters: QueueParameters | None
+    config: QGConfiguration,
+    queue_input: QueueInput | None,
+    queue_parameters: QueueParameters | None,
 ) -> GenerationResult:
     """Run generation once so preview and downloaded file are identical.
 
@@ -380,7 +368,8 @@ def generate_queue(
     if queue_input is None:
         return result
     try:
-        generator = QueueGenerator(config, queue_input)
+        result.positioned_input = queue_input.position_queue()
+        generator = QueueGenerator(config, result.positioned_input)
         queue_rows = generator.build_rows()
         result.raw_df = queue_rows.to_table()
         result.generated_df = format_table(
@@ -427,10 +416,33 @@ def params_download_button(queue_input: QueueInput, filename: str) -> mo.Html:
     return mo.download(data=data.encode("utf-8"), filename=filename, label="Download Params JSON")
 
 
-def queue_download_button(queue_output_str: str, filename: str, *, disabled: bool = False) -> mo.Html:
-    """A `Download Queue File` button. ``disabled`` lets the portal gate it behind upload."""
+def commit_run_artifacts(
+    source_input: QueueInput,
+    positioned_input: PositionedQueueInput,
+    raw_queue: pl.DataFrame,
+) -> None:
+    """Persist audit artifacts at an explicit download or upload commit point."""
+    stem = save_positioning_artifacts(source_input, positioned_input)
+    save_generation_artifact(positioned_input, raw_queue, stem=stem)
+
+
+def queue_download_button(
+    queue_output_str: str,
+    filename: str,
+    *,
+    source_input: QueueInput,
+    positioned_input: PositionedQueueInput,
+    raw_queue: pl.DataFrame,
+    disabled: bool = False,
+) -> mo.Html:
+    """Build a queue download that persists audit artifacts when clicked."""
+
+    def committed_content() -> bytes:
+        commit_run_artifacts(source_input, positioned_input, raw_queue)
+        return queue_output_str.encode("utf-8")
+
     return mo.download(
-        data=lambda: queue_output_str.encode("utf-8"),
+        data=committed_content,
         filename=filename,
         label="Download Queue File",
         disabled=disabled,
@@ -832,18 +844,15 @@ def make_queue_type_field(
     return mo.ui.dropdown(options=options, value=default, label="Queue Type"), warning
 
 
-def make_mixed_order_note(*, has_plates: bool, has_vials: bool) -> mo.Html | None:
-    """Neutral note when an order holds both plate-resident and standalone (vial) samples.
+def make_mixed_order_note(*, has_plates: bool, has_vials: bool) -> str:
+    """Inline red markdown note when an order holds both plate-resident and standalone
+    (vial) samples; empty string otherwise.
 
-    Purely informational — it states the composition, not its consequences (queue-type
-    guidance is intentionally left to a later change). Returns ``None`` unless both are present.
+    Portal-only in effect: the local app derives the two flags as mutually exclusive.
     """
     if has_plates and has_vials:
-        return mo.callout(
-            mo.md("This order contains both plate-resident and standalone (vial) samples."),
-            kind="info",
-        )
-    return None
+        return ' <span style="color:crimson">— contains both plate-resident and standalone (vial) samples</span>'
+    return ""
 
 
 def make_start_position_field(
@@ -929,9 +938,7 @@ def make_polarity_group(default_polarities: list[str]) -> mo.ui.batch:
 
 def make_randomization_field() -> mo.ui.dropdown:
     """Randomization-mode dropdown."""
-    return mo.ui.dropdown(
-        options=["no", "random", "blocked", "blocked_uniform"], value="no", label="Randomization"
-    )
+    return mo.ui.dropdown(options=["no", "random", "blocked", "blocked_uniform"], value="no", label="Randomization")
 
 
 def suffix_options_for_tech(config: QGConfiguration, tech_area: str) -> list[str]:

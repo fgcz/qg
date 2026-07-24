@@ -34,6 +34,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - name: Install uv
         uses: astral-sh/setup-uv@v8.2.0
         with:
@@ -43,7 +45,91 @@ jobs:
       - name: Sync (dev + portal)
         run: uv sync --frozen
       - name: Run unit tests
-        run: uv run --no-sync pytest --ignore=tests/gui --ignore=tests/gui_local
+        run: >-
+          uv run --no-sync pytest
+          --ignore=tests/gui
+          --ignore=tests/gui_local
+          --cov=qg
+          --cov-branch
+          --cov-report=xml:coverage.xml
+          --cov-report=term-missing:skip-covered
+      - name: Check changed-line coverage
+        if: github.event_name == 'pull_request'
+        run: >-
+          uv run --no-sync diff-cover coverage.xml
+          --compare-branch="origin/${{ github.base_ref }}"
+          --fail-under=60
+
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+      - name: Install Python
+        run: uv python install
+      - name: Sync (dev + portal)
+        run: uv sync --frozen
+      - name: Ruff lint
+        run: uv run --no-sync ruff check . --output-format=github
+      - name: Ruff format
+        run: uv run --no-sync ruff format --check .
+      - name: Dependency declarations
+        run: uv run --no-sync deptry .
+
+  package-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+      - name: Install Python
+        run: uv python install
+      - name: Sync core development environment
+        run: uv sync --frozen --no-group portal
+      - name: Build and inspect distributions
+        run: uv run --no-sync python scripts/package_smoke.py
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+          cache-suffix: docs
+      - name: Install Python
+        run: uv python install
+      - name: Sync docs environment
+        run: uv sync --frozen --only-group docs
+      - name: Build documentation (strict)
+        run: uv run --no-sync mkdocs build --strict
+
+  # Keep the checked-in Python sources aligned with the repository's Pyright
+  # configuration. This mirrors the local pre-commit hook.
+  pyright:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+      - name: Install Python
+        run: uv python install
+      - name: Sync (dev + portal)
+        run: uv sync --frozen
+      - name: Run Pyright
+        run: uv run --no-sync python -m pyright
 
   # Core-install gate: prove `qg` installs, imports, and its non-B-Fabric tests
   # pass WITHOUT the portal extra (no bfabric/fastapi/starlette/python-gitlab).
@@ -67,11 +153,8 @@ jobs:
         run: uv python install
       - name: Sync core only (no portal group)
         run: uv sync --frozen --no-group portal
-      - name: Assert bfabric absent + core imports
-        run: |
-          uv run --no-sync --no-group portal python -c "import importlib.util as u; assert u.find_spec('bfabric') is None, 'bfabric must be absent on a core install'; import qg, qg.cli.generate_queues, qg.cli.validate_config, qg.apps.queue_app_local; print('core import OK, bfabric absent')"
-      - name: Run B-Fabric-free tests
-        run: uv run --no-sync --no-group portal pytest -m "not bfabric" --ignore=tests/gui --ignore=tests/gui_local
+      - name: Run core profile checks
+        run: uv run --no-sync --no-group portal python scripts/core_profile_check.py
 
   # Browser suite: tests/gui (portal app) + tests/gui_local (standalone app),
   # driven in headless Chromium via pytest-playwright. Runs on Microsoft's

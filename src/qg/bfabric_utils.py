@@ -1,6 +1,6 @@
 """Utilities for loading B-Fabric data into typed DataFrames."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, NamedTuple
@@ -9,6 +9,8 @@ from urllib.parse import urlparse
 import polars as pl
 from bfabric import Bfabric, BfabricClientConfig
 from bfabric.config.config_data import ConfigData
+from bfabric.entities import Plate
+from bfabric.entities.core.uri import EntityUri
 from bfabric_asgi_auth.session_data import SessionData
 from bfabric_asgi_auth.user import BfabricUser
 from bfabric_rest_proxy.feeder_operations.create_workunit import (
@@ -50,13 +52,24 @@ filtered out at every plate fetch site.
 """
 
 
-def _is_storage_plate(plate: Any) -> bool:
+def _is_storage_plate(plate: Plate) -> bool:
     """True if a B-Fabric plate entity is a non-injectable Storage plate.
 
     Case-insensitive and None/whitespace-safe; a plate with no `type` is treated
     as a real (injectable) plate.
     """
     return str(plate.get("type") or "").strip().casefold() == STORAGE_PLATE_TYPE.casefold()
+
+
+def _referenced_sample_ids(plates: Mapping[EntityUri, Plate]) -> set[int]:
+    """Return plate sample IDs without resolving the referenced entities."""
+    sample_ids: set[int] = set()
+    for plate in plates.values():
+        sample_uris = plate.refs.uris["sample"]
+        if isinstance(sample_uris, EntityUri):
+            raise TypeError("Plate sample references must be plural")
+        sample_ids.update(sample_uri.components.entity_id for sample_uri in sample_uris)
+    return sample_ids
 
 
 class BfabricHelper:
@@ -108,7 +121,7 @@ class BfabricHelper:
 
         return df
 
-    def get_plates(self, container_id: int) -> dict:
+    def get_plates(self, container_id: int) -> dict[EntityUri, Plate]:
         """Query plates for a container, excluding non-injectable Storage plates.
 
         Filtering here is the single choke point: it removes Storage plates from
@@ -116,7 +129,11 @@ class BfabricHelper:
         at once. Samples that sat on a Storage plate fall back to vials via
         `get_container_composition`.
         """
-        plates = self.client.reader.query("plate", {"containerid": container_id})
+        plates = self.client.reader.query(
+            "plate",
+            {"containerid": container_id},
+            expected_type=Plate,
+        )
         return {uri: plate for uri, plate in plates.items() if not _is_storage_plate(plate)}
 
     def has_plates(self, container_id: int) -> bool:
@@ -126,11 +143,11 @@ class BfabricHelper:
     def get_container_composition(self, container_id: int) -> "ContainerComposition":
         """Classify a container: does it hold plate samples, vial samples, or both?
 
-        A sample is "on a plate" if its ID appears in any plate.refs.sample list.
-        Any sample in the container that is not on a plate is treated as a vial.
+        A sample is "on a plate" if its ID appears in any plate's sample reference
+        URIs. Any sample in the container that is not on a plate is treated as a vial.
         """
         plates = self.get_plates(container_id)
-        plate_sample_ids = {s["id"] for plate in plates.values() for s in plate.refs.sample}
+        plate_sample_ids = _referenced_sample_ids(plates)
         all_sample_ids = self._fetch_allowed_sample_ids(container_id)
         on_plate = all_sample_ids & plate_sample_ids
         return ContainerComposition(
@@ -139,7 +156,12 @@ class BfabricHelper:
         )
 
     def _load_vial_samples(self, container_id: int) -> list[VialSampleRow]:
-        """Load samples for a vial container."""
+        """Load the container's off-plate vial samples.
+
+        A sample sitting on a (non-Storage) plate belongs to Plate mode, so a
+        mixed container offers only its standalone vials as Vials.
+        """
+        on_plate = _referenced_sample_ids(self.get_plates(container_id))
         df = self.client.read("sample", {"containerid": container_id}, max_results=None).to_polars(flatten=True)
         return [
             VialSampleRow(
@@ -150,6 +172,7 @@ class BfabricHelper:
                 grouping_var=row.get("groupingvar_name"),
             )
             for row in df.iter_rows(named=True)
+            if row["id"] not in on_plate
         ]
 
     def _fetch_allowed_sample_ids(self, container_id: int) -> set[int]:
@@ -161,7 +184,7 @@ class BfabricHelper:
 
     @staticmethod
     def _load_plate_samples(
-        plates: dict,
+        plates: Mapping[EntityUri, Plate],
         container_id: int,
         plate_ids: list[int] | None = None,
         allowed_sample_ids: set[int] | None = None,
@@ -187,8 +210,7 @@ class BfabricHelper:
                         sample_name=sample["name"],
                         sample_id=sample["id"],
                         container_id=container_id,
-                        position=sample.get("_position"),
-                        grid_position=sample.get("_gridposition"),
+                        grid_position=sample["_gridposition"],
                         plate_id=plate_id,
                         grouping_var=_gv,
                     )

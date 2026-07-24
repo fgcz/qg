@@ -37,7 +37,7 @@ class _FakeUri:
 
 @dataclass(frozen=True)
 class _FakePlate:
-    """Plate entity. `refs.sample` is a list of dicts with `id`, `name`, optional `_position`, etc.
+    """Plate entity exposing full sample entities and their unloaded URIs.
 
     Mirrors the real B-Fabric `Entity` dict-style field access (`plate.get("type")`),
     which production uses to filter out non-injectable Storage plates.
@@ -101,7 +101,13 @@ class _FakeReader:
     def __init__(self, owner: FakeBfabric) -> None:
         self._owner = owner
 
-    def query(self, endpoint: str, params: dict) -> dict[_FakeUri, _FakePlate]:
+    def query(
+        self,
+        endpoint: str,
+        params: dict,
+        *,
+        expected_type: type[object] = object,
+    ) -> dict[_FakeUri, _FakePlate]:
         if endpoint != "plate":
             raise NotImplementedError(f"FakeBfabric.reader.query for {endpoint!r}")
         container_id = int(params["containerid"])
@@ -156,7 +162,12 @@ class FakeBfabric:
         raw = json.loads(path.read_text())
         return {
             _FakeUri(entity_id=p["id"]): _FakePlate(
-                id=p["id"], refs=SimpleNamespace(sample=p.get("samples", [])), type=p.get("type")
+                id=p["id"],
+                refs=SimpleNamespace(
+                    sample=p.get("samples", []),
+                    uris={"sample": [_FakeUri(entity_id=sample["id"]) for sample in p.get("samples", [])]},
+                ),
+                type=p.get("type"),
             )
             for p in raw
         }

@@ -236,11 +236,10 @@ def expect_plate_picker_hidden(page: Page) -> None:
 
 
 def expect_mixed_order_note_visible(page: Page) -> None:
-    """Assert the neutral mixed-composition info callout is shown."""
-    _assert_callout(page, "info", _MIXED_NOTE_TEXT)
+    """Assert the mixed-composition note (inline red text in the selection banner) is shown."""
+    expect(page.get_by_text(_MIXED_NOTE_TEXT, exact=False).first).to_be_visible(timeout=10_000)
 
 
 def expect_mixed_order_note_hidden(page: Page) -> None:
-    """Assert no mixed-composition info callout is shown (text-scoped to this note)."""
-    note = page.locator("marimo-callout-output[data-kind*='info']").filter(has_text=_MIXED_NOTE_TEXT)
-    expect(note).to_have_count(0)
+    """Assert the mixed-composition note is not shown (text-scoped to this note)."""
+    expect(page.get_by_text(_MIXED_NOTE_TEXT, exact=False)).to_have_count(0)

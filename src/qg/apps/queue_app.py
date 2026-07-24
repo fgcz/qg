@@ -4,7 +4,6 @@ __generated_with = "0.19.4"
 app = marimo.App(width="full", sql_output="polars")
 
 with app.setup:
-    import importlib.metadata
     import os
     from datetime import date
     from pathlib import Path
@@ -13,6 +12,7 @@ with app.setup:
     import polars as pl
     from loguru import logger
 
+    from qg import __version__
     from qg.logging_setup import configure_logging
 
     configure_logging()
@@ -58,7 +58,7 @@ def _():
 
 @app.cell
 def _():
-    app_version = importlib.metadata.version("qg")
+    app_version = __version__
     return (app_version,)
 
 
@@ -89,7 +89,7 @@ def _():
     # Load configs via qg_configuration() — from CLI arg or default path
     _args = mo.cli_args()
     _config_dir = Path(_args["config-dir"]) if "config-dir" in _args else None
-    config = qg_configuration(_config_dir)
+    config = qg_configuration(_config_dir) if _config_dir is not None else qg_configuration()
     logger.info("Queue app started | config_dir={}", _config_dir or "default")
     return (config,)
 
@@ -350,9 +350,7 @@ def _(available_methods_neg, polarity_group):
 
 @app.cell
 def _(config, tech_area_field):
-    polarity_group = shared.make_polarity_group(
-        config.tech_area_defaults.get_default_polarities(tech_area_field.value)
-    )
+    polarity_group = shared.make_polarity_group(config.tech_area_defaults.get_default_polarities(tech_area_field.value))
     return (polarity_group,)
 
 
@@ -713,7 +711,15 @@ def _(banner_message, entity_id, is_employee, project_table, refresh_projects_bu
 
 
 @app.cell
-def _(container_type, is_employee, selected_orders):
+def _(
+    container_has_plates,
+    container_has_vials,
+    container_type,
+    full_samples_df,
+    is_employee,
+    project_table,
+    selected_orders,
+):
     # Assign each branch to a cell-local and display it as the last unnested
     # expression — a bare ``mo.md(...)`` inside a branch is computed then discarded.
     if not is_employee:
@@ -721,9 +727,16 @@ def _(container_type, is_employee, selected_orders):
     elif not selected_orders:
         _banner = mo.md("**Select orders from the table above**")
     else:
-        _container_ids = [o[0] for o in selected_orders]
-        _ids_str = ", ".join(str(c) for c in _container_ids)
-        _banner = mo.md(f"**Selected:** {len(selected_orders)} order(s): {_ids_str} ({container_type})")
+        # Count the samples actually loaded for the chosen queue type (Vial excludes
+        # plate-resident samples), not the container's total.
+        _n = 0 if full_samples_df is None else len(full_samples_df)
+        _note = shared.make_mixed_order_note(has_plates=bool(container_has_plates), has_vials=bool(container_has_vials))
+        if len(selected_orders) == 1:
+            _row = project_table.value.to_dicts()[0]
+            _who = f"{_row['Container ID']} {_row.get('Container Name', '')}".strip()
+        else:
+            _who = f"{len(selected_orders)} order(s): " + ", ".join(str(o[0]) for o in selected_orders)
+        _banner = mo.md(f"**Selected:** {_who} ({container_type}) — {_n} samples{_note}")
     _banner
     return
 
@@ -739,16 +752,6 @@ def _(full_samples_df, is_employee, selected_orders):
     else:
         _empty_order_warning = mo.md("")
     _empty_order_warning
-    return
-
-
-@app.cell
-def _(container_has_plates, container_has_vials):
-    # Neutral heads-up when the order mixes plate-resident and standalone samples.
-    _mixed_note = shared.make_mixed_order_note(
-        has_plates=bool(container_has_plates), has_vials=bool(container_has_vials)
-    )
-    _mixed_note if _mixed_note is not None else mo.md("")
     return
 
 
@@ -844,10 +847,15 @@ def _(
 
 
 @app.cell
-def _(feeder_uploader, gather_workunit_parameters):
+def _(feeder_uploader, gather_workunit_parameters, positioned_queue_input, queue_input, raw_queue_df):
     def upload_workunit() -> str:
         params = gather_workunit_parameters()
-        return feeder_uploader.upload(params)
+        result = feeder_uploader.upload(params)
+        assert queue_input is not None
+        assert positioned_queue_input is not None
+        assert raw_queue_df is not None
+        shared.commit_run_artifacts(queue_input, positioned_queue_input, raw_queue_df)
+        return result
 
     return (upload_workunit,)
 
@@ -855,17 +863,19 @@ def _(feeder_uploader, gather_workunit_parameters):
 @app.cell
 def _(config, queue_input, queue_parameters):
     # Generate the queue exactly once so preview and download are identical
-    # (randomization is non-deterministic per build).
+    # for the seed persisted in queue_input.
     _result = shared.generate_queue(config, queue_input, queue_parameters)
     generated_queue_df = _result.generated_df
     raw_queue_df = _result.raw_df
     queue_output_str = _result.output_str
+    positioned_queue_input = _result.positioned_input
     generation_error = _result.error
     output_file_extension = _result.file_extension
     return (
         generated_queue_df,
         generation_error,
         output_file_extension,
+        positioned_queue_input,
         queue_output_str,
         raw_queue_df,
     )
@@ -918,6 +928,8 @@ def _(
     formatted_ticket_toggle,
     generated_queue_df,
     generation_error,
+    positioned_queue_input,
+    queue_input,
     queue_output_filename,
     queue_output_str,
     queue_parameters,
@@ -929,11 +941,22 @@ def _(
     # Queue Preview tab content
     if generation_error:
         queue_preview_content = mo.callout(mo.md(f"**Generation Error:** {generation_error}"), kind="danger")
-    elif generated_queue_df is not None and queue_output_str is not None:
+    elif (
+        generated_queue_df is not None
+        and positioned_queue_input is not None
+        and queue_input is not None
+        and queue_output_str is not None
+        and raw_queue_df is not None
+    ):
         _display_df = generated_queue_df if formatted_ticket_toggle.value else raw_queue_df
 
         _download_button = shared.queue_download_button(
-            queue_output_str, queue_output_filename, disabled=upload_result is None
+            queue_output_str,
+            queue_output_filename,
+            source_input=queue_input,
+            positioned_input=positioned_queue_input,
+            raw_queue=raw_queue_df,
+            disabled=upload_result is None,
         )
 
         _rand_label = (

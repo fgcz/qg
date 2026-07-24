@@ -8,6 +8,31 @@ Queue generation system for mass spectrometry instruments. Generates sample queu
 
 **Python version:** >=3.14
 
+## Design and Abstraction Rules
+
+- Prefer cohesive ownership over orchestration layers. When concrete input
+  types already have the state needed for an operation, give them the same
+  method and use normal method dispatch instead of switching on a union with
+  `isinstance`.
+- Do not create a module whose main purpose is to wrap one existing module or
+  route between concrete types. A new module must own a distinct, cohesive
+  responsibility. Before adding one, state what it owns that no existing
+  module owns.
+- Do not introduce protocols, strategies, factories, or extension points for
+  imagined future implementations. Add an abstraction only when multiple real
+  implementations or call sites demonstrate the need.
+- Treat `T | None = None` as an exception requiring a genuine optional domain
+  value. Never use `None` as a hidden instruction to construct a default,
+  select behavior, or defer required state; require the value or expose the
+  concrete default explicitly.
+- Keep behavior beside the subsystem that already owns the domain operation.
+  Before extracting code, ask whether the new file removes a dependency or
+  merely adds another hop.
+- Do not generalize input parsing or validation beyond the shapes the rest of
+  the system produces or consumes (e.g. a regex for multi-letter well rows when
+  every layout and `alpha_to_flat` assume a single letter); validate against the
+  known valid values instead.
+
 ## Release Process
 
 ### During development (every MR)
@@ -68,6 +93,9 @@ QG_ALLOW_UNAUTHENTICATED=1 uv run marimo run src/qg/apps/queue_app.py
 # Generate queue from JSON params
 uv run qg input.json -o output.csv
 
+# Assign/validate physical sample positions without generating a vendor queue
+uv run qg-assign-positions input.json -o positioned.json
+
 # Validate config files
 uv run qg-validate
 
@@ -95,6 +123,7 @@ uv run pytest tests/test_file.py::test_name -v
 | Command | Module | Purpose | Needs extra |
 |---------|--------|---------|-------------|
 | `qg` | `qg.cli.generate_queues` | Main queue generation from JSON params | — |
+| `qg-assign-positions` | `qg.cli.assign_positions` | Assign/validate positions and emit positioned JSON | — |
 | `qg-validate` | `qg.cli.validate_config` | Validate config files | — |
 | `qg-app-local` | `qg.apps.launcher_local` | Launch the standalone local upload app | — |
 | `qg-find-projects` | `qg.cli.find_projects` | Project discovery utility | `qg[bfabric]` |
@@ -105,6 +134,11 @@ uv run pytest tests/test_file.py::test_name -v
 > The Dash config editor (`qg-config-viewer`, `qg-editor-dash`) lives in the
 > separate **`qg-dash`** package (sibling `../qg_dash` repo), which depends on
 > `qg`. The shared `qg.apps.editor_core` remains in this repo.
+>
+> **`qg-dash` is out of scope for work in this repo — ignore it entirely.** Do
+> not read it, do not treat it as a dependent to protect, and do not weigh
+> whether a change here breaks its API. Downstream breakage in `qg-dash` is not a
+> constraint on `qg` development; it is reconciled separately in that repo.
 
 ## Terminology
 
@@ -116,7 +150,8 @@ uv run pytest tests/test_file.py::test_name -v
 ## Queue Parameters JSON Structure
 
 Defined in `src/qg/params_models.py`. `QueueInput` is `VialQueueInput | PlateQueueInput`,
-each `{parameters, queue}`. `read_queue_input()` picks plate vs vial by whether
+each `{parameters, queue, qg_version, resolved_config}` with required provenance.
+`read_queue_input()` picks plate vs vial by whether
 `queue` contains `plates`. (Vial example shown; the plate `queue` has `batches` +
 `plates` + `cells`.)
 
@@ -159,7 +194,7 @@ Key fields:
 - `sampler`: bare name (`Vanquish`). `queue_type` (`Vial`/`Plate`) + `plate_layout` select the layout; `qc_layout_name` selects the QC layout.
 - `output_format`: `xcalibur` / `xcalibur_sii` / `chronos` / `hystar` (Hystar emits `.xml`).
 - `randomization`: string `"no"` / `"random"` / `"blocked"` / `"blocked_uniform"` (not a bool).
-- `seed`: optional `int | None` RNG seed. Used when set; otherwise a seed is drawn at generation (for randomized modes) and recorded back so the run is reproducible.
+- `seed`: optional `int | None` RNG seed. `QueueBuilder` records a concrete seed at input construction for every randomized mode; `None` is valid only for `randomization="no"`.
 - `method`: `dict[str, str]` per-polarity methods: `{"pos": "Method_Pos", "neg": "Method_Neg"}`.
 - `qc_frequency_override`: override pattern's `run_QC_after_n_samples`.
 - `queue.batches`: `container_id` → `ContainerBatch`; multi-container support lives here, not in `parameters`. `queue.samples` (vial; alias `cells`) / `queue.cells` (plate) carry the samples.
@@ -169,10 +204,19 @@ Key fields:
 
 ### Pipeline (Stateless Functions)
 
-Executed by `QueueGenerator.build_rows()` in `generator.py`:
+Positioning is executed first by `QueueInput.position_queue()`; its implementation
+lives in `positionV2.py`, and the
+remaining stages run in `QueueGenerator.build_rows()`:
+
+`QueueGenerator` always receives its `QGConfiguration` explicitly. Interactive
+apps pass the UI-owned configuration; CLI or saved-run reproduction code may
+reconstruct the embedded `resolved_config`, but must do so at that composition
+boundary rather than inside the generator.
 
 ```
-QueueInput (JSON)
+QueueInput (JSON: vial or plate)
+    |
+0. queue_input.position_queue() -> PositionedQueueInput
     |
 1. randomize_plate_queue(plate_queue, randomization) -> PlateQueue
 2. build_multi_container_queue_structure(groups, pattern) -> list[SlotEntry]
@@ -191,9 +235,9 @@ CSV / XML Output
 
 | Module | Purpose |
 |--------|---------|
-| `generator.py` | `QueueGenerator` class (config resolution + pipeline execution) |
+| `generator.py` | `QueueGenerator` class (injected config + pipeline execution) |
 | `queue_structure.py` | `build_multi_container_queue_structure()`, `SlotEntry` |
-| `positionV2.py` | Position generation for well/tip samplers |
+| `positionV2.py` | Vial assignment, plate validation, and well/tip sampler positioning |
 | `utils.py` | Shared position types/helpers (used by `positionV2.py`, `qc_positions.py`) |
 | `qc_layout.py` | `QCLayoutWell`, `QCLayoutTip` classes |
 | `qc_positions.py` | `QCPositionProvider` |
@@ -378,6 +422,14 @@ Process (CHANGELOG bullet, version bump, `uv lock`).
 | `helpers.py` | Shared test helpers and fixtures |
 
 ## Coding Standards
+
+### Comments
+
+Let the code say *what* it does; comments and docstrings are for what it can't —
+the *why*, invariants, gotchas, and a public function's contract (what it returns
+and raises). Never narrate a change in a comment ("no longer carries X", "now does
+Y") — that documents a diff, not the code, so it belongs in the commit message and
+goes stale in the file.
 
 ### Exception Handling
 

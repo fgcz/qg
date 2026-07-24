@@ -10,25 +10,17 @@ Cells are grouped by (plate_id, container_id) and shuffled within each group.
 from __future__ import annotations
 
 import random
-import secrets
 from typing import Literal
 
+from loguru import logger
+
 from qg.params_models import PlateCell, PlateQueue
-
-
-def draw_seed() -> int:
-    """Draw a fresh 32-bit RNG seed from OS entropy.
-
-    Independent of the global ``random`` state, so a drawn seed is reproducible
-    only via itself (record it to reproduce the run).
-    """
-    return secrets.randbits(32)
 
 
 def randomize_plate_queue(
     queue: PlateQueue,
     mode: Literal["no", "random", "blocked", "blocked_uniform"],
-    rng: random.Random | None = None,
+    seed: int,
 ) -> PlateQueue:
     """Randomize cells within (plate_id, container_id) groups.
 
@@ -36,8 +28,8 @@ def randomize_plate_queue(
         queue: PlateQueue to randomize.
         mode: "no" (unchanged), "random" (shuffle), "blocked" (RCBD),
             "blocked_uniform" (group-uniform interleave).
-        rng: Random source to draw from. Defaults to the process-global ``random``
-            module; pass a ``random.Random(seed)`` instance for reproducible runs.
+        seed: RNG seed. Reproducible across runs for a given seed. Ignored when
+            ``mode == "no"``.
 
     Returns:
         New PlateQueue with randomized cells (plates/batches unchanged).
@@ -47,10 +39,8 @@ def randomize_plate_queue(
     if mode == "no":
         return queue
 
-    # Default to the global module so callers (and existing tests) that seed via
-    # random.seed(...) keep working; QueueGenerator passes an explicit instance.
-    if rng is None:
-        rng = random
+    logger.info("Randomization | mode={} | seed={}", mode, seed)
+    rng = random.Random(seed)
 
     # Group cells by (plate_id, container_id), preserving original group order
     def group_key(cell: PlateCell) -> tuple[int, int]:

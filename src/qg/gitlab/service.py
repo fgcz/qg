@@ -4,6 +4,7 @@ import re
 from datetime import UTC, datetime
 
 import gitlab
+from gitlab import exceptions as gitlab_exceptions
 from loguru import logger
 
 
@@ -87,6 +88,6 @@ class GitLabConfigService:
             logger.info("Created MR: {}", mr.web_url)
             return mr.web_url
 
-        except gitlab.exceptions.GitlabError:
+        except gitlab_exceptions.GitlabError:
             logger.exception("GitLab API error during config submission")
             raise

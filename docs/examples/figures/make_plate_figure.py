@@ -28,6 +28,7 @@ from pathlib import Path
 import polars as pl
 from PIL import Image
 
+from qg import __version__
 from qg.config_models.loader import qg_configuration
 from qg.generator import QueueGenerator
 from qg.params_models import (
@@ -45,7 +46,7 @@ SAMPLES_CSV = HERE.parent / "multi_container_samples.csv"  # qg/docs/examples/
 OUT = HERE / "fig_plate.png"
 
 
-def _queue_input() -> VialQueueInput:
+def _queue_input(config) -> VialQueueInput:
     """Build the queue input from the shipped multi-container example table."""
     df = pl.read_csv(SAMPLES_CSV)
     params = QueueParameters(
@@ -80,7 +81,12 @@ def _queue_input() -> VialQueueInput:
         batches={cid: ContainerBatch(container_id=cid, container_name=f"Order {cid}") for cid in container_ids},
         samples=samples,
     )
-    return VialQueueInput(parameters=params, queue=queue)
+    return VialQueueInput(
+        parameters=params,
+        queue=queue,
+        qg_version=__version__,
+        resolved_config=config.subset_for(params),
+    )
 
 
 def _panel_title(text: str) -> dict:
@@ -89,9 +95,9 @@ def _panel_title(text: str) -> dict:
 
 def main() -> int:
     config = qg_configuration()
-    queue_input = _queue_input()
+    queue_input = _queue_input(config)
     order_ids = sorted(queue_input.queue.batches)
-    rows = QueueGenerator(config, queue_input).build_rows().to_table()
+    rows = QueueGenerator(config, queue_input.position_queue()).build_rows().to_table()
     layout = config.plate_layouts.get_layout("Vanquish_54")
 
     # (A) Plate layout, colored by sample type.

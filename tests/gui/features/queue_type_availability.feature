@@ -41,6 +41,17 @@ Feature: Queue Type offered follows the order's composition and the sampler
     And the "Queue Type" picker offers "Plate"
     And the "Queue Type" dropdown shows "Vial"
 
+  # The marquee behavioural change: for a mixed order, Vial mode loads only the
+  # off-plate samples (4 of 37183's 8), never the plate-resident ones.
+  Scenario: A mixed order run as Vial loads only its off-plate samples
+    Given the queue app is open as an employee
+    When I set "Tech Area" to "Metabolomics"
+    And I set "Instrument" to "EXPLORIS_3"
+    And I set "Sampler" to "Vanquish"
+    And I select order 37183
+    And I set "Queue Type" to "Vial"
+    Then the selection banner reports 4 samples
+
   Scenario: Combining a plate-only and a vial-only order offers both queue types
     Given the queue app is open as an employee
     When I set "Tech Area" to "Proteomics"

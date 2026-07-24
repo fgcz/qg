@@ -9,11 +9,10 @@ stages:
   - build
   - deploy
 
-# Shared setup for both test jobs. `uv sync --frozen` asserts uv.lock is current
-# and skips re-resolution; the uv download cache is keyed on uv.lock so it rotates
-# exactly when dependencies change. Both jobs are interruptible to cooperate with
-# the workflow-level auto_cancel.on_new_commit above.
-.test-base:
+release-test:
+  # GitHub Actions is the merge gate, but a release tag can point at any commit.
+  # Recheck the non-browser suite and static quality gates before writing the
+  # tagged OCI archive to NFS.
   stage: test
   tags:
     - linux
@@ -27,67 +26,17 @@ stages:
           - uv.lock
       paths:
         - .uv-cache/
-
-# Fast feedback: every non-browser test. No playwright, no apt — fails fast.
-test:unit:
-  extends: .test-base
   script:
     - uv sync --frozen
-    - uv run pytest --ignore=tests/gui --ignore=tests/gui_local
-
-# Core-install gate: prove `qg` installs, imports, and its non-B-Fabric tests pass
-# WITHOUT the portal extra (no bfabric/fastapi/starlette/python-gitlab). Syncs only
-# the `dev` group (pytest etc.), omitting the `portal` default-group; asserts
-# bfabric is absent, then runs the B-Fabric-free suite. Guards the publication path.
-test:core-no-bfabric:
-  extends: .test-base
-  script:
-    - uv sync --frozen --no-group portal
-    - uv run --no-group portal python -c "import importlib.util as u; assert u.find_spec('bfabric') is None, 'bfabric must be absent on a core install'; import qg, qg.cli.generate_queues, qg.cli.validate_config, qg.apps.queue_app_local; print('core import OK, bfabric absent')"
-    - uv run --no-group portal pytest -m "not bfabric" --ignore=tests/gui --ignore=tests/gui_local
-
-# Browser suite: only tests/gui, which drives the marimo queue app in a headless
-# Chromium via pytest-playwright. Runs on Microsoft's official Playwright image,
-# which ships the browsers (at /ms-playwright) AND their ~67 apt system libs
-# pre-baked — so this job needs no `playwright install` and no apt step (those
-# cost ~250s/run on the uv base image and dominated the old pipeline). The image
-# tag MUST track the `playwright` pin in uv.lock (currently 1.60.0); a mismatch
-# surfaces as a clear "browser not found / version" error from Playwright.
-# uv is a self-contained static binary, added via its installer in seconds; it
-# still manages its own Python 3.14 regardless of the image's base interpreter.
-# Inherits only the uv-cache from .test-base (no browser cache — the image is the
-# cache). Do NOT set PLAYWRIGHT_BROWSERS_PATH here, or the baked browsers hide.
-test:gui:
-  extends: .test-base
-  image: mcr.microsoft.com/playwright:v1.60.0-noble
-  # Read the uv cache but never re-archive it: the deps are identical to test:unit,
-  # which seeds it (pull-push). Avoids ~50s/run uploading an unchanged cache on the
-  # critical-path job. (On a fresh uv.lock key both jobs miss once; test:unit seeds.)
-  cache:
-    - key:
-        files:
-          - uv.lock
-      paths:
-        - .uv-cache/
-      policy: pull
-  script:
-    - curl -LsSf https://astral.sh/uv/install.sh | sh
-    - export PATH="$HOME/.local/bin:$PATH"
-    - uv sync --frozen
-    - uv run pytest tests/gui tests/gui_local
-
-marimo-check:
-  # Static lint of the marimo apps. --strict makes warnings (e.g. the
-  # branch-expression rule, where a bare mo.md(...) inside if/elif/else is
-  # computed then discarded so the output never renders) fail the pipeline.
-  stage: test
-  tags:
-    - linux
-    - docker
-  interruptible: true
-  script:
-    - uv sync
-    - uv run marimo check --strict src/qg/apps/queue_app.py src/qg/apps/queue_app_local.py src/qg/apps/config_editor.py
+    - uv run --no-sync ruff check .
+    - uv run --no-sync ruff format --check .
+    - uv run --no-sync pyright
+    - uv run --no-sync deptry .
+    - uv run --no-sync pytest --ignore=tests/gui --ignore=tests/gui_local --cov=qg --cov-branch
+    - uv run --no-sync python scripts/package_smoke.py
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_PIPELINE_SOURCE =~ /^(web|api)$/
 
 pages:
   # Builds the MkDocs Material site into public/ and publishes it via GitLab
@@ -99,8 +48,8 @@ pages:
     - linux
     - docker
   script:
-    - uv sync --only-group docs
-    - uv run mkdocs build
+    - uv sync --frozen --only-group docs
+    - uv run --no-sync mkdocs build --strict
   artifacts:
     paths:
       - public

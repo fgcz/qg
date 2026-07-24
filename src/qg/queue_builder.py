@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Self
 
 import polars as pl
 
+from qg import __version__
 from qg.params_models import (
     ContainerBatch,
     Plate,
@@ -86,7 +87,6 @@ class QueueBuilder:
             plate_id = row.pop("plate_id")
             grid_position = row.pop("grid_position")
             tray = row.pop("tray")
-            position = row.pop("position", 0)
 
             if container_id not in self._batches:
                 self._batches[container_id] = ContainerBatch(container_id=container_id)
@@ -95,7 +95,7 @@ class QueueBuilder:
                 self._plates[plate_id] = Plate(plate_id=plate_id, tray=tray, nr_samples=0)
 
             sample = VialSample(container_id=container_id, **row)
-            cell = PlateCell(sample=sample, position=position, grid_position=grid_position, plate_id=plate_id)
+            cell = PlateCell(sample=sample, grid_position=grid_position, plate_id=plate_id)
             self._plate_cells.append(cell)
 
         # Update sample counts
@@ -119,12 +119,19 @@ class QueueBuilder:
         if self._bfabric_base_url is not None:
             parameters = parameters.model_copy(update={"bfabric_instance": self._bfabric_base_url})
 
+        provenance = {
+            "qg_version": __version__,
+            "resolved_config": self.config.subset_for(parameters),
+        }
+
         if self._layout_mode == LayoutMode.PLATE:
             return PlateQueueInput(
                 parameters=parameters,
                 queue=PlateQueue(batches=self._batches, plates=self._plates, cells=self._plate_cells),
+                **provenance,
             )
         return VialQueueInput(
             parameters=parameters,
             queue=VialQueue(batches=self._batches, samples=self._vial_samples),
+            **provenance,
         )

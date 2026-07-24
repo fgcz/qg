@@ -70,7 +70,7 @@ class _QCPositionProviderTip:
     ) -> None:
         self._samples = qc_layout.sample_map
         self._plate_layout = plate_layout
-        self._counters: dict[str, int] = {sid: 0 for sid in self._samples}
+        self._counters: dict[str, int] = dict.fromkeys(self._samples, 0)
 
         # Pre-compute flat start/end positions for arithmetic and bounds checking
         self._start_flat: dict[str, int] = {

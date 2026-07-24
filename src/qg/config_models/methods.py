@@ -34,15 +34,15 @@ class MethodsForInstrument(BaseModel):
     config_path: Path = Field(..., description="Repo-relative path this methods file was loaded from")
     methods: list[Method]
 
-    def get_method_names(self, sample_type: str, polarity: str = "") -> set[str]:
+    def get_method_names(self, sample_type: str, polarity: str) -> set[str]:
         """Get available method names for a sample_type and polarity."""
         return {m.method_name for m in self.methods if m.sample_type == sample_type and m.polarity == polarity}
 
     def get_method(
         self,
         sample_type: str,
-        polarity: str = "",
-        method_name: str = "",
+        polarity: str,
+        method_name: str,
     ) -> Method | None:
         """Get a specific method.
 
@@ -65,8 +65,8 @@ class MethodsForInstrument(BaseModel):
     def get_method_path(
         self,
         sample_type: str,
-        polarity: str = "",
-        method_name: str = "",
+        polarity: str,
+        method_name: str,
     ) -> str:
         """Get method path for given parameters.
 
@@ -121,8 +121,8 @@ class MethodsConfig(BaseModel):
         tech_area: str,
         instrument: str,
         sample_type: str,
-        polarity: str = "",
-        method_name: str = "",
+        polarity: str,
+        method_name: str,
     ) -> str:
         """Get method path for given parameters."""
         methods = self.get_methods(tech_area, instrument)
@@ -191,7 +191,7 @@ class MethodsConfig(BaseModel):
             MethodsConfig with all methods loaded
         """
         methods_dir = config_dir / cls.config_folder
-        tables: dict[tuple[str, str], pl.DataFrame] = {}
+        tables: dict[tuple[str, str], tuple[pl.DataFrame, Path]] = {}
 
         for instr in instruments.instruments:
             # methods_file is like "methods/Proteomics/ASTRAL_1_methods.csv"

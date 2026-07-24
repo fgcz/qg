@@ -25,7 +25,7 @@ positions, with file names and data paths filled from templates.
 ## Quick start
 
 Installation (core vs. the `qg[bfabric]` portal extra) and the run/CLI quick start
-are maintained in the project [README](../README.md).
+are maintained in the project [README](https://github.com/fgcz/qg/blob/main/README.md).
 The fastest path: `make app-local` (or `qg-app-local`) opens the standalone app —
 load a bundled example from the dropdown (or upload one of the
 [examples](examples/README.md))
