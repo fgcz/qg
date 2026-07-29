@@ -1,24 +1,18 @@
 [project]
 name = "qg"
-version = "0.9.5"
+version = "0.10.0"
 description = "Queue generation system for mass spectrometry instruments. Generates sample queues with QC injections for XCalibur, Chronos, and Hystar, with B-Fabric LIMS integration for sample loading and workunit upload."
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "altair>=6.0.0",
     "cyclopts>=4.4.4",
     "fastexcel>=0.11",
-    "ipython>=9.9.0",
     "loguru>=0.7.0",
-    "marimo>=0.23.7",
-    "pandas>=2.3.3",
+    "marimo>=0.23.9",
     "polars",
     "pyarrow>=22.0.0",
     "pydantic>=2.12.5",
-    "rich>=14.2.0",
     "tomli-w>=1.0.0",
-    "vegafusion>=2.0.3",
-    "vl-convert-python>=1.9.0",
     "plotly>=6.8.0",
 ]
 
@@ -32,7 +26,10 @@ bfabric = [
     "fastapi>=0.128.0",
     "starlette>=0.50.0",
     "asgiref>=3.8",
+    "pydantic-settings>=2.14.2",
+    "pyyaml",
     "python-gitlab>=5.0.0",
+    "uvicorn",
 ]
 
 [tool.uv]
@@ -51,6 +48,9 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "deptry>=0.25.1",
+    "diff-cover>=10.4.0",
+    "pip-audit>=2.10.1",
     "pre-commit>=4.0.0",
     "pyright>=1.1.390",
     "pytest>=9.0.2",
@@ -69,7 +69,7 @@ docs = [
     # make_plate_figure.py. (playwright for the screenshot capture lives in `dev`.)
     "matplotlib>=3.9",
     "kaleido>=0.2",
-    "pillow>=10.0",
+    "pillow>=12.3.0",
 ]
 # Pulls the public `bfabric` extra into the dev/CI venv (see [tool.uv] default-groups).
 portal = [
@@ -90,6 +90,7 @@ artifacts = [
 
 [project.scripts]
 qg = "qg.cli.generate_queues:cli_main"
+qg-assign-positions = "qg.cli.assign_positions:cli_main"
 qg-validate = "qg.cli.validate_config:cli_main"
 qg-find-projects = "qg.cli.find_projects:main"
 qg-refresh-cache = "qg.cli.refresh_cache:app"
@@ -119,14 +120,26 @@ select = [
     "W",      # pycodestyle warnings
     "A",      # flake8-builtins
     "B",      # flake8-bugbear
+    "C901",   # complex-structure
     "C4",     # flake8-comprehensions
+    "PLR0912", # too-many-branches
+    "PLR0913", # too-many-arguments
+    "PLR0911", # too-many-return-statements
+    "PLR0915", # too-many-statements
     "UP",     # pyupgrade
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"src/qg/apps/*" = ["B018", "E501"]
+"src/qg/apps/*" = ["B018", "E501", "PLR0913"]
 # Example/figure scripts: long matplotlib calls and embedded JS are fine.
 "docs/examples/figures/*" = ["E501"]
+"tests/*" = ["PLR0913"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 7
 
 [tool.ruff.format]
 quote-style = "double"
@@ -138,7 +151,23 @@ exclude = [
     "src/qg/apps",         # marimo apps have looser typing
     "src/qg/bfabric_utils.py",  # external API types
 ]
-typeCheckingMode = "off"  # disable most checks, enable specific ones below
+typeCheckingMode = "standard"
 reportUndefinedVariable = "error"
 reportMissingImports = "error"
 reportMissingModuleSource = "error"
+
+[tool.coverage.run]
+branch = true
+source = ["qg"]
+relative_files = true
+
+[tool.coverage.report]
+fail_under = 55
+
+[tool.deptry]
+known_first_party = ["qg"]
+extend_exclude = ["docs/examples/figures"]
+
+[tool.deptry.per_rule_ignores]
+# Runtime backends discovered through package entry points rather than imports.
+DEP002 = ["pyarrow"]

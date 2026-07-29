@@ -76,9 +76,7 @@ class _MetaExposingWsgiToAsgi(WsgiToAsgi):
     """:class:`WsgiToAsgi` whose per-request instances surface ``scope["meta"]``."""
 
     async def __call__(self, scope, receive, send):
-        await _MetaExposingWsgiInstance(self.wsgi_application, self.duplicate_header_limit)(
-            scope, receive, send
-        )
+        await _MetaExposingWsgiInstance(self.wsgi_application, self.duplicate_header_limit)(scope, receive, send)
 
 
 def _apply_auth_stack(app: FastAPI, *, app_name: str, mount_path: str) -> None:

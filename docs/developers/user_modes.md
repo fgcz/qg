@@ -6,7 +6,7 @@ Status: **implemented**
 Scope: `src/qg/apps/queue_app.py`
 
 > This document covers the **B-Fabric portal app** (`queue_app.py`). The standalone
-> local app (`queue_app_local.py`, see [Local app](local_app.md)) has no
+> local app (`queue_app_local.py`, see [Local app](../users/local_app.md)) has no
 > authentication and no B-Fabric dependency — nothing in this document applies to
 > it. (Scope note only; the security model below is unchanged.)
 

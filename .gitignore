@@ -32,6 +32,7 @@ plans/
 bfabric_cache/
 deprecated/
 .coverage
+coverage.xml
 .qg_settings.toml
 docs/*docx
 

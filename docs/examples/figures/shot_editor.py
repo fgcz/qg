@@ -22,7 +22,7 @@ async def click_tab(page, label):
     # Prefer the radio by accessible name; fall back to the radio's label text.
     for loc in (
         page.get_by_role("radio", name=label, exact=True),
-        page.locator(f'label:has-text("{label}")').locator('input[type=radio]'),
+        page.locator(f'label:has-text("{label}")').locator("input[type=radio]"),
     ):
         try:
             await loc.first.scroll_into_view_if_needed(timeout=4000)

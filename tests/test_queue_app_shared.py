@@ -106,7 +106,12 @@ def _vial_params(**overrides) -> QueueParameters:
 
 
 def _plate_params(**overrides) -> QueueParameters:
-    """Minimal valid Proteomics/Plate QueueParameters (Vanquish, 4-tray sampler)."""
+    """Minimal valid Proteomics/Plate QueueParameters (Vanquish, 4-tray sampler).
+
+    Vanquish uses ``Plate_96`` in Plate mode (``sampler_plate_layouts.csv``);
+    ``Vanquish_54`` is its Vial-mode layout, so plate wells beyond column 9 would
+    not exist on it.
+    """
     defaults: dict = {
         "tech_area": "Proteomics",
         "instrument": "ASTRAL_1",
@@ -114,7 +119,7 @@ def _plate_params(**overrides) -> QueueParameters:
         "output_format": "xcalibur",
         "queue_pattern": "standard",
         "queue_type": "Plate",
-        "plate_layout": "Vanquish_54",
+        "plate_layout": "Plate_96",
         "qc_layout_name": "standard",
         "polarity": ["pos"],
         "date": "20260101",
@@ -196,19 +201,20 @@ class TestBuildQueueInput:
         assert qi is not None
         assert len(qi.queue.samples) == 25
 
-    def test_randomization_draws_seed_onto_returned_input(self, config, vial_sample_df):
-        params = _vial_params(randomization="random", seed=None)
+    def test_returned_input_has_concrete_seed(self, config, vial_sample_df):
+        # QueueParameters always carries a concrete seed (drawn at construction).
+        params = _vial_params(randomization="random")
         qi, err = build_queue_input(config, params, vial_sample_df, has_samples_source=True)
         assert err is None
         assert qi is not None
-        assert qi.parameters.seed is not None
         assert 0 <= qi.parameters.seed < 2**32
 
-    def test_randomization_does_not_mutate_original_params(self, config, vial_sample_df):
-        # model_copy must be used internally; the caller's object must be unchanged.
-        params = _vial_params(randomization="random", seed=None)
-        build_queue_input(config, params, vial_sample_df, has_samples_source=True)
-        assert params.seed is None, "build_queue_input must not mutate the caller's QueueParameters"
+    def test_build_preserves_the_callers_seed(self, config, vial_sample_df):
+        # build_queue_input must neither redraw nor mutate the caller's seed.
+        params = _vial_params(randomization="random")
+        qi, _ = build_queue_input(config, params, vial_sample_df, has_samples_source=True)
+        assert qi is not None
+        assert qi.parameters.seed == params.seed
 
     def test_explicit_seed_is_preserved(self, config, vial_sample_df):
         params = _vial_params(randomization="random", seed=42)
@@ -709,22 +715,16 @@ class TestMakeQueueTypeField:
 
 
 class TestMakeMixedOrderNote:
-    """Neutral heads-up shown only when an order holds both plates and vials.
+    """Inline red note shown only when an order holds both plates and vials."""
 
-    Portal-only in effect: the local app derives the two flags as mutually
-    exclusive, so this helper returns ``None`` there. The wording is deliberately
-    factual (composition, not consequences) — queue-type guidance is left to a
-    later change.
-    """
-
-    def test_mixed_returns_callout(self):
+    def test_mixed_returns_red_note(self):
         note = make_mixed_order_note(has_plates=True, has_vials=True)
-        assert note is not None
-        assert "plate-resident and standalone" in note.text
+        assert "plate-resident and standalone" in note
+        assert "color:crimson" in note
 
     @pytest.mark.parametrize(
         ("has_plates", "has_vials"),
         [(True, False), (False, True), (False, False)],
     )
-    def test_non_mixed_returns_none(self, has_plates, has_vials):
-        assert make_mixed_order_note(has_plates=has_plates, has_vials=has_vials) is None
+    def test_non_mixed_returns_empty(self, has_plates, has_vials):
+        assert make_mixed_order_note(has_plates=has_plates, has_vials=has_vials) == ""

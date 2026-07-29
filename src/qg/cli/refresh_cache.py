@@ -17,7 +17,8 @@ class _HasFeederCredentials(Protocol):
 
 def _build_client(base_url: str, app_config: _HasFeederCredentials) -> Bfabric:
     auth = app_config.feeder_user_credentials[base_url]
-    return Bfabric(ConfigData(client=BfabricClientConfig(base_url=base_url), auth=auth))
+    client = BfabricClientConfig(base_url=base_url, application_ids={}, job_notification_emails="")
+    return Bfabric(ConfigData(client=client, auth=auth))
 
 
 def _resolve_instances(requested: tuple[str, ...], all_instances: bool, app_config: _HasFeederCredentials) -> list[str]:
@@ -58,7 +59,8 @@ def run(
         cyclopts.Parameter(help="Query B-Fabric plate endpoint for each container (slow)."),
     ] = False,
 ) -> None:
-    app_config = AppConfig()
+    # BaseSettings supplies the required values from environment sources.
+    app_config = AppConfig(**{})
     targets = _resolve_instances(instances, all_instances, app_config)
     failures: dict[str, str] = {}
     for url in targets:

@@ -1,9 +1,9 @@
 name: publish
 
-# CD: build the container image and push it to the GitHub Container Registry
-# (ghcr.io/<owner>/<repo>). Replaces the GitLab `build` job, which cross-built an
-# arm64 OCI tar to NFS. Tagging a release (vX.Y.Z) builds and publishes the image;
-# workflow_dispatch covers the GitLab "manual on main" trigger.
+# CD for the GitHub remote: build the container image and push it to the GitHub
+# Container Registry (ghcr.io/<owner>/<repo>). GitLab separately retains the
+# production arm64 OCI-to-NFS path. Tagging a release (vX.Y.Z) publishes this
+# multi-platform image; workflow_dispatch supports an explicit GitHub build.
 on:
   push:
     tags: ["v*"]

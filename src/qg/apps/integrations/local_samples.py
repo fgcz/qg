@@ -33,7 +33,6 @@ _ALIASES: dict[str, str] = {
     "id": "sample_id",
     "tubeid": "tube_id",
     "_gridposition": "grid_position",
-    "_position": "position",
     "groupingvar_name": "grouping_var",
 }
 
@@ -42,7 +41,7 @@ _PLATE_COLUMNS = tuple(PlateSampleRow.model_fields)
 _VIAL_REQUIRED = {"sample_name", "sample_id", "container_id"}
 _PLATE_REQUIRED = {"sample_name", "sample_id", "container_id", "plate_id", "grid_position"}
 # Columns that must be integer-typed for the builder / pydantic models.
-_INT_COLUMNS = ("sample_id", "container_id", "plate_id", "position")
+_INT_COLUMNS = ("sample_id", "container_id", "plate_id")
 
 
 @dataclass(frozen=True)

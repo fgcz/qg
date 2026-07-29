@@ -100,7 +100,7 @@ def test_methods_store_from_config_keys_match_iter(config):
 
 def test_config_from_dataframes_matches_row_dict_path(config):
     initial = editor_core.initial_editor_state(config)
-    df_tables = {name: config_table for name, config_table in _config_tables(config).items()}
+    df_tables = dict(_config_tables(config))
     from_df = editor_core.config_from_dataframes(df_tables, initial.toml, initial.methods)
     from_rows = editor_core.build_config_from_payload(initial.tables, initial.toml, initial.methods)
     assert from_df.serialize_all() == from_rows.serialize_all()

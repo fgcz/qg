@@ -8,18 +8,19 @@ The queue generator follows a **stateless functional pipeline** design:
   without mutating shared state.
 - Stages are composable and independently testable.
 
-The pipeline is orchestrated by `QueueGenerator.build_rows()` in
-[`generator.py`](../../src/qg/generator.py).
-Config resolution (loading sampler/pattern/QC-layout/methods for the requested
-instrument) happens in the `QueueGenerator` constructor; `build_rows()` then
-runs the stages below.
+Physical positioning is orchestrated by `QueueInput.position_queue()`. Its
+implementation in [`positionV2.py`](https://github.com/fgcz/qg/blob/main/src/qg/positionV2.py) converts vial
+inputs or validates plate inputs and returns a `PositionedQueueInput`. The
+remaining pipeline is orchestrated by `QueueGenerator.build_rows()` in
+[`generator.py`](https://github.com/fgcz/qg/blob/main/src/qg/generator.py).
 
 ## Inputs
 
 ### Queue Parameters (JSON)
 
-A `QueueInput` is `{parameters, queue}` (vial shown; plate's `queue` carries
-`plates` + `cells`):
+A `QueueInput` contains `{parameters, queue, qg_version, resolved_config}`
+(vial shown; plate's `queue` carries `plates` + `cells`). Both provenance fields
+are required:
 
 ```json
 {
@@ -45,7 +46,9 @@ A `QueueInput` is `{parameters, queue}` (vial shown; plate's `queue` carries
     "samples": [
       {"sample_name": "S1", "sample_id": 123456, "tube_id": "37180/1", "container_id": 37180}
     ]
-  }
+  },
+  "qg_version": "0.10.0",
+  "resolved_config": {"...": "embedded configuration snapshot"}
 }
 ```
 
@@ -53,8 +56,13 @@ The full field reference lives in [Configuration](config.md#queue-parameters-jso
 
 ### Config files
 
-Loaded once via `qg_configuration()` and resolved for the requested instrument.
-See [Configuration](config.md) for the per-file reference. The constructor resolves:
+Loaded once via `qg_configuration()` and passed explicitly to `QueueGenerator`.
+Interactive callers inject the configuration owned by the UI. The CLI and local
+reproduce mode explicitly reconstruct the embedded `resolved_config` at their
+composition boundary, then inject that configuration. `QueueGenerator` does not
+select a configuration source internally.
+
+See [Configuration](config.md) for the per-file reference. The constructor selects:
 
 - the **pattern** (`queue_patterns.toml`),
 - the **sampler** + **plate layout** (`sampler.toml`, `plate_layouts.toml`,
@@ -66,10 +74,12 @@ See [Configuration](config.md) for the per-file reference. The constructor resol
 
 ---
 
-## Pipeline (`build_rows`)
+## Positioning and generation pipeline
 
 ```
-PlateQueue / VialQueue (from queue.batches + cells/samples)
+VialQueueInput / PlateQueueInput
+    │
+0.  queue_input.position_queue()                                 -> PositionedQueueInput
     │
 1.  randomize_plate_queue(plate_queue, randomization)            -> PlateQueue
 2.  build_multi_container_queue_structure(groups, pattern, …)    -> list[SlotEntry]
@@ -83,6 +93,14 @@ PlateQueue / VialQueue (from queue.batches + cells/samples)
     │
     CSV / XML output
 ```
+
+### 0. `queue_input.position_queue()`
+
+Vial inputs are assigned deterministic physical plate/tray positions using the
+configured sampler, plate layout, start position, and QC reservations. Plate
+inputs retain their submitted positions after tray assignment and collision
+validation. Both paths return the same `PositionedQueueInput`, which is the only
+input accepted by `QueueGenerator`.
 
 ### 1. `randomize_plate_queue(plate_queue, randomization, rng)`
 
@@ -99,10 +117,10 @@ built. Modes (`randomize.py`):
 Returns a new `PlateQueue`.
 
 **Reproducibility.** Randomized modes draw from a `random.Random(seed)` instance.
-The generator uses the `seed` from the parameters JSON if set; otherwise it draws
-one and records it back onto the parameters, so the resolved seed is persisted in
-the exported params JSON / B-Fabric workunit and the run can be reproduced. `no`
-mode is deterministic and uses no seed.
+Randomized inputs always carry a concrete `seed`. `QueueBuilder` draws it during
+input construction when the caller did not supply one, before positioning or
+generation. The exported input and positioned assignment are therefore already
+self-contained and reproducible. `no` mode is deterministic and uses no seed.
 
 **Balance score.** The queue app's **Visualizations** tab reports how well a run
 is balanced with the *correlation ratio* (η², `qg.viz.balance`): the fraction of

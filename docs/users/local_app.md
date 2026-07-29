@@ -37,7 +37,7 @@ The mode is inferred from the columns — **plate** when both `plate_id` and
 `tube_id`, `grouping_var`.
 
 **Plate** — required `sample_name`, `sample_id`, `container_id`, `plate_id`,
-`grid_position`; optional `position`, `tray`, `grouping_var`.
+`grid_position`; optional `tray`, `grouping_var`.
 
 Header spellings such as `Sample Name`, `Sample ID`, `Tube ID`, `Container ID`
 (and the B-Fabric export names) are accepted and normalized; unknown columns are

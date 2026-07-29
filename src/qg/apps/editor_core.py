@@ -18,7 +18,7 @@ import polars as pl
 import tomli_w
 
 from qg.config_models.formatting import InstrumentsConfig, OutputFormatsConfig
-from qg.config_models.loader import QGConfiguration, qg_configuration, read_header_comments
+from qg.config_models.loader import QGConfiguration, read_header_comments
 from qg.config_models.methods import MethodsConfig, MethodsForInstrument
 from qg.config_models.positions import (
     PlateLayoutsConfig,
@@ -118,27 +118,29 @@ def split_method_key(key: str) -> tuple[str, str]:
     return tech_area, instrument
 
 
-def initial_editor_state(config: QGConfiguration | None = None) -> EditorState:
+def initial_editor_state(config: QGConfiguration) -> EditorState:
     """Build the initial browser-side editor state from a loaded config."""
-    cfg = config or qg_configuration()
     tables = {
-        "instruments": _records(cfg.instruments.to_table()),
-        "samples": _records(cfg.samples.to_table()),
-        "qc_layouts_well": _records(cfg.qc_layouts_well.to_table()),
-        "qc_layouts_tip": _records(cfg.qc_layouts_tip.to_table()),
-        "instrument_configs": _records(cfg.instrument_configs.to_table()),
-        "sampler_plate_layouts": _records(cfg.sampler_plate_layouts.to_table()),
+        "instruments": _records(config.instruments.to_table()),
+        "samples": _records(config.samples.to_table()),
+        "qc_layouts_well": _records(config.qc_layouts_well.to_table()),
+        "qc_layouts_tip": _records(config.qc_layouts_tip.to_table()),
+        "instrument_configs": _records(config.instrument_configs.to_table()),
+        "sampler_plate_layouts": _records(config.sampler_plate_layouts.to_table()),
     }
     toml = {
-        "output_formats": _toml_text(cfg.output_formats.header_comments, cfg.output_formats.to_dict()),
-        "tech_area_defaults": _toml_text(cfg.tech_area_defaults.header_comments, cfg.tech_area_defaults.to_dict()),
-        "samplers": _toml_text(cfg.samplers.header_comments, cfg.samplers.to_dict()),
-        "plate_layouts": _toml_text(cfg.plate_layouts.header_comments, cfg.plate_layouts.to_dict()),
-        "queue_patterns": _toml_text(cfg.queue_patterns.header_comments, cfg.queue_patterns.to_dict()),
+        "output_formats": _toml_text(config.output_formats.header_comments, config.output_formats.to_dict()),
+        "tech_area_defaults": _toml_text(
+            config.tech_area_defaults.header_comments,
+            config.tech_area_defaults.to_dict(),
+        ),
+        "samplers": _toml_text(config.samplers.header_comments, config.samplers.to_dict()),
+        "plate_layouts": _toml_text(config.plate_layouts.header_comments, config.plate_layouts.to_dict()),
+        "queue_patterns": _toml_text(config.queue_patterns.header_comments, config.queue_patterns.to_dict()),
     }
     methods = {
         method_key(tech_area, instrument): _records(methods_for_instrument.to_table())
-        for (tech_area, instrument), methods_for_instrument in cfg.methods.iter_methods()
+        for (tech_area, instrument), methods_for_instrument in config.methods.iter_methods()
     }
     return EditorState(
         tables=tables,
@@ -147,7 +149,7 @@ def initial_editor_state(config: QGConfiguration | None = None) -> EditorState:
         methods=methods,
         method_columns=METHOD_COLUMNS,
         method_options=sorted(methods),
-        overview=_records(cfg.to_overview_table()),
+        overview=_records(config.to_overview_table()),
     )
 
 

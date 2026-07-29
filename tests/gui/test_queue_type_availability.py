@@ -22,6 +22,8 @@ This is the browser-side counterpart of the exhaustive unit test
 
 from __future__ import annotations
 
+import re
+
 from playwright.sync_api import Page, expect
 from pytest_bdd import given, parsers, scenarios, then, when
 
@@ -68,3 +70,11 @@ def _warning_reads(page: Page, text: str) -> None:
 @then("no sampler-incompatibility warning is shown")
 def _no_incompat_warning(page: Page) -> None:
     expect(page.get_by_text("incompatible with this order's samples", exact=False)).to_have_count(0)
+
+
+@then(parsers.parse("the selection banner reports {n:d} samples"))
+def _banner_reports_count(page: Page, n: int) -> None:
+    # The "Selected: … — N samples" count is len(full_samples_df): the samples
+    # actually loaded for the chosen queue type. In Vial mode a mixed order loads
+    # only its off-plate samples, so N is the off-plate count, not the container total.
+    expect(page.get_by_text(re.compile(rf"{n}\s+samples")).first).to_be_visible(timeout=15_000)

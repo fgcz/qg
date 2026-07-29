@@ -2,7 +2,15 @@
 
 from datetime import date
 
-from qg.params_models import ContainerBatch, QueueParameters, VialQueue, VialQueueInput, VialSample
+from qg import __version__
+from qg.config_models.loader import QGConfiguration
+from qg.params_models import (
+    ContainerBatch,
+    QueueParameters,
+    VialQueue,
+    VialQueueInput,
+    VialSample,
+)
 
 
 def make_samples(
@@ -59,6 +67,7 @@ def make_sample_groups(
 def make_queue_input(
     groups: list[tuple[int, int]] | None = None,
     *,
+    config: QGConfiguration,
     num_samples: int = 5,
     tech_area: str = "Proteomics",
     instrument: str = "ASTRAL_1",
@@ -78,6 +87,7 @@ def make_queue_input(
 
     Args:
         groups: Optional list of (container_id, num_samples) tuples for multi-group.
+        config: Configuration whose resolved subset is embedded in the input.
         num_samples: Number of samples (single-group mode only).
         tech_area: Technology identifier.
         instrument: Instrument name.
@@ -120,4 +130,10 @@ def make_queue_input(
         all_samples = make_samples(num_samples, container_id)
 
     queue = VialQueue(batches=batches, samples=all_samples)
-    return VialQueueInput(parameters=params, queue=queue)
+    resolved_config = config.subset_for(params)
+    return VialQueueInput(
+        parameters=params,
+        queue=queue,
+        qg_version=__version__,
+        resolved_config=resolved_config,
+    )

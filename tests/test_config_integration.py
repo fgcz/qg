@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from qg import __version__
 from qg.config_models.loader import ConfigValidationError, QGConfiguration, qg_configuration
 from qg.config_models.structure import QueuePattern
 
@@ -416,9 +417,9 @@ class TestQueueInputCreate:
 
         sample = VialSample(sample_name="S1", sample_id=1001, container_id=12345)
         with pytest.raises(ValidationError):
-            PlateCell(sample=sample, position=1, plate_id=1)  # missing grid_position
+            PlateCell(sample=sample, plate_id=1)  # missing grid_position
 
-    def test_plate_queue_input_with_positions_succeeds(self) -> None:
+    def test_plate_queue_input_with_positions_succeeds(self, config) -> None:
         """PlateQueueInput succeeds when cells have grid_position."""
         from qg.params_models import (
             ContainerBatch,
@@ -447,14 +448,25 @@ class TestQueueInputCreate:
         queue = PlateQueue(
             batches={12345: ContainerBatch(container_id=12345)},
             plates={plate_id: Plate(plate_id=plate_id, tray="Y", nr_samples=1)},
-            cells=[PlateCell(sample=sample, position=1, grid_position="A1", plate_id=plate_id)],
+            cells=[PlateCell(sample=sample, grid_position="A1", plate_id=plate_id)],
         )
-        queue_input = PlateQueueInput(parameters=params, queue=queue)
+        queue_input = PlateQueueInput(
+            parameters=params,
+            queue=queue,
+            qg_version=__version__,
+            resolved_config=config.subset_for(params),
+        )
         assert len(queue_input.queue.cells) == 1
 
-    def test_vial_queue_input_without_positions_succeeds(self) -> None:
+    def test_vial_queue_input_without_positions_succeeds(self, config) -> None:
         """VialQueueInput succeeds without grid_position (positions are generated)."""
-        from qg.params_models import ContainerBatch, QueueParameters, VialQueue, VialQueueInput, VialSample
+        from qg.params_models import (
+            ContainerBatch,
+            QueueParameters,
+            VialQueue,
+            VialQueueInput,
+            VialSample,
+        )
 
         params = QueueParameters(
             tech_area="Proteomics",
@@ -476,5 +488,10 @@ class TestQueueInputCreate:
             batches={12345: ContainerBatch(container_id=12345)},
             samples=samples,
         )
-        queue_input = VialQueueInput(parameters=params, queue=queue)
+        queue_input = VialQueueInput(
+            parameters=params,
+            queue=queue,
+            qg_version=__version__,
+            resolved_config=config.subset_for(params),
+        )
         assert len(queue_input.queue.samples) == 2

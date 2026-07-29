@@ -81,9 +81,7 @@ def _():
         if methods_df is not None and not methods_df.is_empty():
             key = editor_core.method_key(editors["methods_tech_area"], editors["methods_instrument"])
             methods_store[key] = methods_df.to_dicts()
-        return editor_core.config_from_dataframes(
-            csv_tables, toml, methods_store, preserve_comments=preserve_comments
-        )
+        return editor_core.config_from_dataframes(csv_tables, toml, methods_store, preserve_comments=preserve_comments)
 
     def error_callout(title: str, error: Exception):
         """Build a danger callout with title and formatted error message."""
@@ -106,11 +104,7 @@ def _():
 
 @app.cell
 def _(preview_only_mode):
-    reload_original_button = (
-        mo.ui.run_button(label="Reload Original", kind="neutral")
-        if preview_only_mode
-        else None
-    )
+    reload_original_button = mo.ui.run_button(label="Reload Original", kind="neutral") if preview_only_mode else None
     return (reload_original_button,)
 
 
@@ -146,8 +140,7 @@ def _(cli_args, editor_mode, reload_original_tick):
 def _(editor_mode):
     _mode_text = {
         "preview-only": (
-            "Preview-only mode: edit and validate in the browser; "
-            "Reload Original discards edits; nothing is saved."
+            "Preview-only mode: edit and validate in the browser; Reload Original discards edits; nothing is saved."
         ),
         "review": "Review mode: validate edits and submit them as a GitLab merge request.",
         "save": "Save mode: validate edits and write changed config files to disk.",
@@ -250,7 +243,7 @@ def _(cfg, compact_toml):
                 '(empty ⇒ logged-in user), `default_polarities` as a list (e.g. `["pos", "neg"]`), '
                 "`bfabric_areas` listing the B-Fabric Area values whose orders belong to this "
                 "tech area (used to filter the order browser; empty ⇒ no filtering), and "
-                '`sample_name_suffixes` listing the prep-type labels offered in the sample-name '
+                "`sample_name_suffixes` listing the prep-type labels offered in the sample-name "
                 'suffix dropdown (e.g. `["enriched", "total", "lip"]`; empty ⇒ only the "none" no-op)._'
             ),
             tech_area_defaults_editor,
@@ -705,11 +698,7 @@ def _(
 @app.cell
 def _(editor_mode):
     validate_button = mo.ui.run_button(label="Validate", kind="neutral")
-    save_button = (
-        mo.ui.run_button(label="Save All", kind="success")
-        if editor_mode == "save"
-        else None
-    )
+    save_button = mo.ui.run_button(label="Save All", kind="success") if editor_mode == "save" else None
     return save_button, validate_button
 
 

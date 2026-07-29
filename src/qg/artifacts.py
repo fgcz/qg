@@ -7,11 +7,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import polars as pl
 from loguru import logger
 
 if TYPE_CHECKING:
-    from qg.generator import QueueRowTable
-    from qg.params_models import QueueInput
+    from qg.params_models import PositionedQueueInput, QueueInput
 
 ARTIFACTS_DIR = Path.home() / ".qg" / "logs"
 RETENTION_DAYS = 30
@@ -24,7 +24,7 @@ def build_timestamp() -> str:
     return datetime.now(tz=UTC).strftime("%Y%m%d_%H%M%S")
 
 
-def _build_stem(queue_input: QueueInput) -> str:
+def build_artifact_stem(queue_input: QueueInput | PositionedQueueInput) -> str:
     """Build filename stem: {YYYYMMDD_HHMMSS}_{tech_area}_{instrument}_{sampler}."""
     params = queue_input.parameters
     ts = build_timestamp()
@@ -43,24 +43,41 @@ def _cleanup_old_artifacts(directory: Path) -> None:
             f.unlink()
 
 
-def save_artifacts(queue_input: QueueInput, queue_rows: QueueRowTable) -> None:
-    """Save queue params JSON and raw queue CSV to ~/.qg/logs/.
-
-    Never raises — logs errors internally so queue generation is not interrupted.
-    """
+def save_positioning_artifacts(
+    source_input: QueueInput,
+    positioned_input: PositionedQueueInput,
+    *,
+    stem: str | None = None,
+) -> str:
+    """Save source and positioned queue JSON at an explicit commit point."""
+    artifact_stem = stem or build_artifact_stem(source_input)
     try:
         ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
-        stem = _build_stem(queue_input)
-
-        # Queue parameters JSON
-        params_path = ARTIFACTS_DIR / f"{stem}_params.json"
-        params_path.write_text(queue_input.model_dump_json(indent=2))
-
-        # Raw queue rows CSV (unformatted)
-        csv_path = ARTIFACTS_DIR / f"{stem}_raw_queue.csv"
-        queue_rows.to_table().write_csv(csv_path)
-
-        logger.info("Artifacts saved | {}", stem)
+        source_path = ARTIFACTS_DIR / f"{artifact_stem}_source_queue.json"
+        source_path.write_text(source_input.model_dump_json(indent=2))
+        positioned_path = ARTIFACTS_DIR / f"{artifact_stem}_positioned_queue.json"
+        positioned_path.write_text(positioned_input.model_dump_json(indent=2))
+        logger.info("Positioning artifacts saved | {}", artifact_stem)
         _cleanup_old_artifacts(ARTIFACTS_DIR)
     except Exception:
-        logger.opt(exception=True).warning("Failed to save artifacts")
+        logger.opt(exception=True).warning("Failed to save positioning artifacts")
+    return artifact_stem
+
+
+def save_generation_artifact(
+    positioned_input: PositionedQueueInput,
+    raw_queue: pl.DataFrame,
+    *,
+    stem: str | None = None,
+) -> str:
+    """Save raw generated queue rows at an explicit commit point."""
+    artifact_stem = stem or build_artifact_stem(positioned_input)
+    try:
+        ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
+        csv_path = ARTIFACTS_DIR / f"{artifact_stem}_raw_queue.csv"
+        raw_queue.write_csv(csv_path)
+        logger.info("Generation artifact saved | {}", artifact_stem)
+        _cleanup_old_artifacts(ARTIFACTS_DIR)
+    except Exception:
+        logger.opt(exception=True).warning("Failed to save generation artifact")
+    return artifact_stem

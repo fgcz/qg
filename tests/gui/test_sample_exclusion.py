@@ -57,12 +57,13 @@ def _uncheck_sample(page: Page, sample_name: str) -> None:
     # Workaround: dispatch the click event directly on the checkbox via JS;
     # marimo's selection-state listener fires from the event regardless of
     # CSS visibility.
-    # Locate the samples_table by its row + column count (12 samples × 8 cols);
+    # Locate the samples_table by its row + column count (12 samples × 7 cols);
     # the other <marimo-table> elements on the page have different totals.
-    samples_table = page.locator('marimo-table[data-total-rows="12"][data-total-columns="8"]').first
+    samples_table = page.locator('marimo-table[data-total-rows="12"][data-total-columns="7"]').first
     expect(samples_table).to_be_attached(timeout=15_000)
-    # samples_df columns are snake_case (sample_name, sample_id, tube_id, ...)
-    # per BfabricHelper._load_plate_samples (bfabric_utils.py:162).
+    # samples_df columns are the snake_case PlateSampleRow fields (sample_name,
+    # sample_id, container_id, grid_position, plate_id, tray, grouping_var) per
+    # BfabricHelper._load_plate_samples (bfabric_utils.py).
     cell = samples_table.locator("td[data-cell-id$='_sample_name']", has_text=sample_name).first
     expect(cell).to_be_attached(timeout=10_000)
     checkbox = cell.locator("xpath=ancestor::tr[1]").locator("[data-testid='select-row-checkbox']")

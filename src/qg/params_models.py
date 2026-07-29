@@ -3,15 +3,27 @@
 from __future__ import annotations
 
 import json
+import secrets
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Self
 
-from pydantic import AliasChoices, BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field, field_validator, model_validator
 
 from qg.config_models.resolved import ResolvedConfig
 
 if TYPE_CHECKING:
     from qg.config_models.loader import QGConfiguration
+    from qg.config_models.positions import PlateLayout
+    from qg.utils import Position
+
+
+def draw_seed() -> int:
+    """Draw a fresh 32-bit RNG seed from OS entropy.
+
+    Independent of the global ``random`` state, so a drawn seed is reproducible
+    only via itself (record it to reproduce the run).
+    """
+    return secrets.randbits(32)
 
 
 class VialSample(BaseModel):
@@ -25,14 +37,15 @@ class VialSample(BaseModel):
 
 
 class PlateCell(BaseModel):
-    """A sample placed in a plate well."""
+    """A sample placed in a plate well, identified by ``(plate_id, grid_position)``.
+
+    Row/column and flat vendor indices are derived from ``grid_position`` and the
+    plate layout where needed.
+    """
 
     sample: VialSample
-    position: int
+    plate_id: int  # FK to Plate
     grid_position: str
-    plate_id: int | None  # FK to Plate
-    row: str = ""
-    col: int = 0
 
 
 class ContainerBatch(BaseModel):
@@ -67,6 +80,28 @@ class PlateQueue(BaseModel):
     plates: dict[int, Plate] = Field(default_factory=dict)
     cells: list[PlateCell] = Field(default_factory=list)
 
+    def cell_position(self, cell: PlateCell, plate_layout: PlateLayout) -> Position:
+        """Resolve a cell's validated physical position.
+
+        Raises:
+            ValueError: If the cell references an unknown plate, the plate has
+                no tray, or the grid position is outside ``plate_layout``.
+        """
+        from qg.utils import Position
+
+        plate = self.plates.get(cell.plate_id)
+        if plate is None:
+            raise ValueError(f"Sample cell references unknown plate {cell.plate_id}.")
+        if plate.tray is None:
+            raise ValueError(f"Positioned queue plate {cell.plate_id} is missing a tray.")
+        row, col = plate_layout.split_alpha(cell.grid_position)
+        return Position(
+            tray=plate.tray,
+            grid_position=cell.grid_position,
+            row=row,
+            col=col,
+        )
+
 
 class QueueParameters(BaseModel):
     """Queue generation parameters."""
@@ -85,10 +120,9 @@ class QueueParameters(BaseModel):
     # Method per polarity: {"pos": "DIA_60min", "neg": "DIA_60min"}
     method: dict[str, str] = Field(default_factory=dict)
     randomization: Literal["no", "random", "blocked", "blocked_uniform"] = "no"
-    # RNG seed for reproducible randomization. When unset, a seed is drawn at
-    # generation time and recorded back here so the run can be reproduced from the
-    # exported params JSON / B-Fabric workunit.
-    seed: int | None = None
+    # RNG seed for reproducible randomization. Always concrete: a fresh seed is
+    # drawn at construction unless one is supplied. Unused when randomization="no".
+    seed: int = Field(default_factory=draw_seed)
     inj_vol_override: float | None = None
     qc_frequency_override: int | None = None
     # If True, samples from different containers are placed on separate trays (vial mode only)
@@ -112,8 +146,14 @@ class QueueParameters(BaseModel):
     # from filenames alone (the instrument turns "..._eoq" into "..._eoq.raw").
     mark_end_of_queue: bool = True
 
+    @field_validator("seed", mode="before")
     @classmethod
-    def create(
+    def draw_seed_for_legacy_null(cls, value: object) -> object:
+        """Replace the nullable seed emitted by older qg versions."""
+        return draw_seed() if value is None else value
+
+    @classmethod
+    def create(  # noqa: PLR0913
         cls,
         configs: QGConfiguration,
         *,
@@ -130,7 +170,6 @@ class QueueParameters(BaseModel):
         user: str = "",
         method: dict[str, str] | None = None,
         randomization: Literal["no", "random", "blocked", "blocked_uniform"] = "no",
-        seed: int | None = None,
         inj_vol_override: float | None = None,
         qc_frequency_override: int | None = None,
         one_container_per_tray: bool = False,
@@ -174,7 +213,6 @@ class QueueParameters(BaseModel):
             user=user,
             method=method or {},
             randomization=randomization,
-            seed=seed,
             inj_vol_override=inj_vol_override,
             qc_frequency_override=qc_frequency_override,
             one_container_per_tray=one_container_per_tray,
@@ -191,11 +229,14 @@ class VialQueueInput(BaseModel):
 
     parameters: QueueParameters
     queue: VialQueue
-    # Provenance for self-contained replication; populated by ``stamp_provenance``.
-    # ``qg_version`` records the generating qg release; ``resolved_config`` inlines the
-    # minimal config the run used so the queue regenerates without ``qg_configs/``.
-    qg_version: str | None = None
-    resolved_config: ResolvedConfig | None = None
+    qg_version: str
+    resolved_config: ResolvedConfig
+
+    def position_queue(self) -> PositionedQueueInput:
+        """Assign physical positions and return generation-ready input."""
+        from qg.positionV2 import position_vial_queue
+
+        return position_vial_queue(self)
 
 
 class PlateQueueInput(BaseModel):
@@ -203,41 +244,49 @@ class PlateQueueInput(BaseModel):
 
     parameters: QueueParameters
     queue: PlateQueue
-    # See VialQueueInput: self-contained replication provenance.
-    qg_version: str | None = None
-    resolved_config: ResolvedConfig | None = None
+    qg_version: str
+    resolved_config: ResolvedConfig
+
+    def position_queue(self) -> PositionedQueueInput:
+        """Validate physical positions and return generation-ready input."""
+        from qg.positionV2 import position_plate_queue
+
+        return position_plate_queue(self)
+
+
+class PositionedQueueInput(BaseModel):
+    """Generation-ready queue whose physical positions have been validated."""
+
+    parameters: QueueParameters
+    queue: PlateQueue
+    qg_version: str
+    resolved_config: ResolvedConfig
+
+    @model_validator(mode="after")
+    def plates_have_trays(self) -> Self:
+        """Require the positioning stage to resolve every plate to a tray."""
+        missing = sorted(plate_id for plate_id, plate in self.queue.plates.items() if plate.tray is None)
+        if missing:
+            raise ValueError(f"Positioned queue plate(s) {missing} are missing a tray.")
+        return self
 
 
 QueueInput = VialQueueInput | PlateQueueInput
 
 
-def _qg_version() -> str | None:
-    """The installed ``qg`` version, or None when running from an unpackaged source tree."""
-    from importlib.metadata import PackageNotFoundError, version
-
-    try:
-        return version("qg")
-    except PackageNotFoundError:
-        return None
-
-
-def stamp_provenance(queue_input: QueueInput, config: QGConfiguration) -> QueueInput:
-    """Return a copy of ``queue_input`` with ``qg_version`` and ``resolved_config`` filled in.
-
-    Producers (GUI download, work-unit upload) call this so the exported JSON is
-    self-contained: the embedded ``resolved_config`` lets ``qg`` regenerate the
-    queue from the file alone, independent of the live ``qg_configs/``.
-    """
-    return queue_input.model_copy(
-        update={
-            "qg_version": _qg_version(),
-            "resolved_config": config.subset_for(queue_input.parameters),
-        }
-    )
-
-
 def write_queue_input(queue_input: QueueInput, output_path: str | Path) -> Path:
     """Write queue input to JSON file."""
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(queue_input.model_dump_json(indent=2))
+    return output_path
+
+
+def write_positioned_queue_input(
+    queue_input: PositionedQueueInput,
+    output_path: str | Path,
+) -> Path:
+    """Write a generation-ready positioned queue to a JSON file."""
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(queue_input.model_dump_json(indent=2))

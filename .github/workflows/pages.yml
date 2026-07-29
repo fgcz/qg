@@ -37,11 +37,8 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v6
 
-      # Plain (non-strict) build for now: the docs have pre-existing warnings
-      # (cross-tree links to README/AGENTS/src, editor screenshots not tracked
-      # in docs/). Tightening to `--strict` is a separate docs-cleanup task.
       - name: Build docs
-        run: uv run --no-sync mkdocs build
+        run: uv run --no-sync mkdocs build --strict
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5

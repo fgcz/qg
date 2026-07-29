@@ -4,6 +4,7 @@ import tomllib
 from pathlib import Path
 
 import polars as pl
+import pytest
 
 # Config root
 CONFIG_ROOT = Path(__file__).parent.parent / "qg_configs"
@@ -223,6 +224,23 @@ class TestPositionConfigs:
         sample_ids = {s.sample_id for s in samples}
         assert "QC01" in sample_ids
 
+    def test_qc_layouts_well_reject_blank_position_field(self):
+        """Every accepted well-layout row has a statically non-null position."""
+        from pydantic import ValidationError
+
+        from qg.config_models.positions import QCSampleWell
+
+        with pytest.raises(ValidationError):
+            QCSampleWell(
+                tech_area="Proteomics",
+                qc_layout_name="standard",
+                plate_layout="Vanquish_54",
+                sample_id="QC01",
+                tray="Y",
+                row=None,
+                col=1,
+            )
+
     def test_no_layout_is_a_synthetic_as_is_option(self):
         """`no_layout` is a code-level "as-is" option: never a CSV QC layout, but offered
         in the overview table for Vial and Plate combinations of every tech area that opts
@@ -325,7 +343,7 @@ class TestMethodsConfigs:
 
         assert len(methods.methods) > 0
         # Check default method exists
-        method = methods.get_method("default", "pos")
+        method = methods.get_method("default", "pos", "DIA")
         assert method is not None
 
     def test_load_all_methods(self):

@@ -2,12 +2,35 @@
 
 from __future__ import annotations
 
+import json
 import re
 import time
 from pathlib import Path
 from unittest.mock import patch
 
-from qg.artifacts import _ARTIFACT_SUFFIXES, RETENTION_DAYS, _cleanup_old_artifacts, build_timestamp
+import pytest
+
+import qg.artifacts as artifacts
+from qg.artifacts import (
+    _ARTIFACT_SUFFIXES,
+    RETENTION_DAYS,
+    _cleanup_old_artifacts,
+    build_timestamp,
+    save_generation_artifact,
+    save_positioning_artifacts,
+)
+from qg.config_models.loader import qg_configuration
+from qg.generator import QueueGenerator
+
+from .helpers import make_queue_input
+
+CONFIG_DIR = Path(__file__).parent.parent / "qg_configs"
+
+
+@pytest.fixture
+def config():
+    qg_configuration.cache_clear()
+    return qg_configuration(CONFIG_DIR)
 
 
 class TestBuildTimestamp:
@@ -62,3 +85,33 @@ class TestCleanupOldArtifacts:
         _cleanup_old_artifacts(tmp_path)
 
         assert log_file.exists()
+
+
+def test_explicit_commit_saves_source_positioned_and_raw(config, monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(artifacts, "ARTIFACTS_DIR", tmp_path)
+    source = make_queue_input(config=config, num_samples=3)
+    positioned = source.position_queue()
+    raw_queue = QueueGenerator(config, positioned).build_rows().to_table()
+
+    stem = save_positioning_artifacts(source, positioned, stem="run")
+    save_generation_artifact(positioned, raw_queue, stem=stem)
+
+    assert {path.name for path in tmp_path.iterdir()} == {
+        "run_source_queue.json",
+        "run_positioned_queue.json",
+        "run_raw_queue.csv",
+    }
+    positioned_json = json.loads((tmp_path / "run_positioned_queue.json").read_text())
+    assert len(positioned_json["queue"]["cells"]) == 3
+    assert positioned_json["parameters"]["randomization"] == "no"
+
+
+def test_pipeline_methods_do_not_write_artifacts(config, monkeypatch, tmp_path: Path):
+    artifact_dir = tmp_path / "artifacts"
+    monkeypatch.setattr(artifacts, "ARTIFACTS_DIR", artifact_dir)
+    source = make_queue_input(config=config, num_samples=3)
+
+    positioned = source.position_queue()
+    QueueGenerator(config, positioned).write()
+
+    assert not artifact_dir.exists()

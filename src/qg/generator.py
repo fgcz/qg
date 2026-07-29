@@ -2,26 +2,28 @@
 
 from __future__ import annotations
 
-import random
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import polars as pl
 from loguru import logger
 from pydantic import BaseModel
 
 from qg.config_models.formatting import OutputFormat
-from qg.config_models.loader import QGConfiguration
 from qg.config_models.methods import MethodsConfig
 from qg.config_models.positions import PlateLayout, get_grid_position_converter
 from qg.config_models.structure import Sample, SamplesConfig
-from qg.params_models import PlateCell, PlateQueue, PlateQueueInput, QueueInput, VialQueueInput
-from qg.positionV2 import create_assembled_sampler
+from qg.params_models import PlateCell, PlateQueue, PositionedQueueInput
+from qg.qc_layout import create_qc_layout
 from qg.qc_positions import Position, QCPositionProvider, create_qc_position_provider
 from qg.queue_structure import SlotEntry, build_multi_container_queue_structure
-from qg.randomize import draw_seed, randomize_plate_queue
-from qg.utils import LayoutMode
+from qg.randomize import randomize_plate_queue
+from qg.utils import get_position_function
+
+if TYPE_CHECKING:
+    from qg.config_models.loader import QGConfiguration
 
 # Suffix appended to the basename of the last file of each container subqueue
 # when mark_end_of_queue is enabled. The instrument turns "..._eoq" into
@@ -108,8 +110,12 @@ def _build_slots(
     samples_config: SamplesConfig,
     tech_area: str,
     default_sample_id: str,
+    plate_layout: PlateLayout,
 ) -> list[SlotInfo]:
-    """Build slots from SlotEntry list and PlateQueue."""
+    """Build slots from SlotEntry list and PlateQueue.
+
+    User-cell row/column is derived from ``grid_position`` via ``plate_layout``.
+    """
     slots: list[SlotInfo] = []
     cell_iter = iter(plate_queue.cells)
 
@@ -123,12 +129,7 @@ def _build_slots(
             user_cell = next(cell_iter, None)
             if not user_cell:
                 continue
-            position = Position(
-                tray=plate_queue.plates[user_cell.plate_id].tray,
-                grid_position=user_cell.grid_position,
-                row=user_cell.row,
-                col=user_cell.col,
-            )
+            position = plate_queue.cell_position(user_cell, plate_layout)
         else:
             position = qc_provider.get_position(entry.sample_id)
 
@@ -146,7 +147,7 @@ def _build_slots(
     return slots
 
 
-def _expand_polarities(slots: list[SlotInfo], polarities: list[str]) -> list[ExpandedSlot]:
+def _expand_polarities(slots: list[SlotInfo], polarities: Sequence[str]) -> list[ExpandedSlot]:
     """Duplicate slots for each polarity, assign run_number."""
     expanded: list[ExpandedSlot] = []
     run = 1
@@ -288,7 +289,7 @@ def format_table(
     queue_rows: QueueRowTable,
     output_format: OutputFormat,
     plate_layout: PlateLayout,
-    tech_area: str | None = None,
+    tech_area: str,
 ) -> pl.DataFrame:
     """Format queue rows as DataFrame for the given output format.
 
@@ -342,48 +343,29 @@ def format_table(
 
 
 class QueueGenerator:
-    """Generates queue CSV from configs and input parameters.
+    """Generate an instrument queue from injected config and positioned samples."""
 
-    Uses QGConfiguration (new config bundle) with NO dependencies on old config.py.
-    """
+    def __init__(self, config: QGConfiguration, queue_input: PositionedQueueInput) -> None:
+        if not isinstance(queue_input, PositionedQueueInput):
+            raise TypeError("QueueGenerator requires a PositionedQueueInput")
 
-    def __init__(self, config: QGConfiguration, queue_input: QueueInput) -> None:
         self.queue_input = queue_input
-        self._config = config
         params = queue_input.parameters
-        layout_mode = LayoutMode.PLATE if isinstance(queue_input, PlateQueueInput) else LayoutMode.VIAL
 
-        # Pattern existence validated in QueueParameters.create()
         self.pattern = config.queue_patterns.get_pattern(params.tech_area, params.queue_pattern)
-
-        qc_layout_name = params.qc_layout_name
-
-        # Create assembled sampler for position assignment
-        assembled_sampler = create_assembled_sampler(
-            sampler_name=params.sampler,
-            layout_mode=layout_mode,
+        self._plate_layout = config.plate_layouts.get_layout(params.plate_layout)
+        sampler = config.samplers.get_sampler(params.sampler)
+        self._qc_layout = create_qc_layout(
             config=config,
             tech_area=params.tech_area,
             pattern_sample_ids=self.pattern.get_all_sample_ids(),
+            qc_layout_name=params.qc_layout_name,
             plate_layout_name=params.plate_layout,
-            qc_layout_name=qc_layout_name,
-            start_position=params.start_position,
-            start_tray=params.start_tray
-            if params.start_tray != ""
-            else config.samplers.get_sampler(params.sampler).trays[0],
+            sampler_name=params.sampler,
+            position_fun=get_position_function(sampler.position_fun),
+            plate_layout=self._plate_layout,
         )
-
-        # Store QC layout and plate layout from assembled sampler (avoid recomputation)
-        self._qc_layout = assembled_sampler.qc_layout
-        self._plate_layout = config.plate_layouts.get_layout(params.plate_layout)
-
-        # Transform/validate queue to get PlateQueue
-        if isinstance(queue_input, VialQueueInput):
-            self.plate_queue: PlateQueue = assembled_sampler.assign(
-                queue_input.queue, one_container_per_tray=params.one_container_per_tray
-            )
-        else:
-            self.plate_queue = assembled_sampler.assign(queue_input.queue)
+        self.plate_queue: PlateQueue = queue_input.queue
 
         # Store config references
         self.samples_config = config.samples
@@ -430,16 +412,9 @@ class QueueGenerator:
             len(self.plate_queue.cells),
         )
 
-        # Apply randomization (within plate/container boundaries). For randomized
-        # modes, resolve and record the seed so the run is reproducible from the
-        # exported params; "no" mode is already deterministic and needs no seed.
-        if params.randomization == "no":
-            plate_queue = self.plate_queue
-        else:
-            if params.seed is None:
-                params.seed = draw_seed()
-            logger.info("Randomization | mode={} | seed={}", params.randomization, params.seed)
-            plate_queue = randomize_plate_queue(self.plate_queue, params.randomization, random.Random(params.seed))
+        # Apply randomization within plate/container boundaries. randomize_plate_queue
+        # short-circuits "no" and owns RNG construction; params.seed is always concrete.
+        plate_queue = randomize_plate_queue(self.plate_queue, params.randomization, params.seed)
 
         # Extract groups: (container_id, num_samples) for each container
         samples_per_container: dict[int, int] = {}
@@ -463,7 +438,13 @@ class QueueGenerator:
 
         # Build slots
         slots = _build_slots(
-            slot_entries, plate_queue, qc_provider, self.samples_config, params.tech_area, default_sample_id
+            slot_entries,
+            plate_queue,
+            qc_provider,
+            self.samples_config,
+            params.tech_area,
+            default_sample_id,
+            self._plate_layout,
         )
 
         # Expand polarities
@@ -482,10 +463,5 @@ class QueueGenerator:
             expanded, self._path_template, self._user, self._date, params.inj_vol_override, default_sample_id
         )
         logger.info("Queue built | rows={} | format={}", len(result.rows), params.output_format)
-
-        # Save artifacts for audit/debugging
-        from qg.artifacts import save_artifacts
-
-        save_artifacts(self.queue_input, result)
 
         return result
