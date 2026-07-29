@@ -126,7 +126,7 @@
       "tech_area": "Proteomics",
       "instrument": "ASTRAL_1",
       "methods_file": "methods/Proteomics/ASTRAL_1_methods.csv",
-      "path_template": "D:\\Data2San\\p{container}\\Proteomics\\ASTRAL_1\\{user}_{date}"
+      "path_template": "D:\\Data2San\\p{container}\\Proteomics\\ASTRAL_1\\{user}_{date}_{queue_name}"
     },
     "output_format_name": "xcalibur_sii",
     "output_format": {

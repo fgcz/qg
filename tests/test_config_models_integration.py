@@ -32,6 +32,31 @@ class TestFormattingConfigs:
         assert instr is not None
         assert instr.methods_file.startswith("methods/")
 
+    def test_path_template_rejects_unknown_placeholder(self):
+        """An unknown placeholder must fail config validation, not mid-run str.format."""
+        from qg.config_models.formatting import Instrument
+
+        with pytest.raises(ValueError, match="Invalid placeholders"):
+            Instrument(
+                tech_area="Proteomics",
+                instrument="ASTRAL_1",
+                methods_file="methods/Proteomics/ASTRAL_1_methods.csv",
+                path_template=r"D:\Data2San\{user}_{date}_{queuename}",
+            )
+
+    def test_path_template_accepts_queue_name(self):
+        """`{queue_name}` is a supported path placeholder."""
+        from qg.config_models.formatting import Instrument
+
+        instr = Instrument(
+            tech_area="Proteomics",
+            instrument="ASTRAL_1",
+            methods_file="methods/Proteomics/ASTRAL_1_methods.csv",
+            path_template=r"D:\Data2San\p{container}\{user}_{date}_{queue_name}",
+        )
+
+        assert "{queue_name}" in instr.path_template
+
     def test_load_samples(self):
         """Load samples.csv into SamplesConfig."""
         from qg.config_models.structure import SamplesConfig

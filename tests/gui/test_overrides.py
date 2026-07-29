@@ -19,7 +19,7 @@ import polars as pl
 from playwright.sync_api import Page, expect
 from pytest_bdd import given, parsers, scenarios, then, when
 
-from tests.gui._helpers import open_app, select_order, set_dropdown, sidebar
+from tests.gui._helpers import open_app, select_order, set_dropdown, set_text
 
 scenarios("features/overrides.feature")
 
@@ -45,26 +45,14 @@ def _select_order(page: Page, container_id: int) -> None:
     select_order(page, container_id)
 
 
-def _fill_text_widget(page: Page, label_contains: str, value: str) -> None:
-    """Fill the <input> inside a sidebar marimo-text widget identified by its label.
-
-    ``mo.ui.text(label=...)`` renders as ``<marimo-text data-label='"..."'>`` (the
-    label is a JSON-encoded markdown string in the attribute). ``get_by_label``
-    sometimes resolves it via ARIA, but special characters in the label (here, µ)
-    break the lookup — so we scope to the marimo-text component by its data-label
-    substring and pick the inner input directly.
-    """
-    sidebar(page).locator(f'marimo-text[data-label*="{label_contains}"] input').first.fill(value)
-
-
 @when(parsers.parse('I set the injection volume to "{value}"'))
 def _set_inj_vol(page: Page, value: str) -> None:
-    _fill_text_widget(page, "Inj Vol", value)
+    set_text(page, "Inj Vol", value)
 
 
 @when(parsers.parse('I set the QC frequency to "{value}"'))
 def _set_qc_freq(page: Page, value: str) -> None:
-    _fill_text_widget(page, "QC frequency", value)
+    set_text(page, "QC frequency", value)
 
 
 @when("I upload to B-Fabric")

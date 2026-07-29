@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `{queue_name}` placeholder for the instrument `path_template`, so queues that share a user, date and container no longer write into the same data folder.
+
+  Four queues generated for the same project, on the same day, by the same user all rendered
+  `…\Proteomics\ASTRAL_1\wolski_20260729`. QC file names carry no `sample_id` and run numbering
+  restarts at 1 per queue, so every queue emitted `20260729_001_C3000_autoQC01.raw` into that one
+  directory and the fourth acquisition overwrote the first. `queue_name` defaults to the queue's
+  hex RNG seed and can be overridden by the operator in both apps; it is never empty.
+
+### Changed
+- `path_template` placeholders are now validated against `{container}`, `{user}`, `{date}`, `{queue_name}`. An unknown placeholder previously passed `qg-validate` and failed mid-run with a `KeyError`.
+- `user` and `queue_name` are sanitized to `[A-Za-z0-9._-]` (max 32 characters) because both become data-path segments: unsafe runs collapse to `_` (`Hello World` -> `Hello_World`) and the sidebar shows the result once the field loses focus. `queue_name` falls back to the seed when nothing usable remains.
+- Removed the blank band above the sidebar's "Queue Generator" heading.
+
 ## [0.10.0] - 2026-07-29
 
 ### Added

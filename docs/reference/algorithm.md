@@ -88,7 +88,7 @@ VialQueueInput / PlateQueueInput
 5.  _expand_polarities(slots, polarities)                        -> list[ExpandedSlot]
 6.  _resolve_methods(slots, methods_config, …)                   -> list[ExpandedSlot]
 7.  _format_file_names(slots, date, …)                           -> list[ExpandedSlot]
-8.  _build_queue_rows(slots, path_template, user, date, …)       -> QueueRowTable
+8.  _build_queue_rows(slots, path_template, user, date, queue_name, …) -> QueueRowTable
 9.  format_table(rows, output_format, plate_layout, tech_area)   -> pl.DataFrame
     │
     CSV / XML output
@@ -182,10 +182,10 @@ Fills each slot's `file_name` from the sample's `file_name_template` and runtime
 values. When `mark_end_of_queue` is set, the last file of each container
 subqueue gets an `_eoq` suffix.
 
-### 8. `_build_queue_rows(slots, path_template, user, date, inj_vol_override, default_sample_id)`
+### 8. `_build_queue_rows(slots, path_template, user, date, queue_name, inj_vol_override, default_sample_id)`
 
 Produces the final `QueueRowTable`: assigns sequential run numbers, fills the
-`data_path` from `path_template` (`{container}`/`{user}`/`{date}`), and applies
+`data_path` from `path_template` (`{container}`/`{user}`/`{date}`/`{queue_name}`), and applies
 `inj_vol_override` if provided.
 
 ### 9. `format_table(rows, output_format, plate_layout, tech_area)`

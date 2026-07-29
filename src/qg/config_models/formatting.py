@@ -3,6 +3,7 @@
 # =============================================================================
 
 
+import re
 import tomllib
 from pathlib import Path
 from typing import ClassVar, Self
@@ -12,6 +13,14 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from qg.utils import GridPositionConversion
 
+# Valid placeholders in path_template
+VALID_PATH_PLACEHOLDERS = {
+    "container",
+    "user",
+    "date",
+    "queue_name",
+}
+
 
 class Instrument(BaseModel):
     """An instrument definition."""
@@ -19,7 +28,9 @@ class Instrument(BaseModel):
     tech_area: str = Field(..., min_length=1, description="tech_area identifier")
     instrument: str = Field(..., min_length=1, description="Instrument identifier")
     methods_file: str = Field(..., min_length=1, description="Path to methods CSV file")
-    path_template: str = Field(default="", description="Data path template with {container}, {user}, {date}")
+    path_template: str = Field(
+        default="", description="Data path template with {container}, {user}, {date}, {queue_name}"
+    )
 
     @field_validator("methods_file")
     @classmethod
@@ -29,6 +40,19 @@ class Instrument(BaseModel):
             raise ValueError(f"methods_file should start with 'methods/': {v}")
         if not v.endswith("_methods.csv"):
             raise ValueError(f"methods_file should end with '_methods.csv': {v}")
+        return v
+
+    @field_validator("path_template")
+    @classmethod
+    def validate_template_placeholders(cls, v: str) -> str:
+        """Check that all placeholders in the template are valid.
+
+        Without this, an unknown placeholder passes config validation and only
+        surfaces mid-run as a KeyError from str.format.
+        """
+        invalid = set(re.findall(r"\{(\w+)\}", v)) - VALID_PATH_PLACEHOLDERS
+        if invalid:
+            raise ValueError(f"Invalid placeholders: {invalid}. Valid: {VALID_PATH_PLACEHOLDERS}")
         return v
 
 

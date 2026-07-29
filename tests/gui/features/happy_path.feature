@@ -12,6 +12,7 @@ Feature: Happy path — Proteomics queue download
     And I set "Queue Type" to "Plate"
     And I set "Randomization" to "no"
     And the date is set to "2026-05-20"
+    And the queue name is set to "goldenref"
     And I upload to B-Fabric
     Then I can download the queue CSV
     And the downloaded queue CSV matches the golden reference

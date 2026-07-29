@@ -382,6 +382,12 @@ def _(client, config, is_employee, tech_area_field):
 
 
 @app.cell
+def _(shared):
+    queue_name_field = shared.make_queue_name_field()
+    return (queue_name_field,)
+
+
+@app.cell
 def _():
     date_field = mo.ui.date(value=date.today(), label="Date")
     return (date_field,)
@@ -427,6 +433,7 @@ def _(
     qc_layout_field,
     qc_layout_preview,
     queue_type_field,
+    queue_name_field,
     queue_type_warning,
     randomization_field,
     sampler_field,
@@ -457,6 +464,7 @@ def _(
             randomization_field=randomization_field,
             date_field=date_field,
             user_field=user_field,
+            queue_name_field=queue_name_field,
             inj_vol_field=inj_vol_field,
             qc_frequency_field=qc_frequency_field,
             validation_status=validation_status,
@@ -659,6 +667,7 @@ def _(
     polarity_group,
     qc_frequency_field,
     qc_layout_field,
+    queue_name_field,
     queue_type_field,
     randomization_field,
     sampler_field,
@@ -679,6 +688,7 @@ def _(
         polarity_flags=polarity_group.value,
         date=date_field.value,
         user=user_field.value,
+        queue_name=queue_name_field.value,
         method_pos=method_field_pos.value if method_field_pos is not None else None,
         method_neg=method_field_neg.value if method_field_neg is not None else None,
         randomization=randomization_field.value,

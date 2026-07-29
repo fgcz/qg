@@ -206,13 +206,13 @@ and hides the Pattern picker.
 
 ```csv
 tech_area,instrument,methods_file,path_template
-Proteomics,ASTRAL_1,methods/Proteomics/ASTRAL_1_methods.csv,D:\Data2San\p{container}\Proteomics\ASTRAL_1\{user}_{date}
+Proteomics,ASTRAL_1,methods/Proteomics/ASTRAL_1_methods.csv,D:\Data2San\p{container}\Proteomics\ASTRAL_1\{user}_{date}_{queue_name}
 ```
 
 | Column | Description |
 |--------|-------------|
 | `methods_file` | Path (relative to `core/`) to the instrument's methods CSV |
-| `path_template` | Data-path template; `{container}`, `{user}`, `{date}` substituted at build time |
+| `path_template` | Data-path template; `{container}`, `{user}`, `{date}`, `{queue_name}` substituted at build time. Unknown placeholders are rejected at config-validation time. |
 
 ### output_formats.toml
 
@@ -365,7 +365,8 @@ as `Plate_96`), but `queue` carries `plates` and `cells`:
 | `qc_layout_name` | string | QC layout to use (from `qc_layouts_well/tip.csv`), or `no_layout` (Vial/Plate, opt-in techs) for an as-is queue with no QC reserved or injected |
 | `polarity` | list | `[]` for proteomics; `["pos", "neg"]` for metabolomics/lipidomics |
 | `date` | string | `YYYYMMDD`; substituted into `path_template` and file names |
-| `user` | string | Username; substituted into `path_template` |
+| `user` | string | Username; substituted into `path_template`. Sanitized to `[A-Za-z0-9._-]` (max 32 chars) because it becomes a path segment: unsafe runs become `_`; may be empty |
+| `queue_name` | string | Distinguishes the data folders of queues sharing user, date and container. Defaults to the hex `seed`; operator-overridable; never empty. Sanitized like `user`, falling back to the seed when nothing usable remains |
 | `method` | dict | Per-polarity method names: `{"pos": "...", "neg": "..."}` |
 | `randomization` | string | `"no"` / `"random"` / `"blocked"` / `"blocked_uniform"` (see [Algorithm](algorithm.md)) |
 | `seed` | int? | RNG seed for reproducible randomization. Input construction records a concrete seed for every randomized mode; null is valid only for `randomization="no"`. |
@@ -377,8 +378,10 @@ as `Plate_96`), but `queue` carries `plates` and `cells`:
 | `level_concentrations` | dict | Per-level concentrations for `standard`-type QC samples |
 | `mark_end_of_queue` | bool | Append `_eoq` to the last file of each container subqueue |
 
-`user` and `date` are **not** output columns — they are substituted into the
-instrument's `path_template` (`…\{user}_{date}`) to form the per-row data path.
+`user`, `date` and `queue_name` are **not** output columns — they are substituted
+into the instrument's `path_template` (`…\{user}_{date}_{queue_name}`) to form the
+per-row data path. `queue_name` keeps four queues generated for the same project,
+day and user from writing colliding QC files into one folder.
 
 ### queue (`VialQueue` / `PlateQueue`)
 
