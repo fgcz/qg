@@ -6,8 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-07-29
+
 ### Added
-- Added a standalone `qg-assign-positions` command and public positioning API for auditable vial-to-plate assignment.
+- Standalone `qg-assign-positions` command and public positioning API for auditable vial-to-plate assignment.
 
 ### Changed
 - GitHub Actions and staged pre-commit hooks now enforce the same linting, type, dependency, coverage, packaging, core-profile, GUI, marimo, and strict documentation checks.
