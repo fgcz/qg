@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import secrets
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Self
@@ -24,6 +25,27 @@ def draw_seed() -> int:
     only via itself (record it to reproduce the run).
     """
     return secrets.randbits(32)
+
+
+# Path segments interpolated into the instrument data path (a Windows path such
+# as D:\Data2San\...). Anything outside the allow-list is a Windows-reserved
+# character or whitespace, so replacing it keeps a segment from escaping the
+# intended directory or naming a path the instrument cannot create.
+PATH_SEGMENT_UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
+PATH_SEGMENT_MAX_LENGTH = 32
+
+
+def sanitize_path_segment(value: str) -> str:
+    """Rewrite a string into a segment that is safe inside the data path.
+
+    Unsafe runs collapse to a single "_" ("Hello World" -> "Hello_World"), and
+    leading/trailing separators are dropped, so the segment can never be "." or
+    ".." nor end in a dot Windows would silently strip. Input made up entirely of
+    separators ("///") carries no information and would let two queues collide
+    again, so it sanitizes to "" rather than to "_"; callers decide what an empty
+    segment means.
+    """
+    return PATH_SEGMENT_UNSAFE.sub("_", value.strip())[:PATH_SEGMENT_MAX_LENGTH].strip("._-")
 
 
 class VialSample(BaseModel):
@@ -121,8 +143,12 @@ class QueueParameters(BaseModel):
     method: dict[str, str] = Field(default_factory=dict)
     randomization: Literal["no", "random", "blocked", "blocked_uniform"] = "no"
     # RNG seed for reproducible randomization. Always concrete: a fresh seed is
-    # drawn at construction unless one is supplied. Unused when randomization="no".
+    # drawn at construction unless one is supplied. Unused when randomization="no",
+    # but still drawn, which is what lets queue_name default to it in every mode.
     seed: int = Field(default_factory=draw_seed)
+    # Distinguishes the data folders of queues that share user, date and container.
+    # Defaults to the hex seed; an operator may override it. Never empty.
+    queue_name: str = ""
     inj_vol_override: float | None = None
     qc_frequency_override: int | None = None
     # If True, samples from different containers are placed on separate trays (vial mode only)
@@ -152,6 +178,26 @@ class QueueParameters(BaseModel):
         """Replace the nullable seed emitted by older qg versions."""
         return draw_seed() if value is None else value
 
+    @field_validator("user")
+    @classmethod
+    def sanitize_user(cls, value: str) -> str:
+        """Make user safe to interpolate into the data path.
+
+        Empty stays legal: it is the field default and several tech areas leave
+        `default_user` blank.
+        """
+        return sanitize_path_segment(value)
+
+    @model_validator(mode="after")
+    def resolve_queue_name(self) -> Self:
+        """Sanitize queue_name, falling back to the hex seed when nothing remains.
+
+        Runs after field validation because the fallback depends on `seed`, which
+        pydantic cannot express in a `default_factory`.
+        """
+        self.queue_name = sanitize_path_segment(self.queue_name) or f"{self.seed:08x}"
+        return self
+
     @classmethod
     def create(  # noqa: PLR0913
         cls,
@@ -178,6 +224,7 @@ class QueueParameters(BaseModel):
         bfabric_instance: str | None = None,
         level_concentrations: dict[int, str] | None = None,
         mark_end_of_queue: bool = True,
+        queue_name: str = "",
     ) -> Self:
         """Create validated QueueParameters.
 
@@ -221,6 +268,7 @@ class QueueParameters(BaseModel):
             bfabric_instance=bfabric_instance,
             level_concentrations=level_concentrations or {},
             mark_end_of_queue=mark_end_of_queue,
+            queue_name=queue_name,
         )
 
 

@@ -44,6 +44,7 @@ from qg.apps.queue_app_shared import (
     resolve_default_qc_frequency,
     resolve_output_format,
     resolve_qc_layout_preview,
+    sanitized_segment_hint,
     suffix_options_for_tech,
     synthesize_local_orders,
     validate_selection,
@@ -553,6 +554,7 @@ class TestBuildQueueParameters:
             "polarity_flags": {"pos": True, "neg": False},
             "date": date(2026, 1, 15),
             "user": "  tester  ",
+            "queue_name": "",
             "method_pos": None,
             "method_neg": None,
             "randomization": "no",
@@ -576,6 +578,18 @@ class TestBuildQueueParameters:
         assert params.start_tray == ""  # None -> default
         assert params.inj_vol_override is None  # blank text -> None
         assert params.qc_frequency_override is None
+        assert params.queue_name == f"{params.seed:08x}"  # blank -> hex seed
+
+    def test_queue_name_override_replaces_seed_default(self):
+        params, err = build_queue_parameters(**self._kwargs(queue_name="  rerun2  "))
+        assert err is None
+        assert params.queue_name == "rerun2"
+
+    def test_unsafe_queue_name_is_sanitized_and_still_builds(self):
+        """A rejected queue name produced no queue and no visible warning."""
+        params, err = build_queue_parameters(**self._kwargs(queue_name=r"..\evil name"))
+        assert err is None
+        assert params.queue_name == "evil_name"
 
     def test_polarity_method_and_overrides(self):
         params, err = build_queue_parameters(
@@ -728,3 +742,27 @@ class TestMakeMixedOrderNote:
     )
     def test_non_mixed_returns_empty(self, has_plates, has_vials):
         assert make_mixed_order_note(has_plates=has_plates, has_vials=has_vials) == ""
+
+
+# ---------------------------------------------------------------------------
+# sanitized_segment_hint
+# ---------------------------------------------------------------------------
+
+
+class TestSanitizedSegmentHint:
+    """Sidebar feedback showing what a rewritten path segment becomes."""
+
+    @staticmethod
+    def _field(value: str):
+        import marimo as mo
+
+        return mo.ui.text(value=value, label="Queue name")
+
+    def test_shows_sanitized_value_when_rewritten(self):
+        (hint,) = sanitized_segment_hint("Queue name", self._field("Hello World"))
+
+        assert "Hello_World" in hint.text
+
+    @pytest.mark.parametrize("value", ["", "   ", "already_safe"])
+    def test_silent_when_nothing_changed(self, value: str):
+        assert sanitized_segment_hint("Queue name", self._field(value)) == []

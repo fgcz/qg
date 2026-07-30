@@ -228,6 +228,7 @@ def _build_queue_rows(
     path_template: str,
     user: str,
     date: str,
+    queue_name: str,
     inj_vol_override: float | None,
     default_sample_id: str,
 ) -> QueueRowTable:
@@ -240,7 +241,9 @@ def _build_queue_rows(
         pos = slot.slot.position
 
         data_path = (
-            path_template.format(container=slot.slot.container_id, user=user, date=date) if path_template else ""
+            path_template.format(container=slot.slot.container_id, user=user, date=date, queue_name=queue_name)
+            if path_template
+            else ""
         )
 
         rows.append(
@@ -376,6 +379,7 @@ class QueueGenerator:
         self._path_template = instr.path_template
         self._user = params.user
         self._date = params.date
+        self._queue_name = params.queue_name
 
         # Output format existence validated in QueueParameters.create()
         self.output_format = config.output_formats.get_format(params.output_format)
@@ -460,7 +464,13 @@ class QueueGenerator:
 
         # Build queue rows
         result = _build_queue_rows(
-            expanded, self._path_template, self._user, self._date, params.inj_vol_override, default_sample_id
+            expanded,
+            self._path_template,
+            self._user,
+            self._date,
+            self._queue_name,
+            params.inj_vol_override,
+            default_sample_id,
         )
         logger.info("Queue built | rows={} | format={}", len(result.rows), params.output_format)
 

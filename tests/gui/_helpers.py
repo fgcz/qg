@@ -55,6 +55,36 @@ def set_dropdown(page: Page, label: str, value: str) -> None:
     sidebar(page).get_by_label(label).select_option(value)
 
 
+def set_text(page: Page, label_contains: str, value: str) -> None:
+    """Fill the <input> inside a sidebar marimo-text widget identified by its label.
+
+    ``mo.ui.text(label=...)`` renders as ``<marimo-text data-label='"..."'>`` (the
+    label is a JSON-encoded markdown string in the attribute). ``get_by_label``
+    sometimes resolves it via ARIA, but special characters in the label (e.g. µ)
+    break the lookup — so we scope to the marimo-text component by its data-label
+    substring and pick the inner input directly.
+    """
+    sidebar(page).locator(f'marimo-text[data-label*="{label_contains}"] input').first.fill(value)
+
+
+def set_text_and_blur(page: Page, label_contains: str, value: str) -> None:
+    """Fill a sidebar text input and blur it to commit debounced UI feedback."""
+    field = sidebar(page).locator(f'marimo-text[data-label*="{label_contains}"] input').first
+    field.fill(value)
+    field.blur()
+
+
+def expect_text_placeholder(page: Page, label_contains: str, placeholder: str) -> None:
+    """Assert the placeholder shown by a sidebar marimo text input."""
+    field = sidebar(page).locator(f'marimo-text[data-label*="{label_contains}"] input').first
+    expect(field).to_have_attribute("placeholder", placeholder)
+
+
+def expect_sidebar_text(page: Page, text: str) -> None:
+    """Assert that the sidebar visibly contains ``text``."""
+    expect(sidebar(page).get_by_text(text, exact=False).first).to_be_visible(timeout=10_000)
+
+
 def expect_dropdown_options(page: Page, label: str, *values: str) -> None:
     """Assert each value appears in the named sidebar dropdown's option list."""
     options = sidebar(page).get_by_label(label).locator("option")

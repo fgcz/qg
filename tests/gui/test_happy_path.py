@@ -8,7 +8,9 @@ byte against the committed golden reference at
 The golden CSV was generated on 2026-05-20 with the default app settings
 (polarity=pos, user=analytic, inj_vol=1, plate_layout=Plate_96,
 qc_layout=standard, queue_pattern=standard). The Gherkin freezes the date to
-``2026-05-20`` so the byte comparison is unconditional — there is no fallback.
+``2026-05-20`` and the queue name to ``goldenref`` so the byte comparison is
+unconditional — there is no fallback. Both have to be pinned: the queue name
+otherwise defaults to the queue's random hex seed and lands in ``data_path``.
 """
 
 from __future__ import annotations
@@ -22,6 +24,7 @@ from tests.gui._helpers import (
     open_app,
     select_order,
     set_dropdown,
+    set_text,
     sidebar,
     upload_to_bfabric,
 )
@@ -68,6 +71,13 @@ def _select_order(page: Page, container_id: int) -> None:
 def _set_date(page: Page, iso_date: str) -> None:
     # mo.ui.date renders as <input type="date">; fill expects YYYY-MM-DD.
     sidebar(page).locator('input[type="date"]').first.fill(iso_date)
+
+
+@when(parsers.parse('the queue name is set to "{queue_name}"'))
+def _set_queue_name(page: Page, queue_name: str) -> None:
+    # Left blank the field defaults to the queue's random hex seed, which would
+    # make the data_path — and so the golden CSV — differ on every run.
+    set_text(page, "Queue name", queue_name)
 
 
 @when("I upload to B-Fabric")

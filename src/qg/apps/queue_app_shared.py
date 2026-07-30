@@ -27,7 +27,7 @@ from loguru import logger
 from qg.artifacts import save_generation_artifact, save_positioning_artifacts
 from qg.config_models.structure import NO_LAYOUT, SamplesConfig
 from qg.generator import QueueGenerator, format_table, write_queue
-from qg.params_models import QueueParameters
+from qg.params_models import QueueParameters, sanitize_path_segment
 from qg.queue_builder import QueueBuilder
 from qg.viz.balance import plate_balance, queue_balance
 from qg.viz.plate import build_plate_figure, build_plate_wells
@@ -253,6 +253,7 @@ def build_queue_parameters(
     polarity_flags: dict[str, bool],
     date: datetime.date,
     user: str,
+    queue_name: str,
     method_pos: str | None,
     method_neg: str | None,
     randomization: str,
@@ -290,6 +291,7 @@ def build_queue_parameters(
                 "polarity": polarity,
                 "date": date.strftime("%Y%m%d"),
                 "user": user.strip(),
+                "queue_name": queue_name.strip(),
                 "method": method,
                 "randomization": randomization,
                 "inj_vol_override": inj_vol,
@@ -659,6 +661,25 @@ def render_valid_combinations_content(
     )
 
 
+# Same <h2> as `mo.md("## Queue Generator")` — kept inside mo.md so it still picks
+# up the markdown heading styling — with only its default top margin dropped, which
+# otherwise leaves a large blank band above the first control in the sidebar.
+SIDEBAR_TITLE = mo.md('<h2 style="margin-top: 0">Queue Generator</h2>')
+
+
+def sanitized_segment_hint(label: str, field: mo.ui.text) -> list[mo.Html]:
+    """Show the effective data-path segment when the sanitizer rewrote the input.
+
+    `mo.ui.text` debounces by default, so the hint appears once the operator
+    leaves the input rather than on every keystroke.
+    """
+    typed = field.value.strip()
+    sanitized = sanitize_path_segment(field.value)
+    if not typed or sanitized == typed:
+        return []
+    return [mo.md(f"↳ {label}: `{sanitized}`")]
+
+
 def render_sidebar_body(
     *,
     tech_area_field: mo.ui.dropdown,
@@ -680,6 +701,7 @@ def render_sidebar_body(
     randomization_field: mo.ui.dropdown,
     date_field: mo.ui.date,
     user_field: mo.ui.text,
+    queue_name_field: mo.ui.text,
     inj_vol_field: mo.ui.text,
     qc_frequency_field: mo.ui.text,
     validation_status: mo.Html | None,
@@ -703,7 +725,7 @@ def render_sidebar_body(
         queue_items.append(method_field_neg)
 
     items = [
-        mo.md("## Queue Generator"),
+        SIDEBAR_TITLE,
         tech_area_field,
         instrument_field,
         sampler_field,
@@ -726,6 +748,9 @@ def render_sidebar_body(
         randomization_field,
         date_field,
         user_field,
+        queue_name_field,
+        *sanitized_segment_hint("User", user_field),
+        *sanitized_segment_hint("Queue name", queue_name_field),
         inj_vol_field,
         qc_frequency_field,
     ]
@@ -912,6 +937,11 @@ def make_concentration_inputs(
 def make_qc_frequency_field(default_qc_frequency: int) -> mo.ui.text:
     """QC-frequency text input, showing the pattern default as placeholder."""
     return mo.ui.text(value="", label="QC frequency", placeholder=str(default_qc_frequency))
+
+
+def make_queue_name_field() -> mo.ui.text:
+    """Data-folder name override; blank falls back to the queue's hex seed."""
+    return mo.ui.text(value="", label="Queue name", placeholder="auto (seed)")
 
 
 def make_method_field(available_methods: list[str], *, show: bool, label: str) -> mo.ui.dropdown | None:

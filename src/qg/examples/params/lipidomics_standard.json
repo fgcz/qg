@@ -127,7 +127,7 @@
       "tech_area": "Lipidomics",
       "instrument": "EXPLORIS_4",
       "methods_file": "methods/Lipidomics/EXPLORIS_4_methods.csv",
-      "path_template": "D:\\Data2San\\p{container}\\Metabolomics\\EXPLORIS_4\\{user}_{date}"
+      "path_template": "D:\\Data2San\\p{container}\\Metabolomics\\EXPLORIS_4\\{user}_{date}_{queue_name}"
     },
     "output_format_name": "xcalibur_sii",
     "output_format": {

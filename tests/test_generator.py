@@ -1604,3 +1604,130 @@ class TestEndOfQueueMarker:
         raw = QueueGenerator(config, qi.position_queue()).build_rows().to_table()
 
         assert not raw.filter(pl.col("file_name").str.ends_with("_eoq")).height
+
+
+class TestDataPathQueueName:
+    """`{queue_name}` in path_template separates same-day queues from each other."""
+
+    @staticmethod
+    def _params(**overrides) -> QueueParameters:
+        base: dict = {
+            "tech_area": "Proteomics",
+            "instrument": "ASTRAL_1",
+            "sampler": "Vanquish",
+            "output_format": "xcalibur",
+            "queue_pattern": "_test_noqc",
+            "queue_type": "Vial",
+            "plate_layout": "Vanquish_54",
+            "qc_layout_name": "standard",
+            "polarity": ["pos"],
+            "date": "20260116",
+            "user": "test",
+        }
+        return QueueParameters(**(base | overrides))
+
+    def _data_paths(self, config, **overrides) -> list[str]:
+        params = self._params(**overrides)
+        qi = make_vial_queue_input(params, make_vial_samples(3))
+        raw = QueueGenerator(config, qi.position_queue()).build_rows().to_table()
+        return raw["data_path"].to_list()
+
+    def test_defaults_to_hex_seed(self, config):
+        params = self._params()
+        qi = make_vial_queue_input(params, make_vial_samples(3))
+        raw = QueueGenerator(config, qi.position_queue()).build_rows().to_table()
+
+        assert raw["data_path"][0].endswith(f"test_20260116_{params.seed:08x}")
+
+    def test_override_replaces_seed(self, config):
+        paths = self._data_paths(config, queue_name="rerun2")
+
+        assert all(p.endswith("test_20260116_rerun2") for p in paths)
+
+    def test_four_same_day_queues_get_four_folders(self, config):
+        """The user story: same project, same day, same user, four queues.
+
+        Without a per-queue folder segment all four write
+        `20260116_001_C99999_autoQC01.raw` into one directory and the last
+        acquisition overwrites the first.
+        """
+        folders = {self._data_paths(config)[0] for _ in range(4)}
+
+        assert len(folders) == 4
+
+    def test_qc_rows_share_the_folder_of_their_queue(self, config):
+        """QC injections are the files that collide, so they must not be split off."""
+        params = self._params(queue_pattern="_test_qc_only")
+        qi = make_vial_queue_input(params, make_vial_samples(3))
+        raw = QueueGenerator(config, qi.position_queue()).build_rows().to_table()
+
+        assert set(raw.filter(pl.col("slot_kind") == "qc")["data_path"].to_list()) == set(
+            raw.filter(pl.col("slot_kind") == "user")["data_path"].to_list()
+        )
+
+    def test_template_without_placeholder_is_unchanged(self, config):
+        """Back-compat: a template that omits {queue_name} renders exactly as before."""
+        instr = config.instruments.get_instrument("Proteomics", "ASTRAL_1")
+        instr.path_template = r"D:\Data2San\p{container}\Proteomics\ASTRAL_1\{user}_{date}"
+
+        paths = self._data_paths(config, queue_name="ignored")
+
+        assert all(p.endswith(r"\test_20260116") for p in paths)
+
+
+class TestPathSegmentValidation:
+    """`queue_name` and `user` are interpolated into a Windows data path."""
+
+    @staticmethod
+    def _params(**overrides) -> QueueParameters:
+        base: dict = {
+            "tech_area": "Proteomics",
+            "instrument": "ASTRAL_1",
+            "sampler": "Vanquish",
+            "output_format": "xcalibur",
+            "queue_pattern": "_test_noqc",
+            "queue_type": "Vial",
+            "plate_layout": "Vanquish_54",
+            "qc_layout_name": "standard",
+            "polarity": ["pos"],
+            "date": "20260116",
+            "user": "test",
+        }
+        return QueueParameters(**(base | overrides))
+
+    @pytest.mark.parametrize(
+        ("typed", "expected"),
+        [
+            ("Hello World", "Hello_World"),
+            (r"..\escape", "escape"),
+            ("a/b", "a_b"),
+            ("a:b", "a_b"),
+            ("  padded  ", "padded"),
+            ("keep.dots-and_dashes", "keep.dots-and_dashes"),
+            ("trailing.", "trailing"),
+            ("x" * 40, "x" * 32),
+        ],
+    )
+    def test_queue_name_is_sanitized_not_rejected(self, typed: str, expected: str):
+        """Rejecting left the operator with no queue and no warning; rewrite instead."""
+        assert self._params(queue_name=typed).queue_name == expected
+
+    @pytest.mark.parametrize(("typed", "expected"), [("Hello World", "Hello_World"), ("a/b", "a_b")])
+    def test_user_is_sanitized(self, typed: str, expected: str):
+        assert self._params(user=typed).user == expected
+
+    @pytest.mark.parametrize("typed", ["..", ".", "///", "   ", "___", "-"])
+    def test_queue_name_falls_back_to_seed_when_nothing_usable_remains(self, typed: str):
+        params = self._params(queue_name=typed, seed=12345)
+
+        assert params.queue_name == "00003039"
+
+    def test_user_still_accepts_empty(self):
+        """Empty user is the field default and is used by several tech areas."""
+        assert self._params(user="").user == ""
+
+    def test_legacy_params_without_queue_name_resolve_from_seed(self):
+        """An archived params.json predating this field replays deterministically."""
+        params = self._params(seed=12345)
+
+        assert params.queue_name == "00003039"
