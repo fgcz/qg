@@ -67,6 +67,24 @@ def set_text(page: Page, label_contains: str, value: str) -> None:
     sidebar(page).locator(f'marimo-text[data-label*="{label_contains}"] input').first.fill(value)
 
 
+def set_text_and_blur(page: Page, label_contains: str, value: str) -> None:
+    """Fill a sidebar text input and blur it to commit debounced UI feedback."""
+    field = sidebar(page).locator(f'marimo-text[data-label*="{label_contains}"] input').first
+    field.fill(value)
+    field.blur()
+
+
+def expect_text_placeholder(page: Page, label_contains: str, placeholder: str) -> None:
+    """Assert the placeholder shown by a sidebar marimo text input."""
+    field = sidebar(page).locator(f'marimo-text[data-label*="{label_contains}"] input').first
+    expect(field).to_have_attribute("placeholder", placeholder)
+
+
+def expect_sidebar_text(page: Page, text: str) -> None:
+    """Assert that the sidebar visibly contains ``text``."""
+    expect(sidebar(page).get_by_text(text, exact=False).first).to_be_visible(timeout=10_000)
+
+
 def expect_dropdown_options(page: Page, label: str, *values: str) -> None:
     """Assert each value appears in the named sidebar dropdown's option list."""
     options = sidebar(page).get_by_label(label).locator("option")
