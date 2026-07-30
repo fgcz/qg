@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-07-30
+
 ### Added
 - `{queue_name}` placeholder for the instrument `path_template`, so queues that share a user, date and container no longer write into the same data folder.
 
