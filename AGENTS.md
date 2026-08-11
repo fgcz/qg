@@ -535,14 +535,21 @@ def test_private_sampler():
     sampler = _PlateValidatorWellConfig(...)
     sampler._generate_positions_default_samples(...)
 
+
 # GOOD - go through the public factory + assign()
 from qg.positionV2 import create_assembled_sampler
+
 
 def test_sampler_assigns_positions(config):
     pattern = config.queue_patterns.get_pattern("Proteomics", "standard")
     sampler = create_assembled_sampler(
-        "Vanquish", "vial", config, "Proteomics",
-        pattern.get_all_sample_ids(), "Vanquish_54", "standard",
+        "Vanquish",
+        "vial",
+        config,
+        "Proteomics",
+        pattern.get_all_sample_ids(),
+        "Vanquish_54",
+        "standard",
     )
     result = sampler.assign(create_vial_queue(3))
     assert len(result.cells) == 3
