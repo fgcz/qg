@@ -53,29 +53,39 @@ Because of this bump-ahead rule, by the time you cut a release the version in
 ### Cutting a release
 
 Only do this when explicitly asked to cut a release. Otherwise leave entries
-under `## [Unreleased]`. Steps:
+under `## [Unreleased]`.
 
-1. **Verify the version — do not blindly re-bump.** Per the bump-ahead rule
-   above, `pyproject.toml` and `uv.lock` usually already carry the target
-   version from an earlier MR. Check (`grep '^version' pyproject.toml`,
-   `grep -A1 'name = "qg"' uv.lock`); only bump and re-run `uv lock` if they
-   still show the *last released* version. Most releases need neither.
-2. **Consolidate `## [Unreleased]`.** A cycle of per-MR appends leaves scattered
-   duplicate `### Fixed`/`### Changed` blocks and sometimes miscategorized
-   entries; merge them into one `### Added/Changed/Fixed/Removed` each, and make
-   sure marquee features sit under `### Added` (not buried in `### Fixed`).
-3. **Date it.** Rename `## [Unreleased]` → `## [x.y.z] - YYYY-MM-DD` and leave a
-   fresh empty `## [Unreleased]` heading on top for the next cycle.
-4. **Commit** as `chore: cut release x.y.z`, staging whatever actually changed
-   (`CHANGELOG.md`, plus `pyproject.toml` + `uv.lock` only if step 1 bumped).
-5. **Land it on `main`** (direct push of the release commit is acceptable).
-6. **Tag and push.** Create an annotated tag named `vx.y.z` with message
-   `Release x.y.z` on the release commit, then `git push origin vx.y.z`. Do not
-   force-push tags.
+**First, by hand: `make sync` and consolidate `## [Unreleased]`.** `make sync`
+lands any pending config merge requests so they ship with the release (see
+[GitHub/GitLab sync](docs/developers/forge_sync.md)). Then merge the changelog's
+scattered duplicate `### Fixed`/`### Changed` blocks — a cycle of per-MR appends
+leaves several of each, sometimes miscategorized — into one
+`### Added/Changed/Fixed/Removed` apiece, with marquee features under `### Added`
+rather than buried in `### Fixed`. Config updates merged from the editor write no
+changelog entry at all, so add one. This part is editorial and stays manual.
 
-**What the tag does — and does not do.** Pushing the `vx.y.z` tag triggers the
-CI `build` job, which cross-builds the arm64 OCI image and writes the archive to
-NFS (`…/metabolomics/queue_gen/queue_gen-<tag>.oci.tar`). It does **not** roll
+**Then run `make release`** (`make release PART=minor` for a feature release;
+`make release-dry` to preview). `scripts/release.py` does the mechanical rest:
+
+1. **Verifies the version — it does not blindly re-bump.** Per the bump-ahead
+   rule above, `pyproject.toml` usually already carries the target version from
+   an earlier MR; when it does, that version is released as-is. Otherwise the
+   chosen part is bumped and `uv lock` re-run.
+2. **Dates the changelog**: `## [Unreleased]` → `## [x.y.z] - YYYY-MM-DD`, with a
+   fresh empty `## [Unreleased]` left on top for the next cycle.
+3. **Commits** as `chore: cut release x.y.z`, staging only what changed.
+4. **Pushes `main`**, then creates the annotated tag `vx.y.z` (message
+   `Release x.y.z`) and pushes it. Do not force-push tags.
+
+It refuses to run on a dirty tree, off `main`, out of sync with `origin/main`,
+onto an existing tag, or with an empty `## [Unreleased]`.
+
+**What the tag does — and does not do.** Pushing the `vx.y.z` tag to GitHub
+triggers the `publish` workflow, which runs the CI suite and pushes the
+multi-platform image to `ghcr.io/fgcz/qg:vx.y.z` — the artifact the portal
+deploys. (`make sync-tags` additionally places the tag on GitLab, whose CI writes
+an arm64 OCI archive to NFS; nothing consumes it now, so that step is optional.)
+It does **not** roll
 the new version out to the running host. The live rollout — bump `IMAGE_TAG` in
 the [web-apps repo](https://gitlab.bfabric.org/proteomics/web-apps) and run
 `make deploy` on the deploy host — is a separate manual step documented in

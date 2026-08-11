@@ -65,4 +65,5 @@ nav:
       - Deployment: developers/deployment.md
   - Developers:
       - Shared app architecture: developers/marimo_shared_app_architecture.md
+      - GitHub/GitLab sync: developers/forge_sync.md
       - History: developers/history.md

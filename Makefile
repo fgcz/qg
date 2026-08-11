@@ -1,6 +1,9 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help app app-local app-all app-type app-review editor editor-preview editor-review validate settings-init projects projects-all projects-plates _check-not-fgcz
+# Version component bumped by `make release` (patch, minor or major).
+PART ?= patch
+
+.PHONY: help app app-local app-all app-type app-review editor editor-preview editor-review validate settings-init projects projects-all projects-plates sync sync-dry sync-tags release release-dry _check-not-fgcz
 
 help:
 	@echo "Queue Generation System"
@@ -21,6 +24,11 @@ help:
 	@echo "  projects         Fetch active projects from B-Fabric (fast)"
 	@echo "  projects-all     Fetch all projects from B-Fabric (no status filter)"
 	@echo "  projects-plates  Fetch active projects with plate detection (slow)"
+	@echo "  sync-dry         Preview the GitHub <-> GitLab main sync"
+	@echo "  sync             Sync main GitHub -> GitLab, merge config MRs, GitLab -> GitHub"
+	@echo "  sync-tags        Sync, and push release tags GitLab lacks (triggers image builds)"
+	@echo "  release-dry      Preview the next release (version, changelog, commits)"
+	@echo "  release          Bump version, tag and push; GitHub Actions publishes the image"
 	@echo ""
 	@echo "Production deployments live under ../web-apps/portal/."
 
@@ -84,3 +92,24 @@ projects-all:
 # Fetch active projects with plate detection (slow)
 projects-plates:
 	uv run qg-find-projects --check-plates
+
+# Preview the GitHub <-> GitLab main sync without pushing or merging
+sync-dry:
+	uv run --no-project python scripts/sync_forges.py --dry-run
+
+# Sync main across both forges and merge the config editor's merge requests
+sync:
+	uv run --no-project python scripts/sync_forges.py
+
+# Same, plus push release tags GitLab is missing (each triggers a GitLab CI image build)
+sync-tags:
+	uv run --no-project python scripts/sync_forges.py --tags
+
+# Preview the release: version bump, changelog entries, and commits since the last tag
+release-dry:
+	uv run --no-project python scripts/release.py --part $(PART) --dry-run
+
+# Bump the version, date the changelog, commit, tag and push; the tag makes GitHub
+# Actions build and publish ghcr.io/fgcz/qg. Override the bump with: make release PART=minor
+release:
+	uv run --no-project python scripts/release.py --part $(PART)

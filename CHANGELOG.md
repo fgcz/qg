@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `Vanquish` / `xcalibur_sii` pairing for Exploris_1, Exploris_2 and Ascend_1, for the newly installed LC systems.
+- `make sync`, which reconciles `main` across the GitHub and GitLab repos and merges the config editor's merge requests.
+- `make release`, which bumps the version, dates the changelog, and pushes the tag that publishes the deployment image.
+
 ## [0.10.1] - 2026-07-30
 
 ### Added
