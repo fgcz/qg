@@ -441,6 +441,10 @@ and raises). Never narrate a change in a comment ("no longer carries X", "now do
 Y") — that documents a diff, not the code, so it belongs in the commit message and
 goes stale in the file.
 
+Keep them few and short. Most lines need none; a config pin or a workaround needs
+one line, not a paragraph. Reasoning, evidence and alternatives belong in the commit
+message or a `TODO_*.md`, never in a comment block above the code.
+
 ### Exception Handling
 
 **NEVER** use broad exception handling that silently swallows errors:

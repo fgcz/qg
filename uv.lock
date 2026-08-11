@@ -7,6 +7,9 @@ resolution-markers = [
     "sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 
+[manifest]
+build-constraints = [{ name = "hatchling", specifier = "<1.32" }]
+
 [[package]]
 name = "annotated-doc"
 version = "0.0.4"

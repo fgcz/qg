@@ -91,10 +91,7 @@ repos:
         pass_filenames: false
         stages: [pre-push]
 
-      # 3m13s of headless Chromium — 88% of the pre-push wall clock, and an exact
-      # duplicate of the `gui` job in .github/workflows/ci.yml, which blocks both
-      # merges and (via publish.yml) the release build. Manual here:
-      #   uv run pre-commit run --hook-stage manual gui-tests
+      # Manual: the `gui` job in ci.yml is the blocking gate.
       - id: gui-tests
         name: browser GUI tests
         entry: uv run --frozen pytest tests/gui tests/gui_local

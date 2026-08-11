@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Pinned the build backend to `hatchling<1.32`, which rejects the pinned `bfabric` revision's readme path and broke every B-Fabric install.
+
 ## [0.10.2] - 2026-08-11
 
 ### Added

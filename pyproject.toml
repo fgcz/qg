@@ -37,6 +37,9 @@ bfabric = [
 # — GUI + B-Fabric tests — runs); a plain `pip install qg` stays B-Fabric-free.
 default-groups = ["dev", "portal"]
 
+# hatchling 1.32 rejects the pinned bfabric revision's `readme = "../README.md"`.
+build-constraint-dependencies = ["hatchling<1.32"]
+
 [tool.uv.sources]
 bfabric = { git = "https://github.com/fgcz/bfabricPy", subdirectory = "bfabric", rev = "main" }
 bfabric-asgi-auth = { git = "https://github.com/fgcz/bfabricPy", subdirectory = "bfabric_asgi_auth", rev = "main" }
