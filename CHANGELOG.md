@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- Upgraded `bfabric` to 1.20.0, which drops the SOAP (zeep) backend and moves Starlette to the 1.x line.
+
+### Fixed
+- Cleared the Starlette advisory that kept the dependency audit off the blocking hooks.
+
+### Removed
+- The `hatchling<1.32` build constraint, no longer needed now that the `bfabric` pin carries the corrected readme path.
+
 ## [0.10.3] - 2026-08-11
 
 ### Fixed

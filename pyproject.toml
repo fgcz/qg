@@ -1,6 +1,6 @@
 [project]
 name = "qg"
-version = "0.10.3"
+version = "0.11.0"
 description = "Queue generation system for mass spectrometry instruments. Generates sample queues with QC injections for XCalibur, Chronos, and Hystar, with B-Fabric LIMS integration for sample loading and workunit upload."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -36,9 +36,6 @@ bfabric = [
 # Install the portal extra in the dev/CI environment by default (so the full suite
 # — GUI + B-Fabric tests — runs); a plain `pip install qg` stays B-Fabric-free.
 default-groups = ["dev", "portal"]
-
-# hatchling 1.32 rejects the pinned bfabric revision's `readme = "../README.md"`.
-build-constraint-dependencies = ["hatchling<1.32"]
 
 [tool.uv.sources]
 bfabric = { git = "https://github.com/fgcz/bfabricPy", subdirectory = "bfabric", rev = "main" }
