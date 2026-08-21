@@ -11,7 +11,8 @@ from bfabric import Bfabric
 from bfabric.utils.cli_integration import use_client
 from loguru import logger
 
-from qg.bfabric_utils import STORAGE_PLATE_TYPE, instance_slug
+from qg.bfabric_samples import STORAGE_PLATE_TYPE
+from qg.bfabric_utils import instance_slug
 
 ACTIVE_STATUSES = [
     "running",

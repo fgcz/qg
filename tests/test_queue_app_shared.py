@@ -697,6 +697,20 @@ class TestMakeQueueTypeField:
         assert field.value is None
         assert warning is None
 
+    def test_portal_source_classification_is_not_restricted_by_sampler(self):
+        field, warning = make_queue_type_field(
+            self._table("Vial"),
+            sampler="MClass",
+            has_plates=True,
+            has_vials=False,
+            incompatible_subject="this order's samples",
+            filter_by_sampler=False,
+        )
+
+        assert list(field.options) == ["Plate"]
+        assert field.value == "Plate"
+        assert warning is None
+
     @pytest.mark.parametrize(
         ("supports", "has_plates", "has_vials"),
         [
@@ -716,8 +730,6 @@ class TestMakeQueueTypeField:
         assert field.value is None
         assert warning is not None
         # The callout names the sampler and threads through the incompatible_subject.
-        # (The portal's exact "this order's samples" wording is asserted against the
-        # rendered page in tests/gui/features/queue_type_availability.feature.)
         assert "incompatible" in warning.text
         assert "MClass" in warning.text
         assert "the uploaded samples" in warning.text

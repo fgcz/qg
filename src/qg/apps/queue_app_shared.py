@@ -840,12 +840,14 @@ def make_queue_type_field(
     has_plates: bool,
     has_vials: bool,
     incompatible_subject: str,
+    filter_by_sampler: bool = True,
 ) -> tuple[mo.ui.dropdown, mo.Html | None]:
     """Queue Type dropdown (Vial/Plate) plus an incompatibility warning callout (or None).
 
-    Offers the intersection of what the order contains and what the sampler supports,
-    Vial first. ``incompatible_subject`` names the samples in the warning (portal:
-    ``"this order's samples"``; local: ``"the uploaded samples"``).
+    Offers what the input contains, Vial first. By default, options are restricted
+    to what the sampler supports. The B-Fabric portal disables that restriction
+    because its source choice owns whether samples are presented as Vial or Plate.
+    ``incompatible_subject`` names the samples in the warning.
     """
     warning = None
     if sampler:
@@ -855,10 +857,10 @@ def make_queue_type_field(
             order_has.add("Plate")
         if has_vials:
             order_has.add("Vial")
-        usable = supports & order_has
+        usable = supports & order_has if filter_by_sampler else order_has
         options = [t for t in ("Vial", "Plate") if t in usable]
         default = options[0] if options else None
-        if order_has and not usable:
+        if filter_by_sampler and order_has and not usable:
             warning = mo.callout(
                 mo.md(f"Sampler **{sampler}** is incompatible with {incompatible_subject}."),
                 kind="warn",

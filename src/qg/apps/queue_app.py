@@ -18,8 +18,9 @@ with app.setup:
     configure_logging()
 
     from qg.apps import queue_app_shared as shared
-    from qg.apps.integrations import bfabric_samples, bfabric_workunit
+    from qg.apps.integrations import bfabric_workunit
     from qg.apps.integrations.bfabric_context import SessionError, resolve_app_session
+    from qg.bfabric_samples import SampleSource
     from qg.cli.find_projects import ContainerCache
     from qg.config_models.loader import qg_configuration
 
@@ -176,6 +177,7 @@ def _(container_has_plates, container_has_vials, sampler_field, table_by_sampler
         has_plates=container_has_plates,
         has_vials=container_has_vials,
         incompatible_subject="this order's samples",
+        filter_by_sampler=False,
     )
     return queue_type_field, queue_type_warning
 
@@ -551,6 +553,23 @@ def _(config, entity_id, is_employee, projects_df, tech_area_field):
 
 
 @app.cell
+def _():
+    sample_source_field = mo.ui.radio(
+        options=[source.value for source in SampleSource],
+        value=SampleSource.ORDER_ITEMS.value,
+        label="Sample source",
+        inline=True,
+    )
+    return (sample_source_field,)
+
+
+@app.cell
+def _(sample_source_field):
+    sample_source = SampleSource(sample_source_field.value)
+    return (sample_source,)
+
+
+@app.cell
 def _(entity_id, is_employee, project_table):
     if is_employee:
         if project_table.value.is_empty():
@@ -563,21 +582,16 @@ def _(entity_id, is_employee, project_table):
 
 
 @app.cell
-def _(bfabric, selected_orders):
-    # For each selected container: keep its plate entities (needed by plates_select)
-    # and classify its sample composition (plates / vials / both).
-    all_plates, container_has_plates, container_has_vials = bfabric_samples.container_composition(
-        bfabric, selected_orders
+def _(bfabric, sample_source, selected_orders):
+    _container_ids = [container_id for container_id, *_ in selected_orders]
+    all_plates = {
+        container_id: bfabric.get_plates(container_id, source=sample_source) for container_id in _container_ids
+    }
+    container_has_plates, container_has_vials = bfabric.get_container_composition(
+        _container_ids,
+        source=sample_source,
     )
     return all_plates, container_has_plates, container_has_vials
-
-
-@app.cell
-def _(queue_type_field):
-    # Derive container_type for BfabricHelper.get_samples() from queue type dropdown
-    _type_map = {"Vial": "Vials", "Plate": "Plates"}
-    container_type = _type_map.get(queue_type_field.value, "Vials")
-    return (container_type,)
 
 
 @app.cell
@@ -598,15 +612,56 @@ def _(all_plates, selected_orders):
 def _(
     DEBUG_DUMP_DIR,
     bfabric,
-    container_type,
     plates_select,
+    queue_type_field,
+    sample_source,
     selected_orders,
 ):
-    # Load samples from all selected orders (empty DataFrame if no orders selected)
-    full_samples_df = bfabric_samples.load_samples(
-        bfabric, selected_orders, container_type, plates_select.value or None, DEBUG_DUMP_DIR
+    _container_ids = [container_id for container_id, *_ in selected_orders]
+    if queue_type_field.value == "Plate":
+        picked_plate_ids = frozenset(plates_select.value or ())
+        loaded_samples = bfabric.get_plate_samples(
+            _container_ids,
+            plate_ids=({_container_ids[0]: picked_plate_ids} if _container_ids and picked_plate_ids else {}),
+            source=sample_source,
+            dump_dir=DEBUG_DUMP_DIR,
+        )
+    else:
+        loaded_samples = bfabric.get_vial_samples(
+            _container_ids,
+            source=sample_source,
+            dump_dir=DEBUG_DUMP_DIR,
+        )
+    full_samples_df = loaded_samples.table
+    return full_samples_df, loaded_samples
+
+
+@app.cell
+def _(bfabric, full_samples_df, sample_source, selected_orders):
+    type_counts = (
+        pl.DataFrame(schema={"sample_type": pl.String, "count": pl.UInt32})
+        if full_samples_df.is_empty()
+        else full_samples_df["sample_type"].value_counts(sort=True)
     )
-    return (full_samples_df,)
+    type_summary = ", ".join(
+        f"{row['count']} × {row['sample_type'] or 'Unspecified'}" for row in type_counts.to_dicts()
+    )
+    no_order_items = (
+        [container_id for container_id, *_ in selected_orders if bfabric.get_order_items(container_id).is_empty]
+        if sample_source is SampleSource.ORDER_ITEMS
+        else []
+    )
+    source_notes = [mo.md(f"**Sample types:** {type_summary or 'Unspecified'}")] if selected_orders else []
+    if no_order_items:
+        ids = ", ".join(str(container_id) for container_id in no_order_items)
+        source_notes.append(
+            mo.callout(
+                mo.md(f"No order items for container(s) {ids}; showing all container samples."),
+                kind="info",
+            )
+        )
+    sample_source_summary = mo.vstack(source_notes)
+    return (sample_source_summary,)
 
 
 @app.cell
@@ -702,7 +757,15 @@ def _(
 
 
 @app.cell
-def _(banner_message, entity_id, is_employee, project_table, refresh_projects_button):
+def _(
+    banner_message,
+    entity_id,
+    is_employee,
+    project_table,
+    refresh_projects_button,
+    sample_source_field,
+    sample_source_summary,
+):
     # Bind to a name and leave it as the cell's final expression so marimo displays the vstack;
     # a bare `mo.vstack(...)` inside if/else is not the last top-level expression of the cell.
     # The banner shares the top row with the refresh button to avoid wasted vertical space.
@@ -712,10 +775,19 @@ def _(banner_message, entity_id, is_employee, project_table, refresh_projects_bu
             [
                 mo.hstack([_banner, refresh_projects_button], justify="space-between", align="center"),
                 project_table,
+                sample_source_field,
+                sample_source_summary,
             ]
         )
     else:
-        _order_section = mo.vstack([mo.hstack([_banner], justify="start"), mo.md(f"## Order {entity_id}")])
+        _order_section = mo.vstack(
+            [
+                mo.hstack([_banner], justify="start"),
+                mo.md(f"## Order {entity_id}"),
+                sample_source_field,
+                sample_source_summary,
+            ]
+        )
     _order_section
     return
 
@@ -724,10 +796,10 @@ def _(banner_message, entity_id, is_employee, project_table, refresh_projects_bu
 def _(
     container_has_plates,
     container_has_vials,
-    container_type,
     full_samples_df,
     is_employee,
     project_table,
+    queue_type_field,
     selected_orders,
 ):
     # Assign each branch to a cell-local and display it as the last unnested
@@ -746,7 +818,8 @@ def _(
             _who = f"{_row['Container ID']} {_row.get('Container Name', '')}".strip()
         else:
             _who = f"{len(selected_orders)} order(s): " + ", ".join(str(o[0]) for o in selected_orders)
-        _banner = mo.md(f"**Selected:** {_who} ({container_type}) — {_n} samples{_note}")
+        _queue_type = queue_type_field.value or "No compatible queue type"
+        _banner = mo.md(f"**Selected:** {_who} ({_queue_type}) — {_n} samples{_note}")
     _banner
     return
 

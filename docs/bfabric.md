@@ -17,15 +17,36 @@ uv sync                        # for development: installs the portal extra by d
 The core install (`pip install qg`) has no `bfabric`, `fastapi`, `starlette`, or
 `python-gitlab` dependency; the `qg[bfabric]` extra pulls them in.
 
+## Choose which B-Fabric samples to load
+
+The portal defaults **Sample source** to **Order items**. This includes samples
+referenced directly by billable order items and all samples on plates referenced
+by order items. It prevents container-level additions, such as facility QC
+samples that were not ordered, from entering the user-sample queue accidentally.
+
+Choose **All container samples** to include every sample in the container as a
+Vial queue. The sample table shows the B-Fabric sample-type counts for the active
+choice. **Order items** preserves the ordered samples' physical placement, so its
+Queue Type is Plate, Vial, or both. The selected sampler does not alter the Queue
+Type choices derived from the source.
+
+Projects and orders without order items fall back to all container samples. The
+app displays an information callout whenever this fallback applies. In a mixed
+multi-container selection, fallback is evaluated independently for each
+container.
+
 ## Run the portal app (dev)
 
 ```bash
-QG_ALLOW_UNAUTHENTICATED=1 uv run marimo run src/qg/apps/queue_app.py
+make app       # production B-Fabric
+make app-test  # test B-Fabric
 ```
 
 The portal app fails closed without a B-Fabric-authenticated request.
 `QG_ALLOW_UNAUTHENTICATED=1` bypasses auth for local dev and runs as an employee —
-**never set it in production.** The deployed entry point is
+**never set it in production.** The make targets set `BFABRICPY_CONFIG_ENV`
+explicitly so the selected instance does not depend on the developer's
+`~/.bfabricpy.yml` default. The deployed entry point is
 `uv run python src/qg/apps/bfabric_app.py` (needs `WebappIntegrationSettings`:
 `VALIDATION_BFABRIC_INSTANCE`, `SUPPORTED_BFABRIC_INSTANCES`,
 `FEEDER_USER_CREDENTIALS`). For the authentication and employee/non-employee access
