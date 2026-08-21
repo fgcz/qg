@@ -1,15 +1,10 @@
-Feature: Queue Type offered follows the order's composition and the sampler
+Feature: Queue Type offered follows the selected B-Fabric sample source
   As a core operator configuring a queue
-  I want the Queue Type choice restricted to what the order actually holds and
-  what the sampler can run
-  So that I cannot run a plate-only order as vials (or vice versa), and I am
-  warned when the sampler cannot run the order at all.
+  I want the Queue Type choice to reflect what the selected source produces
+  So that Plate and Vial choices are not hidden by unrelated GUI selections.
 
-  # The Queue Type dropdown offers the intersection of (queue types the sampler
-  # supports) and (what the container physically holds — plates, vials, or both),
-  # Vial first. An empty intersection offers nothing and shows a warning. This is
-  # the browser-side proof of the make_queue_type_field truth table unit-tested in
-  # tests/test_queue_app_shared.py::TestMakeQueueTypeField.
+  # Order items preserve plate/vial placement. All container samples are exposed
+  # as Vial. The selected sampler does not alter these choices.
 
   Scenario: A plate-only order can only be run as a Plate queue
     Given the queue app is open as an employee
@@ -62,12 +57,15 @@ Feature: Queue Type offered follows the order's composition and the sampler
     Then the "Queue Type" picker offers "Vial"
     And the "Queue Type" picker offers "Plate"
 
-  Scenario: A sampler that cannot run the order's samples shows a warning
+  Scenario: A Vial-only sampler does not hide a Plate order's queue type
     Given the queue app is open as an employee
     When I set "Tech Area" to "Proteomics"
     And I select order 37180
     And I set "Instrument" to "LUMOS_2"
-    Then a warning reads "incompatible with this order's samples"
+    Then the "Queue Type" picker offers "Plate"
+    And the "Queue Type" dropdown shows "Plate"
+    And no sampler-incompatibility warning is shown
+    And no empty-order warning is shown
 
   Scenario: A compatible sampler shows no incompatibility warning
     Given the queue app is open as an employee

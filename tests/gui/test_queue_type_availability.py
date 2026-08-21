@@ -1,11 +1,7 @@
-"""GUI scenarios for Queue-Type availability (plate / vial / mixed) and the
-sampler-incompatibility warning.
+"""GUI scenarios for Queue-Type availability (plate / vial / mixed).
 
-Both behaviours come from ``make_queue_type_field``
-(``queue_app_shared.py``): the Queue Type dropdown offers the intersection of the
-sampler's supported queue types and the order's actual composition (Vial first),
-and renders a warning callout when that intersection is empty. The composition is
-classified per container by ``BfabricHelper.get_container_composition``.
+The portal Queue Type dropdown follows the source-derived composition (Vial
+first) without allowing the selected sampler to hide Plate or Vial choices.
 
 Fixtures exercised (see ``tests/gui/AGENTS.md``):
 
@@ -14,7 +10,7 @@ Fixtures exercised (see ``tests/gui/AGENTS.md``):
 - 37183 — mixed (4 samples on plate 50003 + 4 off-plate) → both offered, Vial default.
 - 37180 + 37182 — selecting both OR-accumulates the flags → both offered.
 - 37180 + Instrument ``LUMOS_2`` (auto-defaults the Vial-only ``MClass`` sampler)
-  → empty intersection → warning; Vanquish on the same order → no warning.
+  still exposes Plate because the order source, not the sampler, owns Queue Type.
 
 This is the browser-side counterpart of the exhaustive unit test
 ``tests/test_queue_app_shared.py::TestMakeQueueTypeField``.
@@ -70,6 +66,11 @@ def _warning_reads(page: Page, text: str) -> None:
 @then("no sampler-incompatibility warning is shown")
 def _no_incompat_warning(page: Page) -> None:
     expect(page.get_by_text("incompatible with this order's samples", exact=False)).to_have_count(0)
+
+
+@then("no empty-order warning is shown")
+def _no_empty_order_warning(page: Page) -> None:
+    expect(page.get_by_text("No samples found in the selected order(s).", exact=False)).to_have_count(0)
 
 
 @then(parsers.parse("the selection banner reports {n:d} samples"))

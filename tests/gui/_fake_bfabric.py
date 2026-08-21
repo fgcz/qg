@@ -4,7 +4,7 @@ The real `Bfabric` client talks to a B-Fabric instance over JSON-RPC. For GUI te
 we replace it with `FakeBfabric`, which serves canned responses from JSON files on
 disk. `BfabricHelper` only touches the client through two entry points:
 
-    - ``client.read("sample"|..., params, max_results=None).to_polars(flatten=True)``
+    - ``client.read("sample"|"orderitem"|..., params, max_results=None)``
     - ``client.reader.query("plate", {"containerid": id})`` → dict[URI, plate]
 
 The helper also reads ``client.config.base_url`` for the per-instance cache slug.
@@ -127,6 +127,9 @@ class FakeBfabric:
         if endpoint == "sample":
             container_id = int(params["containerid"])
             return _FakeReadResult(self._samples_for(container_id))
+        if endpoint == "orderitem":
+            order_id = int(params["orderid"])
+            return _FakeReadResult(self._order_items_for(order_id))
         if endpoint == "plate":
             container_id = int(params["containerid"])
             plates = self._plates_for(container_id)
@@ -138,6 +141,12 @@ class FakeBfabric:
 
     def _samples_for(self, container_id: int) -> list[dict[str, Any]]:
         path = self._fixtures / f"samples_{container_id}.json"
+        if not path.exists():
+            return []
+        return json.loads(path.read_text())
+
+    def _order_items_for(self, order_id: int) -> list[dict[str, Any]]:
+        path = self._fixtures / f"orderitems_{order_id}.json"
         if not path.exists():
             return []
         return json.loads(path.read_text())
@@ -195,7 +204,8 @@ def build_test_session(
     Imports are local so this module is importable without the rest of the qg package
     (e.g. from a uvicorn entrypoint that doesn't need other heavy deps).
     """
-    from qg.bfabric_utils import AppSession, BfabricHelper, MockFeederUploader, instance_slug
+    from qg.bfabric_samples import BfabricHelper
+    from qg.bfabric_utils import AppSession, MockFeederUploader, instance_slug
 
     client = FakeBfabric(fixtures_dir)
     helper = BfabricHelper(client) if is_employee else BfabricHelper(client, restrict_to_container_id=entity_id)
