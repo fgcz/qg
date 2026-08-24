@@ -6,7 +6,7 @@ project offers Plate rather than degrading to Vial (regression guard for the
 order-item fallback flattening plate samples into vials).
 
 Order containers (with billable order items) are covered in
-``test_queue_type_availability.py``.
+``test_order_sources_choice.py``.
 
 Fixtures (see ``tests/gui/AGENTS.md`` for the defaults):
 
@@ -21,7 +21,7 @@ from pytest_bdd import given, parsers, scenarios, then, when
 
 from tests.gui import _helpers as H
 
-scenarios("features/project_support.feature")
+scenarios("features/project_sources_choice.feature")
 
 
 @given("the queue app is open as an employee")

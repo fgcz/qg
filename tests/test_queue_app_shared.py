@@ -652,7 +652,7 @@ class TestMakeQueueTypeField:
     a Vial queue (or vice versa), and that warns when the sampler cannot run the
     order at all. The truth table below is that guard's executable spec; the
     portal-side integration is pinned in
-    ``tests/gui/features/queue_type_availability.feature``.
+    ``tests/gui/features/order_sources_choice.feature``.
     """
 
     @staticmethod
