@@ -64,8 +64,8 @@ tests/gui/
 | `valid_combinations_tab.feature` | `test_valid_combinations_tab.py` | Switching to the Valid Combinations tab shows the master table |
 | `concentrations.feature` | `test_concentrations.py` | `cal_series` reveals the 7-level concentration grid |
 | `tray_capacity.feature` | `test_tray_capacity.py` | Plate count vs sampler trays — both negative and positive paths |
-| `order_sources_choice.feature` | `test_order_sources_choice.py` | Queue Type offered follows order composition (plate-only / vial-only / mixed / multi-order) and the sampler; incompatible-sampler warn callout |
-| `project_sources_choice.feature` | `test_project_sources_choice.py` | Project container with no order items keeps plate placement (plate → Plate only; vials → Vial only) |
+| `order_queue_type.feature` | `test_order_queue_type.py` | Queue Type offered follows order composition (plate-only / vial-only / mixed / multi-order) and the sampler; incompatible-sampler warn callout |
+| `project_queue_type.feature` | `test_project_queue_type.py` | Project container with no order items keeps plate placement (plate → Plate only; vials → Vial only) |
 | `non_employee.feature` | `test_non_employee.py` | Pinned-container workflow, no project table |
 | `non_employee_empty.feature` | `test_non_employee_empty.py` | "No samples found" danger callout |
 | `launching_order.feature` | `test_launching_order.py` | Opening from an order defaults Tech Area to its technology; employee order is pre-selected (banner) |
