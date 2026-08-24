@@ -1,22 +1,17 @@
-"""GUI scenarios: project and order containers enter the queue at their own entrypoint.
+"""GUI scenarios: a project container (no order items) keeps its plate placement.
 
-This is the home for the project-vs-order entrypoint distinction:
+A **project** container has no order items, so the app falls back to all of its
+container samples. That fallback must still preserve plate placement: a plate-holding
+project offers Plate rather than degrading to Vial (regression guard for the
+order-item fallback flattening plate samples into vials).
 
-- A **project** container has no order items, so the app falls back to all of its
-  container samples. That fallback must still preserve plate placement: a plate-holding
-  project offers Plate rather than degrading to Vial (regression guard for the
-  order-item fallback flattening plate samples into vials).
-- An **order** container has order items, which drive its plate/vial placement.
+Order containers (with billable order items) are covered in
+``test_queue_type_availability.py``.
 
 Fixtures (see ``tests/gui/AGENTS.md`` for the defaults):
 
 - 37210 — project: plate 50210 with 4 plate samples, no order items (scenario fixture).
 - 37196 — project: 3 bare vials, no order items.
-- 37180 — order: plate 50001 with 12 plate samples.
-- 37182 — order: 6 bare vials.
-
-Step implementations are defined here (pytest-bdd 8.x scopes step fixtures to the
-module that calls ``scenarios``) and delegate to ``_helpers.py``.
 """
 
 from __future__ import annotations
