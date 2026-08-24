@@ -6,7 +6,7 @@ Feature: Project containers enter the queue without losing plate placement
 
   A **project** has no order items, so it falls back to all of its container
   samples — but that fallback must still preserve plate placement
-  (fixtures 37210/37196). Order containers (with billable order items) are
+  (fixtures 37210/37196). Order containers (with order items) are
   covered separately in order_queue_type.feature.
 
   Scenario: A project container (no order items) holding plates offers only Plate
