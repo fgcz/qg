@@ -14,7 +14,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 - Made local portal launch targets select the intended B-Fabric instance explicitly.
-- Restored Plate queue availability for project containers (no order items) with plate-holding samples, which were previously flattened into Vial queues.
 - Excluded non-ordered container samples, including facility-added QC samples, from the portal queue by default.
 - Cleared the Starlette advisory that kept the dependency audit off the blocking hooks.
 
