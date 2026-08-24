@@ -35,6 +35,12 @@ app displays an information callout whenever this fallback applies. In a mixed
 multi-container selection, fallback is evaluated independently for each
 container.
 
+A fallback still preserves a container's plate placement: plate-resident
+samples remain Plate samples (with their grid position) rather than being
+flattened into a Vial queue, so a project container holding plates still offers
+a Plate queue. Only the explicit **All container samples** source presents
+everything as a Vial queue.
+
 ## Run the portal app (dev)
 
 ```bash

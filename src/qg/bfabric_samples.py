@@ -153,7 +153,10 @@ class BfabricHelper:
             plates = self._get_container_plates(container_id)
             all_sample_ids = self._fetch_container_sample_ids(container_id)
             if self.get_order_items(container_id).is_empty:
-                has_vials = has_vials or bool(all_sample_ids)
+                plate_sample_ids = _referenced_sample_ids(plates)
+                on_plate = all_sample_ids & plate_sample_ids
+                has_plates = has_plates or bool(on_plate)
+                has_vials = has_vials or bool(all_sample_ids - on_plate)
                 continue
             included_ids = self._included_sample_ids(
                 container_id,
@@ -243,8 +246,11 @@ class BfabricHelper:
         source: SampleSource,
     ) -> VialSampleTable:
         plates = self._get_container_plates(container_id)
-        refs = self.get_order_items(container_id) if source is SampleSource.ORDER_ITEMS else None
-        on_plate = _referenced_sample_ids(plates) if refs is not None and not refs.is_empty else set()
+        # Even when a container has no order items (project fallback), its
+        # plate-resident samples still belong to Plate mode and must not be
+        # flattened into vials. Only the explicit "all container samples" source
+        # presents everything as vials.
+        on_plate = _referenced_sample_ids(plates) if source is SampleSource.ORDER_ITEMS else set()
         table = self._read_container_samples(container_id)
         if table.is_empty():
             return VialSampleTable.from_rows([])
