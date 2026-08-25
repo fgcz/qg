@@ -727,10 +727,10 @@ def render_sidebar_body(
     items = [
         SIDEBAR_TITLE,
         tech_area_field,
-        instrument_field,
-        sampler_field,
         queue_type_field,
         *([] if queue_type_warning is None else [queue_type_warning]),
+        sampler_field,
+        instrument_field,
         plate_layout_field,
         *(
             []
@@ -833,42 +833,14 @@ def make_qc_layout_field(table_by_plate_layout: pl.DataFrame, *, enabled: bool) 
     return mo.ui.dropdown(options=options, value=default, label="QC Layout")
 
 
-def make_queue_type_field(
-    table_by_sampler: pl.DataFrame,
+def make_source_queue_type_field(
     *,
-    sampler: str | None,
     has_plates: bool,
     has_vials: bool,
-    incompatible_subject: str,
-    filter_by_sampler: bool = True,
-) -> tuple[mo.ui.dropdown, mo.Html | None]:
-    """Queue Type dropdown (Vial/Plate) plus an incompatibility warning callout (or None).
-
-    Offers what the input contains, Vial first. By default, options are restricted
-    to what the sampler supports. The B-Fabric portal disables that restriction
-    because its source choice owns whether samples are presented as Vial or Plate.
-    ``incompatible_subject`` names the samples in the warning.
-    """
-    warning = None
-    if sampler:
-        supports = set(table_by_sampler["queue_type"].unique().to_list())
-        order_has: set[str] = set()
-        if has_plates:
-            order_has.add("Plate")
-        if has_vials:
-            order_has.add("Vial")
-        usable = supports & order_has if filter_by_sampler else order_has
-        options = [t for t in ("Vial", "Plate") if t in usable]
-        default = options[0] if options else None
-        if filter_by_sampler and order_has and not usable:
-            warning = mo.callout(
-                mo.md(f"Sampler **{sampler}** is incompatible with {incompatible_subject}."),
-                kind="warn",
-            )
-    else:
-        options = []
-        default = None
-    return mo.ui.dropdown(options=options, value=default, label="Queue Type"), warning
+) -> mo.ui.dropdown:
+    """Queue Type dropdown derived only from the selected sample source."""
+    options = [queue_type for queue_type, available in (("Vial", has_vials), ("Plate", has_plates)) if available]
+    return mo.ui.dropdown(options=options, value=options[0] if options else None, label="Queue Type")
 
 
 def make_mixed_order_note(*, has_plates: bool, has_vials: bool) -> str:

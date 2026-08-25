@@ -1,57 +1,60 @@
-"""GUI coverage for switching between order items and container samples."""
+"""GUI scenarios for switching between order items and container samples."""
+
+from __future__ import annotations
 
 import re
 
 from playwright.sync_api import Page, expect
+from pytest_bdd import given, parsers, scenarios, then, when
 
 from tests.gui import _helpers as H
 
+scenarios("features/sample_source.feature")
 
-def test_sample_source_defaults_to_order_items_and_can_restore_container_samples(
-    page: Page,
-    queue_app_url: str,
-) -> None:
+
+@given("the queue app is open as an employee")
+def _open_app(page: Page, queue_app_url: str) -> None:
     H.open_app(page, queue_app_url)
-    H.set_dropdown(page, "Tech Area", "Proteomics")
-    H.select_order(page, 37182)
-
-    expect(page.get_by_text(re.compile(r"1\s+samples")).first).to_be_visible(timeout=15_000)
-    expect(page.get_by_text("1 × Unspecified", exact=False)).to_be_visible()
-
-    all_samples = page.get_by_label("All container samples")
-    expect(all_samples).to_be_visible(timeout=10_000)
-    all_samples.check()
-
-    expect(page.get_by_text(re.compile(r"6\s+samples")).first).to_be_visible(timeout=15_000)
-    expect(page.get_by_text("6 × Unspecified", exact=False)).to_be_visible()
 
 
-def test_container_source_always_changes_a_plate_order_to_vial(
-    page: Page,
-    queue_app_url: str,
-) -> None:
-    H.open_app(page, queue_app_url)
-    H.set_dropdown(page, "Tech Area", "Proteomics")
-    H.select_order(page, 37180)
-
-    H.expect_dropdown_value(page, "Queue Type", "Plate")
-
-    page.get_by_label("All container samples").check()
-
-    H.expect_dropdown_value(page, "Queue Type", "Vial")
+@when(parsers.parse('I set "{label}" to "{value}"'))
+def _set_selector(page: Page, label: str, value: str) -> None:
+    H.set_dropdown(page, label, value)
 
 
-def test_empty_order_items_disclose_fallback_only_for_order_item_source(
-    page: Page,
-    queue_app_url: str,
-) -> None:
-    H.open_app(page, queue_app_url)
-    H.set_dropdown(page, "Tech Area", "Proteomics")
-    H.set_dropdown(page, "Tech Area", "Metabolomics")
-    H.select_order(page, 37196)
+@when(parsers.parse("I select order {container_id:d}"))
+def _select_order(page: Page, container_id: int) -> None:
+    H.select_order(page, container_id)
 
-    fallback = page.get_by_text("No order items for container(s) 37196", exact=False)
+
+@when("I choose all container samples")
+def _choose_all_container_samples(page: Page) -> None:
+    field = page.get_by_label("All container samples")
+    expect(field).to_be_visible(timeout=10_000)
+    field.check()
+
+
+@then(parsers.parse("the selection banner reports {n:d} samples"))
+def _banner_reports_count(page: Page, n: int) -> None:
+    expect(page.get_by_text(re.compile(rf"{n}\s+samples")).first).to_be_visible(timeout=15_000)
+
+
+@then(parsers.parse('the sample type summary reads "{text}"'))
+def _sample_type_summary(page: Page, text: str) -> None:
+    expect(page.get_by_text(text, exact=False)).to_be_visible()
+
+
+@then(parsers.parse('the "{label}" dropdown shows "{value}"'))
+def _dropdown_shows(page: Page, label: str, value: str) -> None:
+    H.expect_dropdown_value(page, label, value)
+
+
+@then(parsers.parse("the no-order-items fallback is shown for container {container_id:d}"))
+def _fallback_shown(page: Page, container_id: int) -> None:
+    fallback = page.get_by_text(f"No order items for container(s) {container_id}", exact=False)
     expect(fallback).to_be_visible(timeout=15_000)
 
-    page.get_by_label("All container samples").check()
-    expect(fallback).to_have_count(0)
+
+@then("no no-order-items fallback is shown")
+def _fallback_hidden(page: Page) -> None:
+    expect(page.get_by_text("No order items for container(s)", exact=False)).to_have_count(0)

@@ -12,6 +12,7 @@ from bfabric.entities.core.uri import EntityUri  # noqa: E402
 from qg.bfabric_samples import (  # noqa: E402
     BfabricHelper,
     ContainerComposition,
+    OrderItemSamplesSelection,
     SampleSource,
 )
 from qg.sample_rows import PlateSampleRow, PlateSampleTable, VialSampleRow, VialSampleTable  # noqa: E402
@@ -140,12 +141,11 @@ def test_storage_plates_are_excluded_and_their_samples_become_vials() -> None:
         },
     )
     helper = BfabricHelper(client)
+    selection = helper.load_sample_selection([10], source=SampleSource.ORDER_ITEMS)
 
-    assert helper.get_plates(10, source=SampleSource.CONTAINER) == {}
-    assert helper.get_container_composition([10], source=SampleSource.CONTAINER) == ContainerComposition(
-        has_plates=False, has_vials=True
-    )
-    assert helper.get_plate_samples([10], plate_ids={}, source=SampleSource.CONTAINER).table.is_empty()
+    assert selection.plates == {10: {}}
+    assert selection.composition == ContainerComposition(has_plates=False, has_vials=True)
+    assert selection.plate_samples(plate_ids={}).table.is_empty()
 
 
 def test_container_source_always_loads_every_sample_as_vials() -> None:
@@ -153,13 +153,10 @@ def test_container_source_always_loads_every_sample_as_vials() -> None:
         samples={10: [_sample(1), _sample(2)]},
         plates={10: {_uri("plate", 20): _Plate([_sample(1, grid_position="A1")])}},
     )
-    helper = BfabricHelper(client)
+    selection = BfabricHelper(client).load_sample_selection([10], source=SampleSource.CONTAINER)
 
-    composition = helper.get_container_composition([10], source=SampleSource.CONTAINER)
-    table = helper.get_vial_samples([10], source=SampleSource.CONTAINER).table
-
-    assert composition == ContainerComposition(has_plates=False, has_vials=True)
-    assert table["sample_id"].to_list() == [1, 2]
+    assert selection.composition == ContainerComposition(has_plates=False, has_vials=True)
+    assert selection.vial_samples().table["sample_id"].to_list() == [1, 2]
 
 
 def test_get_order_items_resolves_sample_and_plate_references() -> None:
@@ -173,7 +170,9 @@ def test_get_order_items_resolves_sample_and_plate_references() -> None:
         },
     )
 
-    refs = BfabricHelper(client).get_order_items(10)
+    selection = BfabricHelper(client).load_sample_selection([10], source=SampleSource.ORDER_ITEMS)
+    assert isinstance(selection, OrderItemSamplesSelection)
+    refs = selection.containers[0].order_items
 
     assert refs.sample_ids == frozenset({101})
     assert refs.plate_ids == frozenset({202})
@@ -191,7 +190,7 @@ def test_get_order_items_rejects_malformed_reference_shape(item: dict) -> None:
     helper = BfabricHelper(_client(samples={}, order_items={10: [item]}))
 
     with pytest.raises(ValueError, match="exactly one sample or plate"):
-        helper.get_order_items(10)
+        helper.load_sample_selection([10], source=SampleSource.ORDER_ITEMS)
 
 
 def test_order_item_source_filters_vials_and_preserves_missing_sample_type() -> None:
@@ -207,8 +206,8 @@ def test_order_item_source_filters_vials_and_preserves_missing_sample_type() -> 
     )
     helper = BfabricHelper(client)
 
-    ordered = helper.get_vial_samples([10], source=SampleSource.ORDER_ITEMS).table
-    container = helper.get_vial_samples([10], source=SampleSource.CONTAINER).table
+    ordered = helper.load_sample_selection([10], source=SampleSource.ORDER_ITEMS).vial_samples().table
+    container = helper.load_sample_selection([10], source=SampleSource.CONTAINER).vial_samples().table
 
     assert ordered["sample_id"].to_list() == [1]
     assert ordered["sample_type"].to_list() == [None]
@@ -221,25 +220,24 @@ def test_empty_order_items_fallback_preserves_plates() -> None:
         plates={10: {_uri("plate", 20): _Plate([_sample(1, grid_position="A1")])}},
     )
     helper = BfabricHelper(client)
+    selection = helper.load_sample_selection([10], source=SampleSource.ORDER_ITEMS)
 
-    assert helper.get_container_composition([10], source=SampleSource.ORDER_ITEMS) == ContainerComposition(
-        has_plates=True, has_vials=True
-    )
+    assert selection.composition == ContainerComposition(has_plates=True, has_vials=True)
 
     # The plate-resident sample is NOT flattened into vials on the fallback.
-    vials = helper.get_vial_samples([10], source=SampleSource.ORDER_ITEMS).table
+    vials = selection.vial_samples().table
     assert vials["sample_id"].to_list() == [2]
     assert "grid_position" not in vials.columns
 
     # It IS available as a plate sample with its placement preserved.
-    plates = helper.get_plate_samples([10], plate_ids={}, source=SampleSource.ORDER_ITEMS).table
+    plates = selection.plate_samples(plate_ids={}).table
     assert plates["sample_id"].to_list() == [1]
     assert plates["grid_position"].to_list() == ["A1"]
     assert plates["plate_id"].to_list() == [20]
 
     # The explicit "all container samples" source still deliberately presents
     # everything as vials (unchanged contract).
-    container_vials = helper.get_vial_samples([10], source=SampleSource.CONTAINER).table
+    container_vials = helper.load_sample_selection([10], source=SampleSource.CONTAINER).vial_samples().table
     assert set(container_vials["sample_id"].to_list()) == {1, 2}
 
 
@@ -248,9 +246,8 @@ def test_empty_order_items_fallback_offers_plates_when_plates_present() -> None:
         samples={10: [_sample(1)]},
         plates={10: {_uri("plate", 20): _Plate([_sample(1, grid_position="A1")])}},
     )
-    assert BfabricHelper(client).get_container_composition(
-        [10], source=SampleSource.ORDER_ITEMS
-    ) == ContainerComposition(has_plates=True, has_vials=False)
+    selection = BfabricHelper(client).load_sample_selection([10], source=SampleSource.ORDER_ITEMS)
+    assert selection.composition == ContainerComposition(has_plates=True, has_vials=False)
 
 
 def test_order_item_source_offers_referenced_and_sample_containing_plates() -> None:
@@ -271,9 +268,8 @@ def test_order_item_source_offers_referenced_and_sample_containing_plates() -> N
         },
         plates=plates,
     )
-    helper = BfabricHelper(client)
-
-    selected = helper.get_plates(10, source=SampleSource.ORDER_ITEMS)
+    selection = BfabricHelper(client).load_sample_selection([10], source=SampleSource.ORDER_ITEMS)
+    selected = selection.plates[10]
 
     assert {uri.components.entity_id for uri in selected} == {20, 21}
 
@@ -294,14 +290,9 @@ def test_plate_loading_combines_sample_and_plate_order_items() -> None:
         },
         plates={10: plate_rows},
     )
-    helper = BfabricHelper(client)
-
-    all_ordered = helper.get_plate_samples([10], plate_ids={}, source=SampleSource.ORDER_ITEMS).table
-    picked = helper.get_plate_samples(
-        [10],
-        plate_ids={10: frozenset({21})},
-        source=SampleSource.ORDER_ITEMS,
-    ).table
+    selection = BfabricHelper(client).load_sample_selection([10], source=SampleSource.ORDER_ITEMS)
+    all_ordered = selection.plate_samples(plate_ids={}).table
+    picked = selection.plate_samples(plate_ids={10: frozenset({21})}).table
 
     assert all_ordered["sample_id"].to_list() == [1, 2, 3]
     assert picked["sample_id"].to_list() == [2, 3]
@@ -317,9 +308,9 @@ def test_composition_ors_vials_and_plates_across_containers() -> None:
         plates={11: {_uri("plate", 21): _Plate([_sample(2, grid_position="A1")])}},
     )
 
-    composition = BfabricHelper(client).get_container_composition([10, 11], source=SampleSource.ORDER_ITEMS)
+    selection = BfabricHelper(client).load_sample_selection([10, 11], source=SampleSource.ORDER_ITEMS)
 
-    assert composition == ContainerComposition(has_plates=True, has_vials=True)
+    assert selection.composition == ContainerComposition(has_plates=True, has_vials=True)
 
 
 def test_restricted_plate_loading_intersects_order_items_with_container_samples() -> None:
@@ -337,9 +328,10 @@ def test_restricted_plate_loading_intersects_order_items_with_container_samples(
             }
         },
     )
-    helper = BfabricHelper(client, restrict_to_container_id=10)
-
-    table = helper.get_plate_samples([10], plate_ids={}, source=SampleSource.ORDER_ITEMS).table
+    selection = BfabricHelper(client, restrict_to_container_id=10).load_sample_selection(
+        [10], source=SampleSource.ORDER_ITEMS
+    )
+    table = selection.plate_samples(plate_ids={}).table
 
     assert table["sample_id"].to_list() == [1]
 
@@ -356,14 +348,53 @@ def test_plate_selection_mapping_only_narrows_keyed_container() -> None:
         },
     )
 
-    table = (
-        BfabricHelper(client)
-        .get_plate_samples(
-            [10, 11],
-            plate_ids={10: frozenset({20})},
-            source=SampleSource.CONTAINER,
-        )
-        .table
-    )
+    selection = BfabricHelper(client).load_sample_selection([11, 10], source=SampleSource.ORDER_ITEMS)
+    table = selection.plate_samples(plate_ids={10: frozenset({20})}).table
 
     assert table["sample_id"].to_list() == [1, 3]
+
+
+def test_order_item_selection_reads_each_endpoint_once_per_container() -> None:
+    client = _client(
+        samples={10: [_sample(1)], 11: [_sample(2)]},
+        order_items={
+            10: [{"id": 1, "sample": {"id": 1}}],
+            11: [{"id": 2, "sample": {"id": 2}}],
+        },
+        plates={11: {_uri("plate", 21): _Plate([_sample(2, grid_position="A1")])}},
+    )
+
+    selection = BfabricHelper(client).load_sample_selection([10, 11], source=SampleSource.ORDER_ITEMS)
+
+    assert client.read.call_count == 4  # one sample + one order-item read per container
+    assert client.reader.query.call_count == 2  # one plate query per container
+
+    _ = selection.plates
+    _ = selection.composition
+    _ = selection.fallback_container_ids
+    selection.vial_samples()
+    selection.plate_samples(plate_ids={})
+
+    assert client.read.call_count == 4
+    assert client.reader.query.call_count == 2
+
+
+def test_container_selection_reads_only_samples() -> None:
+    client = _client(
+        samples={10: [_sample(1)]},
+        plates={10: {_uri("plate", 20): _Plate([_sample(1, grid_position="A1")])}},
+    )
+
+    selection = BfabricHelper(client).load_sample_selection([10], source=SampleSource.CONTAINER)
+
+    assert client.read.call_count == 1
+    assert client.reader.query.call_count == 0
+
+    _ = selection.plates
+    _ = selection.composition
+    _ = selection.fallback_container_ids
+    selection.vial_samples()
+    selection.plate_samples(plate_ids={})
+
+    assert client.read.call_count == 1
+    assert client.reader.query.call_count == 0

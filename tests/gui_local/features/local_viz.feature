@@ -7,9 +7,9 @@ Feature: Local app visualizations — plate map and acquisition timeline
     Given the local queue app is open
     When I load the bundled plate example
     And I set "Tech Area" to "Proteomics"
-    And I set "Instrument" to "ASTRAL_1"
-    And I set "Sampler" to "Vanquish"
     And I set "Queue Type" to "Plate"
+    And I set "Sampler" to "Vanquish"
+    And I set "Instrument" to "ASTRAL_1"
     And I set the date to "2026-01-15"
     And I switch to the "Visualizations" tab
     Then the plate layout visualization is visible

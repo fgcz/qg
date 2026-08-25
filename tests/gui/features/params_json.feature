@@ -6,10 +6,10 @@ Feature: Download Params JSON round-trip
   Scenario: The downloaded params JSON reflects the user's selections
     Given the queue app is open as an employee
     When I set "Tech Area" to "Proteomics"
-    And I set "Instrument" to "ASTRAL_1"
-    And I set "Sampler" to "Vanquish"
     And I select order 37180
     And I set "Queue Type" to "Plate"
+    And I set "Sampler" to "Vanquish"
+    And I set "Instrument" to "ASTRAL_1"
     And I download the params JSON
     Then the params JSON has tech_area "Proteomics" and instrument "ASTRAL_1" and sampler "Vanquish"
     And the params JSON has at least one sample with container_id 37180

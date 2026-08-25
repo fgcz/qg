@@ -12,17 +12,17 @@ Feature: Project containers enter the queue without losing plate placement
   Scenario: A project container (no order items) holding plates offers only Plate
     Given the queue app is open as an employee
     When I set "Tech Area" to "Metabolomics"
-    And I set "Instrument" to "EXPLORIS_3"
-    And I set "Sampler" to "Vanquish"
     And I select order 37210
+    And I set "Sampler" to "Vanquish"
+    And I set "Instrument" to "EXPLORIS_3"
     Then the "Queue Type" picker offers "Plate"
     And the "Queue Type" picker does not offer "Vial"
 
   Scenario: A project container (no order items) holding only vials offers only Vial
     Given the queue app is open as an employee
     When I set "Tech Area" to "Metabolomics"
-    And I set "Instrument" to "EXPLORIS_3"
-    And I set "Sampler" to "Vanquish"
     And I select order 37196
+    And I set "Sampler" to "Vanquish"
+    And I set "Instrument" to "EXPLORIS_3"
     Then the "Queue Type" picker offers "Vial"
     And the "Queue Type" picker does not offer "Plate"

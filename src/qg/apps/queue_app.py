@@ -109,15 +109,21 @@ def _(master_table, tech_area_field):
 
 
 @app.cell
-def _(instrument_field, table_by_tech):
-    table_by_instrument = shared.filter_by_column(table_by_tech, "instrument", instrument_field.value)
-    return (table_by_instrument,)
+def _(queue_type_field, table_by_tech):
+    table_by_queue_type = shared.filter_by_column(table_by_tech, "queue_type", queue_type_field.value)
+    return (table_by_queue_type,)
 
 
 @app.cell
-def _(sampler_field, table_by_instrument):
-    table_by_sampler = shared.filter_by_column(table_by_instrument, "sampler", sampler_field.value)
+def _(sampler_field, table_by_queue_type):
+    table_by_sampler = shared.filter_by_column(table_by_queue_type, "sampler", sampler_field.value)
     return (table_by_sampler,)
+
+
+@app.cell
+def _(instrument_field, table_by_sampler):
+    table_by_instrument = shared.filter_by_column(table_by_sampler, "instrument", instrument_field.value)
+    return (table_by_instrument,)
 
 
 @app.cell
@@ -148,19 +154,25 @@ def _(launching_order_row, master_table):
 
 
 @app.cell
-def _(table_by_tech, tech_area_field):
-    instrument_field = shared.make_column_dropdown(
-        table_by_tech, "instrument", enabled=bool(tech_area_field.value), label="Instrument"
+def _(queue_type_field, table_by_queue_type):
+    sampler_field = shared.make_column_dropdown(
+        table_by_queue_type,
+        "sampler",
+        enabled=bool(queue_type_field.value),
+        label="Sampler",
     )
-    return (instrument_field,)
+    return (sampler_field,)
 
 
 @app.cell
-def _(instrument_field, table_by_instrument):
-    sampler_field = shared.make_column_dropdown(
-        table_by_instrument, "sampler", enabled=bool(instrument_field.value), label="Sampler"
+def _(queue_type_field, sampler_field, table_by_sampler):
+    instrument_field = shared.make_column_dropdown(
+        table_by_sampler,
+        "instrument",
+        enabled=bool(queue_type_field.value and sampler_field.value),
+        label="Instrument",
     )
-    return (sampler_field,)
+    return (instrument_field,)
 
 
 @app.cell
@@ -170,28 +182,19 @@ def _(qc_layout_field, table_by_qc_layout):
 
 
 @app.cell
-def _(container_has_plates, container_has_vials, sampler_field, table_by_sampler):
-    queue_type_field, queue_type_warning = shared.make_queue_type_field(
-        table_by_sampler,
-        sampler=sampler_field.value,
+def _(container_has_plates, container_has_vials):
+    queue_type_field = shared.make_source_queue_type_field(
         has_plates=container_has_plates,
         has_vials=container_has_vials,
-        incompatible_subject="this order's samples",
-        filter_by_sampler=False,
     )
+    queue_type_warning = None
     return queue_type_field, queue_type_warning
 
 
 @app.cell
-def _(queue_type_field, table_by_sampler):
-    table_by_queue_type = shared.filter_by_column(table_by_sampler, "queue_type", queue_type_field.value)
-    return (table_by_queue_type,)
-
-
-@app.cell
-def _(queue_type_field, table_by_queue_type):
+def _(queue_type_field, table_by_instrument):
     plate_layout_field = shared.make_column_dropdown(
-        table_by_queue_type, "plate_layout", enabled=bool(queue_type_field.value), label="Plate Layout"
+        table_by_instrument, "plate_layout", enabled=bool(queue_type_field.value), label="Plate Layout"
     )
     return (plate_layout_field,)
 
@@ -211,8 +214,8 @@ def _(config, sampler_field):
 
 
 @app.cell
-def _(plate_layout_field, table_by_queue_type):
-    table_by_plate_layout = shared.filter_by_column(table_by_queue_type, "plate_layout", plate_layout_field.value)
+def _(plate_layout_field, table_by_instrument):
+    table_by_plate_layout = shared.filter_by_column(table_by_instrument, "plate_layout", plate_layout_field.value)
     return (table_by_plate_layout,)
 
 
@@ -584,14 +587,13 @@ def _(entity_id, is_employee, project_table):
 @app.cell
 def _(bfabric, sample_source, selected_orders):
     _container_ids = [container_id for container_id, *_ in selected_orders]
-    all_plates = {
-        container_id: bfabric.get_plates(container_id, source=sample_source) for container_id in _container_ids
-    }
-    container_has_plates, container_has_vials = bfabric.get_container_composition(
+    sample_selection = bfabric.load_sample_selection(
         _container_ids,
         source=sample_source,
     )
-    return all_plates, container_has_plates, container_has_vials
+    all_plates = sample_selection.plates
+    container_has_plates, container_has_vials = sample_selection.composition
+    return all_plates, container_has_plates, container_has_vials, sample_selection
 
 
 @app.cell
@@ -611,33 +613,26 @@ def _(all_plates, selected_orders):
 @app.cell
 def _(
     DEBUG_DUMP_DIR,
-    bfabric,
     plates_select,
     queue_type_field,
-    sample_source,
+    sample_selection,
     selected_orders,
 ):
     _container_ids = [container_id for container_id, *_ in selected_orders]
     if queue_type_field.value == "Plate":
         picked_plate_ids = frozenset(plates_select.value or ())
-        loaded_samples = bfabric.get_plate_samples(
-            _container_ids,
+        loaded_samples = sample_selection.plate_samples(
             plate_ids=({_container_ids[0]: picked_plate_ids} if _container_ids and picked_plate_ids else {}),
-            source=sample_source,
             dump_dir=DEBUG_DUMP_DIR,
         )
     else:
-        loaded_samples = bfabric.get_vial_samples(
-            _container_ids,
-            source=sample_source,
-            dump_dir=DEBUG_DUMP_DIR,
-        )
+        loaded_samples = sample_selection.vial_samples(dump_dir=DEBUG_DUMP_DIR)
     full_samples_df = loaded_samples.table
     return full_samples_df, loaded_samples
 
 
 @app.cell
-def _(bfabric, full_samples_df, sample_source, selected_orders):
+def _(full_samples_df, sample_selection, selected_orders):
     type_counts = (
         pl.DataFrame(schema={"sample_type": pl.String, "count": pl.UInt32})
         if full_samples_df.is_empty()
@@ -646,11 +641,7 @@ def _(bfabric, full_samples_df, sample_source, selected_orders):
     type_summary = ", ".join(
         f"{row['count']} × {row['sample_type'] or 'Unspecified'}" for row in type_counts.to_dicts()
     )
-    no_order_items = (
-        [container_id for container_id, *_ in selected_orders if bfabric.get_order_items(container_id).is_empty]
-        if sample_source is SampleSource.ORDER_ITEMS
-        else []
-    )
+    no_order_items = sample_selection.fallback_container_ids
     source_notes = [mo.md(f"**Sample types:** {type_summary or 'Unspecified'}")] if selected_orders else []
     if no_order_items:
         ids = ", ".join(str(container_id) for container_id in no_order_items)

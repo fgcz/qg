@@ -38,7 +38,7 @@ from qg.apps.queue_app_shared import (
     generate_queue,
     load_methods_table,
     make_mixed_order_note,
-    make_queue_type_field,
+    make_source_queue_type_field,
     params_json_filename,
     queue_output_filename,
     resolve_default_qc_frequency,
@@ -641,98 +641,27 @@ class TestSuffixOptionsForTech:
 
 
 # ---------------------------------------------------------------------------
-# make_queue_type_field
+# Queue Type widget factories
 # ---------------------------------------------------------------------------
 
 
-class TestMakeQueueTypeField:
-    """Queue Type = (sampler-supported types) ∩ (order composition), Vial first.
-
-    This is the single guard that stops an operator running a plate-only order as
-    a Vial queue (or vice versa), and that warns when the sampler cannot run the
-    order at all. The truth table below is that guard's executable spec; the
-    portal-side integration is pinned in
-    ``tests/gui/features/order_queue_type.feature``.
-    """
-
-    @staticmethod
-    def _table(*queue_types: str) -> pl.DataFrame:
-        # make_queue_type_field reads only the ``queue_type`` column of the frame.
-        return pl.DataFrame({"queue_type": list(queue_types)})
+class TestMakeSourceQueueTypeField:
+    """Portal Queue Type follows only the selected B-Fabric source."""
 
     @pytest.mark.parametrize(
-        ("supports", "has_plates", "has_vials", "options", "default"),
+        ("has_plates", "has_vials", "options", "default"),
         [
-            # A both-capable sampler mirrors what the order actually holds.
-            (("Vial", "Plate"), True, False, ["Plate"], "Plate"),  # plate-only order
-            (("Vial", "Plate"), False, True, ["Vial"], "Vial"),  # vial-only order
-            (("Vial", "Plate"), True, True, ["Vial", "Plate"], "Vial"),  # mixed -> both, Vial default
-            (("Vial", "Plate"), False, False, [], None),  # empty container
-            # Single-capability samplers restrict to what they can physically run.
-            (("Vial",), False, True, ["Vial"], "Vial"),
-            (("Plate",), True, True, ["Plate"], "Plate"),  # mixed order, plate-only sampler
+            (True, False, ["Plate"], "Plate"),
+            (False, True, ["Vial"], "Vial"),
+            (True, True, ["Vial", "Plate"], "Vial"),
+            (False, False, [], None),
         ],
     )
-    def test_options_and_default(self, supports, has_plates, has_vials, options, default):
-        field, warning = make_queue_type_field(
-            self._table(*supports),
-            sampler="Vanquish",
-            has_plates=has_plates,
-            has_vials=has_vials,
-            incompatible_subject="the uploaded samples",
-        )
+    def test_options_and_default(self, has_plates, has_vials, options, default):
+        field = make_source_queue_type_field(has_plates=has_plates, has_vials=has_vials)
+
         assert list(field.options) == options
         assert field.value == default
-        assert warning is None
-
-    def test_no_sampler_yields_no_options(self):
-        field, warning = make_queue_type_field(
-            self._table("Vial", "Plate"),
-            sampler=None,
-            has_plates=True,
-            has_vials=True,
-            incompatible_subject="the uploaded samples",
-        )
-        assert list(field.options) == []
-        assert field.value is None
-        assert warning is None
-
-    def test_portal_source_classification_is_not_restricted_by_sampler(self):
-        field, warning = make_queue_type_field(
-            self._table("Vial"),
-            sampler="MClass",
-            has_plates=True,
-            has_vials=False,
-            incompatible_subject="this order's samples",
-            filter_by_sampler=False,
-        )
-
-        assert list(field.options) == ["Plate"]
-        assert field.value == "Plate"
-        assert warning is None
-
-    @pytest.mark.parametrize(
-        ("supports", "has_plates", "has_vials"),
-        [
-            (("Vial",), True, False),  # vial-only sampler, plate-only order
-            (("Plate",), False, True),  # plate-only sampler, vial-only order
-        ],
-    )
-    def test_empty_intersection_warns(self, supports, has_plates, has_vials):
-        field, warning = make_queue_type_field(
-            self._table(*supports),
-            sampler="MClass",
-            has_plates=has_plates,
-            has_vials=has_vials,
-            incompatible_subject="the uploaded samples",
-        )
-        assert list(field.options) == []
-        assert field.value is None
-        assert warning is not None
-        # The callout names the sampler and threads through the incompatible_subject.
-        assert "incompatible" in warning.text
-        assert "MClass" in warning.text
-        assert "the uploaded samples" in warning.text
 
 
 # ---------------------------------------------------------------------------
