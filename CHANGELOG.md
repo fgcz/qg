@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Reduced B-Fabric sample loading to one bounded set of reads per selected container and source.
 
 ### Fixed
+- Added Start Tray and `no_layout` guidance to plate/QC position collision errors.
 - Made local portal launch targets select the intended B-Fabric instance explicitly.
 - Excluded non-ordered container samples, including facility-added QC samples, from the portal queue by default.
 - Cleared the Starlette advisory that kept the dependency audit off the blocking hooks.

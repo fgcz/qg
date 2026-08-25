@@ -558,8 +558,15 @@ class TestPlateStartTray:
 
     def test_default_start_tray_collides_with_cal_series(self, config):
         qi, _, _ = self._plate_input(config, start_tray="")  # default → first tray Y
-        with pytest.raises(ValueError, match=r"at Y:E1 conflicts with QC position"):
+        with pytest.raises(ValueError) as exc_info:
             QueueGenerator(config, qi.position_queue()).build_rows()
+
+        assert str(exc_info.value) == (
+            "Sample 'S1' at Y:E1 conflicts with a position reserved by the selected "
+            "QC layout. Select a different Start Tray to place the sample plate on "
+            "another tray, or choose QC Layout 'no_layout' if no QC positions should "
+            "be reserved."
+        )
 
     def test_no_layout_uses_plate_as_is(self, config):
         """The `no_layout` option reserves nothing, so a user sample on Y:E1 — a well the
