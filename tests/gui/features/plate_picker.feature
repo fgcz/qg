@@ -12,19 +12,19 @@ Feature: The plate picker appears only where it has an effect
   Scenario: Plate mode shows the plate picker for an order with plates
     Given the queue app is open as an employee
     When I set "Tech Area" to "Metabolomics"
-    And I set "Instrument" to "EXPLORIS_3"
-    And I set "Sampler" to "Vanquish"
     And I select order 37183
     And I set "Queue Type" to "Plate"
+    And I set "Sampler" to "Vanquish"
+    And I set "Instrument" to "EXPLORIS_3"
     Then the plate picker is shown
 
   Scenario: Vial mode hides the plate picker
     Given the queue app is open as an employee
     When I set "Tech Area" to "Metabolomics"
-    And I set "Instrument" to "EXPLORIS_3"
-    And I set "Sampler" to "Vanquish"
     And I select order 37183
     And I set "Queue Type" to "Vial"
+    And I set "Sampler" to "Vanquish"
+    And I set "Instrument" to "EXPLORIS_3"
     Then the plate picker is not shown
 
   Scenario: A mixed order shows the composition note

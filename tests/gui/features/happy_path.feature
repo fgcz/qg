@@ -6,10 +6,10 @@ Feature: Happy path — Proteomics queue download
   Scenario: Generate and download a deterministic Proteomics queue
     Given the queue app is open as an employee
     When I set "Tech Area" to "Proteomics"
-    And I set "Instrument" to "ASTRAL_1"
-    And I set "Sampler" to "Vanquish"
     And I select order 37180
     And I set "Queue Type" to "Plate"
+    And I set "Sampler" to "Vanquish"
+    And I set "Instrument" to "ASTRAL_1"
     And I set "Randomization" to "no"
     And the date is set to "2026-05-20"
     And the queue name is set to "goldenref"

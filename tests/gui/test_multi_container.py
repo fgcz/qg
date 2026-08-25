@@ -30,6 +30,7 @@ from playwright.sync_api import Page, expect
 from pytest_bdd import given, parsers, scenarios, then, when
 
 from tests.gui._helpers import (
+    expect_dropdown_missing_option,
     open_app,
     select_order,
     set_dropdown,
@@ -70,6 +71,11 @@ def _set(page: Page, label: str, value: str) -> None:
 @when(parsers.parse("I select order {container_id:d}"))
 def _select_order_step(page: Page, container_id: int) -> None:
     select_order(page, container_id)
+
+
+@then(parsers.parse('the "{label}" picker does not offer "{value}"'))
+def _option_absent(page: Page, label: str, value: str) -> None:
+    expect_dropdown_missing_option(page, label, value)
 
 
 @when("I upload to B-Fabric")

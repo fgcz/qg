@@ -97,8 +97,11 @@ the [web-apps repo](https://gitlab.bfabric.org/proteomics/web-apps) and run
 # Run the standalone local app (CSV/XLSX upload, no B-Fabric)
 make app-local                                  # or: uv run marimo run src/qg/apps/queue_app_local.py
 
-# Run the B-Fabric portal app (needs the qg[bfabric] extra; auth-bypass for dev)
-QG_ALLOW_UNAUTHENTICATED=1 uv run marimo run src/qg/apps/queue_app.py
+# Run the B-Fabric portal app against production (needs qg[bfabric]; auth-bypass for local dev)
+make app
+
+# Run the same local app against the test B-Fabric instance
+make app-test
 
 # Generate queue from JSON params
 uv run qg input.json -o output.csv
@@ -252,7 +255,7 @@ CSV / XML Output
 | `qc_layout.py` | `QCLayoutWell`, `QCLayoutTip` classes |
 | `qc_positions.py` | `QCPositionProvider` |
 | `queue_builder.py` | Queue building orchestration |
-| `sample_rows.py` | Sample row generation |
+| `sample_rows.py` | Typed vial/plate sample rows and DataFrame wrappers |
 | `writers.py` | Output format writers |
 | `params_models.py` | `VialQueue`, `PlateQueue`, `QueueParameters`, `ContainerBatch` |
 | `hystar_xml_writer.py` | Hystar XML output writer |
@@ -262,7 +265,8 @@ CSV / XML Output
 | `config_models/` | Package: `loader.py`, `formatting.py`, `methods.py`, `positions.py`, `structure.py`, `ui.py` |
 | `gitlab/` | Package: GitLab deployment, config sync (`launcher.py`, `service.py`, `config_bridge.py`, `settings.py`, `_git.py`) |
 | `viz/` | Package: app-agnostic visualization helpers, no marimo dependency (`plate.py`) |
-| `bfabric_utils.py` | B-Fabric LIMS integration utilities |
+| `bfabric_samples.py` | B-Fabric order-item/container sample retrieval and classification |
+| `bfabric_utils.py` | B-Fabric session resolution and workunit upload |
 
 ### Config Access Rules
 
@@ -314,8 +318,8 @@ Both queue apps are thin marimo notebooks over a shared, B-Fabric-free pipeline
 | `apps/bfabric_app_editor.py` | B-Fabric integrated marimo config editor (ASGI) | yes |
 
 **Integrations (`src/qg/apps/integrations/`):** `local_samples.py` (pure CSV/XLSX
-parser → normalized `sample_rows` schema), `bfabric_samples.py` (order/sample
-loading), `bfabric_workunit.py` (workunit payload), `bfabric_context.py`
+parser → normalized `sample_rows` schema), `bfabric_workunit.py` (workunit
+payload), `bfabric_context.py`
 (session). The `local_*` modules import no B-Fabric; the `bfabric_*` modules need
 the `qg[bfabric]` extra. Both notebooks honor a variable-name contract
 (`full_samples_df`, `selected_orders`, `container_has_*`, `queue_input`,
@@ -426,6 +430,7 @@ Process (CHANGELOG bullet, version bump, `uv lock`).
 | `test_gitlab.py` | GitLab deployment tests |
 | `test_hystar_xml_writer.py` | Hystar XML writer tests |
 | `test_bfabric_auth.py` | B-Fabric auth helper tests |
+| `test_bfabric_samples.py` | B-Fabric order-item and container sample retrieval tests |
 | `test_bfabric_utils.py` | B-Fabric utilities tests |
 | `test_refresh_cache.py` | Container cache refresh tests |
 | `test_viz_plate.py` | Plate visualization (`viz/plate.py`) tests |

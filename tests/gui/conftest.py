@@ -67,6 +67,24 @@ def _free_port() -> int:
         return s.getsockname()[1]
 
 
+def _merged_bfabric_fixtures(cache_root: Path) -> Path:
+    """Merge the shared bfabric fixtures with any scenario_*/ fixture sets.
+
+    ``FakeBfabric`` serves one flat fixtures directory. Per-scenario fixtures
+    live in ``scenario_<slug>/`` subdirectories (a container with no order items
+    is not representable by the shared ``orderitems_*.json`` set); merge them in
+    here so a scenario can add containers without editing the shared defaults.
+    Merging is additive by filename, so a scenario fixture never overrides a
+    shared one.
+    """
+    merged = cache_root / "bfabric_fixtures"
+    shutil.copytree(_BFABRIC_FIXTURES, merged)
+    for scenario_dir in _BFABRIC_FIXTURES.glob("scenario_*/"):
+        for src in scenario_dir.glob("*.json"):
+            shutil.copy2(src, merged / src.name)
+    return merged
+
+
 def _wait_for(url: str, *, timeout: float = 30.0) -> None:
     deadline = time.monotonic() + timeout
     last_err: Exception | None = None
@@ -133,7 +151,7 @@ def queue_app_url(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempP
         instance_cache = cache_root / _FAKE_INSTANCE_SLUG
         instance_cache.mkdir(parents=True, exist_ok=True)
         shutil.copy(_PROJECTS_CSV, instance_cache / "bfabric_container.csv")
-        extra_env = {"QG_TEST_FIXTURES_DIR": str(_BFABRIC_FIXTURES)}
+        extra_env = {"QG_TEST_FIXTURES_DIR": str(_merged_bfabric_fixtures(cache_root))}
     else:
         extra_env = _tier_b_env()
 
@@ -144,40 +162,49 @@ def queue_app_url(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempP
         "QG_CACHE_DIR": str(cache_root),
         "PYTHONPATH": str(_REPO_ROOT),
     }
-    proc = subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "uvicorn",
-            "tests.gui._test_app:app",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            str(port),
-            "--log-level",
-            "warning",
-        ],
-        cwd=_REPO_ROOT,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    )
-    url = f"http://127.0.0.1:{port}"
-    try:
-        _wait_for(url, timeout=45.0)
-    except Exception:
-        proc.terminate()
-        out = proc.stdout.read().decode(errors="replace") if proc.stdout else ""
-        raise RuntimeError(f"uvicorn failed to start:\n{out}") from None
-
-    try:
-        yield url
-    finally:
-        proc.terminate()
+    # Keep the server output for startup diagnostics without using an unread pipe.
+    # A session-long PIPE eventually fills on Linux and blocks uvicorn mid-suite.
+    with (cache_root / "uvicorn.log").open("w+b", buffering=0) as server_log:
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "uvicorn",
+                "tests.gui._test_app:app",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                str(port),
+                "--log-level",
+                "warning",
+            ],
+            cwd=_REPO_ROOT,
+            env=env,
+            stdout=server_log,
+            stderr=subprocess.STDOUT,
+        )
+        url = f"http://127.0.0.1:{port}"
         try:
-            proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+            _wait_for(url, timeout=45.0)
+        except Exception:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+            server_log.seek(0)
+            out = server_log.read().decode(errors="replace")
+            raise RuntimeError(f"uvicorn failed to start:\n{out}") from None
+
+        try:
+            yield url
+        finally:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
 
 
 @pytest.fixture

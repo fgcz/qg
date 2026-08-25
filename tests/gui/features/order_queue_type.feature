@@ -1,41 +1,38 @@
-Feature: Queue Type offered follows the order's composition and the sampler
+Feature: Queue Type offered follows the selected B-Fabric sample source
   As a core operator configuring a queue
-  I want the Queue Type choice restricted to what the order actually holds and
-  what the sampler can run
-  So that I cannot run a plate-only order as vials (or vice versa), and I am
-  warned when the sampler cannot run the order at all.
+  I want the Queue Type choice to reflect what the selected source produces
+  So that Plate and Vial choices are not hidden by unrelated GUI selections.
 
-  # The Queue Type dropdown offers the intersection of (queue types the sampler
-  # supports) and (what the container physically holds — plates, vials, or both),
-  # Vial first. An empty intersection offers nothing and shows a warning. This is
-  # the browser-side proof of the make_queue_type_field truth table unit-tested in
-  # tests/test_queue_app_shared.py::TestMakeQueueTypeField.
+  # Order items preserve plate/vial placement. All container samples are exposed
+  # as Vial. Queue Type then limits Sampler and Instrument to valid choices.
 
   Scenario: A plate-only order can only be run as a Plate queue
     Given the queue app is open as an employee
     When I set "Tech Area" to "Proteomics"
-    And I set "Instrument" to "ASTRAL_1"
-    And I set "Sampler" to "Vanquish"
     And I select order 37180
     Then the "Queue Type" picker offers "Plate"
     And the "Queue Type" picker does not offer "Vial"
+    And the "Sampler" picker offers "Vanquish"
+    And the "Sampler" picker does not offer "MClass"
+    When I set "Sampler" to "Vanquish"
+    Then the "Instrument" picker offers "ASTRAL_1"
+    And the "Instrument" picker does not offer "LUMOS_2"
 
   Scenario: A vial-only order can only be run as a Vial queue
     Given the queue app is open as an employee
     When I set "Tech Area" to "Proteomics"
-    And I set "Instrument" to "ASTRAL_1"
-    And I set "Sampler" to "Vanquish"
     And I select order 37182
     Then the "Queue Type" picker offers "Vial"
     And the "Queue Type" picker does not offer "Plate"
+    And the "Sampler" picker offers "MClass"
+    When I set "Sampler" to "MClass"
+    Then the "Instrument" picker offers "LUMOS_2"
 
   # 37183 is a Metabolomics container so that adding it does not push the
   # Proteomics happy-path order (37180) off the 5-row project-table page.
   Scenario: A mixed order (plates and vials) offers both and defaults to Vial
     Given the queue app is open as an employee
     When I set "Tech Area" to "Metabolomics"
-    And I set "Instrument" to "EXPLORIS_3"
-    And I set "Sampler" to "Vanquish"
     And I select order 37183
     Then the "Queue Type" picker offers "Vial"
     And the "Queue Type" picker offers "Plate"
@@ -46,33 +43,29 @@ Feature: Queue Type offered follows the order's composition and the sampler
   Scenario: A mixed order run as Vial loads only its off-plate samples
     Given the queue app is open as an employee
     When I set "Tech Area" to "Metabolomics"
-    And I set "Instrument" to "EXPLORIS_3"
-    And I set "Sampler" to "Vanquish"
     And I select order 37183
     And I set "Queue Type" to "Vial"
+    And I set "Sampler" to "Vanquish"
+    And I set "Instrument" to "EXPLORIS_3"
     Then the selection banner reports 4 samples
 
   Scenario: Combining a plate-only and a vial-only order offers both queue types
     Given the queue app is open as an employee
     When I set "Tech Area" to "Proteomics"
-    And I set "Instrument" to "ASTRAL_1"
-    And I set "Sampler" to "Vanquish"
     And I select order 37180
     And I select order 37182
     Then the "Queue Type" picker offers "Vial"
     And the "Queue Type" picker offers "Plate"
 
-  Scenario: A sampler that cannot run the order's samples shows a warning
+  Scenario: Changing a mixed order to Plate removes Vial-only samplers and instruments
     Given the queue app is open as an employee
     When I set "Tech Area" to "Proteomics"
     And I select order 37180
-    And I set "Instrument" to "LUMOS_2"
-    Then a warning reads "incompatible with this order's samples"
-
-  Scenario: A compatible sampler shows no incompatibility warning
-    Given the queue app is open as an employee
-    When I set "Tech Area" to "Proteomics"
-    And I set "Instrument" to "ASTRAL_1"
-    And I set "Sampler" to "Vanquish"
-    And I select order 37180
-    Then no sampler-incompatibility warning is shown
+    And I select order 37182
+    Then the "Queue Type" dropdown shows "Vial"
+    And the "Sampler" picker offers "MClass"
+    When I set "Queue Type" to "Plate"
+    Then the "Sampler" picker does not offer "MClass"
+    When I set "Sampler" to "Vanquish"
+    Then the "Instrument" picker does not offer "LUMOS_2"
+    And the "Instrument" picker offers "ASTRAL_1"

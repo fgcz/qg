@@ -242,7 +242,11 @@ class _PlateValidatorWellConfig:
             pos = queue.cell_position(cell, self.plate_layout)
             if pos in self.pool.reserved:
                 raise ValueError(
-                    f"Sample '{cell.sample.sample_name}' at {pos.tray}:{cell.grid_position} conflicts with QC position"
+                    f"Sample '{cell.sample.sample_name}' at {pos.tray}:{cell.grid_position} "
+                    "conflicts with a position reserved by the selected QC layout. "
+                    "Select a different Start Tray to place the sample plate on another "
+                    "tray, or choose QC Layout 'no_layout' if no QC positions should be "
+                    "reserved."
                 )
 
     def assign(self, queue: PlateQueue, *, one_container_per_tray: bool = False) -> PlateQueue:  # noqa: ARG002

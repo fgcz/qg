@@ -1,11 +1,7 @@
-"""GUI scenarios for Queue-Type availability (plate / vial / mixed) and the
-sampler-incompatibility warning.
+"""GUI scenarios for Queue-Type availability (plate / vial / mixed).
 
-Both behaviours come from ``make_queue_type_field``
-(``queue_app_shared.py``): the Queue Type dropdown offers the intersection of the
-sampler's supported queue types and the order's actual composition (Vial first),
-and renders a warning callout when that intersection is empty. The composition is
-classified per container by ``BfabricHelper.get_container_composition``.
+The portal Queue Type dropdown follows the source-derived composition (Vial
+first), then limits Sampler and Instrument to valid configurations.
 
 Fixtures exercised (see ``tests/gui/AGENTS.md``):
 
@@ -13,11 +9,11 @@ Fixtures exercised (see ``tests/gui/AGENTS.md``):
 - 37182 — vial-only (6 bare vials) → only Vial is offered.
 - 37183 — mixed (4 samples on plate 50003 + 4 off-plate) → both offered, Vial default.
 - 37180 + 37182 — selecting both OR-accumulates the flags → both offered.
-- 37180 + Instrument ``LUMOS_2`` (auto-defaults the Vial-only ``MClass`` sampler)
-  → empty intersection → warning; Vanquish on the same order → no warning.
+- 37180 + 37182 — changing the mixed queue from Vial to Plate removes Vial-only
+  samplers such as ``MClass`` and their instruments.
 
 This is the browser-side counterpart of the exhaustive unit test
-``tests/test_queue_app_shared.py::TestMakeQueueTypeField``.
+``tests/test_queue_app_shared.py::TestMakeSourceQueueTypeField``.
 """
 
 from __future__ import annotations
@@ -29,7 +25,7 @@ from pytest_bdd import given, parsers, scenarios, then, when
 
 from tests.gui import _helpers as H
 
-scenarios("features/queue_type_availability.feature")
+scenarios("features/order_queue_type.feature")
 
 
 @given("the queue app is open as an employee")
@@ -60,16 +56,6 @@ def _option_absent(page: Page, label: str, value: str) -> None:
 @then(parsers.parse('the "{label}" dropdown shows "{value}"'))
 def _dropdown_shows(page: Page, label: str, value: str) -> None:
     H.expect_dropdown_value(page, label, value)
-
-
-@then(parsers.parse('a warning reads "{text}"'))
-def _warning_reads(page: Page, text: str) -> None:
-    H.assert_warn(page, text)
-
-
-@then("no sampler-incompatibility warning is shown")
-def _no_incompat_warning(page: Page) -> None:
-    expect(page.get_by_text("incompatible with this order's samples", exact=False)).to_have_count(0)
 
 
 @then(parsers.parse("the selection banner reports {n:d} samples"))

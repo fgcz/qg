@@ -6,10 +6,10 @@ Feature: Per-run parameter overrides
   Scenario: Injection volume override is applied to every user sample
     Given the queue app is open as an employee
     When I set "Tech Area" to "Proteomics"
-    And I set "Instrument" to "ASTRAL_1"
-    And I set "Sampler" to "Vanquish"
     And I select order 37180
     And I set "Queue Type" to "Plate"
+    And I set "Sampler" to "Vanquish"
+    And I set "Instrument" to "ASTRAL_1"
     And I set the injection volume to "5"
     And I upload to B-Fabric
     Then I download the queue CSV
@@ -18,10 +18,10 @@ Feature: Per-run parameter overrides
   Scenario: QC frequency override changes how often QC injections appear
     Given the queue app is open as an employee
     When I set "Tech Area" to "Proteomics"
-    And I set "Instrument" to "ASTRAL_1"
-    And I set "Sampler" to "Vanquish"
     And I select order 37180
     And I set "Queue Type" to "Plate"
+    And I set "Sampler" to "Vanquish"
+    And I set "Instrument" to "ASTRAL_1"
     And I set the QC frequency to "4"
     And I upload to B-Fabric
     Then I download the queue CSV

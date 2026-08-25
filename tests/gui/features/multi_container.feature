@@ -6,11 +6,12 @@ Feature: Multi-container order selection
   Scenario: Selecting two orders aggregates samples and filenames embed both IDs
     Given the queue app is open as an employee
     When I set "Tech Area" to "Proteomics"
-    And I set "Instrument" to "ASTRAL_1"
-    And I set "Sampler" to "Vanquish"
     And I select order 37180
     And I select order 37181
     And I set "Queue Type" to "Plate"
+    Then the "Instrument" picker does not offer "LUMOS_2"
+    When I set "Sampler" to "Vanquish"
+    And I set "Instrument" to "ASTRAL_1"
     And I upload to B-Fabric
     Then I download the queue CSV
     And the downloaded filename contains "37180"

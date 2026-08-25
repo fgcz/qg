@@ -6,8 +6,8 @@ Feature: Generation error surfaces a danger callout
   Scenario: More plates than the sampler has trays raises a danger callout
     Given the queue app is open as an employee
     When I set "Tech Area" to "Proteomics"
-    And I set "Instrument" to "ASTRAL_1"
-    And I set "Sampler" to "Vanquish"
     And I select order 37200
     And I set "Queue Type" to "Plate"
+    And I set "Sampler" to "Vanquish"
+    And I set "Instrument" to "ASTRAL_1"
     Then a danger callout reports the generation error

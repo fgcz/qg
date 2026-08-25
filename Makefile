@@ -3,7 +3,7 @@
 # Version component bumped by `make release` (patch, minor or major).
 PART ?= patch
 
-.PHONY: help app app-local app-all app-type app-review editor editor-preview editor-review validate settings-init projects projects-all projects-plates sync sync-dry sync-tags release release-dry _check-not-fgcz
+.PHONY: help app app-test app-local app-all app-type app-review editor editor-preview editor-review validate settings-init projects projects-all projects-plates sync sync-dry sync-tags release release-dry _check-not-fgcz
 
 help:
 	@echo "Queue Generation System"
@@ -11,7 +11,8 @@ help:
 	@echo "Usage: make <target>"
 	@echo ""
 	@echo "Targets:"
-	@echo "  app              Run the marimo GUI app (active projects)"
+	@echo "  app              Run the marimo GUI app against production (active projects)"
+	@echo "  app-test         Run the marimo GUI app against the test B-Fabric instance"
 	@echo "  app-local        Run the standalone CSV/XLSX upload app (no B-Fabric)"
 	@echo "  app-all          Run the marimo GUI app (all projects)"
 	@echo "  app-type         Run the marimo GUI app (with Vial/Plate type column)"
@@ -36,9 +37,14 @@ help:
 _check-not-fgcz:
 	@if hostname | grep -qi fgcz; then echo "Refusing dev-mode target on fgcz host."; exit 1; fi
 
-# Run the marimo GUI app (active projects)
+# Run the marimo GUI app against production (active projects). Keep the instance
+# explicit: many developer configs intentionally default to TEST.
 app: _check-not-fgcz
-	QG_ALLOW_UNAUTHENTICATED=1 uv run marimo run src/qg/apps/queue_app.py
+	BFABRICPY_CONFIG_ENV=PRODUCTION QG_ALLOW_UNAUTHENTICATED=1 uv run marimo run src/qg/apps/queue_app.py
+
+# Run the marimo GUI app against the test B-Fabric instance.
+app-test: _check-not-fgcz
+	BFABRICPY_CONFIG_ENV=TEST QG_ALLOW_UNAUTHENTICATED=1 uv run marimo run src/qg/apps/queue_app.py
 
 # Run the standalone local app (CSV/XLSX upload, no B-Fabric, no auth bypass needed)
 app-local:
@@ -46,11 +52,11 @@ app-local:
 
 # Run the marimo GUI app (all projects)
 app-all: _check-not-fgcz
-	QG_ALLOW_UNAUTHENTICATED=1 uv run marimo run src/qg/apps/queue_app.py -- --all-projects
+	BFABRICPY_CONFIG_ENV=PRODUCTION QG_ALLOW_UNAUTHENTICATED=1 uv run marimo run src/qg/apps/queue_app.py -- --all-projects
 
 # Run the marimo GUI app (with Vial/Plate type column from cache)
 app-type: _check-not-fgcz
-	QG_ALLOW_UNAUTHENTICATED=1 uv run marimo run src/qg/apps/queue_app.py -- --container-type
+	BFABRICPY_CONFIG_ENV=PRODUCTION QG_ALLOW_UNAUTHENTICATED=1 uv run marimo run src/qg/apps/queue_app.py -- --container-type
 
 # Run the config editor (no review workflow)
 editor: _check-not-fgcz

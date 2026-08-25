@@ -204,15 +204,21 @@ def _(master_table, tech_area_field):
 
 
 @app.cell
-def _(instrument_field, table_by_tech):
-    table_by_instrument = shared.filter_by_column(table_by_tech, "instrument", instrument_field.value)
-    return (table_by_instrument,)
+def _(queue_type_field, table_by_tech):
+    table_by_queue_type = shared.filter_by_column(table_by_tech, "queue_type", queue_type_field.value)
+    return (table_by_queue_type,)
 
 
 @app.cell
-def _(sampler_field, table_by_instrument):
-    table_by_sampler = shared.filter_by_column(table_by_instrument, "sampler", sampler_field.value)
+def _(sampler_field, table_by_queue_type):
+    table_by_sampler = shared.filter_by_column(table_by_queue_type, "sampler", sampler_field.value)
     return (table_by_sampler,)
+
+
+@app.cell
+def _(instrument_field, table_by_sampler):
+    table_by_instrument = shared.filter_by_column(table_by_sampler, "instrument", instrument_field.value)
+    return (table_by_instrument,)
 
 
 @app.cell
@@ -234,19 +240,22 @@ def _(master_table):
 
 
 @app.cell
-def _(table_by_tech, tech_area_field):
-    instrument_field = shared.make_column_dropdown(
-        table_by_tech, "instrument", enabled=bool(tech_area_field.value), label="Instrument"
+def _(queue_type_field, table_by_queue_type):
+    sampler_field = shared.make_column_dropdown(
+        table_by_queue_type, "sampler", enabled=bool(queue_type_field.value), label="Sampler"
     )
-    return (instrument_field,)
+    return (sampler_field,)
 
 
 @app.cell
-def _(instrument_field, table_by_instrument):
-    sampler_field = shared.make_column_dropdown(
-        table_by_instrument, "sampler", enabled=bool(instrument_field.value), label="Sampler"
+def _(queue_type_field, sampler_field, table_by_sampler):
+    instrument_field = shared.make_column_dropdown(
+        table_by_sampler,
+        "instrument",
+        enabled=bool(queue_type_field.value and sampler_field.value),
+        label="Instrument",
     )
-    return (sampler_field,)
+    return (instrument_field,)
 
 
 @app.cell
@@ -256,27 +265,19 @@ def _(qc_layout_field, table_by_qc_layout):
 
 
 @app.cell
-def _(container_has_plates, container_has_vials, sampler_field, table_by_sampler):
-    queue_type_field, queue_type_warning = shared.make_queue_type_field(
-        table_by_sampler,
-        sampler=sampler_field.value,
+def _(container_has_plates, container_has_vials):
+    queue_type_field = shared.make_source_queue_type_field(
         has_plates=container_has_plates,
         has_vials=container_has_vials,
-        incompatible_subject="the uploaded samples",
     )
+    queue_type_warning = None
     return queue_type_field, queue_type_warning
 
 
 @app.cell
-def _(queue_type_field, table_by_sampler):
-    table_by_queue_type = shared.filter_by_column(table_by_sampler, "queue_type", queue_type_field.value)
-    return (table_by_queue_type,)
-
-
-@app.cell
-def _(queue_type_field, table_by_queue_type):
+def _(queue_type_field, table_by_instrument):
     plate_layout_field = shared.make_column_dropdown(
-        table_by_queue_type, "plate_layout", enabled=bool(queue_type_field.value), label="Plate Layout"
+        table_by_instrument, "plate_layout", enabled=bool(queue_type_field.value), label="Plate Layout"
     )
     return (plate_layout_field,)
 
@@ -296,8 +297,8 @@ def _(config, sampler_field):
 
 
 @app.cell
-def _(plate_layout_field, table_by_queue_type):
-    table_by_plate_layout = shared.filter_by_column(table_by_queue_type, "plate_layout", plate_layout_field.value)
+def _(plate_layout_field, table_by_instrument):
+    table_by_plate_layout = shared.filter_by_column(table_by_instrument, "plate_layout", plate_layout_field.value)
     return (table_by_plate_layout,)
 
 

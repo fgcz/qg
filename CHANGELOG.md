@@ -6,10 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Added a portal sample-source picker for loading order items or every sample in a B-Fabric container, with sample-type summaries.
+
 ### Changed
 - Upgraded `bfabric` to 1.20.0, which drops the SOAP (zeep) backend and moves Starlette to the 1.x line.
+- Guided queue setup from the source-derived queue type through compatible samplers to instruments.
+- Reduced B-Fabric sample loading to one bounded set of reads per selected container and source.
 
 ### Fixed
+- Added Start Tray and `no_layout` guidance to plate/QC position collision errors.
+- Made local portal launch targets select the intended B-Fabric instance explicitly.
+- Excluded non-ordered container samples, including facility-added QC samples, from the portal queue by default.
 - Cleared the Starlette advisory that kept the dependency audit off the blocking hooks.
 
 ### Removed

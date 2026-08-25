@@ -49,6 +49,11 @@ def _upload(page: Page) -> None:
     H.upload_to_bfabric(page)
 
 
+@then(parsers.parse('the "{label}" dropdown shows "{value}"'))
+def _dropdown_shows(page: Page, label: str, value: str) -> None:
+    H.expect_dropdown_value(page, label, value)
+
+
 @then("I download the queue file")
 def _download(page: Page, state: _State) -> None:
     # We need the suggested filename (to assert the extension), not just the

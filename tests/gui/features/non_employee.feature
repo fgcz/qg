@@ -13,6 +13,6 @@ Feature: Non-employee pinned-container workflow
 
   Scenario: Non-employee can still configure tech/instrument/sampler
     When I set "Tech Area" to "Proteomics"
-    And I set "Instrument" to "ASTRAL_1"
     And I set "Sampler" to "Vanquish"
+    And I set "Instrument" to "ASTRAL_1"
     Then the "Queue Type" selector is visible

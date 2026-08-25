@@ -11,10 +11,10 @@ Feature: The no_layout option (queue as-is) hides the Pattern picker
   Scenario: Plate mode offers no_layout and hides the Pattern picker when chosen
     Given the queue app is open as an employee
     When I set "Tech Area" to "Metabolomics"
-    And I set "Instrument" to "EXPLORIS_3"
-    And I set "Sampler" to "Vanquish"
     And I select order 37195
     And I set "Queue Type" to "Plate"
+    And I set "Sampler" to "Vanquish"
+    And I set "Instrument" to "EXPLORIS_3"
     Then the "QC Layout" picker offers "no_layout"
     When I set "QC Layout" to "no_layout"
     Then the Pattern picker is hidden
@@ -22,10 +22,10 @@ Feature: The no_layout option (queue as-is) hides the Pattern picker
   Scenario: Vial mode also offers no_layout and hides the Pattern picker when chosen
     Given the queue app is open as an employee
     When I set "Tech Area" to "Metabolomics"
-    And I set "Instrument" to "EXPLORIS_3"
-    And I set "Sampler" to "Vanquish"
     And I select order 37196
     And I set "Queue Type" to "Vial"
+    And I set "Sampler" to "Vanquish"
+    And I set "Instrument" to "EXPLORIS_3"
     Then the "QC Layout" picker offers "no_layout"
     When I set "QC Layout" to "no_layout"
     Then the Pattern picker is hidden
@@ -33,8 +33,8 @@ Feature: The no_layout option (queue as-is) hides the Pattern picker
   Scenario: Proteomics does not offer no_layout
     Given the queue app is open as an employee
     When I set "Tech Area" to "Proteomics"
-    And I set "Instrument" to "ASTRAL_1"
-    And I set "Sampler" to "Vanquish"
     And I select order 37180
     And I set "Queue Type" to "Plate"
+    And I set "Sampler" to "Vanquish"
+    And I set "Instrument" to "ASTRAL_1"
     Then the "QC Layout" picker does not offer "no_layout"

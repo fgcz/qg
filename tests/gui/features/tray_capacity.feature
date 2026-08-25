@@ -6,17 +6,17 @@ Feature: Plate-mode tray-capacity validation
   Scenario: Single plate on a multi-tray sampler does not warn about tray capacity
     Given the queue app is open as an employee
     When I set "Tech Area" to "Proteomics"
-    And I set "Instrument" to "ASTRAL_1"
-    And I set "Sampler" to "Vanquish"
     And I select order 37180
     And I set "Queue Type" to "Plate"
+    And I set "Sampler" to "Vanquish"
+    And I set "Instrument" to "ASTRAL_1"
     Then the validation panel does not warn about tray capacity
 
   Scenario: Selecting more plates than the sampler holds warns about tray capacity
     Given the queue app is open as an employee
     When I set "Tech Area" to "Proteomics"
-    And I set "Instrument" to "ASTRAL_1"
-    And I set "Sampler" to "Vanquish"
     And I select order 37200
     And I set "Queue Type" to "Plate"
+    And I set "Sampler" to "Vanquish"
+    And I set "Instrument" to "ASTRAL_1"
     Then the validation panel warns about tray capacity

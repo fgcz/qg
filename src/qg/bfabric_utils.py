@@ -1,16 +1,12 @@
-"""Utilities for loading B-Fabric data into typed DataFrames."""
+"""B-Fabric session resolution and workunit upload utilities."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any
 from urllib.parse import urlparse
 
-import polars as pl
 from bfabric import Bfabric, BfabricClientConfig
 from bfabric.config.config_data import ConfigData
-from bfabric.entities import Plate
-from bfabric.entities.core.uri import EntityUri
 from bfabric_asgi_auth.session_data import SessionData
 from bfabric_asgi_auth.user import BfabricUser
 from bfabric_rest_proxy.feeder_operations.create_workunit import (
@@ -20,7 +16,7 @@ from bfabric_rest_proxy.feeder_operations.create_workunit import (
 from bfabric_rest_proxy.feeder_operations.is_employee import is_employee as _check_is_employee
 from loguru import logger
 
-from qg.sample_rows import PlateSampleRow, VialSampleRow
+from qg.bfabric_samples import BfabricHelper
 
 
 def instance_slug(client: Bfabric) -> str:
@@ -30,192 +26,6 @@ def instance_slug(client: Bfabric) -> str:
     ``ls`` output and stable across deployments.
     """
     return urlparse(client.config.base_url).netloc
-
-
-# =============================================================================
-# Public API
-# =============================================================================
-
-
-class ContainerComposition(NamedTuple):
-    """Three-state classification of a B-Fabric container's sample placement."""
-
-    has_plates: bool
-    has_vials: bool
-
-
-STORAGE_PLATE_TYPE = "Storage"
-"""B-Fabric plate `type` for non-injectable storage plates (e.g. Box 8x8 extract boxes).
-
-These must never be treated as injection plates by the queue generator; they are
-filtered out at every plate fetch site.
-"""
-
-
-def _is_storage_plate(plate: Plate) -> bool:
-    """True if a B-Fabric plate entity is a non-injectable Storage plate.
-
-    Case-insensitive and None/whitespace-safe; a plate with no `type` is treated
-    as a real (injectable) plate.
-    """
-    return str(plate.get("type") or "").strip().casefold() == STORAGE_PLATE_TYPE.casefold()
-
-
-def _referenced_sample_ids(plates: Mapping[EntityUri, Plate]) -> set[int]:
-    """Return plate sample IDs without resolving the referenced entities."""
-    sample_ids: set[int] = set()
-    for plate in plates.values():
-        sample_uris = plate.refs.uris["sample"]
-        if isinstance(sample_uris, EntityUri):
-            raise TypeError("Plate sample references must be plural")
-        sample_ids.update(sample_uri.components.entity_id for sample_uri in sample_uris)
-    return sample_ids
-
-
-class BfabricHelper:
-    def __init__(self, client: Bfabric, *, restrict_to_container_id: int | None = None) -> None:
-        self.client = client
-        self._restrict_to_container_id = restrict_to_container_id
-
-    def get_samples(
-        self,
-        container_id: int,
-        container_type: str,
-        plate_ids: list[int] | None = None,
-        dump_dir: Path | None = None,
-        filename_prefix: str | None = None,
-    ) -> pl.DataFrame:
-        """Load samples from B-Fabric as a typed DataFrame.
-
-        Args:
-            container_id: Container ID.
-            container_type: "Vials" or "Plates".
-            plate_ids: Filter to specific plates (only for Plates type).
-            dump_dir: If set, write the DataFrame to a CSV in this directory.
-            filename_prefix: If set, prepend to the dump filename.
-
-        Returns:
-            DataFrame with VialSampleRow or PlateSampleRow schema.
-        """
-        if container_type == "Plates":
-            plates = self.get_plates(container_id)
-            allowed_sample_ids = (
-                self._fetch_allowed_sample_ids(container_id) if self._restrict_to_container_id is not None else None
-            )
-            rows = self._load_plate_samples(plates, container_id, plate_ids, allowed_sample_ids)
-        else:
-            rows = self._load_vial_samples(container_id)
-
-        if not rows:
-            return pl.DataFrame()
-        df = pl.DataFrame([r.model_dump() for r in rows], infer_schema_length=None)
-
-        if dump_dir is not None:
-            dump_dir = Path(dump_dir)
-            dump_dir.mkdir(parents=True, exist_ok=True)
-            _base = f"samples_{container_id}_{container_type}.csv"
-            _name = f"{filename_prefix}_{_base}" if filename_prefix else _base
-            path = dump_dir / _name
-            df.write_csv(path)
-            logger.info("Dumped {} samples to {}", len(df), path)
-
-        return df
-
-    def get_plates(self, container_id: int) -> dict[EntityUri, Plate]:
-        """Query plates for a container, excluding non-injectable Storage plates.
-
-        Filtering here is the single choke point: it removes Storage plates from
-        plate-vs-vial classification, the plate picker, and plate-sample loading
-        at once. Samples that sat on a Storage plate fall back to vials via
-        `get_container_composition`.
-        """
-        plates = self.client.reader.query(
-            "plate",
-            {"containerid": container_id},
-            expected_type=Plate,
-        )
-        return {uri: plate for uri, plate in plates.items() if not _is_storage_plate(plate)}
-
-    def has_plates(self, container_id: int) -> bool:
-        """Check whether a container has plates."""
-        return bool(self.get_plates(container_id))
-
-    def get_container_composition(self, container_id: int) -> "ContainerComposition":
-        """Classify a container: does it hold plate samples, vial samples, or both?
-
-        A sample is "on a plate" if its ID appears in any plate's sample reference
-        URIs. Any sample in the container that is not on a plate is treated as a vial.
-        """
-        plates = self.get_plates(container_id)
-        plate_sample_ids = _referenced_sample_ids(plates)
-        all_sample_ids = self._fetch_allowed_sample_ids(container_id)
-        on_plate = all_sample_ids & plate_sample_ids
-        return ContainerComposition(
-            has_plates=bool(on_plate),
-            has_vials=bool(all_sample_ids - on_plate),
-        )
-
-    def _load_vial_samples(self, container_id: int) -> list[VialSampleRow]:
-        """Load the container's off-plate vial samples.
-
-        A sample sitting on a (non-Storage) plate belongs to Plate mode, so a
-        mixed container offers only its standalone vials as Vials.
-        """
-        on_plate = _referenced_sample_ids(self.get_plates(container_id))
-        df = self.client.read("sample", {"containerid": container_id}, max_results=None).to_polars(flatten=True)
-        return [
-            VialSampleRow(
-                sample_name=row["name"],
-                sample_id=row["id"],
-                tube_id=row.get("tubeid"),
-                container_id=container_id,
-                grouping_var=row.get("groupingvar_name"),
-            )
-            for row in df.iter_rows(named=True)
-            if row["id"] not in on_plate
-        ]
-
-    def _fetch_allowed_sample_ids(self, container_id: int) -> set[int]:
-        """Authoritative set of sample IDs in `container_id`, used to filter shared plates."""
-        df = self.client.read("sample", {"containerid": container_id}, max_results=None).to_polars(flatten=True)
-        if df.is_empty():
-            return set()
-        return set(df["id"].to_list())
-
-    @staticmethod
-    def _load_plate_samples(
-        plates: Mapping[EntityUri, Plate],
-        container_id: int,
-        plate_ids: list[int] | None = None,
-        allowed_sample_ids: set[int] | None = None,
-    ) -> list[PlateSampleRow]:
-        """Load samples from plates.
-
-        If `allowed_sample_ids` is provided, samples whose ID is not in the set are dropped.
-        Used in non-employee mode where plates may be shared across containers.
-        """
-        rows: list[PlateSampleRow] = []
-        for uri, plate in plates.items():
-            plate_id = uri.components.entity_id
-            if plate_ids and plate_id not in plate_ids:
-                continue
-            for sample in plate.refs.sample:
-                if allowed_sample_ids is not None and sample["id"] not in allowed_sample_ids:
-                    continue
-                _gv = sample.get("groupingvar")
-                if isinstance(_gv, dict):
-                    _gv = _gv.get("name")
-                rows.append(
-                    PlateSampleRow(
-                        sample_name=sample["name"],
-                        sample_id=sample["id"],
-                        container_id=container_id,
-                        grid_position=sample["_gridposition"],
-                        plate_id=plate_id,
-                        grouping_var=_gv,
-                    )
-                )
-        return rows
 
 
 # =============================================================================

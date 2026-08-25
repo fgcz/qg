@@ -6,10 +6,10 @@ Feature: Batch-appending a suffix to sample names
   Scenario: Appending a suffix renames every user sample but not QC injections
     Given the queue app is open as an employee
     When I set "Tech Area" to "Proteomics"
-    And I set "Instrument" to "ASTRAL_1"
-    And I set "Sampler" to "Vanquish"
     And I select order 37180
     And I set "Queue Type" to "Plate"
+    And I set "Sampler" to "Vanquish"
+    And I set "Instrument" to "ASTRAL_1"
     And I append the "enriched" sample name suffix
     And I upload to B-Fabric
     Then I download the queue CSV

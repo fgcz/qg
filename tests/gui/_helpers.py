@@ -51,8 +51,21 @@ def open_app(page: Page, queue_app_url: str, *, ready_timeout_ms: int = 30_000) 
 
 
 def set_dropdown(page: Page, label: str, value: str) -> None:
-    """Set a sidebar dropdown identified by its `label=` to `value`."""
-    sidebar(page).get_by_label(label).select_option(value)
+    """Set a dropdown and wait for its next configuration options to refresh."""
+    select = sidebar(page).get_by_label(label)
+    old_value = select.locator("option:checked").first.text_content()
+    downstream_label = "Instrument" if label == "Sampler" else None
+    downstream = sidebar(page).get_by_label(downstream_label) if downstream_label else None
+    old_downstream_html = downstream.inner_html() if downstream is not None and downstream.count() else None
+
+    select.select_option(value)
+
+    if downstream is not None and old_downstream_html is not None and old_value != value:
+        page.wait_for_function(
+            "([element, oldHtml]) => !element.isConnected || element.innerHTML !== oldHtml",
+            arg=[downstream.element_handle(), old_downstream_html],
+            timeout=5_000,
+        )
 
 
 def set_text(page: Page, label_contains: str, value: str) -> None:
