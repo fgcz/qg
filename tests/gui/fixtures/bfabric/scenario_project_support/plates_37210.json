@@ -1,0 +1,11 @@
+[
+  {
+    "id": 50210,
+    "samples": [
+      {"id": 1011, "name": "ProjSample_01", "_position": 1, "_gridposition": "A1"},
+      {"id": 1012, "name": "ProjSample_02", "_position": 2, "_gridposition": "A2"},
+      {"id": 1013, "name": "ProjSample_03", "_position": 3, "_gridposition": "A3"},
+      {"id": 1014, "name": "ProjSample_04", "_position": 4, "_gridposition": "A4"}
+    ]
+  }
+]

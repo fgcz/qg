@@ -67,6 +67,24 @@ def _free_port() -> int:
         return s.getsockname()[1]
 
 
+def _merged_bfabric_fixtures(cache_root: Path) -> Path:
+    """Merge the shared bfabric fixtures with any scenario_*/ fixture sets.
+
+    ``FakeBfabric`` serves one flat fixtures directory. Per-scenario fixtures
+    live in ``scenario_<slug>/`` subdirectories (a container with no order items
+    is not representable by the shared ``orderitems_*.json`` set); merge them in
+    here so a scenario can add containers without editing the shared defaults.
+    Merging is additive by filename, so a scenario fixture never overrides a
+    shared one.
+    """
+    merged = cache_root / "bfabric_fixtures"
+    shutil.copytree(_BFABRIC_FIXTURES, merged)
+    for scenario_dir in _BFABRIC_FIXTURES.glob("scenario_*/"):
+        for src in scenario_dir.glob("*.json"):
+            shutil.copy2(src, merged / src.name)
+    return merged
+
+
 def _wait_for(url: str, *, timeout: float = 30.0) -> None:
     deadline = time.monotonic() + timeout
     last_err: Exception | None = None
@@ -133,7 +151,7 @@ def queue_app_url(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempP
         instance_cache = cache_root / _FAKE_INSTANCE_SLUG
         instance_cache.mkdir(parents=True, exist_ok=True)
         shutil.copy(_PROJECTS_CSV, instance_cache / "bfabric_container.csv")
-        extra_env = {"QG_TEST_FIXTURES_DIR": str(_BFABRIC_FIXTURES)}
+        extra_env = {"QG_TEST_FIXTURES_DIR": str(_merged_bfabric_fixtures(cache_root))}
     else:
         extra_env = _tier_b_env()
 

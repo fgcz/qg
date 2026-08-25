@@ -25,7 +25,7 @@ from pytest_bdd import given, parsers, scenarios, then, when
 
 from tests.gui import _helpers as H
 
-scenarios("features/queue_type_availability.feature")
+scenarios("features/order_queue_type.feature")
 
 
 @given("the queue app is open as an employee")

@@ -215,20 +215,42 @@ def test_order_item_source_filters_vials_and_preserves_missing_sample_type() -> 
     assert container["sample_id"].to_list() == [1, 2]
 
 
-def test_empty_order_items_fall_back_to_all_container_samples() -> None:
+def test_empty_order_items_fallback_preserves_plates() -> None:
     client = _client(
-        samples={10: [_sample(1), _sample(2)]},
+        samples={10: [_sample(1), _sample(2)]},  # 1 on plate, 1 off-plate
         plates={10: {_uri("plate", 20): _Plate([_sample(1, grid_position="A1")])}},
     )
     helper = BfabricHelper(client)
 
-    ordered = helper.get_vial_samples([10], source=SampleSource.ORDER_ITEMS)
-    container = helper.get_vial_samples([10], source=SampleSource.CONTAINER)
-
-    assert ordered.table.equals(container.table)
     assert helper.get_container_composition([10], source=SampleSource.ORDER_ITEMS) == ContainerComposition(
-        has_plates=False, has_vials=True
+        has_plates=True, has_vials=True
     )
+
+    # The plate-resident sample is NOT flattened into vials on the fallback.
+    vials = helper.get_vial_samples([10], source=SampleSource.ORDER_ITEMS).table
+    assert vials["sample_id"].to_list() == [2]
+    assert "grid_position" not in vials.columns
+
+    # It IS available as a plate sample with its placement preserved.
+    plates = helper.get_plate_samples([10], plate_ids={}, source=SampleSource.ORDER_ITEMS).table
+    assert plates["sample_id"].to_list() == [1]
+    assert plates["grid_position"].to_list() == ["A1"]
+    assert plates["plate_id"].to_list() == [20]
+
+    # The explicit "all container samples" source still deliberately presents
+    # everything as vials (unchanged contract).
+    container_vials = helper.get_vial_samples([10], source=SampleSource.CONTAINER).table
+    assert set(container_vials["sample_id"].to_list()) == {1, 2}
+
+
+def test_empty_order_items_fallback_offers_plates_when_plates_present() -> None:
+    client = _client(
+        samples={10: [_sample(1)]},
+        plates={10: {_uri("plate", 20): _Plate([_sample(1, grid_position="A1")])}},
+    )
+    assert BfabricHelper(client).get_container_composition(
+        [10], source=SampleSource.ORDER_ITEMS
+    ) == ContainerComposition(has_plates=True, has_vials=False)
 
 
 def test_order_item_source_offers_referenced_and_sample_containing_plates() -> None:
