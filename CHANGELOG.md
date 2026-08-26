@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Upgraded `bfabric` to 1.20.0, which drops the SOAP (zeep) backend and moves Starlette to the 1.x line.
 - Guided queue setup from the source-derived queue type through compatible samplers to instruments.
 - Reduced B-Fabric sample loading to one bounded set of reads per selected container and source.
+- Refreshed all locked dependencies, including the bfabricPy revisions and the Playwright pin the CI browser image tracks.
 
 ### Fixed
 - Added Start Tray and `no_layout` guidance to plate/QC position collision errors.

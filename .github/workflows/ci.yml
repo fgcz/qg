@@ -160,12 +160,12 @@ jobs:
   # driven in headless Chromium via pytest-playwright. Runs on Microsoft's
   # official Playwright image, which ships the browsers AND their ~67 apt system
   # libs pre-baked — so this job needs no `playwright install` and no apt step.
-  # The image tag MUST track the `playwright` pin in uv.lock (currently 1.60.0);
+  # The image tag MUST track the `playwright` pin in uv.lock (currently 1.62.0);
   # a mismatch surfaces as a clear "browser not found / version" error.
   # Do NOT set PLAYWRIGHT_BROWSERS_PATH here, or the baked browsers hide.
   gui:
     runs-on: ubuntu-latest
-    container: mcr.microsoft.com/playwright:v1.60.0-noble
+    container: mcr.microsoft.com/playwright:v1.62.0-noble
     steps:
       - name: Checkout
         uses: actions/checkout@v7
