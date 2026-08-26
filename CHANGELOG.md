@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-08-26
+
 ### Added
 - Added a portal sample-source picker for loading order items or every sample in a B-Fabric container, with sample-type summaries.
 
