@@ -62,7 +62,7 @@ for employees, `"Container"` for non-employees), so existing callers are unchang
 
 ```python
 set_session(is_employee=True, entity_id=37190, entity_class="Order")  # employee launched from an order
-set_session(is_employee=False, entity_id=37190)                       # non-employee pinned (entity_class="Container")
+set_session(is_employee=False, entity_id=37190)  # non-employee pinned (entity_class="Container")
 ```
 
 The pre-load calls `read("order"|"project", {"id": X})`; `FakeBfabric` serves these

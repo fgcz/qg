@@ -4,6 +4,7 @@ from typing import Annotated, Protocol
 
 import cyclopts
 from bfabric import Bfabric, BfabricAuth, BfabricClientConfig
+from bfabric.config import BaseUrl
 from bfabric.config.config_data import ConfigData
 from loguru import logger
 
@@ -12,16 +13,18 @@ from qg.cli.find_projects import ContainerCache
 
 
 class _HasFeederCredentials(Protocol):
-    feeder_user_credentials: dict[str, BfabricAuth]
+    feeder_user_credentials: dict[BaseUrl, BfabricAuth]
 
 
-def _build_client(base_url: str, app_config: _HasFeederCredentials) -> Bfabric:
+def _build_client(base_url: BaseUrl, app_config: _HasFeederCredentials) -> Bfabric:
     auth = app_config.feeder_user_credentials[base_url]
     client = BfabricClientConfig(base_url=base_url, application_ids={}, job_notification_emails="")
     return Bfabric(ConfigData(client=client, auth=auth))
 
 
-def _resolve_instances(requested: tuple[str, ...], all_instances: bool, app_config: _HasFeederCredentials) -> list[str]:
+def _resolve_instances(
+    requested: tuple[str, ...], all_instances: bool, app_config: _HasFeederCredentials
+) -> list[BaseUrl]:
     available = list(app_config.feeder_user_credentials)
     if all_instances and requested:
         raise cyclopts.ValidationError("Pass either --all or explicit instance(s), not both.")
@@ -33,7 +36,9 @@ def _resolve_instances(requested: tuple[str, ...], all_instances: bool, app_conf
     unknown = [r for r in requested if r not in available]
     if unknown:
         raise cyclopts.ValidationError(f"Unknown instance(s): {unknown}. Available: {available}")
-    return list(requested)
+    # Return the configured keys, not the raw strings: they carry the validated
+    # `BaseUrl` type that `BfabricClientConfig` and the credentials dict expect.
+    return [url for url in available if url in requested]
 
 
 app = cyclopts.App(help="Refresh B-Fabric container caches across configured instances.")
