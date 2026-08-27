@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- Type-checked `bfabric_utils.py` with pyright, so B-Fabric API drift fails at pre-commit instead of at upload time.
+
+### Fixed
+- Fixed portal workunit upload, which failed with a `TypeError` against the current bfabricPy feeder API.
+
 ## [0.11.0] - 2026-08-26
 
 ### Added

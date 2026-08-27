@@ -5,12 +5,12 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
 
-from bfabric import Bfabric, BfabricClientConfig
+from bfabric import BaseUrl, Bfabric, BfabricClientConfig
 from bfabric.config.config_data import ConfigData
 from bfabric_asgi_auth.session_data import SessionData
 from bfabric_asgi_auth.user import BfabricUser
 from bfabric_rest_proxy.feeder_operations.create_workunit import (
-    CreateWorkunitParams,
+    CreateWorkunitRequest,
     create_workunit,
 )
 from bfabric_rest_proxy.feeder_operations.is_employee import is_employee as _check_is_employee
@@ -40,11 +40,11 @@ class BfabricFeederUploader:
         self._user_client = user_client
         self._feeder_client = feeder_client
 
-    def upload(self, params: CreateWorkunitParams) -> str:
+    def upload(self, request: CreateWorkunitRequest) -> str:
         result = create_workunit(
             user_client=self._user_client,
             feeder_client=self._feeder_client,
-            params=params,
+            request=request,
         )
         return f"Created [Workunit {result.id}]({result.uri})"
 
@@ -52,10 +52,10 @@ class BfabricFeederUploader:
 class MockFeederUploader:
     """Mock uploader for local testing."""
 
-    def upload(self, params: CreateWorkunitParams) -> str:
+    def upload(self, request: CreateWorkunitRequest) -> str:
         return (
-            f"**[Mock]** Would create workunit in container {params.container_id} "
-            f"with {len(params.resources)} resources."
+            f"**[Mock]** Would create workunit in container {request.container_id} "
+            f"with {len(request.resources)} resources."
         )
 
 
@@ -93,7 +93,7 @@ def make_feeder_client(app_config, instance_url: str) -> Bfabric:
         raise SessionError(
             f"Feeder credentials not configured for instance {instance_url!r}; cannot determine employee status."
         )
-    return Bfabric(ConfigData(auth=creds, client=BfabricClientConfig(base_url=instance_url)))
+    return Bfabric(ConfigData(auth=creds, client=BfabricClientConfig(base_url=BaseUrl(instance_url))))
 
 
 @dataclass(frozen=True)
