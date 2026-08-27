@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-08-27
+
 ### Changed
 - Type-checked `bfabric_utils.py` with pyright, so B-Fabric API drift fails at pre-commit instead of at upload time.
 
