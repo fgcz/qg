@@ -1,4 +1,4 @@
-"""Tests for B-Fabric helpers — instance slug, per-instance cache layout."""
+"""Tests for B-Fabric helpers — instance slug, per-instance cache layout, feeder upload."""
 
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -8,10 +8,23 @@ import pytest
 
 pytest.importorskip("bfabric")  # core install (no qg[bfabric]) skips this module
 
-from qg.bfabric_utils import instance_slug  # noqa: E402
+from bfabric_rest_proxy.feeder_operations import create_workunit as proxy_create_workunit  # noqa: E402
+
+from qg.apps.integrations import bfabric_workunit  # noqa: E402
+from qg.bfabric_utils import BfabricFeederUploader, instance_slug  # noqa: E402
 from qg.cli.find_projects import ContainerCache, get_cache_dir  # noqa: E402
+from qg.config_models.loader import qg_configuration  # noqa: E402
+
+from .helpers import make_queue_input  # noqa: E402
 
 pytestmark = pytest.mark.bfabric
+
+_CONFIG_DIR = Path(__file__).resolve().parents[1] / "qg_configs"
+
+
+@pytest.fixture(scope="session")
+def config():
+    return qg_configuration(_CONFIG_DIR)
 
 
 class _FakeClient:
@@ -248,3 +261,63 @@ def test_read_containers_honors_active_only_suffix(monkeypatch, tmp_path: Path) 
     # active-only reader sees no file (different suffix) -> empty; all-projects reader sees the row.
     assert ContainerCache(client).read_containers().is_empty()
     assert ContainerCache(client, active_only=False).read_containers()["Container ID"].to_list() == [7]
+
+
+# ---------------------------------------------------------------------------
+# BfabricFeederUploader — call shape against the bfabricPy feeder API
+# ---------------------------------------------------------------------------
+
+
+def test_feeder_uploader_calls_proxy_with_request(monkeypatch) -> None:
+    """Drive the real proxy wrapper, stubbing only its innermost core call.
+
+    Pins the upload call shape so an upstream rename fails here instead of in the app:
+    a wrong keyword raises TypeError, and a bare `CreateWorkunitParams` (no
+    `created_using`) raises AttributeError inside the wrapper. `_create_workunit` is
+    bound in the proxy module at import time, so that is the only patchable seam.
+    """
+    captured = {}
+
+    def _fake_core(client, params, audit_attributes=None):
+        captured["client"] = client
+        captured["params"] = params
+        captured["audit_attributes"] = audit_attributes
+        return MagicMock(id=4242, uri="https://fgcz-bfabric.uzh.ch/bfabric/workunit/show.html?id=4242")
+
+    monkeypatch.setattr(proxy_create_workunit, "_create_workunit", _fake_core)
+
+    user_client = MagicMock()
+    user_client.auth.login = "cpanse"
+    user_client.read.return_value = [{"id": 1234}]  # container authorization passes
+    feeder_client = MagicMock()
+
+    request = proxy_create_workunit.CreateWorkunitRequest(
+        container_id=1234,
+        application_id=401,
+        workunit_name="queue_20260827",
+        parameters={"instrument": "ASTRAL_1"},
+        created_using="qg 0.11.1",
+    )
+    message = BfabricFeederUploader(user_client, feeder_client).upload(request)
+
+    assert message == "Created [Workunit 4242](https://fgcz-bfabric.uzh.ch/bfabric/workunit/show.html?id=4242)"
+    assert captured["client"] is feeder_client
+    assert captured["audit_attributes"] == {"Created For": "cpanse", "Created Using": "qg 0.11.1"}
+
+
+def test_gather_workunit_parameters_builds_request(config) -> None:
+    """The portal payload must be a request (params + `created_using`), not bare params."""
+    request = bfabric_workunit.gather_workunit_parameters(
+        make_queue_input(config=config, num_samples=3),
+        app_version="9.9.9",
+        application_id=401,
+        target_container_id=12345,
+        queue_output_filename="queue_20260827.csv",
+        queue_output_str="a,b\n1,2\n",
+    )
+
+    assert isinstance(request, proxy_create_workunit.CreateWorkunitRequest)
+    assert request.created_using == "qg 9.9.9"
+    assert request.container_id == 12345
+    assert request.workunit_name == "queue_20260827"
+    assert set(request.resources) == {"queue_20260827.csv", "parameters.json"}

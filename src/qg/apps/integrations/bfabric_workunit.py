@@ -1,6 +1,6 @@
 """B-Fabric workunit sink for the portal queue app.
 
-Builds the ``CreateWorkunitParams`` payload (queue file + params.json resources)
+Builds the ``CreateWorkunitRequest`` payload (queue file + params.json resources)
 the portal uploads via the feeder. Importing this module requires the
 ``qg[bfabric]`` extra.
 """
@@ -11,7 +11,7 @@ import base64
 from typing import TYPE_CHECKING
 
 import yaml
-from bfabric_rest_proxy.feeder_operations.create_workunit import CreateWorkunitParams
+from bfabric_rest_proxy.feeder_operations.create_workunit import CreateWorkunitRequest
 
 if TYPE_CHECKING:
     from qg.params_models import QueueInput
@@ -25,7 +25,7 @@ def gather_workunit_parameters(
     target_container_id: int,
     queue_output_filename: str,
     queue_output_str: str,
-) -> CreateWorkunitParams:
+) -> CreateWorkunitRequest:
     """Assemble the workunit payload for a generated queue.
 
     Parameter values are stringified (lists/dicts as flow-style YAML) to match the
@@ -39,7 +39,7 @@ def gather_workunit_parameters(
         else:
             parameters[key] = str(parameters[key])
 
-    return CreateWorkunitParams(
+    return CreateWorkunitRequest(
         container_id=target_container_id,
         application_id=application_id,
         workunit_name=queue_output_filename.split(".")[0],
@@ -51,4 +51,5 @@ def gather_workunit_parameters(
         links={},
         input_resource_ids=[],
         description=f"Queue configuration generated with qg version {app_version}.",
+        created_using=f"qg {app_version}",
     )

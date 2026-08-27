@@ -903,7 +903,7 @@ def _(
     queue_output_str,
     target_container_id_field,
 ):
-    def gather_workunit_parameters() -> bfabric_workunit.CreateWorkunitParams:
+    def gather_workunit_parameters() -> bfabric_workunit.CreateWorkunitRequest:
         # Upload is only reachable once a queue is generated, which implies a
         # selected order (hence a non-None container field). See the upload cell.
         assert queue_input is not None
