@@ -615,4 +615,4 @@ The site HTML in `public/` is build output and is not committed.
 
 ## Related Projects
 
-- `/Users/wolski/projects/queue/qg/` - Legacy R implementation (reference only)
+- https://github.com/fgcz/qgshiny - Legacy R implementation (reference only)
