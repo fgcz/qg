@@ -1,6 +1,7 @@
 # Queue Generation System
 
 [![DOI](https://zenodo.org/badge/1280336047.svg)](https://doi.org/10.5281/zenodo.21040573)
+[![bioRxiv](https://img.shields.io/badge/bioRxiv-10.64898%2F2026.07.03.736300-brightgreen)](https://doi.org/10.64898/2026.07.03.736300)
 
 Generate sample queues with QC injections for mass spectrometry instruments (XCalibur, Chronos, Hystar).
 
