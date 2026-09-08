@@ -33,6 +33,8 @@ pip install qg                 # as a dependency
 uv sync --no-group portal      # for development in this repo, B-Fabric-free
 ```
 
+Requires Python 3.13 or newer.
+
 This installs the local app plus the `qg`, `qg-assign-positions`, and `qg-validate`
 CLIs. The core install has no
 `bfabric`, `fastapi`, `starlette`, or `python-gitlab` dependency — `import qg`, the

@@ -6,7 +6,9 @@ Guidance for AI coding agents (Claude Code, Codex, Copilot, Gemini, etc.) workin
 
 Queue generation system for mass spectrometry instruments. Generates sample queues with QC injections for XCalibur, Chronos, and Hystar software.
 
-**Python version:** >=3.14
+**Python version:** the package supports >=3.13 (`requires-python`); development and CI
+run on 3.14 (`.python-version`). CI's `install-floor` job holds the floor by pip-installing
+the built wheel on 3.13.
 
 ## Design and Abstraction Rules
 

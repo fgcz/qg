@@ -96,6 +96,39 @@ jobs:
       - name: Build and inspect distributions
         run: uv run --no-sync python scripts/package_smoke.py
 
+  # Floor gate: `pip install qg` on the oldest supported interpreter must import,
+  # expose its CLIs, resolve its bundled configs, and pass the non-browser suite.
+  # Installs the built wheel with pip (not uv sync) so this mirrors what a reader
+  # of the README actually runs, and guards the requires-python floor from drifting
+  # up to the development interpreter unnoticed.
+  install-floor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+          cache-suffix: floor
+      - name: Build wheel
+        run: uv build --wheel --out-dir dist
+      - name: Install the wheel on the floor interpreter
+        run: |
+          uv venv --python 3.13 --seed .venv-floor
+          .venv-floor/bin/pip install dist/qg-*.whl pytest pytest-mock pytest-bdd xlsxwriter
+      - name: Import, CLI and bundled-config checks
+        run: |
+          .venv-floor/bin/python -c "import qg"
+          .venv-floor/bin/qg --help > /dev/null
+          .venv-floor/bin/python -c "from qg.config_models.loader import _DEFAULT_CONFIG_DIR as d; assert d.is_dir(), d"
+      - name: Run the non-browser suite against the installed wheel
+        run: >-
+          .venv-floor/bin/python -m pytest
+          --ignore=tests/gui
+          --ignore=tests/gui_local
+          -m "not bfabric and not bfabric_test_instance and not local_gui"
+
   docs:
     runs-on: ubuntu-latest
     steps:

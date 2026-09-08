@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Published `qg` to PyPI, so `pip install qg` works as the README documents.
+
+### Fixed
+- Ship `qg_configs/` inside the wheel, so an installed `qg` can load its default configs instead of failing on a path that only exists in a source checkout.
+- Lowered `requires-python` to >=3.13, so installing on a current interpreter no longer resolves to no candidate versions.
+
 ## [0.11.1] - 2026-08-27
 
 ### Changed

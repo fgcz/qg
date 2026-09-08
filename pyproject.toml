@@ -1,9 +1,30 @@
 [project]
 name = "qg"
-version = "0.11.1"
+version = "0.12.0"
 description = "Queue generation system for mass spectrometry instruments. Generates sample queues with QC injections for XCalibur, Chronos, and Hystar, with B-Fabric LIMS integration for sample loading and workunit upload."
 readme = "README.md"
-requires-python = ">=3.14"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+keywords = [
+    "mass spectrometry",
+    "proteomics",
+    "metabolomics",
+    "acquisition queue",
+    "worklist",
+    "randomization",
+    "quality control",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+]
+requires-python = ">=3.13"
 dependencies = [
     "cyclopts>=4.4.4",
     "fastexcel>=0.11",
@@ -16,11 +37,21 @@ dependencies = [
     "plotly>=6.8.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/fgcz/qg"
+Documentation = "https://fgcz.github.io/qg/"
+Repository = "https://github.com/fgcz/qg"
+Issues = "https://github.com/fgcz/qg/issues"
+Changelog = "https://github.com/fgcz/qg/blob/main/CHANGELOG.md"
+
 [project.optional-dependencies]
 # FGCZ B-Fabric portal extra: auth, LIMS sample loading, workunit upload, and the
 # GitLab-deployed launcher. The core install (and the local upload app) need none of it.
 bfabric = [
     "bfabric>=1.16.1",
+    # bfabric_asgi_auth and bfabric_rest_proxy are imported by src/qg/ at runtime
+    # but are not published on PyPI, so uv resolves them from [tool.uv.sources] and
+    # `pip install qg[bfabric]` needs those git sources too (see docs/bfabric.md).
     "bfabric-asgi-auth",
     "bfabric-rest-proxy",
     "fastapi>=0.128.0",
@@ -43,7 +74,7 @@ bfabric-asgi-auth = { git = "https://github.com/fgcz/bfabricPy", subdirectory = 
 bfabric-rest-proxy = { git = "https://github.com/fgcz/bfabricPy", subdirectory = "bfabric_rest_proxy", rev = "main" }
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
@@ -88,6 +119,12 @@ artifacts = [
     "src/qg/examples/params/*.json",
 ]
 
+# qg_configs/ lives at the repo root, so a wheel would not carry it and an
+# installed qg could not load its default configs. Ship it inside the package;
+# _default_config_dir() looks there first and falls back to the repo root.
+[tool.hatch.build.targets.wheel.force-include]
+"qg_configs" = "qg/qg_configs"
+
 [project.scripts]
 qg = "qg.cli.generate_queues:cli_main"
 qg-assign-positions = "qg.cli.assign_positions:cli_main"
@@ -110,7 +147,7 @@ markers = [
 
 [tool.ruff]
 line-length = 120
-target-version = "py313"  # py314 not yet supported by ruff
+target-version = "py313"  # the supported floor (requires-python), not the dev interpreter
 
 [tool.ruff.lint]
 select = [
@@ -145,7 +182,7 @@ max-args = 7
 quote-style = "double"
 
 [tool.pyright]
-pythonVersion = "3.14"
+pythonVersion = "3.13"
 include = ["src/qg"]
 exclude = [
     "src/qg/apps",         # marimo apps have looser typing

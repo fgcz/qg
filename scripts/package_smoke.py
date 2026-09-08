@@ -31,6 +31,7 @@ def _verify_wheel(wheel: Path) -> None:
 
         _require_members(names, "qg/examples/sample_tables/*.csv", "bundled sample tables")
         _require_members(names, "qg/examples/params/*.json", "bundled parameter examples")
+        _require_members(names, "qg/qg_configs/core/formatting/instruments.csv", "bundled default configs")
 
         entry_point_files = [name for name in names if name.endswith(".dist-info/entry_points.txt")]
         if len(entry_point_files) != 1:

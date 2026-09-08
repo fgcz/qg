@@ -82,7 +82,8 @@ def read_header_comments(text: str) -> str:
 def _default_config_dir() -> Path:
     """Get default config directory using package resources.
 
-    Uses importlib.resources to locate the qg package, then navigates to qg_configs/.
+    Uses importlib.resources to locate the qg package, then looks for qg_configs/
+    bundled inside it (wheel install) before the project root (source checkout).
     Falls back to __file__ navigation if the directory doesn't exist (e.g., editable install).
 
     Returns:
@@ -91,10 +92,12 @@ def _default_config_dir() -> Path:
     try:
         # files("qg") returns the qg package directory (e.g., src/qg/ or site-packages/qg/)
         pkg_path = Path(str(files("qg")))
-        # qg_configs is at project root: 2 levels up from src/qg/
-        config_dir = (pkg_path.parent.parent / "qg_configs").resolve()
-        if config_dir.is_dir():
-            return config_dir
+        # A wheel install carries qg_configs/ inside the package (force-include in
+        # pyproject.toml); a source checkout has it at the project root, 2 levels up.
+        for candidate in (pkg_path / "qg_configs", pkg_path.parent.parent / "qg_configs"):
+            config_dir = candidate.resolve()
+            if config_dir.is_dir():
+                return config_dir
     except (TypeError, ModuleNotFoundError):
         pass
 
