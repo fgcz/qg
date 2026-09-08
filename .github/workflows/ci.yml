@@ -116,7 +116,7 @@ jobs:
       - name: Install the wheel on the floor interpreter
         run: |
           uv venv --python 3.13 --seed .venv-floor
-          .venv-floor/bin/pip install dist/qg-*.whl pytest pytest-mock pytest-bdd xlsxwriter
+          .venv-floor/bin/pip install dist/ms_qg-*.whl pytest pytest-mock pytest-bdd xlsxwriter
       - name: Import, CLI and bundled-config checks
         run: |
           .venv-floor/bin/python -c "import qg"
