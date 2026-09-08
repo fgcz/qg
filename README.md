@@ -29,7 +29,7 @@ and editor guides, the queue-generation algorithm, and the configuration referen
 ## Installation
 
 ```bash
-pip install qg                 # as a dependency
+pip install ms-qg              # as a dependency
 uv sync --no-group portal      # for development in this repo, B-Fabric-free
 ```
 
@@ -39,7 +39,7 @@ This installs the local app plus the `qg`, `qg-assign-positions`, and `qg-valida
 CLIs. The core install has no
 `bfabric`, `fastapi`, `starlette`, or `python-gitlab` dependency — `import qg`, the
 local app, and the CLIs all work without them. For the FGCZ B-Fabric portal,
-install the `qg[bfabric]` extra — see the [B-Fabric guide](docs/bfabric.md).
+install the `ms-qg[bfabric]` extra — see the [B-Fabric guide](docs/bfabric.md).
 
 ## Quick Start
 
@@ -64,7 +64,7 @@ uv run qg-assign-positions config.json -o positioned.json  # assign/validate phy
 uv run qg-validate                   # validate the config files
 ```
 
-> **Running at FGCZ?** The B-Fabric portal app, its `qg[bfabric]` install, project
+> **Running at FGCZ?** The B-Fabric portal app, its `ms-qg[bfabric]` install, project
 > cache seeding, and deployment all live in the [B-Fabric guide](docs/bfabric.md).
 
 ## Supported Configurations

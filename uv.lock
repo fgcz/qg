@@ -1416,6 +1416,110 @@ wheels = [
 ]
 
 [[package]]
+name = "ms-qg"
+version = "0.12.1"
+source = { editable = "." }
+dependencies = [
+    { name = "cyclopts" },
+    { name = "fastexcel" },
+    { name = "loguru" },
+    { name = "marimo" },
+    { name = "plotly" },
+    { name = "polars" },
+    { name = "pyarrow" },
+    { name = "pydantic" },
+    { name = "tomli-w" },
+]
+
+[package.optional-dependencies]
+bfabric = [
+    { name = "asgiref" },
+    { name = "bfabric" },
+    { name = "bfabric-asgi-auth" },
+    { name = "bfabric-rest-proxy" },
+    { name = "fastapi" },
+    { name = "pydantic-settings" },
+    { name = "python-gitlab" },
+    { name = "pyyaml" },
+    { name = "starlette" },
+    { name = "uvicorn" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "deptry" },
+    { name = "diff-cover" },
+    { name = "pip-audit" },
+    { name = "playwright" },
+    { name = "pre-commit" },
+    { name = "pyright" },
+    { name = "pytest" },
+    { name = "pytest-bdd" },
+    { name = "pytest-cov" },
+    { name = "pytest-mock" },
+    { name = "pytest-playwright" },
+    { name = "ruff" },
+    { name = "xlsxwriter" },
+]
+docs = [
+    { name = "kaleido" },
+    { name = "matplotlib" },
+    { name = "mkdocs-material" },
+    { name = "pillow" },
+]
+portal = [
+    { name = "ms-qg", extra = ["bfabric"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "asgiref", marker = "extra == 'bfabric'", specifier = ">=3.8" },
+    { name = "bfabric", marker = "extra == 'bfabric'", git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric&rev=main" },
+    { name = "bfabric-asgi-auth", marker = "extra == 'bfabric'", git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric_asgi_auth&rev=main" },
+    { name = "bfabric-rest-proxy", marker = "extra == 'bfabric'", git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric_rest_proxy&rev=main" },
+    { name = "cyclopts", specifier = ">=4.4.4" },
+    { name = "fastapi", marker = "extra == 'bfabric'", specifier = ">=0.128.0" },
+    { name = "fastexcel", specifier = ">=0.11" },
+    { name = "loguru", specifier = ">=0.7.0" },
+    { name = "marimo", specifier = ">=0.23.9" },
+    { name = "plotly", specifier = ">=6.8.0" },
+    { name = "polars" },
+    { name = "pyarrow", specifier = ">=22.0.0" },
+    { name = "pydantic", specifier = ">=2.12.5" },
+    { name = "pydantic-settings", marker = "extra == 'bfabric'", specifier = ">=2.14.2" },
+    { name = "python-gitlab", marker = "extra == 'bfabric'", specifier = ">=5.0.0" },
+    { name = "pyyaml", marker = "extra == 'bfabric'" },
+    { name = "starlette", marker = "extra == 'bfabric'", specifier = ">=0.50.0" },
+    { name = "tomli-w", specifier = ">=1.0.0" },
+    { name = "uvicorn", marker = "extra == 'bfabric'" },
+]
+provides-extras = ["bfabric"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "deptry", specifier = ">=0.25.1" },
+    { name = "diff-cover", specifier = ">=10.4.0" },
+    { name = "pip-audit", specifier = ">=2.10.1" },
+    { name = "playwright", specifier = ">=1.45" },
+    { name = "pre-commit", specifier = ">=4.0.0" },
+    { name = "pyright", specifier = ">=1.1.390" },
+    { name = "pytest", specifier = ">=9.0.2" },
+    { name = "pytest-bdd", specifier = ">=7.3" },
+    { name = "pytest-cov", specifier = ">=7.0.0" },
+    { name = "pytest-mock", specifier = ">=3.15.1" },
+    { name = "pytest-playwright", specifier = ">=0.5" },
+    { name = "ruff", specifier = ">=0.9.0" },
+    { name = "xlsxwriter", specifier = ">=3.2" },
+]
+docs = [
+    { name = "kaleido", specifier = ">=0.2" },
+    { name = "matplotlib", specifier = ">=3.9" },
+    { name = "mkdocs-material", specifier = ">=9.5" },
+    { name = "pillow", specifier = ">=12.3.0" },
+]
+portal = [{ name = "ms-qg", extras = ["bfabric"] }]
+
+[[package]]
 name = "msgpack"
 version = "1.2.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2370,110 +2474,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/f8/b5/33b781666f3f52ae834bc9c8e38f4f0483a826c5a91cccc993292007bf10/pyzmq-27.2.0-cp315-cp315t-win_amd64.whl", hash = "sha256:edce90a1e588ec63adbf612cc0ad582de4169cd216c7ae53c15f42a2ee902f35", size = 670701, upload-time = "2026-08-20T19:07:32.895Z" },
     { url = "https://files.pythonhosted.org/packages/6e/97/bc4f0edefb992df4fdebcf9f0cc40f631cd4ed277e1ed59ef2cd99a5c8c5/pyzmq-27.2.0-cp315-cp315t-win_arm64.whl", hash = "sha256:a843094b4d3d633bc3623e47a2ff50742d6af02bc1f7606aa2e67e971e21878d", size = 581985, upload-time = "2026-08-20T19:07:34.19Z" },
 ]
-
-[[package]]
-name = "qg"
-version = "0.12.0"
-source = { editable = "." }
-dependencies = [
-    { name = "cyclopts" },
-    { name = "fastexcel" },
-    { name = "loguru" },
-    { name = "marimo" },
-    { name = "plotly" },
-    { name = "polars" },
-    { name = "pyarrow" },
-    { name = "pydantic" },
-    { name = "tomli-w" },
-]
-
-[package.optional-dependencies]
-bfabric = [
-    { name = "asgiref" },
-    { name = "bfabric" },
-    { name = "bfabric-asgi-auth" },
-    { name = "bfabric-rest-proxy" },
-    { name = "fastapi" },
-    { name = "pydantic-settings" },
-    { name = "python-gitlab" },
-    { name = "pyyaml" },
-    { name = "starlette" },
-    { name = "uvicorn" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "deptry" },
-    { name = "diff-cover" },
-    { name = "pip-audit" },
-    { name = "playwright" },
-    { name = "pre-commit" },
-    { name = "pyright" },
-    { name = "pytest" },
-    { name = "pytest-bdd" },
-    { name = "pytest-cov" },
-    { name = "pytest-mock" },
-    { name = "pytest-playwright" },
-    { name = "ruff" },
-    { name = "xlsxwriter" },
-]
-docs = [
-    { name = "kaleido" },
-    { name = "matplotlib" },
-    { name = "mkdocs-material" },
-    { name = "pillow" },
-]
-portal = [
-    { name = "qg", extra = ["bfabric"] },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "asgiref", marker = "extra == 'bfabric'", specifier = ">=3.8" },
-    { name = "bfabric", marker = "extra == 'bfabric'", git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric&rev=main" },
-    { name = "bfabric-asgi-auth", marker = "extra == 'bfabric'", git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric_asgi_auth&rev=main" },
-    { name = "bfabric-rest-proxy", marker = "extra == 'bfabric'", git = "https://github.com/fgcz/bfabricPy?subdirectory=bfabric_rest_proxy&rev=main" },
-    { name = "cyclopts", specifier = ">=4.4.4" },
-    { name = "fastapi", marker = "extra == 'bfabric'", specifier = ">=0.128.0" },
-    { name = "fastexcel", specifier = ">=0.11" },
-    { name = "loguru", specifier = ">=0.7.0" },
-    { name = "marimo", specifier = ">=0.23.9" },
-    { name = "plotly", specifier = ">=6.8.0" },
-    { name = "polars" },
-    { name = "pyarrow", specifier = ">=22.0.0" },
-    { name = "pydantic", specifier = ">=2.12.5" },
-    { name = "pydantic-settings", marker = "extra == 'bfabric'", specifier = ">=2.14.2" },
-    { name = "python-gitlab", marker = "extra == 'bfabric'", specifier = ">=5.0.0" },
-    { name = "pyyaml", marker = "extra == 'bfabric'" },
-    { name = "starlette", marker = "extra == 'bfabric'", specifier = ">=0.50.0" },
-    { name = "tomli-w", specifier = ">=1.0.0" },
-    { name = "uvicorn", marker = "extra == 'bfabric'" },
-]
-provides-extras = ["bfabric"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "deptry", specifier = ">=0.25.1" },
-    { name = "diff-cover", specifier = ">=10.4.0" },
-    { name = "pip-audit", specifier = ">=2.10.1" },
-    { name = "playwright", specifier = ">=1.45" },
-    { name = "pre-commit", specifier = ">=4.0.0" },
-    { name = "pyright", specifier = ">=1.1.390" },
-    { name = "pytest", specifier = ">=9.0.2" },
-    { name = "pytest-bdd", specifier = ">=7.3" },
-    { name = "pytest-cov", specifier = ">=7.0.0" },
-    { name = "pytest-mock", specifier = ">=3.15.1" },
-    { name = "pytest-playwright", specifier = ">=0.5" },
-    { name = "ruff", specifier = ">=0.9.0" },
-    { name = "xlsxwriter", specifier = ">=3.2" },
-]
-docs = [
-    { name = "kaleido", specifier = ">=0.2" },
-    { name = "matplotlib", specifier = ">=3.9" },
-    { name = "mkdocs-material", specifier = ">=9.5" },
-    { name = "pillow", specifier = ">=12.3.0" },
-]
-portal = [{ name = "qg", extras = ["bfabric"] }]
 
 [[package]]
 name = "requests"

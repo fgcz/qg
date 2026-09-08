@@ -1,6 +1,6 @@
 [project]
-name = "qg"
-version = "0.12.0"
+name = "ms-qg"
+version = "0.12.1"
 description = "Queue generation system for mass spectrometry instruments. Generates sample queues with QC injections for XCalibur, Chronos, and Hystar, with B-Fabric LIMS integration for sample loading and workunit upload."
 readme = "README.md"
 license = "Apache-2.0"
@@ -51,7 +51,7 @@ bfabric = [
     "bfabric>=1.16.1",
     # bfabric_asgi_auth and bfabric_rest_proxy are imported by src/qg/ at runtime
     # but are not published on PyPI, so uv resolves them from [tool.uv.sources] and
-    # `pip install qg[bfabric]` needs those git sources too (see docs/bfabric.md).
+    # `pip install ms-qg[bfabric]` needs those git sources too (see docs/bfabric.md).
     "bfabric-asgi-auth",
     "bfabric-rest-proxy",
     "fastapi>=0.128.0",
@@ -65,7 +65,7 @@ bfabric = [
 
 [tool.uv]
 # Install the portal extra in the dev/CI environment by default (so the full suite
-# — GUI + B-Fabric tests — runs); a plain `pip install qg` stays B-Fabric-free.
+# — GUI + B-Fabric tests — runs); a plain `pip install ms-qg` stays B-Fabric-free.
 default-groups = ["dev", "portal"]
 
 [tool.uv.sources]
@@ -104,13 +104,13 @@ docs = [
 ]
 # Pulls the public `bfabric` extra into the dev/CI venv (see [tool.uv] default-groups).
 portal = [
-    "qg[bfabric]",
+    "ms-qg[bfabric]",
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/qg"]
 # Insurance: explicitly ship the bundled example sample tables in the wheel so
-# qg-app-local can load them after `pip install qg`. (Hatchling already includes
+# qg-app-local can load them after `pip install ms-qg`. (Hatchling already includes
 # committed non-.py files under the package dir; this guards against that
 # changing. The real regression guard is the wheel-inspection test.)
 artifacts = [
@@ -141,7 +141,7 @@ addopts = "-v --tb=short -m 'not bfabric_test_instance'"
 filterwarnings = ["ignore::DeprecationWarning"]
 markers = [
     "bfabric_test_instance: GUI scenario executed against the real fgcz-bfabric-test.uzh.ch instance (requires QG_BFABRIC_TEST_PAT). Excluded from default runs.",
-    "bfabric: requires the qg[bfabric] extra (B-Fabric packages). Skipped/deselected on a core-only install via '-m \"not bfabric\"'.",
+    "bfabric: requires the ms-qg[bfabric] extra (B-Fabric packages). Skipped/deselected on a core-only install via '-m \"not bfabric\"'.",
     "local_gui: Playwright scenario for the standalone local queue app (no B-Fabric required).",
 ]
 

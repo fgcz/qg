@@ -49,7 +49,7 @@ def main() -> None:
     with tempfile.TemporaryDirectory(prefix="qg-package-smoke-") as temp_dir:
         output_dir = Path(temp_dir)
         subprocess.run(["uv", "build", "--out-dir", str(output_dir)], check=True)
-        wheels = list(output_dir.glob("qg-*.whl"))
+        wheels = list(output_dir.glob("ms_qg-*.whl"))
         if len(wheels) != 1:
             raise RuntimeError(f"Expected one qg wheel, found {wheels}")
         _verify_wheel(wheels[0])

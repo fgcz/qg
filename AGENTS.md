@@ -99,7 +99,7 @@ the [web-apps repo](https://gitlab.bfabric.org/proteomics/web-apps) and run
 # Run the standalone local app (CSV/XLSX upload, no B-Fabric)
 make app-local                                  # or: uv run marimo run src/qg/apps/queue_app_local.py
 
-# Run the B-Fabric portal app against production (needs qg[bfabric]; auth-bypass for local dev)
+# Run the B-Fabric portal app against production (needs ms-qg[bfabric]; auth-bypass for local dev)
 make app
 
 # Run the same local app against the test B-Fabric instance
@@ -126,10 +126,10 @@ uv run pytest tests/test_file.py::test_name -v
 
 ### Install profiles
 
-- **Core** (`pip install qg`): the local app + `qg`/`qg-validate` CLIs. No
+- **Core** (`pip install ms-qg`): the local app + `qg`/`qg-validate` CLIs. No
   `bfabric`, `fastapi`, `starlette`, or `python-gitlab`. `uv sync --no-group portal`
   reproduces this in-repo.
-- **Portal** (`pip install 'qg[bfabric]'`): adds B-Fabric auth, LIMS loading,
+- **Portal** (`pip install 'ms-qg[bfabric]'`): adds B-Fabric auth, LIMS loading,
   workunit upload, and the GitLab launcher. `uv sync` installs it by default in
   dev via the `portal` dependency-group (`[tool.uv] default-groups`).
 
@@ -141,10 +141,10 @@ uv run pytest tests/test_file.py::test_name -v
 | `qg-assign-positions` | `qg.cli.assign_positions` | Assign/validate positions and emit positioned JSON | — |
 | `qg-validate` | `qg.cli.validate_config` | Validate config files | — |
 | `qg-app-local` | `qg.apps.launcher_local` | Launch the standalone local upload app | — |
-| `qg-find-projects` | `qg.cli.find_projects` | Project discovery utility | `qg[bfabric]` |
-| `qg-refresh-cache` | `qg.cli.refresh_cache` | Refresh B-Fabric container caches | `qg[bfabric]` |
-| `qg-app` | `qg.gitlab.launcher` | Launch portal queue app (GitLab deployment) | `qg[bfabric]` |
-| `qg-editor` | `qg.gitlab.launcher` | Launch marimo config editor (GitLab deployment) | `qg[bfabric]` |
+| `qg-find-projects` | `qg.cli.find_projects` | Project discovery utility | `ms-qg[bfabric]` |
+| `qg-refresh-cache` | `qg.cli.refresh_cache` | Refresh B-Fabric container caches | `ms-qg[bfabric]` |
+| `qg-app` | `qg.gitlab.launcher` | Launch portal queue app (GitLab deployment) | `ms-qg[bfabric]` |
+| `qg-editor` | `qg.gitlab.launcher` | Launch marimo config editor (GitLab deployment) | `ms-qg[bfabric]` |
 
 > The Dash config editor (`qg-config-viewer`, `qg-editor-dash`) lives in the
 > separate **`qg-dash`** package (sibling `../qg_dash` repo), which depends on
@@ -297,8 +297,8 @@ Never use `pl.read_csv()` or `Path().read_text()` to read config files directly 
 | Module | Purpose |
 |--------|---------|
 | `generate_queues.py` | Main entry point for queue generation |
-| `find_projects.py` | Project discovery utility (needs `qg[bfabric]`) |
-| `refresh_cache.py` | Refresh B-Fabric container caches across instances (needs `qg[bfabric]`) |
+| `find_projects.py` | Project discovery utility (needs `ms-qg[bfabric]`) |
+| `refresh_cache.py` | Refresh B-Fabric container caches across instances (needs `ms-qg[bfabric]`) |
 | `validate_config.py` | Configuration validation |
 
 ### Apps (`src/qg/apps/`)
@@ -323,7 +323,7 @@ Both queue apps are thin marimo notebooks over a shared, B-Fabric-free pipeline
 parser → normalized `sample_rows` schema), `bfabric_workunit.py` (workunit
 payload), `bfabric_context.py`
 (session). The `local_*` modules import no B-Fabric; the `bfabric_*` modules need
-the `qg[bfabric]` extra. Both notebooks honor a variable-name contract
+the `ms-qg[bfabric]` extra. Both notebooks honor a variable-name contract
 (`full_samples_df`, `selected_orders`, `container_has_*`, `queue_input`,
 `queue_output_str`, …) so the shared cells and the GUI tests are identical.
 
