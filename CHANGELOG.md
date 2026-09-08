@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-09-08
+
 ### Changed
 - Renamed the PyPI distribution to `ms-qg`, since PyPI does not allow the name `qg`. The import package, the `qg`/`qg-*` commands and the `bfabric` extra are unchanged; only the install command differs (`pip install ms-qg`).
 
