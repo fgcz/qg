@@ -81,12 +81,12 @@ def _placement_reads(page: Page, text: str) -> None:
 
 @then(parsers.parse("the lineage note reports {n:d} derived samples"))
 def _lineage_callout(page: Page, n: int) -> None:
-    expect(page.get_by_text(f"{n} derived (child) samples included", exact=False)).to_be_visible(timeout=15_000)
+    expect(page.get_by_text(re.compile(rf"· {n} derived\b"))).to_be_visible(timeout=15_000)
 
 
 @then("no lineage note is shown")
 def _no_lineage_callout(page: Page) -> None:
-    expect(page.get_by_text("derived (child) samples included", exact=False)).to_have_count(0)
+    expect(page.get_by_text(re.compile(r"· \d+ derived\b"))).to_have_count(0)
 
 
 @then(parsers.parse('the "{label}" dropdown shows "{value}"'))

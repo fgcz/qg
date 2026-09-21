@@ -657,15 +657,15 @@ def _(full_samples_df, sample_selection, selected_orders):
     source_notes = []
     if selected_orders:
         _placement = sample_selection.placement
-        _segments = [
-            f"**Sample types:** {type_summary or 'Unspecified'}",
-            f"**Placement:** {_placement.on_plate} on injection plates (Plate) · "
-            f"{_placement.in_storage} in storage boxes (Vial) · "
-            f"{_placement.loose} not on any plate (Vial)",
+        _parts = [
+            type_summary or "Unspecified",
+            f"{_placement.on_plate} on injection plates",
+            f"{_placement.in_storage} in storage boxes",
+            f"{_placement.loose} loose",
         ]
         if _placement.derived:
-            _segments.append(f"**Lineage:** {_placement.derived} derived (child) samples included")
-        source_notes.append(mo.md(" &nbsp;|&nbsp; ".join(_segments)))
+            _parts.append(f"{_placement.derived} derived")
+        source_notes.append(mo.md(" · ".join(_parts)))
     if no_order_items:
         ids = ", ".join(str(container_id) for container_id in no_order_items)
         source_notes.append(
@@ -674,8 +674,8 @@ def _(full_samples_df, sample_selection, selected_orders):
                 kind="info",
             )
         )
-    sample_source_summary = mo.vstack(source_notes)
-    return (sample_source_summary,)
+    sample_summary = mo.vstack(source_notes, gap=0)
+    return (sample_summary,)
 
 
 @app.cell
@@ -776,9 +776,12 @@ def _(
     entity_id,
     is_employee,
     project_table,
+    empty_order_warning,
+    pickers_row,
     refresh_projects_button,
     sample_source_field,
-    sample_source_summary,
+    sample_summary,
+    selection_banner,
 ):
     # Bind to a name and leave it as the cell's final expression so marimo displays the vstack;
     # a bare `mo.vstack(...)` inside if/else is not the last top-level expression of the cell.
@@ -790,8 +793,12 @@ def _(
                 mo.hstack([_banner, refresh_projects_button], justify="space-between", align="center"),
                 project_table,
                 sample_source_field,
-                sample_source_summary,
-            ]
+                selection_banner,
+                sample_summary,
+                empty_order_warning,
+                pickers_row,
+            ],
+            gap=0.5,
         )
     else:
         _order_section = mo.vstack(
@@ -799,8 +806,12 @@ def _(
                 mo.hstack([_banner], justify="start"),
                 mo.md(f"## Order {entity_id}"),
                 sample_source_field,
-                sample_source_summary,
-            ]
+                selection_banner,
+                sample_summary,
+                empty_order_warning,
+                pickers_row,
+            ],
+            gap=0.5,
         )
     _order_section
     return
@@ -816,8 +827,6 @@ def _(
     queue_type_field,
     selected_orders,
 ):
-    # Assign each branch to a cell-local and display it as the last unnested
-    # expression — a bare ``mo.md(...)`` inside a branch is computed then discarded.
     if not is_employee:
         _banner = mo.md("")
     elif not selected_orders:
@@ -834,8 +843,8 @@ def _(
             _who = f"{len(selected_orders)} order(s): " + ", ".join(str(o[0]) for o in selected_orders)
         _queue_type = queue_type_field.value or "No compatible queue type"
         _banner = mo.md(f"**Selected:** {_who} ({_queue_type}) — {_n} samples{_note}")
-    _banner
-    return
+    selection_banner = _banner
+    return (selection_banner,)
 
 
 @app.cell
@@ -849,27 +858,25 @@ def _(full_samples_df, generations_select, is_employee, selected_orders, show_ge
             _message = "**No sample generation selected.**"
         else:
             _message = "**No samples found in the selected order(s).**"
-        _empty_order_warning = mo.callout(mo.md(_message), kind="warn")
+        empty_order_warning = mo.callout(mo.md(_message), kind="warn")
     else:
-        _empty_order_warning = mo.md("")
-    _empty_order_warning
-    return
+        empty_order_warning = mo.md("")
+    return (empty_order_warning,)
 
 
 @app.cell
-def _(all_plates, plates_select, queue_type_field, selected_orders):
+def _(all_plates, generations_select, plates_select, queue_type_field, selected_orders, show_generations_picker):
     # Plate subsetting only affects the Plate load path; in Vial mode get_samples ignores
     # plate_ids (bfabric_utils.py), so showing the picker there is an inert, misleading control.
     _has_plates = any(all_plates.get(o[0]) for o in selected_orders) if selected_orders else False
     _show_picker = _has_plates and queue_type_field.value == "Plate"
-    plates_select if _show_picker else mo.md("")
-    return
-
-
-@app.cell
-def _(generations_select, show_generations_picker):
-    generations_select if show_generations_picker else mo.md("")
-    return
+    _pickers = [
+        picker
+        for picker, shown in ((plates_select, _show_picker), (generations_select, show_generations_picker))
+        if shown
+    ]
+    pickers_row = mo.hstack(_pickers, justify="start", gap=2) if _pickers else mo.md("")
+    return (pickers_row,)
 
 
 @app.cell

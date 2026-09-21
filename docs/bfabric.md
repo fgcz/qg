@@ -33,12 +33,11 @@ offered is Plate, Vial, or both for either source. The sample table shows the
 B-Fabric sample-type counts for the active choice. The selected sampler does not
 alter the Queue Type choices derived from the source.
 
-Below the source radio one line reports the sample types, the **placement** of the
-admitted samples (how many sit on injection plates and run as Plate, how many sit
-only in B-Fabric Storage plates such as extract boxes, and how many are on no plate
-at all, both run as Vial) and, when **Order items** admitted samples through
-lineage, the number of derived (child) samples. Storage plates never appear in the
-plate picker.
+Below the selection banner one line reports the sample types and the placement of
+the admitted samples: how many sit on injection plates (run as Plate), how many sit
+only in B-Fabric Storage plates such as extract boxes, how many are loose (both run
+as Vial) and, when **Order items** admitted samples through lineage, how many are
+derived (child) samples. Storage plates never appear in the plate picker.
 
 When the admitted samples span more than one lineage generation, a **Sample
 generations** picker appears next to the plate picker, with every generation
