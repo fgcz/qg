@@ -47,6 +47,7 @@ Feature: Operators choose which B-Fabric samples enter the queue
     Then the selection banner reports 3 samples
     When I deselect sample generation "Original (2)"
     Then the selection banner reports 1 samples
+    And the sample placement reads "2 on injection plates · 0 in storage boxes · 1 loose · 3 derived"
 
   Scenario: Order items admit derived samples but not unordered container samples
     Given an employee session launched from order 37170

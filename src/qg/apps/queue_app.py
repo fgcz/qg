@@ -607,6 +607,12 @@ def _(sample_selection, selected_orders):
 
 
 @app.cell
+def _(generations_select, sample_selection):
+    narrowed_selection = sample_selection.restricted_to_generations(generations_select.value)
+    return (narrowed_selection,)
+
+
+@app.cell
 def _(all_plates, selected_orders):
     # For now, plates_select only works with single order (first one)
     # TODO: Support per-order plate selection for multi-order queues
@@ -623,28 +629,26 @@ def _(all_plates, selected_orders):
 @app.cell
 def _(
     DEBUG_DUMP_DIR,
-    generations_select,
+    narrowed_selection,
     plates_select,
     queue_type_field,
-    sample_selection,
     selected_orders,
 ):
     _container_ids = [container_id for container_id, *_ in selected_orders]
-    _selection = sample_selection.restricted_to_generations(generations_select.value)
     if queue_type_field.value == "Plate":
         picked_plate_ids = frozenset(plates_select.value or ())
-        loaded_samples = _selection.plate_samples(
+        loaded_samples = narrowed_selection.plate_samples(
             plate_ids=({_container_ids[0]: picked_plate_ids} if _container_ids and picked_plate_ids else {}),
             dump_dir=DEBUG_DUMP_DIR,
         )
     else:
-        loaded_samples = _selection.vial_samples(dump_dir=DEBUG_DUMP_DIR)
+        loaded_samples = narrowed_selection.vial_samples(dump_dir=DEBUG_DUMP_DIR)
     full_samples_df = loaded_samples.table
     return full_samples_df, loaded_samples
 
 
 @app.cell
-def _(full_samples_df, sample_selection, selected_orders):
+def _(full_samples_df, narrowed_selection, sample_selection, selected_orders):
     type_counts = (
         pl.DataFrame(schema={"sample_type": pl.String, "count": pl.UInt32})
         if full_samples_df.is_empty()
@@ -656,7 +660,7 @@ def _(full_samples_df, sample_selection, selected_orders):
     no_order_items = sample_selection.fallback_container_ids
     source_notes = []
     if selected_orders:
-        _placement = sample_selection.placement
+        _placement = narrowed_selection.placement
         _parts = [
             type_summary or "Unspecified",
             f"{_placement.on_plate} on injection plates",
@@ -794,9 +798,9 @@ def _(
                 project_table,
                 sample_source_field,
                 selection_banner,
+                pickers_row,
                 sample_summary,
                 empty_order_warning,
-                pickers_row,
             ],
             gap=0.5,
         )
@@ -807,9 +811,9 @@ def _(
                 mo.md(f"## Order {entity_id}"),
                 sample_source_field,
                 selection_banner,
+                pickers_row,
                 sample_summary,
                 empty_order_warning,
-                pickers_row,
             ],
             gap=0.5,
         )
