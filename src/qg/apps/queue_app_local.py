@@ -663,11 +663,11 @@ def _(samples_table):
 
 
 @app.cell
-def _(samples_editor):
+def _(full_samples_df, samples_editor):
     if samples_editor is not None:
         sample_df = samples_editor.value.sort("order").drop("order")
     else:
-        sample_df = pl.DataFrame()
+        sample_df = full_samples_df.clear()
     return (sample_df,)
 
 

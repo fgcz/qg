@@ -35,7 +35,7 @@ Feature: Operators choose which B-Fabric samples enter the queue
     Then the plate picker is shown
     And the selection banner reports 2 samples
     And the sample placement reads "2 on injection plates (Plate) · 2 in storage boxes (Vial) · 1 not on any plate (Vial)"
-    And the lineage callout reports 3 derived samples
+    And the lineage note reports 3 derived samples
     And the sample generation picker is shown
 
   Scenario: Deselecting a generation narrows the queue in Vial mode
@@ -58,7 +58,7 @@ Feature: Operators choose which B-Fabric samples enter the queue
     When I choose all container samples
     Then the selection banner reports 4 samples
     And the sample placement reads "2 on injection plates (Plate) · 2 in storage boxes (Vial) · 2 not on any plate (Vial)"
-    And no lineage callout is shown
+    And no lineage note is shown
 
   Scenario: The project fallback notice belongs only to the order-item source
     Given the queue app is open as an employee

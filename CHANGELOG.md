@@ -11,7 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Portal **All container samples** keeps plate placement instead of presenting every sample as a Vial.
 
 ### Added
-- Portal shows the sample placement of the admitted samples (injection plates, storage boxes, loose) and a callout with the number of child samples admitted via lineage.
+- Portal shows the sample placement of the admitted samples (injection plates, storage boxes, loose) and the number of child samples admitted via lineage, on one line.
 - Portal offers a **Sample generations** picker (original, child, grandchild, ...; all selected by default) whenever an order spans several lineage generations.
 - Portal jumps to ✎ Edit Samples and shows the error there when the queue does not fit the sampler's positions.
 

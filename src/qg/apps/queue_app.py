@@ -657,21 +657,15 @@ def _(full_samples_df, sample_selection, selected_orders):
     source_notes = []
     if selected_orders:
         _placement = sample_selection.placement
-        source_notes.append(mo.md(f"**Sample types:** {type_summary or 'Unspecified'}"))
-        source_notes.append(
-            mo.md(
-                f"**Sample placement:** {_placement.on_plate} on injection plates (Plate) · "
-                f"{_placement.in_storage} in storage boxes (Vial) · "
-                f"{_placement.loose} not on any plate (Vial)"
-            )
-        )
+        _segments = [
+            f"**Sample types:** {type_summary or 'Unspecified'}",
+            f"**Placement:** {_placement.on_plate} on injection plates (Plate) · "
+            f"{_placement.in_storage} in storage boxes (Vial) · "
+            f"{_placement.loose} not on any plate (Vial)",
+        ]
         if _placement.derived:
-            source_notes.append(
-                mo.callout(
-                    mo.md(f"{_placement.derived} derived (child) samples included via lineage from ordered samples."),
-                    kind="info",
-                )
-            )
+            _segments.append(f"**Lineage:** {_placement.derived} derived (child) samples included")
+        source_notes.append(mo.md(" &nbsp;|&nbsp; ".join(_segments)))
     if no_order_items:
         ids = ", ".join(str(container_id) for container_id in no_order_items)
         source_notes.append(
@@ -720,11 +714,11 @@ def _(samples_table):
 
 
 @app.cell
-def _(samples_editor):
+def _(full_samples_df, samples_editor):
     if samples_editor is not None:
         sample_df = samples_editor.value.sort("order").drop("order")
     else:
-        sample_df = pl.DataFrame()
+        sample_df = full_samples_df.clear()
     return (sample_df,)
 
 
@@ -845,13 +839,17 @@ def _(
 
 
 @app.cell
-def _(full_samples_df, is_employee, selected_orders):
+def _(full_samples_df, generations_select, is_employee, selected_orders, show_generations_picker):
     # Employees pick orders from the project table; warn (don't halt) when the
     # selected order(s) contain no samples so they can choose a different order.
     # The ``selected_orders`` truthiness guard prevents firing on the initial
     # no-selection load. Non-employees use the danger/halt path at line ~970.
     if is_employee and selected_orders and full_samples_df.is_empty():
-        _empty_order_warning = mo.callout(mo.md("**No samples found in the selected order(s).**"), kind="warn")
+        if show_generations_picker and not generations_select.value:
+            _message = "**No sample generation selected.**"
+        else:
+            _message = "**No samples found in the selected order(s).**"
+        _empty_order_warning = mo.callout(mo.md(_message), kind="warn")
     else:
         _empty_order_warning = mo.md("")
     _empty_order_warning
