@@ -36,6 +36,8 @@ from qg.apps.queue_app_shared import (
     build_queue_parameters,
     filter_by_column,
     generate_queue,
+    generation_label,
+    is_capacity_error,
     load_methods_table,
     make_mixed_order_note,
     make_source_queue_type_field,
@@ -707,3 +709,27 @@ class TestSanitizedSegmentHint:
     @pytest.mark.parametrize("value", ["", "   ", "already_safe"])
     def test_silent_when_nothing_changed(self, value: str):
         assert sanitized_segment_hint("Queue name", self._field(value)) == []
+
+
+# ---------------------------------------------------------------------------
+# generation_label / is_capacity_error
+# ---------------------------------------------------------------------------
+
+
+def test_generation_label_names_original_child_and_deeper_generations() -> None:
+    assert generation_label(0, 209) == "Original (209)"
+    assert generation_label(1, 156) == "Generation 1, child (156)"
+    assert generation_label(3, 51) == "Generation 3 (51)"
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        ("Not enough positions (need 382, have 207)", True),
+        ("Method 'x' unknown", False),
+        (None, False),
+        ("", False),
+    ],
+)
+def test_is_capacity_error_matches_only_position_shortfalls(error: str | None, expected: bool) -> None:
+    assert is_capacity_error(error) is expected

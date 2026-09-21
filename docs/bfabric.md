@@ -40,6 +40,16 @@ all (both run as Vial). Storage plates never appear in the plate picker. When
 **Order items** admitted samples through lineage, an information callout gives
 the number of derived (child) samples.
 
+When the admitted samples span more than one lineage generation, a **Sample
+generations** picker appears next to the plate picker, with every generation
+selected: "Original", "Generation 1, child", "Generation 2", each with its count.
+Deselecting a generation removes those samples before the Vial or Plate table is
+built, so it applies in both modes and feeds Edit Samples.
+
+If the generated queue does not fit the sampler ("Not enough positions"), the app
+switches to the ✎ Edit Samples tab once and shows the error there, so the
+operator can deselect samples or generations.
+
 Projects and orders without order items fall back to all container samples. The
 app displays an information callout whenever this fallback applies. In a mixed
 multi-container selection, fallback is evaluated independently for each

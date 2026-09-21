@@ -505,3 +505,48 @@ def test_placement_counts_injection_plate_storage_box_loose_and_derived_samples(
     assert ordered.placement == SamplePlacement(on_plate=1, in_storage=2, loose=1, derived=2)
     assert everything.placement == SamplePlacement(on_plate=1, in_storage=2, loose=2, derived=0)
     assert ordered.vial_samples().table["sample_id"].to_list() == [1, 2, 4]
+
+
+def test_generation_counts_and_restriction_follow_the_lineage() -> None:
+    """1 and 9 are originals; 2 derives from 1, 3 from 2; 8 derives from 9."""
+    client = _client(
+        samples={
+            10: [
+                _sample(1),
+                _sample(2, parent_id=1),
+                _sample(3, parent_id=2),
+                _sample(9),
+                _sample(8, parent_id=9),
+            ]
+        },
+        order_items={10: [{"id": 1, "sample": {"id": 1}}]},
+        plates={10: {_uri("plate", 20): _Plate([_sample(2, grid_position="A1")])}},
+    )
+    helper = BfabricHelper(client)
+
+    ordered = helper.load_sample_selection([10], source=SampleSource.ORDER_ITEMS)
+    everything = helper.load_sample_selection([10], source=SampleSource.CONTAINER)
+
+    assert ordered.generation_counts == {0: 1, 1: 1, 2: 1}
+    assert everything.generation_counts == {0: 2, 1: 2, 2: 1}
+
+    children_only = ordered.restricted_to_generations({1})
+    assert children_only.plate_samples(plate_ids={}).table["sample_id"].to_list() == [2]
+    assert children_only.vial_samples().table.is_empty()
+    assert children_only.placement.derived == 1
+    assert ordered.restricted_to_generations(()).vial_samples().table.is_empty()
+
+
+def test_generation_of_a_pooled_sample_follows_its_deepest_parent() -> None:
+    rows = [_sample(1), _sample(2, parent_id=1), _sample(3)]
+    rows[2]["parent"] = [{"classname": "sample", "id": 1}, {"classname": "sample", "id": 2}]
+    selection = BfabricHelper(_client(samples={10: rows})).load_sample_selection([10], source=SampleSource.CONTAINER)
+
+    assert selection.containers[0].generations == {1: 0, 2: 1, 3: 2}
+
+
+def test_lineage_cycle_is_rejected() -> None:
+    rows = [_sample(1, parent_id=2), _sample(2, parent_id=1)]
+
+    with pytest.raises(ValueError, match="cycle"):
+        BfabricHelper(_client(samples={10: rows})).load_sample_selection([10], source=SampleSource.CONTAINER)

@@ -262,20 +262,27 @@ def assert_danger(page: Page, text: str) -> None:
 # Plate picker + mixed-order note (portal main-area widgets)
 # ----------------------------------------------------------------------------
 
-# The plate-subset picker is the only `mo.ui.multiselect` in the app (queue_app.py:585),
-# and it renders in the main area (not the sidebar), so a plain element count is an
-# unambiguous shown/hidden probe — its display cell renders `mo.md("")` when hidden.
+# The plate-subset picker is one of two `mo.ui.multiselect`s (the other is the sample
+# generation picker), so it is matched by its label. Its display cell renders
+# `mo.md("")` when hidden, so a count on the labelled element is an unambiguous probe.
 _MIXED_NOTE_TEXT = "both injection-plate samples (Plate) and storage-box or loose samples (Vial)"
+
+
+_PLATE_PICKER_LABEL = "Plates (first order)"
+
+
+def _plate_picker(page: Page):
+    return page.locator("marimo-multiselect").filter(has_text=_PLATE_PICKER_LABEL)
 
 
 def expect_plate_picker_visible(page: Page) -> None:
     """Assert the plate-subset multiselect is shown (Plate mode, order has plates)."""
-    expect(page.locator("marimo-multiselect")).to_have_count(1)
+    expect(_plate_picker(page)).to_have_count(1)
 
 
 def expect_plate_picker_hidden(page: Page) -> None:
     """Assert the plate-subset multiselect is absent (e.g. Vial mode)."""
-    expect(page.locator("marimo-multiselect")).to_have_count(0)
+    expect(_plate_picker(page)).to_have_count(0)
 
 
 def expect_mixed_order_note_visible(page: Page) -> None:

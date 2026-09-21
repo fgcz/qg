@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import datetime
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -520,11 +521,13 @@ def render_sample_selection_content(
     samples_table: mo.ui.table | None,
     samples_editor: mo.ui.data_editor | None,
     subject_label: str,
+    notice: mo.Html | None = None,
 ) -> mo.Html:
     """Edit-Samples tab: sample summary + Selection/Editor sub-panels (CSS-toggled).
 
     ``subject_label`` names the sample source in the summary line — ``"order(s)"``
-    in the portal, ``"group(s)"`` in the local app.
+    in the portal, ``"group(s)"`` in the local app. ``notice`` is shown above the
+    summary, e.g. the generation error that brought the operator to this tab.
     """
     order_count = len(selected_orders) if selected_orders else 0
     if sample_df is not None and not sample_df.is_empty():
@@ -543,7 +546,7 @@ def render_sample_selection_content(
         mo.md(f'<div style="display: {"block" if name == sample_mode_selector.value else "none"}">{widget}</div>')
         for name, widget in panels.items()
     ]
-    return mo.vstack([summary, sample_mode_selector, *panel_stack])
+    return mo.vstack([*([notice] if notice is not None else []), summary, sample_mode_selector, *panel_stack])
 
 
 def render_plate_layout_view(
@@ -1030,10 +1033,36 @@ def make_viz_color_selectors() -> tuple[mo.ui.dropdown, mo.ui.dropdown]:
     return plate_color_by, timeline_color_by
 
 
-def make_tab_selector() -> mo.ui.radio:
-    """Top-level tab selector. Opens on Queue Preview; Edit Samples is flagged with a pencil."""
+EDIT_SAMPLES_TAB = "✎ Edit Samples"
+
+
+def make_tab_selector(
+    *,
+    value: str = "Queue Preview",
+    on_change: Callable[[str], None] | None = None,
+) -> mo.ui.radio:
+    """Top-level tab selector. Opens on Queue Preview; Edit Samples is flagged with a pencil.
+
+    ``value``/``on_change`` let the portal drive the tab from ``mo.state`` so it can
+    jump to Edit Samples when the queue does not fit the sampler.
+    """
     return mo.ui.radio(
-        options=["✎ Edit Samples", "Queue Preview", "Visualizations", "Parameters", "Valid Combinations"],
-        value="Queue Preview",
+        options=[EDIT_SAMPLES_TAB, "Queue Preview", "Visualizations", "Parameters", "Valid Combinations"],
+        value=value,
         inline=True,
+        on_change=on_change,
     )
+
+
+def is_capacity_error(generation_error: str | None) -> bool:
+    """Return whether a generation error means the samples exceed the sampler's positions."""
+    return bool(generation_error) and "Not enough positions" in str(generation_error)
+
+
+def generation_label(generation: int, count: int) -> str:
+    """Return the sample-generation picker label for one lineage generation."""
+    if generation == 0:
+        return f"Original ({count})"
+    if generation == 1:
+        return f"Generation 1, child ({count})"
+    return f"Generation {generation} ({count})"

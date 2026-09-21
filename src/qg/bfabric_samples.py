@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from collections import Counter
+from collections.abc import Collection, Mapping, Sequence
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, NamedTuple, cast
@@ -73,6 +74,7 @@ class _ContainerSelection:
     storage_plates: Mapping[EntityUri, Plate]
     included_ids: frozenset[int]
     derived_ids: frozenset[int]
+    generations: Mapping[int, int]
     ordered_plate_ids: frozenset[int]
     fell_back: bool
 
@@ -112,6 +114,30 @@ def _parent_ids(table: pl.DataFrame) -> dict[int, list[int]]:
         row["id"]: [int(parent["id"]) for parent in row["parent"] or ()]
         for row in table.select("id", "parent").iter_rows(named=True)
     }
+
+
+def _generations(table: pl.DataFrame) -> dict[int, int]:
+    """Return each container sample's generation.
+
+    A sample without a parent in the container is generation 0; a sample is one
+    generation below its deepest in-container parent.
+    """
+    parent_ids = _parent_ids(table)
+    container_ids = _sample_ids(table)
+    generations: dict[int, int] = {}
+    pending = {sid: [p for p in parent_ids.get(sid, []) if p in container_ids] for sid in container_ids}
+    while pending:
+        resolved = {
+            sid: (1 + max(generations[p] for p in parents)) if parents else 0
+            for sid, parents in pending.items()
+            if all(p in generations for p in parents)
+        }
+        if not resolved:
+            raise ValueError(f"Sample lineage contains a cycle among samples {sorted(pending)}")
+        generations.update(resolved)
+        for sid in resolved:
+            del pending[sid]
+    return generations
 
 
 def _with_descendants(sample_ids: set[int], parent_ids: Mapping[int, Sequence[int]]) -> set[int]:
@@ -208,6 +234,29 @@ class BfabricSampleSelection:
             has_plates = has_plates or bool(container.included_ids & plate_ids)
             has_vials = has_vials or bool(container.included_ids - plate_ids)
         return ContainerComposition(has_plates=has_plates, has_vials=has_vials)
+
+    @property
+    def generation_counts(self) -> dict[int, int]:
+        """Return how many admitted samples each generation holds, ordered by generation."""
+        counts: Counter[int] = Counter()
+        for container in self.containers:
+            counts.update(container.generations[sample_id] for sample_id in container.included_ids)
+        return dict(sorted(counts.items()))
+
+    def restricted_to_generations(self, generations: Collection[int]) -> BfabricSampleSelection:
+        """Return a selection admitting only samples of the given generations."""
+        keep = set(generations)
+        return replace(
+            self,
+            containers=tuple(
+                replace(
+                    container,
+                    included_ids=frozenset(s for s in container.included_ids if container.generations[s] in keep),
+                    derived_ids=frozenset(s for s in container.derived_ids if container.generations[s] in keep),
+                )
+                for container in self.containers
+            ),
+        )
 
     @property
     def placement(self) -> SamplePlacement:
@@ -343,6 +392,7 @@ class BfabricHelper:
             storage_plates=storage_plates,
             included_ids=included_ids,
             derived_ids=derived_ids,
+            generations=_generations(table),
             ordered_plate_ids=order_items.plate_ids,
             fell_back=source is SampleSource.ORDER_ITEMS and order_items.is_empty,
         )

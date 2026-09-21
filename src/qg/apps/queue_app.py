@@ -597,6 +597,16 @@ def _(bfabric, sample_source, selected_orders):
 
 
 @app.cell
+def _(sample_selection, selected_orders):
+    # One entry per lineage generation among the admitted samples, all selected by default.
+    _counts = sample_selection.generation_counts if selected_orders else {}
+    _options = {shared.generation_label(g, n): g for g, n in _counts.items()}
+    generations_select = mo.ui.multiselect(options=_options, value=list(_options), label="Sample generations")
+    show_generations_picker = len(_options) > 1
+    return generations_select, show_generations_picker
+
+
+@app.cell
 def _(all_plates, selected_orders):
     # For now, plates_select only works with single order (first one)
     # TODO: Support per-order plate selection for multi-order queues
@@ -613,20 +623,22 @@ def _(all_plates, selected_orders):
 @app.cell
 def _(
     DEBUG_DUMP_DIR,
+    generations_select,
     plates_select,
     queue_type_field,
     sample_selection,
     selected_orders,
 ):
     _container_ids = [container_id for container_id, *_ in selected_orders]
+    _selection = sample_selection.restricted_to_generations(generations_select.value)
     if queue_type_field.value == "Plate":
         picked_plate_ids = frozenset(plates_select.value or ())
-        loaded_samples = sample_selection.plate_samples(
+        loaded_samples = _selection.plate_samples(
             plate_ids=({_container_ids[0]: picked_plate_ids} if _container_ids and picked_plate_ids else {}),
             dump_dir=DEBUG_DUMP_DIR,
         )
     else:
-        loaded_samples = sample_selection.vial_samples(dump_dir=DEBUG_DUMP_DIR)
+        loaded_samples = _selection.vial_samples(dump_dir=DEBUG_DUMP_DIR)
     full_samples_df = loaded_samples.table
     return full_samples_df, loaded_samples
 
@@ -857,7 +869,21 @@ def _(all_plates, plates_select, queue_type_field, selected_orders):
 
 
 @app.cell
-def _(name_suffix, sample_df, sample_mode_selector, samples_editor, samples_table, selected_orders):
+def _(generations_select, show_generations_picker):
+    generations_select if show_generations_picker else mo.md("")
+    return
+
+
+@app.cell
+def _(
+    generation_error,
+    name_suffix,
+    sample_df,
+    sample_mode_selector,
+    samples_editor,
+    samples_table,
+    selected_orders,
+):
     sample_selection_content = shared.render_sample_selection_content(
         sample_df=sample_df,
         selected_orders=selected_orders,
@@ -866,6 +892,9 @@ def _(name_suffix, sample_df, sample_mode_selector, samples_editor, samples_tabl
         samples_table=samples_table,
         samples_editor=samples_editor,
         subject_label="order(s)",
+        notice=(
+            mo.callout(mo.md(f"**Generation Error:** {generation_error}"), kind="danger") if generation_error else None
+        ),
     )
     return (sample_selection_content,)
 
@@ -952,7 +981,7 @@ def _(feeder_uploader, gather_workunit_parameters, positioned_queue_input, queue
 
 
 @app.cell
-def _(config, queue_input, queue_parameters):
+def _(config, get_seen_error, queue_input, queue_parameters, set_seen_error, set_tab):
     # Generate the queue exactly once so preview and download are identical
     # for the seed persisted in queue_input.
     _result = shared.generate_queue(config, queue_input, queue_parameters)
@@ -962,6 +991,12 @@ def _(config, queue_input, queue_parameters):
     positioned_queue_input = _result.positioned_input
     generation_error = _result.error
     output_file_extension = _result.file_extension
+    # A queue that does not fit the sampler is fixed in Edit Samples; jump there once
+    # per new error so the operator can still read the preview afterwards.
+    if generation_error != get_seen_error():
+        set_seen_error(generation_error)
+        if shared.is_capacity_error(generation_error):
+            set_tab(shared.EDIT_SAMPLES_TAB)
     return (
         generated_queue_df,
         generation_error,
@@ -1136,7 +1171,14 @@ def _(
 
 @app.cell
 def _():
-    tab_selector = shared.make_tab_selector()
+    get_tab, set_tab = mo.state("Queue Preview")
+    get_seen_error, set_seen_error = mo.state(None)
+    return get_seen_error, get_tab, set_seen_error, set_tab
+
+
+@app.cell
+def _(get_tab, set_tab):
+    tab_selector = shared.make_tab_selector(value=get_tab(), on_change=set_tab)
     return (tab_selector,)
 
 

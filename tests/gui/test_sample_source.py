@@ -60,6 +60,20 @@ def _sample_type_summary(page: Page, text: str) -> None:
     expect(page.get_by_text(text, exact=False)).to_be_visible()
 
 
+@when(parsers.parse('I deselect sample generation "{label}"'))
+def _deselect_generation(page: Page, label: str) -> None:
+    page.get_by_role("button", name="Sample generations").click()
+    option = page.get_by_role("option", name=label)
+    expect(option).to_be_visible(timeout=10_000)
+    option.click()
+    page.keyboard.press("Escape")
+
+
+@then("the sample generation picker is shown")
+def _generation_picker_shown(page: Page) -> None:
+    expect(page.locator("marimo-multiselect").filter(has_text="Sample generations")).to_have_count(1)
+
+
 @then(parsers.parse('the sample placement reads "{text}"'))
 def _placement_reads(page: Page, text: str) -> None:
     expect(page.get_by_text(text, exact=False)).to_be_visible(timeout=15_000)

@@ -36,6 +36,17 @@ Feature: Operators choose which B-Fabric samples enter the queue
     And the selection banner reports 2 samples
     And the sample placement reads "2 on injection plates (Plate) · 2 in storage boxes (Vial) · 1 not on any plate (Vial)"
     And the lineage callout reports 3 derived samples
+    And the sample generation picker is shown
+
+  Scenario: Deselecting a generation narrows the queue in Vial mode
+    Given an employee session launched from order 37170
+    When I open the queue app
+    And I set "Queue Type" to "Vial"
+    And I set "Sampler" to "Vanquish"
+    And I set "Instrument" to "EXPLORIS_3"
+    Then the selection banner reports 3 samples
+    When I deselect sample generation "Original (2)"
+    Then the selection banner reports 1 samples
 
   Scenario: Order items admit derived samples but not unordered container samples
     Given an employee session launched from order 37170
