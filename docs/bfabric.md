@@ -20,26 +20,30 @@ The core install (`pip install qg`) has no `bfabric`, `fastapi`, `starlette`, or
 ## Choose which B-Fabric samples to load
 
 The portal defaults **Sample source** to **Order items**. This includes samples
-referenced directly by billable order items and all samples on plates referenced
-by order items. It prevents container-level additions, such as facility QC
-samples that were not ordered, from entering the user-sample queue accidentally.
+referenced directly by billable order items, all samples on plates referenced by
+order items, and every sample derived from those (B-Fabric child samples, over
+any number of processing steps). It prevents container-level additions, such as
+facility QC samples that were not ordered, from entering the user-sample queue
+accidentally.
 
-Choose **All container samples** to include every sample in the container as a
-Vial queue. The sample table shows the B-Fabric sample-type counts for the active
-choice. **Order items** preserves the ordered samples' physical placement, so its
-Queue Type is Plate, Vial, or both. The selected sampler does not alter the Queue
-Type choices derived from the source.
+Choose **All container samples** to include every sample in the container. Both
+sources keep each sample's physical placement: plate-resident samples stay Plate
+samples with their grid position, standalone samples are Vials, so the Queue Type
+offered is Plate, Vial, or both for either source. The sample table shows the
+B-Fabric sample-type counts for the active choice. The selected sampler does not
+alter the Queue Type choices derived from the source.
+
+Below the source radio the app reports the **sample placement** of the admitted
+samples: how many sit on injection plates (run as Plate), how many sit only in
+B-Fabric Storage plates such as extract boxes, and how many are on no plate at
+all (both run as Vial). Storage plates never appear in the plate picker. When
+**Order items** admitted samples through lineage, an information callout gives
+the number of derived (child) samples.
 
 Projects and orders without order items fall back to all container samples. The
 app displays an information callout whenever this fallback applies. In a mixed
 multi-container selection, fallback is evaluated independently for each
 container.
-
-A fallback still preserves a container's plate placement: plate-resident
-samples remain Plate samples (with their grid position) rather than being
-flattened into a Vial queue, so a project container holding plates still offers
-a Plate queue. Only the explicit **All container samples** source presents
-everything as a Vial queue.
 
 ## Run the portal app (dev)
 

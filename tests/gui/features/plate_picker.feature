@@ -1,7 +1,7 @@
 Feature: The plate picker appears only where it has an effect
   As a queue-app operator
   I want the plate-subset picker shown only in Plate mode, plus a heads-up when
-  an order mixes plates and standalone samples
+  an order mixes injection plates and vial samples
   So that I am not misled by a control that silently does nothing in Vial mode.
 
   # The picker only affects the Plate load path; in Vial mode get_samples ignores

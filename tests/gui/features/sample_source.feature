@@ -13,13 +13,41 @@ Feature: Operators choose which B-Fabric samples enter the queue
     Then the selection banner reports 6 samples
     And the sample type summary reads "6 × Unspecified"
 
-  Scenario: All container samples present a plate order as vials
+  Scenario: All container samples keep a plate order's placement
     Given the queue app is open as an employee
     When I set "Tech Area" to "Proteomics"
     And I select order 37180
     Then the "Queue Type" dropdown shows "Plate"
     When I choose all container samples
-    Then the "Queue Type" dropdown shows "Vial"
+    Then the "Queue Type" dropdown shows "Plate"
+
+  # 37170 mirrors an order whose processed (child) samples sit on their own plate:
+  # ordered samples 2151/2152 on a Storage plate, their children on plate 50216,
+  # a grandchild off-plate, plus one unordered facility QC sample. The order is
+  # opened as the launching order; its ID sorts below the Metabolomics orders
+  # already on page 1 of the 5-row project table, so those stay in place.
+  Scenario: Derived samples on a plate are offered as a Plate queue under order items
+    Given an employee session launched from order 37170
+    When I open the queue app
+    And I set "Queue Type" to "Plate"
+    And I set "Sampler" to "Vanquish"
+    And I set "Instrument" to "EXPLORIS_3"
+    Then the plate picker is shown
+    And the selection banner reports 2 samples
+    And the sample placement reads "2 on injection plates (Plate) · 2 in storage boxes (Vial) · 1 not on any plate (Vial)"
+    And the lineage callout reports 3 derived samples
+
+  Scenario: Order items admit derived samples but not unordered container samples
+    Given an employee session launched from order 37170
+    When I open the queue app
+    And I set "Queue Type" to "Vial"
+    And I set "Sampler" to "Vanquish"
+    And I set "Instrument" to "EXPLORIS_3"
+    Then the selection banner reports 3 samples
+    When I choose all container samples
+    Then the selection banner reports 4 samples
+    And the sample placement reads "2 on injection plates (Plate) · 2 in storage boxes (Vial) · 2 not on any plate (Vial)"
+    And no lineage callout is shown
 
   Scenario: The project fallback notice belongs only to the order-item source
     Given the queue app is open as an employee

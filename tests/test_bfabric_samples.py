@@ -11,8 +11,9 @@ from bfabric.entities.core.uri import EntityUri  # noqa: E402
 
 from qg.bfabric_samples import (  # noqa: E402
     BfabricHelper,
+    BfabricSampleSelection,
     ContainerComposition,
-    OrderItemSamplesSelection,
+    SamplePlacement,
     SampleSource,
 )
 from qg.sample_rows import PlateSampleRow, PlateSampleTable, VialSampleRow, VialSampleTable  # noqa: E402
@@ -69,6 +70,7 @@ def _sample(
     name: str | None = None,
     grid_position: str | None = None,
     sample_type: str | None = "Biological Sample",
+    parent_id: int | None = None,
 ) -> dict:
     row = {
         "id": sample_id,
@@ -80,6 +82,8 @@ def _sample(
         row["_gridposition"] = grid_position
     if sample_type is not None:
         row["type"] = sample_type
+    if parent_id is not None:
+        row["parent"] = [{"classname": "sample", "id": parent_id}]
     return row
 
 
@@ -148,35 +152,39 @@ def test_storage_plates_are_excluded_and_their_samples_become_vials() -> None:
     assert selection.plate_samples(plate_ids={}).table.is_empty()
 
 
-def test_container_source_always_loads_every_sample_as_vials() -> None:
+def test_container_source_keeps_plate_placement() -> None:
     client = _client(
         samples={10: [_sample(1), _sample(2)]},
         plates={10: {_uri("plate", 20): _Plate([_sample(1, grid_position="A1")])}},
     )
     selection = BfabricHelper(client).load_sample_selection([10], source=SampleSource.CONTAINER)
 
-    assert selection.composition == ContainerComposition(has_plates=False, has_vials=True)
-    assert selection.vial_samples().table["sample_id"].to_list() == [1, 2]
+    assert selection.composition == ContainerComposition(has_plates=True, has_vials=True)
+    assert {uri.components.entity_id for uri in selection.plates[10]} == {20}
+    assert selection.vial_samples().table["sample_id"].to_list() == [2]
+    assert selection.plate_samples(plate_ids={}).table["sample_id"].to_list() == [1]
+    assert selection.fallback_container_ids == ()
 
 
 def test_get_order_items_resolves_sample_and_plate_references() -> None:
     client = _client(
-        samples={},
+        samples={10: [_sample(101), _sample(5), _sample(6)]},
         order_items={
             10: [
                 {"id": 1, "sample": {"id": 101}},
                 {"id": 2, "plate": {"id": 202}},
             ]
         },
+        plates={10: {_uri("plate", 202): _Plate([_sample(5, grid_position="A1")])}},
     )
 
     selection = BfabricHelper(client).load_sample_selection([10], source=SampleSource.ORDER_ITEMS)
-    assert isinstance(selection, OrderItemSamplesSelection)
-    refs = selection.containers[0].order_items
+    assert isinstance(selection, BfabricSampleSelection)
+    container = selection.containers[0]
 
-    assert refs.sample_ids == frozenset({101})
-    assert refs.plate_ids == frozenset({202})
-    assert not refs.is_empty
+    assert container.included_ids == frozenset({101, 5})
+    assert container.ordered_plate_ids == frozenset({202})
+    assert not container.fell_back
 
 
 @pytest.mark.parametrize(
@@ -235,10 +243,13 @@ def test_empty_order_items_fallback_preserves_plates() -> None:
     assert plates["grid_position"].to_list() == ["A1"]
     assert plates["plate_id"].to_list() == [20]
 
-    # The explicit "all container samples" source still deliberately presents
-    # everything as vials (unchanged contract).
-    container_vials = helper.load_sample_selection([10], source=SampleSource.CONTAINER).vial_samples().table
-    assert set(container_vials["sample_id"].to_list()) == {1, 2}
+    # The explicit "all container samples" source yields the same placement
+    # without reporting a fallback.
+    container_selection = helper.load_sample_selection([10], source=SampleSource.CONTAINER)
+    assert container_selection.vial_samples().table["sample_id"].to_list() == [2]
+    assert container_selection.plate_samples(plate_ids={}).table["sample_id"].to_list() == [1]
+    assert selection.fallback_container_ids == (10,)
+    assert container_selection.fallback_container_ids == ()
 
 
 def test_empty_order_items_fallback_offers_plates_when_plates_present() -> None:
@@ -379,7 +390,7 @@ def test_order_item_selection_reads_each_endpoint_once_per_container() -> None:
     assert client.reader.query.call_count == 2
 
 
-def test_container_selection_reads_only_samples() -> None:
+def test_container_selection_reads_samples_and_plates_but_no_order_items() -> None:
     client = _client(
         samples={10: [_sample(1)]},
         plates={10: {_uri("plate", 20): _Plate([_sample(1, grid_position="A1")])}},
@@ -388,7 +399,8 @@ def test_container_selection_reads_only_samples() -> None:
     selection = BfabricHelper(client).load_sample_selection([10], source=SampleSource.CONTAINER)
 
     assert client.read.call_count == 1
-    assert client.reader.query.call_count == 0
+    assert client.read.call_args.args[0] == "sample"
+    assert client.reader.query.call_count == 1
 
     _ = selection.plates
     _ = selection.composition
@@ -397,4 +409,99 @@ def test_container_selection_reads_only_samples() -> None:
     selection.plate_samples(plate_ids={})
 
     assert client.read.call_count == 1
-    assert client.reader.query.call_count == 0
+    assert client.reader.query.call_count == 1
+
+
+def test_container_samples_are_read_with_their_parents() -> None:
+    client = _client(samples={10: [_sample(1)]})
+
+    BfabricHelper(client).load_sample_selection([10], source=SampleSource.CONTAINER)
+
+    assert client.read.call_args.args[1] == {"containerid": 10, "includeparents": True}
+
+
+def test_order_items_admit_derived_samples_across_generations() -> None:
+    """A child plate is selectable when its samples derive from ordered samples.
+
+    Sample 1 is ordered; 2 derives from 1 and 3 from 2. Sample 9 is an unordered
+    container sample and 8 derives from it, so neither enters the queue.
+    """
+    client = _client(
+        samples={
+            10: [
+                _sample(1),
+                _sample(2, parent_id=1),
+                _sample(3, parent_id=2),
+                _sample(9),
+                _sample(8, parent_id=9),
+            ]
+        },
+        order_items={10: [{"id": 1, "sample": {"id": 1}}]},
+        plates={
+            10: {
+                _uri("plate", 20): _Plate([_sample(2, grid_position="A1")]),
+                _uri("plate", 21): _Plate([_sample(8, grid_position="A1")]),
+            }
+        },
+    )
+    selection = BfabricHelper(client).load_sample_selection([10], source=SampleSource.ORDER_ITEMS)
+
+    assert selection.containers[0].included_ids == frozenset({1, 2, 3})
+    assert {uri.components.entity_id for uri in selection.plates[10]} == {20}
+    assert selection.composition == ContainerComposition(has_plates=True, has_vials=True)
+    assert selection.vial_samples().table["sample_id"].to_list() == [1, 3]
+    assert selection.plate_samples(plate_ids={}).table["sample_id"].to_list() == [2]
+
+
+def test_derived_samples_of_an_ordered_plate_are_admitted() -> None:
+    client = _client(
+        samples={10: [_sample(1), _sample(2, parent_id=1)]},
+        order_items={10: [{"id": 1, "plate": {"id": 20}}]},
+        plates={10: {_uri("plate", 20): _Plate([_sample(1, grid_position="A1")])}},
+    )
+    selection = BfabricHelper(client).load_sample_selection([10], source=SampleSource.ORDER_ITEMS)
+
+    assert selection.containers[0].included_ids == frozenset({1, 2})
+    assert selection.vial_samples().table["sample_id"].to_list() == [2]
+
+
+def test_derived_sample_with_parent_outside_the_container_stays_excluded() -> None:
+    client = _client(
+        samples={10: [_sample(1), _sample(2, parent_id=999)]},
+        order_items={10: [{"id": 1, "sample": {"id": 1}}]},
+    )
+    selection = BfabricHelper(client).load_sample_selection([10], source=SampleSource.ORDER_ITEMS)
+
+    assert selection.containers[0].included_ids == frozenset({1})
+
+
+def test_placement_counts_injection_plate_storage_box_loose_and_derived_samples() -> None:
+    """Ordered samples 1, 2 sit in a storage box; child 3 is on an injection plate; child 4 is loose."""
+    client = _client(
+        samples={
+            10: [
+                _sample(1),
+                _sample(2),
+                _sample(3, parent_id=1),
+                _sample(4, parent_id=2),
+                _sample(9),
+            ]
+        },
+        order_items={10: [{"id": 1, "sample": {"id": 1}}, {"id": 2, "sample": {"id": 2}}]},
+        plates={
+            10: {
+                _uri("plate", 20): _Plate(
+                    [_sample(1, grid_position="A1"), _sample(2, grid_position="A2")], plate_type="Storage"
+                ),
+                _uri("plate", 21): _Plate([_sample(3, grid_position="A1")]),
+            }
+        },
+    )
+    helper = BfabricHelper(client)
+
+    ordered = helper.load_sample_selection([10], source=SampleSource.ORDER_ITEMS)
+    everything = helper.load_sample_selection([10], source=SampleSource.CONTAINER)
+
+    assert ordered.placement == SamplePlacement(on_plate=1, in_storage=2, loose=1, derived=2)
+    assert everything.placement == SamplePlacement(on_plate=1, in_storage=2, loose=2, derived=0)
+    assert ordered.vial_samples().table["sample_id"].to_list() == [1, 2, 4]

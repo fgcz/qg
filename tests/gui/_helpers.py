@@ -265,7 +265,7 @@ def assert_danger(page: Page, text: str) -> None:
 # The plate-subset picker is the only `mo.ui.multiselect` in the app (queue_app.py:585),
 # and it renders in the main area (not the sidebar), so a plain element count is an
 # unambiguous shown/hidden probe — its display cell renders `mo.md("")` when hidden.
-_MIXED_NOTE_TEXT = "both plate-resident and standalone"
+_MIXED_NOTE_TEXT = "both injection-plate samples (Plate) and storage-box or loose samples (Vial)"
 
 
 def expect_plate_picker_visible(page: Page) -> None:

@@ -44,6 +44,9 @@ class OrderItemRefs(NamedTuple):
         return not self.sample_ids and not self.plate_ids
 
 
+NO_ORDER_ITEMS = OrderItemRefs(frozenset(), frozenset())
+
+
 class ContainerComposition(NamedTuple):
     """Whether selected containers contribute plate samples, vials, or both."""
 
@@ -51,18 +54,27 @@ class ContainerComposition(NamedTuple):
     has_vials: bool
 
 
-@dataclass(frozen=True, slots=True)
-class _ContainerSamples:
-    container_id: int
-    table: pl.DataFrame
+class SamplePlacement(NamedTuple):
+    """How many admitted samples sit where, and how many entered through lineage."""
+
+    on_plate: int
+    in_storage: int
+    loose: int
+    derived: int
 
 
 @dataclass(frozen=True, slots=True)
-class _OrderContainerSamples:
+class _ContainerSelection:
+    """One container's samples and plates with the sample IDs the source admits."""
+
     container_id: int
     table: pl.DataFrame
     plates: Mapping[EntityUri, Plate]
-    order_items: OrderItemRefs
+    storage_plates: Mapping[EntityUri, Plate]
+    included_ids: frozenset[int]
+    derived_ids: frozenset[int]
+    ordered_plate_ids: frozenset[int]
+    fell_back: bool
 
 
 def _is_storage_plate(plate: Plate) -> bool:
@@ -92,10 +104,53 @@ def _sample_ids(table: pl.DataFrame) -> set[int]:
     return set(table["id"].to_list())
 
 
+def _parent_ids(table: pl.DataFrame) -> dict[int, list[int]]:
+    """Return each container sample's parent sample IDs from the ``parent`` relation."""
+    if table.is_empty() or "parent" not in table.columns:
+        return {}
+    return {
+        row["id"]: [int(parent["id"]) for parent in row["parent"] or ()]
+        for row in table.select("id", "parent").iter_rows(named=True)
+    }
+
+
+def _with_descendants(sample_ids: set[int], parent_ids: Mapping[int, Sequence[int]]) -> set[int]:
+    """Extend a sample set with every sample derived, over any number of steps, from a member."""
+    included = set(sample_ids)
+    while True:
+        derived = {
+            sample_id
+            for sample_id, parents in parent_ids.items()
+            if sample_id not in included and not included.isdisjoint(parents)
+        }
+        if not derived:
+            return included
+        included |= derived
+
+
+def _ordered_sample_ids(
+    table: pl.DataFrame,
+    plates: Mapping[EntityUri, Plate],
+    order_items: OrderItemRefs,
+) -> tuple[frozenset[int], frozenset[int]]:
+    """Return the admitted container samples and the subset that entered through lineage.
+
+    Order items admit the samples they reference, the residents of the plates they
+    reference, and every sample derived from those. Without order items every
+    container sample is admitted and nothing counts as derived.
+    """
+    container_ids = _sample_ids(table)
+    if order_items.is_empty:
+        return frozenset(container_ids), frozenset()
+    referenced_plates = {uri: plate for uri, plate in plates.items() if _plate_id(uri) in order_items.plate_ids}
+    direct_ids = set(order_items.sample_ids) | _referenced_sample_ids(referenced_plates)
+    included_ids = _with_descendants(direct_ids, _parent_ids(table)) & container_ids
+    return frozenset(included_ids), frozenset(included_ids - direct_ids)
+
+
 def _vial_table(
-    container: _ContainerSamples,
+    container: _ContainerSelection,
     *,
-    included_ids: set[int],
     on_plate: set[int],
 ) -> VialSampleTable:
     rows = [
@@ -108,7 +163,7 @@ def _vial_table(
             sample_type=row.get("type"),
         )
         for row in container.table.iter_rows(named=True)
-        if row["id"] in included_ids and row["id"] not in on_plate
+        if row["id"] in container.included_ids and row["id"] not in on_plate
     ]
     return VialSampleTable.from_rows(rows)
 
@@ -123,111 +178,59 @@ def _dump(table: pl.DataFrame, dump_dir: Path | None, *, mode: str) -> None:
 
 
 @dataclass(frozen=True, slots=True)
-class AllContainerSamplesSelection:
-    """Loaded container samples presented as a Vial queue."""
+class BfabricSampleSelection:
+    """Loaded container samples with their physical Plate/Vial placement."""
 
-    containers: tuple[_ContainerSamples, ...]
-
-    @property
-    def plates(self) -> dict[int, Mapping[EntityUri, Plate]]:
-        """Return no selectable plates because this source presents all rows as vials."""
-        return {container.container_id: {} for container in self.containers}
-
-    @property
-    def composition(self) -> ContainerComposition:
-        """Return the Vial-only composition of the loaded containers."""
-        return ContainerComposition(
-            has_plates=False,
-            has_vials=any(not container.table.is_empty() for container in self.containers),
-        )
-
-    @property
-    def fallback_container_ids(self) -> tuple[int, ...]:
-        """Return no fallbacks because this source explicitly requests container samples."""
-        return ()
-
-    def vial_samples(self, *, dump_dir: Path | None = None) -> VialSampleTable:
-        """Return every loaded container sample as a vial."""
-        tables = [
-            _vial_table(container, included_ids=_sample_ids(container.table), on_plate=set())
-            for container in self.containers
-        ]
-        result = VialSampleTable.concat(tables)
-        _dump(result.table, dump_dir, mode="vials")
-        return result
-
-    def plate_samples(
-        self,
-        *,
-        plate_ids: Mapping[int, frozenset[int]],  # noqa: ARG002
-        dump_dir: Path | None = None,
-    ) -> PlateSampleTable:
-        """Return no plate rows because this source always presents samples as vials."""
-        result = PlateSampleTable.from_rows([])
-        _dump(result.table, dump_dir, mode="plates")
-        return result
-
-
-@dataclass(frozen=True, slots=True)
-class OrderItemSamplesSelection:
-    """Loaded order-item samples with their physical Plate/Vial placement."""
-
-    containers: tuple[_OrderContainerSamples, ...]
+    containers: tuple[_ContainerSelection, ...]
     restrict_plate_samples_to_container: bool
 
     @staticmethod
-    def _included_ids(container: _OrderContainerSamples) -> set[int]:
-        container_ids = _sample_ids(container.table)
-        if container.order_items.is_empty:
-            return container_ids
-        referenced_plates = {
-            uri: plate for uri, plate in container.plates.items() if _plate_id(uri) in container.order_items.plate_ids
-        }
-        ordered_ids = set(container.order_items.sample_ids) | _referenced_sample_ids(referenced_plates)
-        return ordered_ids & container_ids
-
-    @staticmethod
-    def _selectable_plates(container: _OrderContainerSamples) -> dict[EntityUri, Plate]:
-        if container.order_items.is_empty:
-            return dict(container.plates)
+    def _selectable_plates(container: _ContainerSelection) -> dict[EntityUri, Plate]:
         return {
             uri: plate
             for uri, plate in container.plates.items()
-            if _plate_id(uri) in container.order_items.plate_ids
-            or bool(_referenced_sample_ids({uri: plate}) & set(container.order_items.sample_ids))
+            if _plate_id(uri) in container.ordered_plate_ids
+            or not container.included_ids.isdisjoint(_referenced_sample_ids({uri: plate}))
         }
 
     @property
     def plates(self) -> dict[int, Mapping[EntityUri, Plate]]:
-        """Return selectable order-item plates by container."""
+        """Return selectable plates by container."""
         return {container.container_id: self._selectable_plates(container) for container in self.containers}
 
     @property
     def composition(self) -> ContainerComposition:
-        """Return whether the loaded order items contribute plates, vials, or both."""
+        """Return whether the loaded samples contribute plates, vials, or both."""
         has_plates = False
         has_vials = False
         for container in self.containers:
-            included_ids = self._included_ids(container)
             plate_ids = _referenced_sample_ids(container.plates)
-            has_plates = has_plates or bool(included_ids & plate_ids)
-            has_vials = has_vials or bool(included_ids - plate_ids)
+            has_plates = has_plates or bool(container.included_ids & plate_ids)
+            has_vials = has_vials or bool(container.included_ids - plate_ids)
         return ContainerComposition(has_plates=has_plates, has_vials=has_vials)
+
+    @property
+    def placement(self) -> SamplePlacement:
+        """Return where the admitted samples sit and how many entered through lineage."""
+        on_plate = in_storage = loose = derived = 0
+        for container in self.containers:
+            plate_ids = container.included_ids & _referenced_sample_ids(container.plates)
+            storage_ids = (container.included_ids & _referenced_sample_ids(container.storage_plates)) - plate_ids
+            on_plate += len(plate_ids)
+            in_storage += len(storage_ids)
+            loose += len(container.included_ids - plate_ids - storage_ids)
+            derived += len(container.derived_ids)
+        return SamplePlacement(on_plate=on_plate, in_storage=in_storage, loose=loose, derived=derived)
 
     @property
     def fallback_container_ids(self) -> tuple[int, ...]:
         """Return containers whose empty order items fall back to container samples."""
-        return tuple(container.container_id for container in self.containers if container.order_items.is_empty)
+        return tuple(container.container_id for container in self.containers if container.fell_back)
 
     def vial_samples(self, *, dump_dir: Path | None = None) -> VialSampleTable:
         """Return included off-plate samples as vials."""
         tables = [
-            _vial_table(
-                _ContainerSamples(container.container_id, container.table),
-                included_ids=self._included_ids(container),
-                on_plate=_referenced_sample_ids(container.plates),
-            )
-            for container in self.containers
+            _vial_table(container, on_plate=_referenced_sample_ids(container.plates)) for container in self.containers
         ]
         result = VialSampleTable.concat(tables)
         _dump(result.table, dump_dir, mode="vials")
@@ -243,7 +246,6 @@ class OrderItemSamplesSelection:
         tables: list[PlateSampleTable] = []
         for container in self.containers:
             rows: list[PlateSampleRow] = []
-            included_ids = self._included_ids(container)
             allowed_ids = _sample_ids(container.table) if self.restrict_plate_samples_to_container else None
             selected_plate_ids = plate_ids.get(container.container_id)
             for uri, plate in self._selectable_plates(container).items():
@@ -253,7 +255,7 @@ class OrderItemSamplesSelection:
                 samples = cast(Sequence[dict[str, Any]], plate.refs.sample)
                 for sample in samples:
                     sample_id = int(sample["id"])
-                    if sample_id not in included_ids:
+                    if sample_id not in container.included_ids:
                         continue
                     if allowed_ids is not None and sample_id not in allowed_ids:
                         continue
@@ -275,9 +277,6 @@ class OrderItemSamplesSelection:
         result = PlateSampleTable.concat(tables)
         _dump(result.table, dump_dir, mode="plates")
         return result
-
-
-BfabricSampleSelection = AllContainerSamplesSelection | OrderItemSamplesSelection
 
 
 class BfabricHelper:
@@ -325,33 +324,35 @@ class BfabricHelper:
         source: SampleSource,
     ) -> BfabricSampleSelection:
         """Load one bounded selection for network-free sample derivation."""
-        if source is SampleSource.CONTAINER:
-            return AllContainerSamplesSelection(
-                tuple(
-                    _ContainerSamples(container_id, self._read_container_samples(container_id))
-                    for container_id in container_ids
-                )
-            )
-        return OrderItemSamplesSelection(
-            containers=tuple(
-                _OrderContainerSamples(
-                    container_id=container_id,
-                    table=self._read_container_samples(container_id),
-                    plates=self._get_container_plates(container_id),
-                    order_items=self._read_order_items(container_id),
-                )
-                for container_id in container_ids
-            ),
+        return BfabricSampleSelection(
+            containers=tuple(self._load_container(container_id, source) for container_id in container_ids),
             restrict_plate_samples_to_container=self._restrict_to_container_id is not None,
         )
 
-    def _get_container_plates(self, container_id: int) -> dict[EntityUri, Plate]:
-        plates = self.client.reader.query(
-            "plate",
-            {"containerid": container_id},
-            expected_type=Plate,
+    def _load_container(self, container_id: int, source: SampleSource) -> _ContainerSelection:
+        table = self._read_container_samples(container_id)
+        all_plates = self._read_container_plates(container_id)
+        plates = {uri: plate for uri, plate in all_plates.items() if not _is_storage_plate(plate)}
+        storage_plates = {uri: plate for uri, plate in all_plates.items() if _is_storage_plate(plate)}
+        order_items = self._read_order_items(container_id) if source is SampleSource.ORDER_ITEMS else NO_ORDER_ITEMS
+        included_ids, derived_ids = _ordered_sample_ids(table, plates, order_items)
+        return _ContainerSelection(
+            container_id=container_id,
+            table=table,
+            plates=plates,
+            storage_plates=storage_plates,
+            included_ids=included_ids,
+            derived_ids=derived_ids,
+            ordered_plate_ids=order_items.plate_ids,
+            fell_back=source is SampleSource.ORDER_ITEMS and order_items.is_empty,
         )
-        return {uri: plate for uri, plate in plates.items() if not _is_storage_plate(plate)}
+
+    def _read_container_plates(self, container_id: int) -> dict[EntityUri, Plate]:
+        return self.client.reader.query("plate", {"containerid": container_id}, expected_type=Plate)
 
     def _read_container_samples(self, container_id: int) -> pl.DataFrame:
-        return self.client.read("sample", {"containerid": container_id}, max_results=None).to_polars(flatten=True)
+        return self.client.read(
+            "sample",
+            {"containerid": container_id, "includeparents": True},
+            max_results=None,
+        ).to_polars(flatten=True)

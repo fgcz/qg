@@ -3,8 +3,8 @@ Feature: Queue Type offered follows the selected B-Fabric sample source
   I want the Queue Type choice to reflect what the selected source produces
   So that Plate and Vial choices are not hidden by unrelated GUI selections.
 
-  # Order items preserve plate/vial placement. All container samples are exposed
-  # as Vial. Queue Type then limits Sampler and Instrument to valid choices.
+  # Both sample sources preserve plate/vial placement; they differ only in which
+  # samples they admit. Queue Type then limits Sampler and Instrument to valid choices.
 
   Scenario: A plate-only order can only be run as a Plate queue
     Given the queue app is open as an employee

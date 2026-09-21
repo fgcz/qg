@@ -674,7 +674,7 @@ class TestMakeMixedOrderNote:
 
     def test_mixed_returns_red_note(self):
         note = make_mixed_order_note(has_plates=True, has_vials=True)
-        assert "plate-resident and standalone" in note
+        assert "injection-plate samples (Plate) and storage-box or loose samples (Vial)" in note
         assert "color:crimson" in note
 
     @pytest.mark.parametrize(

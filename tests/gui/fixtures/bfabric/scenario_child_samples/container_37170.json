@@ -1,0 +1,10 @@
+[
+  {
+    "id": 37170,
+    "name": "Child Sample Container",
+    "billingcustomer": "Dr. Test",
+    "countsamples": 6,
+    "status": "Active",
+    "technology": ["Metabolomics/Biophysics"]
+  }
+]

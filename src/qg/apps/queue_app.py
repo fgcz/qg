@@ -642,7 +642,24 @@ def _(full_samples_df, sample_selection, selected_orders):
         f"{row['count']} × {row['sample_type'] or 'Unspecified'}" for row in type_counts.to_dicts()
     )
     no_order_items = sample_selection.fallback_container_ids
-    source_notes = [mo.md(f"**Sample types:** {type_summary or 'Unspecified'}")] if selected_orders else []
+    source_notes = []
+    if selected_orders:
+        _placement = sample_selection.placement
+        source_notes.append(mo.md(f"**Sample types:** {type_summary or 'Unspecified'}"))
+        source_notes.append(
+            mo.md(
+                f"**Sample placement:** {_placement.on_plate} on injection plates (Plate) · "
+                f"{_placement.in_storage} in storage boxes (Vial) · "
+                f"{_placement.loose} not on any plate (Vial)"
+            )
+        )
+        if _placement.derived:
+            source_notes.append(
+                mo.callout(
+                    mo.md(f"{_placement.derived} derived (child) samples included via lineage from ordered samples."),
+                    kind="info",
+                )
+            )
     if no_order_items:
         ids = ", ".join(str(container_id) for container_id in no_order_items)
         source_notes.append(

@@ -1,0 +1,8 @@
+[
+  {"id": 2151, "name": "Child_P1", "tubeid": "37170/1"},
+  {"id": 2152, "name": "Child_P2", "tubeid": "37170/2"},
+  {"id": 2161, "name": "Child_P1_child", "tubeid": "37170/1_C", "parent": [{"classname": "sample", "id": 2151}]},
+  {"id": 2162, "name": "Child_P2_child", "tubeid": "37170/2_C", "parent": [{"classname": "sample", "id": 2152}]},
+  {"id": 2171, "name": "Child_P1_pellet", "tubeid": "37170/1_P", "parent": [{"classname": "sample", "id": 2161}]},
+  {"id": 2199, "name": "FacilityQC", "tubeid": "37170/QC", "type": "Quality Control Sample"}
+]

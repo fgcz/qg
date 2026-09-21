@@ -1,0 +1,17 @@
+[
+  {
+    "id": 50215,
+    "type": "Storage",
+    "samples": [
+      {"id": 2151, "name": "Child_P1", "_position": 1, "_gridposition": "A1"},
+      {"id": 2152, "name": "Child_P2", "_position": 2, "_gridposition": "A2"}
+    ]
+  },
+  {
+    "id": 50216,
+    "samples": [
+      {"id": 2161, "name": "Child_P1_child", "_position": 1, "_gridposition": "A1"},
+      {"id": 2162, "name": "Child_P2_child", "_position": 2, "_gridposition": "A2"}
+    ]
+  }
+]

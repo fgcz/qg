@@ -844,13 +844,16 @@ def make_source_queue_type_field(
 
 
 def make_mixed_order_note(*, has_plates: bool, has_vials: bool) -> str:
-    """Inline red markdown note when an order holds both plate-resident and standalone
-    (vial) samples; empty string otherwise.
+    """Inline red markdown note when an order holds both injection-plate samples and
+    samples that would run as vials (storage-box or loose); empty string otherwise.
 
     Portal-only in effect: the local app derives the two flags as mutually exclusive.
     """
     if has_plates and has_vials:
-        return ' <span style="color:crimson">— contains both plate-resident and standalone (vial) samples</span>'
+        return (
+            ' <span style="color:crimson">— contains both injection-plate samples (Plate) '
+            "and storage-box or loose samples (Vial)</span>"
+        )
     return ""
 
 

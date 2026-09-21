@@ -9,3 +9,4 @@ Container ID,Container Name,Project ID,PI,Samples,Status,Area
 37200,Many Plates Test Container,99999,Dr. Test,10,Active,Proteomics
 37210,Project Plate Container,99999,Dr. Test,4,Active,Metabolomics/Biophysics
 99999,Empty Container,99999,Dr. Test,0,Active,Proteomics
+37170,Child Sample Container,99999,Dr. Test,6,Active,Metabolomics/Biophysics
