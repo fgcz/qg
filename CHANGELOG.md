@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-09-21
+
 ### Fixed
 - Portal **Order items** now include samples derived from ordered samples (B-Fabric child samples), so a Metabolomics plate holding only child samples can be selected for a Plate queue.
 - Portal **All container samples** keeps plate placement instead of presenting every sample as a Vial.
