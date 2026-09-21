@@ -1417,7 +1417,7 @@ wheels = [
 
 [[package]]
 name = "ms-qg"
-version = "0.12.2"
+version = "0.13.0"
 source = { editable = "." }
 dependencies = [
     { name = "cyclopts" },
@@ -1961,7 +1961,7 @@ wheels = [
 
 [package.optional-dependencies]
 rtcompat = [
-    { name = "polars-runtime-compat", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
+    { name = "polars-runtime-compat" },
 ]
 
 [[package]]
