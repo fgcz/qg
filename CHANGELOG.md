@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- Metabolomics queue patterns: the former `standard` pattern (periodic dilution-series blocks) is renamed `standardextended`; a new `standard` pattern keeps the start dilution series but has no dilution blocks in the middle of the queue.
+
 ## [0.13.0] - 2026-09-21
 
 ### Fixed
