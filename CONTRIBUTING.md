@@ -1,7 +1,7 @@
 # Contributing
 
 Thank you for improving qg. This repository uses `uv` for environment
-management and MkDocs for documentation.
+management and Zensical for documentation.
 
 ## Development Setup
 

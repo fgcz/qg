@@ -39,7 +39,7 @@ release-test:
     - if: $CI_PIPELINE_SOURCE =~ /^(web|api)$/
 
 pages:
-  # Builds the MkDocs Material site into public/ and publishes it via GitLab
+  # Builds the Zensical site into public/ and publishes it via GitLab
   # Pages. Requires GitLab Pages to be enabled for this project
   # (Settings -> Pages) — otherwise the job builds the artifact but nothing is
   # served.
@@ -49,7 +49,7 @@ pages:
     - docker
   script:
     - uv sync --frozen --only-group docs
-    - uv run --no-sync mkdocs build --strict
+    - uv run --no-sync zensical build --clean --strict
   artifacts:
     paths:
       - public

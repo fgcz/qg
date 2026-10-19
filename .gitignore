@@ -36,7 +36,7 @@ coverage.xml
 .qg_settings.toml
 docs/*docx
 
-# MkDocs build output
+# Zensical build output
 /public/
 /site/
 

@@ -600,7 +600,7 @@ def test_sampler_assigns_positions(config):
 
 ## Documentation (`docs/`)
 
-Built into an MkDocs Material site (`mkdocs.yml`) and published to GitLab Pages
+Built into a Zensical site (config `mkdocs.yml`) and published to GitLab Pages
 by the CI `pages` job. Organized by audience:
 
 | File | Purpose |

@@ -29,7 +29,7 @@ jobs:
       - name: Install Python
         run: uv python install
 
-      # Docs-only: mkdocs-material lives in the `docs` group and the site needs
+      # Docs-only: zensical lives in the `docs` group and the site needs
       # no plugins that import the package, so we install just that group.
       - name: Install docs dependencies
         run: uv sync --frozen --only-group docs
@@ -38,7 +38,7 @@ jobs:
         uses: actions/configure-pages@v6
 
       - name: Build docs
-        run: uv run --no-sync mkdocs build --strict
+        run: uv run --no-sync zensical build --clean --strict
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5

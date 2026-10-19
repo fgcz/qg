@@ -1,6 +1,6 @@
 [project]
 name = "ms-qg"
-version = "0.13.1"
+version = "0.13.2"
 description = "Queue generation system for mass spectrometry instruments. Generates sample queues with QC injections for XCalibur, Chronos, and Hystar, with B-Fabric LIMS integration for sample loading and workunit upload."
 readme = "README.md"
 license = "Apache-2.0"
@@ -94,7 +94,7 @@ dev = [
     "xlsxwriter>=3.2",
 ]
 docs = [
-    "mkdocs-material>=9.5",
+    "zensical==0.0.43",
     # Figure-reproduction scripts under docs/examples/figures/. matplotlib for the
     # analytical figures; kaleido + pillow for the Plotly static export in
     # make_plate_figure.py. (playwright for the screenshot capture lives in `dev`.)

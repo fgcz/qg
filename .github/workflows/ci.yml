@@ -144,7 +144,7 @@ jobs:
       - name: Sync docs environment
         run: uv sync --frozen --only-group docs
       - name: Build documentation (strict)
-        run: uv run --no-sync mkdocs build --strict
+        run: uv run --no-sync zensical build --clean --strict
 
   # Keep the checked-in Python sources aligned with the repository's Pyright
   # configuration. This mirrors the local pre-commit hook.

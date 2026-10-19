@@ -100,9 +100,9 @@ repos:
         pass_filenames: false
         stages: [manual]
 
-      - id: mkdocs-strict
+      - id: zensical-strict
         name: strict documentation build
-        entry: uv run --frozen --group docs mkdocs build --strict
+        entry: uv run --frozen --group docs zensical build --clean --strict
         language: system
         always_run: true
         pass_filenames: false
