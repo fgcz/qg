@@ -51,7 +51,7 @@ start = []
 middle = []
 end = []
 
-[Metabolomics.standard]
+[Metabolomics.standardextended]
 description = "Standard metabolomics with dilution series for linearity"
 run_QC_after_n_samples = 10
 start = ["blank", "108mix_AA", "108mix_OAP", "pooledQC", "blank", "pooledQCDil7", "pooledQCDil6", "pooledQCDil5", "pooledQCDil4", "pooledQCDil3", "pooledQCDil2", "pooledQC", "blank"]
@@ -60,6 +60,14 @@ end = ["pooledQC", "108mix_AA", "108mix_OAP", "blank"]
 separation = ["blank", "pooledQC"]
 middle_extended = ["pooledQCDil7", "pooledQCDil6", "pooledQCDil5", "pooledQCDil4", "pooledQCDil3", "pooledQCDil2"]
 middle_extended_frequency_multiplier = 2
+
+[Metabolomics.standard]
+description = "Standard metabolomics with dilution series for linearity"
+run_QC_after_n_samples = 10
+start = ["blank", "108mix_AA", "108mix_OAP", "pooledQC", "blank", "pooledQCDil7", "pooledQCDil6", "pooledQCDil5", "pooledQCDil4", "pooledQCDil3", "pooledQCDil2", "pooledQC", "blank"]
+middle = ["pooledQC", "108mix_AA", "108mix_OAP", "blank"]
+end = ["pooledQC", "108mix_AA", "108mix_OAP", "blank"]
+separation = ["blank", "pooledQC"]
 
 [Metabolomics.simple]
 description = "Simple metabolomics without dilution series"
