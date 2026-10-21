@@ -51,6 +51,14 @@ start = []
 middle = []
 end = []
 
+[Metabolomics.normal]
+description = "Standard metabolomics with dilution series at start and end"
+run_QC_after_n_samples = 10
+start = ["blank", "108mix_AA", "108mix_OAP", "pooledQC", "blank", "pooledQCDil7", "pooledQCDil6", "pooledQCDil5", "pooledQCDil4", "pooledQCDil3", "pooledQCDil2", "pooledQC", "blank"]
+middle = []
+end = ["blank", "108mix_AA", "108mix_OAP", "pooledQC", "blank", "pooledQCDil7", "pooledQCDil6", "pooledQCDil5", "pooledQCDil4", "pooledQCDil3", "pooledQCDil2", "pooledQC", "blank"]
+separation = ["pooledQC", "108mix_AA", "108mix_OAP", "blank"]
+
 [Metabolomics.standardextended]
 description = "Standard metabolomics with dilution series for linearity"
 run_QC_after_n_samples = 10
