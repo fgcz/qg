@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Locked dependencies with known vulnerabilities upgraded (authlib, joserfc, urllib3, certifi; dev: virtualenv, filelock, msgpack).
+
 ## [0.13.2] - 2026-10-27
 
 ### Added
